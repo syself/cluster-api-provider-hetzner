@@ -20,12 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -40,8 +37,7 @@ func (host *HetznerBareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) erro
 	w := new(hetznerBareMetalHostWebhook)
 	w.c = mgr.GetClient()
 
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(host).
+	return ctrl.NewWebhookManagedBy(mgr, host).
 		WithValidator(w).
 		WithDefaulter(w).
 		Complete()
@@ -49,24 +45,19 @@ func (host *HetznerBareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) erro
 
 //+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=create;update,versions=v1beta1,name=mutation.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ webhook.CustomDefaulter = &hetznerBareMetalHostWebhook{}
+var _ admission.Defaulter[*HetznerBareMetalHost] = &hetznerBareMetalHostWebhook{}
 
-// Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (hw *hetznerBareMetalHostWebhook) Default(_ context.Context, _ runtime.Object) error {
+// Default implements admission.Defaulter[*HetznerBareMetalHost] so a webhook will be registered for the type.
+func (*hetznerBareMetalHostWebhook) Default(context.Context, *HetznerBareMetalHost) error {
 	return nil
 }
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ webhook.CustomValidator = &hetznerBareMetalHostWebhook{}
+var _ admission.Validator[*HetznerBareMetalHost] = &hetznerBareMetalHostWebhook{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (hw *hetznerBareMetalHostWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	host, ok := (obj).(*HetznerBareMetalHost)
-	if !ok {
-		return admission.Warnings{}, apierrors.NewBadRequest(fmt.Sprintf("expected HetznerBareMetalHost, but got %T", host))
-	}
-
+// ValidateCreate implements admission.Validator[*HetznerBareMetalHost] so a webhook will be registered for the type.
+func (hw *hetznerBareMetalHostWebhook) ValidateCreate(ctx context.Context, host *HetznerBareMetalHost) (admission.Warnings, error) {
 	var allErrs field.ErrorList
 
 	hetznerBareMetalHostList := &HetznerBareMetalHostList{}
@@ -85,18 +76,8 @@ func (hw *hetznerBareMetalHostWebhook) ValidateCreate(ctx context.Context, obj r
 	return nil, aggregateObjErrors(hetznerBareMetalHostList.GroupVersionKind().GroupKind(), host.Name, allErrs)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (hw *hetznerBareMetalHostWebhook) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldHost, ok := oldObj.(*HetznerBareMetalHost)
-	if !ok {
-		return admission.Warnings{}, apierrors.NewBadRequest(fmt.Sprintf("expected an ClusterStack but got a %T", oldObj))
-	}
-
-	newHost, ok := newObj.(*HetznerBareMetalHost)
-	if !ok {
-		return admission.Warnings{}, apierrors.NewBadRequest(fmt.Sprintf("expected an ClusterStack but got a %T", newHost))
-	}
-
+// ValidateUpdate implements admission.Validator[*HetznerBareMetalHost] so a webhook will be registered for the type.
+func (*hetznerBareMetalHostWebhook) ValidateUpdate(_ context.Context, oldHost, newHost *HetznerBareMetalHost) (admission.Warnings, error) {
 	var allErrs field.ErrorList
 
 	if newHost.Spec.ServerID != oldHost.Spec.ServerID {
@@ -108,7 +89,7 @@ func (hw *hetznerBareMetalHostWebhook) ValidateUpdate(_ context.Context, oldObj,
 	return nil, aggregateObjErrors(newHost.GroupVersionKind().GroupKind(), newHost.Name, allErrs)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (hw *hetznerBareMetalHostWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator[*HetznerBareMetalHost] so a webhook will be registered for the type.
+func (*hetznerBareMetalHostWebhook) ValidateDelete(context.Context, *HetznerBareMetalHost) (admission.Warnings, error) {
 	return nil, nil
 }

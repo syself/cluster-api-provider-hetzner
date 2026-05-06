@@ -131,14 +131,14 @@ const (
 // when loading the image.
 type ContainerImage struct {
 	// Name is the fully qualified name of the image.
-	Name string
+	Name string `json:"name"`
 
 	// LoadBehavior may be used to dictate whether a failed load operation
 	// should fail the test run. This is useful when wanting to load images
 	// *if* they exist locally, but not wanting to fail if they don't.
 	//
 	// Defaults to MustLoadImage.
-	LoadBehavior LoadImageBehavior
+	LoadBehavior LoadImageBehavior `json:"loadBehavior,omitempty"`
 }
 
 // ComponentSourceType indicates how a component's source should be obtained.
@@ -332,13 +332,12 @@ func resolveReleaseMarker(ctx context.Context, releaseMarker string, goproxyClie
 	}
 	gomodule := gomoduleParts[0]
 
-	includePrereleases := false
+	var includePrereleases bool
 	if strings.HasPrefix(gomoduleParts[1], "latest-") {
 		includePrereleases = true
 	}
 	rawVersion := strings.TrimPrefix(gomoduleParts[1], "latest-") + ".0"
-	rawVersion = strings.TrimPrefix(rawVersion, "v")
-	semVersion, err := semver.Parse(rawVersion)
+	semVersion, err := semver.ParseTolerant(rawVersion)
 	if err != nil {
 		return "", errors.Wrapf(err, "parsing semver for %s", rawVersion)
 	}

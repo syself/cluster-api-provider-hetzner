@@ -18,7 +18,7 @@ package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 )
 
 const (
@@ -60,7 +60,7 @@ type HetznerClusterSpec struct {
 	SSHKeys HetznerSSHKeys `json:"sshKeys"`
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
-	ControlPlaneEndpoint *clusterv1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
+	ControlPlaneEndpoint *clusterv1beta1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
 
 	// ControlPlaneLoadBalancer is an optional configuration for customizing control plane behavior.
 	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
@@ -91,9 +91,9 @@ type HetznerClusterStatus struct {
 
 	ControlPlaneLoadBalancer *LoadBalancerStatus `json:"controlPlaneLoadBalancer,omitempty"`
 	// +optional
-	HCloudPlacementGroups []HCloudPlacementGroupStatus `json:"hcloudPlacementGroups,omitempty"`
-	FailureDomains        clusterv1.FailureDomains     `json:"failureDomains,omitempty"`
-	Conditions            clusterv1.Conditions         `json:"conditions,omitempty"`
+	HCloudPlacementGroups []HCloudPlacementGroupStatus  `json:"hcloudPlacementGroups,omitempty"`
+	FailureDomains        clusterv1beta1.FailureDomains `json:"failureDomains,omitempty"`
+	Conditions            clusterv1beta1.Conditions     `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -128,12 +128,12 @@ type HetznerClusterList struct {
 }
 
 // GetConditions returns the observations of the operational state of the HetznerCluster resource.
-func (r *HetznerCluster) GetConditions() clusterv1.Conditions {
+func (r *HetznerCluster) GetConditions() clusterv1beta1.Conditions {
 	return r.Status.Conditions
 }
 
-// SetConditions sets the underlying service state of the HetznerCluster to the predescribed clusterv1.Conditions.
-func (r *HetznerCluster) SetConditions(conditions clusterv1.Conditions) {
+// SetConditions sets the underlying service state of the HetznerCluster to the predescribed clusterv1beta1.Conditions.
+func (r *HetznerCluster) SetConditions(conditions clusterv1beta1.Conditions) {
 	r.Status.Conditions = conditions
 }
 

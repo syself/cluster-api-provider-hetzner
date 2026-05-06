@@ -19,7 +19,7 @@ package v1beta1
 import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 )
 
 const (
@@ -115,7 +115,7 @@ type HCloudMachineStatus struct {
 	Ready bool `json:"ready"`
 
 	// Addresses contain the server's associated addresses.
-	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
+	Addresses []clusterv1beta1.MachineAddress `json:"addresses,omitempty"`
 
 	// Region contains the name of the HCloud location the server is running.
 	Region Region `json:"region,omitempty"`
@@ -147,7 +147,7 @@ type HCloudMachineStatus struct {
 
 	// Conditions define the current service state of the HCloudMachine.
 	// +optional
-	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
 
 	// BootState indicates the current state during provisioning.
 	//
@@ -203,12 +203,12 @@ type HCloudMachine struct {
 }
 
 // GetConditions returns the observations of the operational state of the HCloudMachine resource.
-func (r *HCloudMachine) GetConditions() clusterv1.Conditions {
+func (r *HCloudMachine) GetConditions() clusterv1beta1.Conditions {
 	return r.Status.Conditions
 }
 
-// SetConditions sets the underlying service state of the HCloudMachine to the predescribed clusterv1.Conditions.
-func (r *HCloudMachine) SetConditions(conditions clusterv1.Conditions) {
+// SetConditions sets the underlying service state of the HCloudMachine to the predescribed clusterv1beta1.Conditions.
+func (r *HCloudMachine) SetConditions(conditions clusterv1beta1.Conditions) {
 	r.Status.Conditions = conditions
 }
 

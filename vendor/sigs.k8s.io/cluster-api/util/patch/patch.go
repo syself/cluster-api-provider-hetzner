@@ -17,8 +17,10 @@ limitations under the License.
 package patch
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"reflect"
 	"time"
 
 	"github.com/pkg/errors"
@@ -26,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -33,10 +36,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 )
 
 // Helper is a utility for ensuring the proper patching of objects.
@@ -56,7 +59,7 @@ type Helper struct {
 // obj. After changing obj use Helper.Patch to persist your changes.
 //
 // Please note that patch helper implements a custom handling for objects implementing
-// the condition.Setter interface or the v1beta2conditions.Setter interface.
+// the condition.Setter interface or the conditions.Setter interface.
 //
 // It is also possible to implement wrappers for object not implementing those interfaces;
 // in case those objects have custom conditions types the wrapper should take care of conversions.
@@ -70,26 +73,9 @@ func NewHelper(obj client.Object, crClient client.Client) (*Helper, error) {
 		return nil, errors.New("failed to create patch helper: object is nil")
 	}
 
-	// Get the GroupVersionKind of the object,
-	// used to validate against later on.
-	gvk, err := apiutil.GVKForObject(obj, crClient.Scheme())
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create patch helper for object %s", klog.KObj(obj))
-	}
-
-	// Identify location of the condition fields according to the canonical place defined by the proposal for
-	// improving status in Cluster API conditions.
-	metav1ConditionsFieldPath, clusterv1ConditionsFieldPath, err := identifyConditionsFieldsPath(obj)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to identify condition fields for object %s", klog.KObj(obj))
-	}
-
 	return &Helper{
-		client:                       crClient,
-		gvk:                          gvk,
-		beforeObject:                 obj.DeepCopyObject().(client.Object),
-		metav1ConditionsFieldPath:    metav1ConditionsFieldPath,
-		clusterv1ConditionsFieldPath: clusterv1ConditionsFieldPath,
+		client:       crClient,
+		beforeObject: obj.DeepCopyObject().(client.Object),
 	}, nil
 }
 
@@ -100,13 +86,31 @@ func (h *Helper) Patch(ctx context.Context, obj client.Object, opts ...Option) e
 		return errors.Errorf("failed to patch %s %s: modified object is nil", h.gvk.Kind, klog.KObj(h.beforeObject))
 	}
 
+	if reflect.DeepEqual(obj, h.beforeObject) {
+		return nil
+	}
+
+	// Get the GroupVersionKind of the object,
+	// used to validate against later on.
+	beforeGvk, err := apiutil.GVKForObject(h.beforeObject, h.client.Scheme())
+	if err != nil {
+		return errors.Wrapf(err, "failed to create patch helper for object %s", klog.KObj(obj))
+	}
+
 	// Get the GroupVersionKind of the object that we want to patch.
-	gvk, err := apiutil.GVKForObject(obj, h.client.Scheme())
+	h.gvk, err = apiutil.GVKForObject(obj, h.client.Scheme())
 	if err != nil {
 		return errors.Wrapf(err, "failed to patch %s %s", h.gvk.Kind, klog.KObj(h.beforeObject))
 	}
-	if gvk != h.gvk {
-		return errors.Errorf("failed to patch %s %s: unmatched GroupVersionKind, expected %q got %q", h.gvk.Kind, klog.KObj(h.beforeObject), h.gvk, gvk)
+	if h.gvk != beforeGvk {
+		return errors.Errorf("failed to patch %s %s: unmatched GroupVersionKind, expected %q got %q", h.gvk.Kind, klog.KObj(h.beforeObject), h.gvk, beforeGvk)
+	}
+
+	// Identify location of the condition fields according to the canonical place defined by the proposal for
+	// improving status in Cluster API conditions.
+	h.metav1ConditionsFieldPath, h.clusterv1ConditionsFieldPath, err = identifyConditionsFieldsPath(obj)
+	if err != nil {
+		return errors.Wrapf(err, "failed to identify condition fields for object %s", klog.KObj(obj))
 	}
 
 	// Calculate the options.
@@ -124,37 +128,35 @@ func (h *Helper) Patch(ctx context.Context, obj client.Object, opts ...Option) e
 	}
 
 	// Check if the object satisfies the Cluster API contract setter interfaces; if not, ignore condition field path entirely.
-	if _, canInterfaceConditions := obj.(conditions.Setter); !canInterfaceConditions {
+	if _, canInterfaceConditions := obj.(v1beta1conditions.Setter); !canInterfaceConditions {
 		h.clusterv1ConditionsFieldPath = nil
 	}
-	if _, canInterfaceV1Beta2Conditions := obj.(v1beta2conditions.Setter); !canInterfaceV1Beta2Conditions {
+	if _, canInterfaceV1Beta2Conditions := obj.(conditions.Setter); !canInterfaceV1Beta2Conditions {
 		h.metav1ConditionsFieldPath = nil
 	}
 
 	// Convert the before object to unstructured.
-	h.before, err = toUnstructured(h.beforeObject, gvk)
+	h.before, err = toUnstructured(h.beforeObject, h.gvk)
 	if err != nil {
 		return errors.Wrapf(err, "failed to patch %s %s: failed to convert before object to Unstructured", h.gvk.Kind, klog.KObj(h.beforeObject))
 	}
 
 	// Convert the after object to unstructured.
-	h.after, err = toUnstructured(obj, gvk)
+	h.after, err = toUnstructured(obj, h.gvk)
 	if err != nil {
-		return errors.Wrapf(err, "failed to patch %s %s: failed to convert after object to Unstructured", h.gvk.Kind, klog.KObj(h.beforeObject))
+		return errors.Wrapf(err, "failed to patch %s %s: failed to convert after object to Unstructured", h.gvk.Kind, klog.KObj(obj))
 	}
 
-	// Determine if the object has status.
-	if unstructuredHasStatus(h.after) {
-		if options.IncludeStatusObservedGeneration {
-			// Set status.observedGeneration if we're asked to do so.
-			if err := unstructured.SetNestedField(h.after.Object, h.after.GetGeneration(), "status", "observedGeneration"); err != nil {
-				return errors.Wrapf(err, "failed to patch %s %s: failed to set .status.observedGeneration", h.gvk.Kind, klog.KObj(h.beforeObject))
-			}
+	// Include .status.observedGeneration if IncludeStatusObservedGeneration is set.
+	if options.IncludeStatusObservedGeneration {
+		// Set status.observedGeneration if we're asked to do so.
+		if err := unstructured.SetNestedField(h.after.Object, h.after.GetGeneration(), "status", "observedGeneration"); err != nil {
+			return errors.Wrapf(err, "failed to patch %s %s: failed to set .status.observedGeneration", h.gvk.Kind, klog.KObj(h.beforeObject))
+		}
 
-			// Restore the changes back to the original object.
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(h.after.Object, obj); err != nil {
-				return errors.Wrapf(err, "failed to patch %s %s: failed to converted object from Unstructured", h.gvk.Kind, klog.KObj(h.beforeObject))
-			}
+		// Restore the changes back to the original object.
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(h.after.Object, obj); err != nil {
+			return errors.Wrapf(err, "failed to patch %s %s: failed to converted object from Unstructured", h.gvk.Kind, klog.KObj(h.beforeObject))
 		}
 	}
 
@@ -172,16 +174,17 @@ func (h *Helper) Patch(ctx context.Context, obj client.Object, opts ...Option) e
 	// patching conditions first avoids an extra loop if spec or status patch succeeds first
 	// given that causes the resourceVersion to mutate.
 	if err := h.patchStatusConditions(ctx, obj, options.ForceOverwriteConditions, options.OwnedConditions, options.OwnedV1Beta2Conditions); err != nil {
-		errs = append(errs, err)
+		errs = append(errs, errors.Wrapf(err, "failed to patch status conditions"))
 	}
 	// Then proceed to patch the rest of the object.
 	if err := h.patch(ctx, obj); err != nil {
-		errs = append(errs, err)
+		errs = append(errs, errors.Wrapf(err, "failed to patch spec and metadata"))
 	}
 
 	if err := h.patchStatus(ctx, obj); err != nil {
+		//nolint:staticcheck
 		if !(apierrors.IsNotFound(err) && !obj.GetDeletionTimestamp().IsZero() && len(obj.GetFinalizers()) == 0) {
-			errs = append(errs, err)
+			errs = append(errs, errors.Wrapf(err, "failed to patch status"))
 		}
 	}
 
@@ -200,7 +203,17 @@ func (h *Helper) patch(ctx context.Context, obj client.Object) error {
 	if err != nil {
 		return err
 	}
-	return h.client.Patch(ctx, afterObject, client.MergeFrom(beforeObject))
+
+	// Check for empty patches as a safeguard to avoid continuously sending empty patches to the apiserver.
+	data, err := client.MergeFrom(beforeObject).Data(afterObject)
+	if err != nil {
+		return err
+	}
+	if bytes.Equal(data, []byte("{}")) {
+		return nil
+	}
+
+	return h.client.Patch(ctx, afterObject, client.RawPatch(types.MergePatchType, data))
 }
 
 // patchStatus issues a patch if the status has changed.
@@ -212,7 +225,22 @@ func (h *Helper) patchStatus(ctx context.Context, obj client.Object) error {
 	if err != nil {
 		return err
 	}
-	return h.client.Status().Patch(ctx, afterObject, client.MergeFrom(beforeObject))
+
+	// Check for empty patches as a safeguard to avoid continuously sending empty patches to the apiserver.
+	// Additionally, there is a known case that if there are only changes for status.conditions
+	// patchStatus is accidentally executed as well because of limitations of calculateChanges.
+	data, err := client.MergeFrom(beforeObject).Data(afterObject)
+	if err != nil {
+		return err
+	}
+	if bytes.Equal(data, []byte("{}")) ||
+		// The following two cases occur if conditions are written for the first time on an object.
+		bytes.Equal(data, []byte(`{"status":{"v1beta2":{}}}`)) ||
+		bytes.Equal(data, []byte(`{"status":{"deprecated":{"v1beta1":{}}}}`)) {
+		return nil
+	}
+
+	return h.client.Status().Patch(ctx, afterObject, client.RawPatch(types.MergePatchType, data))
 }
 
 // patchStatusConditions issues a patch if there are any changes to the conditions slice under
@@ -237,6 +265,41 @@ func (h *Helper) patchStatusConditions(ctx context.Context, obj client.Object, f
 		//
 		// NOTE: The checks and error below are done so that we don't panic if any of the objects don't satisfy the
 		// interface any longer, although this shouldn't happen because we already check when creating the patcher.
+		before, ok := h.beforeObject.(v1beta1conditions.Getter)
+		if !ok {
+			return errors.Errorf("%s %s doesn't satisfy conditions.Getter, cannot patch", h.gvk.Kind, klog.KObj(h.beforeObject))
+		}
+		after, ok := obj.(v1beta1conditions.Getter)
+		if !ok {
+			return errors.Errorf("%s %s doesn't satisfy conditions.Getter, cannot compute patch", h.gvk.Kind, klog.KObj(obj))
+		}
+
+		diff, err := v1beta1conditions.NewPatch(
+			before,
+			after,
+		)
+		if err != nil {
+			return errors.Wrapf(err, "%s %s can not be patched", h.gvk.Kind, klog.KObj(before))
+		}
+		if !diff.IsZero() {
+			clusterv1ApplyPatch = func(latest client.Object) error {
+				latestSetter, ok := latest.(v1beta1conditions.Setter)
+				if !ok {
+					return errors.Errorf("%s %s doesn't satisfy conditions.Setter, cannot apply patch", h.gvk.Kind, klog.KObj(latest))
+				}
+
+				return diff.Apply(latestSetter, v1beta1conditions.WithForceOverwrite(forceOverwrite), v1beta1conditions.WithOwnedConditions(ownedConditions...))
+			}
+		}
+	}
+
+	// If the object has metav1 conditions, create a function applying corresponding changes if any.
+	var metav1ApplyPatch func(client.Object) error
+	if len(h.metav1ConditionsFieldPath) > 0 {
+		// Make sure our before/after objects satisfy the proper interface before continuing.
+		//
+		// NOTE: The checks and error below are done so that we don't panic if any of the objects don't satisfy the
+		// interface any longer, although this shouldn't happen because we already check when creating the patcher.
 		before, ok := h.beforeObject.(conditions.Getter)
 		if !ok {
 			return errors.Errorf("%s %s doesn't satisfy conditions.Getter, cannot patch", h.gvk.Kind, klog.KObj(h.beforeObject))
@@ -251,52 +314,17 @@ func (h *Helper) patchStatusConditions(ctx context.Context, obj client.Object, f
 			after,
 		)
 		if err != nil {
-			return errors.Wrapf(err, "%s %s can not be patched", h.gvk.Kind, klog.KObj(before))
-		}
-		if !diff.IsZero() {
-			clusterv1ApplyPatch = func(latest client.Object) error {
-				latestSetter, ok := latest.(conditions.Setter)
-				if !ok {
-					return errors.Errorf("%s %s doesn't satisfy conditions.Setter, cannot apply patch", h.gvk.Kind, klog.KObj(latest))
-				}
-
-				return diff.Apply(latestSetter, conditions.WithForceOverwrite(forceOverwrite), conditions.WithOwnedConditions(ownedConditions...))
-			}
-		}
-	}
-
-	// If the object has metav1 conditions, create a function applying corresponding changes if any.
-	var metav1ApplyPatch func(client.Object) error
-	if len(h.metav1ConditionsFieldPath) > 0 {
-		// Make sure our before/after objects satisfy the proper interface before continuing.
-		//
-		// NOTE: The checks and error below are done so that we don't panic if any of the objects don't satisfy the
-		// interface any longer, although this shouldn't happen because we already check when creating the patcher.
-		before, ok := h.beforeObject.(v1beta2conditions.Getter)
-		if !ok {
-			return errors.Errorf("%s %s doesn't satisfy v1beta2conditions.Getter, cannot patch", h.gvk.Kind, klog.KObj(h.beforeObject))
-		}
-		after, ok := obj.(v1beta2conditions.Getter)
-		if !ok {
-			return errors.Errorf("%s %s doesn't satisfy v1beta2conditions.Getter, cannot compute patch", h.gvk.Kind, klog.KObj(obj))
-		}
-
-		diff, err := v1beta2conditions.NewPatch(
-			before,
-			after,
-		)
-		if err != nil {
 			return errors.Wrapf(err, "%s %s can not be patched", h.gvk.Kind, klog.KObj(h.beforeObject))
 		}
 
 		if !diff.IsZero() {
 			metav1ApplyPatch = func(latest client.Object) error {
-				latestSetter, ok := latest.(v1beta2conditions.Setter)
+				latestSetter, ok := latest.(conditions.Setter)
 				if !ok {
 					return errors.Errorf("%s %s doesn't satisfy conditions.Setter, cannot apply patch", h.gvk.Kind, klog.KObj(latest))
 				}
 
-				return diff.Apply(latestSetter, v1beta2conditions.ForceOverwrite(forceOverwrite), v1beta2conditions.OwnedConditionTypes(ownedV1beta2Conditions))
+				return diff.Apply(latestSetter, conditions.ForceOverwrite(forceOverwrite), conditions.OwnedConditionTypes(ownedV1beta2Conditions))
 			}
 		}
 	}

@@ -21,10 +21,10 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -36,6 +36,7 @@ import (
 type BareMetalMachineScopeParams struct {
 	Logger           logr.Logger
 	Client           client.Client
+	Cluster          *clusterv1.Cluster
 	Machine          *clusterv1.Machine
 	BareMetalMachine *infrav1.HetznerBareMetalMachine
 	HetznerCluster   *infrav1.HetznerCluster
@@ -47,6 +48,9 @@ type BareMetalMachineScopeParams struct {
 func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMachineScope, error) {
 	if params.Client == nil {
 		return nil, fmt.Errorf("cannot create baremetal machine scope without client")
+	}
+	if params.Cluster == nil {
+		return nil, fmt.Errorf("failed to generate new scope from nil Cluster")
 	}
 	if params.Machine == nil {
 		return nil, fmt.Errorf("failed to generate new scope from nil Machine")
@@ -66,7 +70,7 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 		return nil, fmt.Errorf("failed to generate new scope from nil Logger")
 	}
 
-	patchHelper, err := patch.NewHelper(params.BareMetalMachine, params.Client)
+	patchHelper, err := v1beta1patch.NewHelper(params.BareMetalMachine, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
@@ -75,6 +79,7 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 		Logger:           params.Logger,
 		Client:           params.Client,
 		patchHelper:      patchHelper,
+		Cluster:          params.Cluster,
 		Machine:          params.Machine,
 		BareMetalMachine: params.BareMetalMachine,
 		HetznerCluster:   params.HetznerCluster,
@@ -86,7 +91,8 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 type BareMetalMachineScope struct {
 	logr.Logger
 	Client           client.Client
-	patchHelper      *patch.Helper
+	patchHelper      *v1beta1patch.Helper
+	Cluster          *clusterv1.Cluster
 	Machine          *clusterv1.Machine
 	BareMetalMachine *infrav1.HetznerBareMetalMachine
 	HetznerCluster   *infrav1.HetznerCluster
@@ -96,7 +102,7 @@ type BareMetalMachineScope struct {
 
 // Close closes the current scope persisting the cluster configuration and status.
 func (m *BareMetalMachineScope) Close(ctx context.Context) error {
-	conditions.SetSummary(m.BareMetalMachine)
+	v1beta1conditions.SetSummary(m.BareMetalMachine)
 	return m.patchHelper.Patch(ctx, m.BareMetalMachine)
 }
 

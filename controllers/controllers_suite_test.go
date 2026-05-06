@@ -35,8 +35,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/kubectl/pkg/scheme"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -337,7 +339,7 @@ func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 			Region: "fsn1",
 			Type:   "lb11",
 		},
-		ControlPlaneEndpoint: &clusterv1.APIEndpoint{},
+		ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{},
 		ControlPlaneRegions:  []infrav1.Region{"fsn1"},
 		HCloudNetwork: infrav1.HCloudNetworkSpec{
 			CIDRBlock:       "10.0.0.0/16",
@@ -437,30 +439,46 @@ func getDefaultHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec
 	}
 }
 
-func isPresentAndFalseWithReason(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
+func isPresentAndFalseWithReason(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType, reason string) bool {
 	err := testEnv.Get(ctx, key, getter)
 	if err != nil {
 		return false
 	}
 
-	if !conditions.Has(getter, condition) {
+	if !v1beta1conditions.Has(getter, condition) {
 		return false
 	}
-	objectCondition := conditions.Get(getter, condition)
+	objectCondition := v1beta1conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionFalse &&
 		objectCondition.Reason == reason
 }
 
-func isPresentAndTrue(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType) bool {
+// isPresentAndFalseWithReasonV2 reads a legacy-shape condition from a v1beta2
+// CAPI core object (Cluster, Machine) via GetV1Beta1Conditions(), i.e. the
+// status.deprecated.v1beta1.conditions field. This is how CAPI 1.11 exposes
+// legacy conditions on v1beta2 objects under the v1beta1 contract compat layer.
+func isPresentAndFalseWithReasonV2(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType, reason string) bool {
+	if err := testEnv.Get(ctx, key, obj); err != nil {
+		return false
+	}
+	getter, ok := obj.(deprecatedv1beta1conditions.Getter)
+	if !ok {
+		return false
+	}
+	c := deprecatedv1beta1conditions.Get(getter, condition)
+	return c != nil && c.Status == corev1.ConditionFalse && c.Reason == reason
+}
+
+func isPresentAndTrue(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType) bool {
 	err := testEnv.Get(ctx, key, getter)
 	if err != nil {
 		return false
 	}
 
-	if !conditions.Has(getter, condition) {
+	if !v1beta1conditions.Has(getter, condition) {
 		return false
 	}
-	objectCondition := conditions.Get(getter, condition)
+	objectCondition := v1beta1conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionTrue
 }
 

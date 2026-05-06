@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2/textlogger"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -99,11 +99,7 @@ func newTestService(
 			APIVersion: clusterv1.GroupVersion.String(),
 		},
 		Status: clusterv1.MachineStatus{
-			NodeRef: &corev1.ObjectReference{
-				Kind:       "Node",
-				Name:       host.Name,
-				APIVersion: "v1",
-			},
+			NodeRef: clusterv1.MachineNodeReference{Name: host.Name},
 		},
 	}
 	err := c.Create(ctx, capiMachine)
@@ -133,9 +129,11 @@ func newTestService(
 		},
 	}
 
+	// controller-runtime v0.22's fake client strips TypeMeta on Create (matching the
+	// real API server), so capiMachine.APIVersion / Kind would be empty here.
 	hbmm.OwnerReferences = append(hbmm.OwnerReferences, metav1.OwnerReference{
-		APIVersion: capiMachine.APIVersion,
-		Kind:       capiMachine.Kind,
+		APIVersion: clusterv1.GroupVersion.String(),
+		Kind:       "Machine",
 		Name:       capiMachine.Name,
 		UID:        capiMachine.UID,
 	})
@@ -164,7 +162,6 @@ func newTestService(
 			WorkloadClusterClientFactory: &fakeWorkloadClusterClientFactory{
 				client: c,
 			},
-			ImageURLCommand: "image-url-command",
 		},
 	}
 }

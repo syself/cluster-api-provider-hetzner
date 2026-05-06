@@ -22,9 +22,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -67,7 +67,7 @@ func NewHCloudRemediationScope(params HCloudRemediationScopeParams) (*HCloudReme
 		return nil, errors.New("failed to generate new scope from nil Logger")
 	}
 
-	patchHelper, err := patch.NewHelper(params.HCloudRemediation, params.Client)
+	patchHelper, err := v1beta1patch.NewHelper(params.HCloudRemediation, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
@@ -87,7 +87,7 @@ func NewHCloudRemediationScope(params HCloudRemediationScopeParams) (*HCloudReme
 type HCloudRemediationScope struct {
 	logr.Logger
 	Client            client.Client
-	patchHelper       *patch.Helper
+	patchHelper       *v1beta1patch.Helper
 	HCloudClient      hcloudclient.Client
 	Machine           *clusterv1.Machine
 	HCloudMachine     *infrav1.HCloudMachine
@@ -95,8 +95,8 @@ type HCloudRemediationScope struct {
 }
 
 // Close closes the current scope persisting the cluster configuration and status.
-func (m *HCloudRemediationScope) Close(ctx context.Context, opts ...patch.Option) error {
-	conditions.SetSummary(m.HCloudRemediation)
+func (m *HCloudRemediationScope) Close(ctx context.Context, opts ...v1beta1patch.Option) error {
+	v1beta1conditions.SetSummary(m.HCloudRemediation)
 	return m.patchHelper.Patch(ctx, m.HCloudRemediation, opts...)
 }
 
@@ -116,6 +116,6 @@ func (m *HCloudRemediationScope) ServerIDFromProviderID() (int64, error) {
 }
 
 // PatchObject persists the remediation spec and status.
-func (m *HCloudRemediationScope) PatchObject(ctx context.Context, opts ...patch.Option) error {
+func (m *HCloudRemediationScope) PatchObject(ctx context.Context, opts ...v1beta1patch.Option) error {
 	return m.patchHelper.Patch(ctx, m.HCloudRemediation, opts...)
 }

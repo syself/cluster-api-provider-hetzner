@@ -27,19 +27,18 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/feature"
 	topologynames "sigs.k8s.io/cluster-api/internal/topology/names"
+	"sigs.k8s.io/cluster-api/internal/util/taints"
 	"sigs.k8s.io/cluster-api/util/labels/format"
 	"sigs.k8s.io/cluster-api/util/version"
 )
@@ -49,31 +48,25 @@ func (webhook *MachineSet) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		webhook.decoder = admission.NewDecoder(mgr.GetScheme())
 	}
 
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&clusterv1.MachineSet{}).
-		WithDefaulter(webhook, admission.DefaulterRemoveUnknownOrOmitableFields).
+	return ctrl.NewWebhookManagedBy(mgr, &clusterv1.MachineSet{}).
+		WithDefaulter(webhook).
 		WithValidator(webhook).
 		Complete()
 }
 
-// +kubebuilder:webhook:verbs=create;update,path=/validate-cluster-x-k8s-io-v1beta1-machineset,mutating=false,failurePolicy=fail,matchPolicy=Equivalent,groups=cluster.x-k8s.io,resources=machinesets,versions=v1beta1,name=validation.machineset.cluster.x-k8s.io,sideEffects=None,admissionReviewVersions=v1;v1beta1
-// +kubebuilder:webhook:verbs=create;update,path=/mutate-cluster-x-k8s-io-v1beta1-machineset,mutating=true,failurePolicy=fail,matchPolicy=Equivalent,groups=cluster.x-k8s.io,resources=machinesets,versions=v1beta1,name=default.machineset.cluster.x-k8s.io,sideEffects=None,admissionReviewVersions=v1;v1beta1
+// +kubebuilder:webhook:verbs=create;update,path=/validate-cluster-x-k8s-io-v1beta2-machineset,mutating=false,failurePolicy=fail,matchPolicy=Equivalent,groups=cluster.x-k8s.io,resources=machinesets,versions=v1beta2,name=validation.machineset.cluster.x-k8s.io,sideEffects=None,admissionReviewVersions=v1
+// +kubebuilder:webhook:verbs=create;update,path=/mutate-cluster-x-k8s-io-v1beta2-machineset,mutating=true,failurePolicy=fail,matchPolicy=Equivalent,groups=cluster.x-k8s.io,resources=machinesets,versions=v1beta2,name=default.machineset.cluster.x-k8s.io,sideEffects=None,admissionReviewVersions=v1
 
 // MachineSet implements a validation and defaulting webhook for MachineSet.
 type MachineSet struct {
 	decoder admission.Decoder
 }
 
-var _ webhook.CustomDefaulter = &MachineSet{}
-var _ webhook.CustomValidator = &MachineSet{}
+var _ admission.Defaulter[*clusterv1.MachineSet] = &MachineSet{}
+var _ admission.Validator[*clusterv1.MachineSet] = &MachineSet{}
 
 // Default sets default MachineSet field values.
-func (webhook *MachineSet) Default(ctx context.Context, obj runtime.Object) error {
-	m, ok := obj.(*clusterv1.MachineSet)
-	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected a MachineSet but got a %T", obj))
-	}
-
+func (webhook *MachineSet) Default(ctx context.Context, m *clusterv1.MachineSet) error {
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return err
@@ -103,11 +96,6 @@ func (webhook *MachineSet) Default(ctx context.Context, obj runtime.Object) erro
 	}
 	m.Spec.Replicas = ptr.To[int32](replicas)
 
-	if m.Spec.DeletePolicy == "" {
-		randomPolicy := string(clusterv1.RandomMachineSetDeletePolicy)
-		m.Spec.DeletePolicy = randomPolicy
-	}
-
 	if m.Spec.Selector.MatchLabels == nil {
 		m.Spec.Selector.MatchLabels = make(map[string]string)
 	}
@@ -122,55 +110,43 @@ func (webhook *MachineSet) Default(ctx context.Context, obj runtime.Object) erro
 		m.Spec.Template.Labels[clusterv1.MachineSetNameLabel] = format.MustFormatValue(m.Name)
 	}
 
-	if m.Spec.Template.Spec.Version != nil && !strings.HasPrefix(*m.Spec.Template.Spec.Version, "v") {
-		normalizedVersion := "v" + *m.Spec.Template.Spec.Version
-		m.Spec.Template.Spec.Version = &normalizedVersion
-	}
-
-	// Make sure the namespace of the referent is populated
-	if m.Spec.Template.Spec.Bootstrap.ConfigRef != nil && m.Spec.Template.Spec.Bootstrap.ConfigRef.Namespace == "" {
-		m.Spec.Template.Spec.Bootstrap.ConfigRef.Namespace = m.Namespace
-	}
-
-	if m.Spec.Template.Spec.InfrastructureRef.Namespace == "" {
-		m.Spec.Template.Spec.InfrastructureRef.Namespace = m.Namespace
+	if m.Spec.Template.Spec.Version != "" && !strings.HasPrefix(m.Spec.Template.Spec.Version, "v") {
+		normalizedVersion := "v" + m.Spec.Template.Spec.Version
+		m.Spec.Template.Spec.Version = normalizedVersion
 	}
 
 	return nil
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (webhook *MachineSet) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	m, ok := obj.(*clusterv1.MachineSet)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a MachineSet but got a %T", obj))
-	}
-
+func (webhook *MachineSet) ValidateCreate(_ context.Context, m *clusterv1.MachineSet) (admission.Warnings, error) {
 	return nil, webhook.validate(nil, m)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (webhook *MachineSet) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldMS, ok := oldObj.(*clusterv1.MachineSet)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a MachineSet but got a %T", oldObj))
-	}
-	newMS, ok := newObj.(*clusterv1.MachineSet)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a MachineSet but got a %T", newObj))
-	}
-
+func (webhook *MachineSet) ValidateUpdate(_ context.Context, oldMS, newMS *clusterv1.MachineSet) (admission.Warnings, error) {
 	return nil, webhook.validate(oldMS, newMS)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (webhook *MachineSet) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (webhook *MachineSet) ValidateDelete(_ context.Context, _ *clusterv1.MachineSet) (admission.Warnings, error) {
 	return nil, nil
 }
 
 func (webhook *MachineSet) validate(oldMS, newMS *clusterv1.MachineSet) error {
 	var allErrs field.ErrorList
 	specPath := field.NewPath("spec")
+
+	if !newMS.Spec.Template.Spec.Bootstrap.ConfigRef.IsDefined() && newMS.Spec.Template.Spec.Bootstrap.DataSecretName == nil {
+		allErrs = append(
+			allErrs,
+			field.Required(
+				specPath.Child("template", "spec", "bootstrap"),
+				"expected either spec.template.spec.bootstrap.dataSecretName or spec.template.spec.bootstrap.configRef to be populated",
+			),
+		)
+	}
+
 	selector, err := metav1.LabelSelectorAsSelector(&newMS.Spec.Selector)
 	if err != nil {
 		allErrs = append(
@@ -186,7 +162,7 @@ func (webhook *MachineSet) validate(oldMS, newMS *clusterv1.MachineSet) error {
 			allErrs,
 			field.Invalid(
 				specPath.Child("template", "metadata", "labels"),
-				newMS.Spec.Template.ObjectMeta.Labels,
+				newMS.Spec.Template.Labels,
 				fmt.Sprintf("must match spec.selector %q", selector.String()),
 			),
 		)
@@ -208,24 +184,37 @@ func (webhook *MachineSet) validate(oldMS, newMS *clusterv1.MachineSet) error {
 		)
 	}
 
-	if newMS.Spec.Template.Spec.Version != nil {
-		if !version.KubeSemver.MatchString(*newMS.Spec.Template.Spec.Version) {
+	if newMS.Spec.ClusterName != newMS.Spec.Template.Spec.ClusterName {
+		allErrs = append(
+			allErrs,
+			field.Invalid(
+				specPath.Child("clusterName"),
+				newMS.Spec.ClusterName,
+				"spec.clusterName and spec.template.spec.clusterName must be set to the same value",
+			),
+		)
+	}
+
+	if newMS.Spec.Template.Spec.Version != "" {
+		if !version.KubeSemver.MatchString(newMS.Spec.Template.Spec.Version) {
 			allErrs = append(
 				allErrs,
 				field.Invalid(
 					specPath.Child("template", "spec", "version"),
-					*newMS.Spec.Template.Spec.Version,
+					newMS.Spec.Template.Spec.Version,
 					"must be a valid semantic version",
 				),
 			)
 		}
 	}
 
-	if newMS.Spec.MachineNamingStrategy != nil {
-		allErrs = append(allErrs, validateMSMachineNamingStrategy(newMS.Spec.MachineNamingStrategy, specPath.Child("machineNamingStrategy"))...)
-	}
+	allErrs = append(allErrs, taints.ValidateMachineTaints(newMS.Spec.Template.Spec.Taints, specPath.Child("template", "spec", "taints"))...)
+	allErrs = append(allErrs, validateMachineTaintsForWorkers(newMS.Spec.Template.Spec.Taints, nil, specPath.Child("template", "spec", "taints"))...)
+
+	allErrs = append(allErrs, validateMSMachineNaming(newMS.Spec.MachineNaming, specPath.Child("machineNaming"))...)
+
 	// Validate the metadata of the template.
-	allErrs = append(allErrs, newMS.Spec.Template.ObjectMeta.Validate(specPath.Child("template", "metadata"))...)
+	allErrs = append(allErrs, newMS.Spec.Template.Validate(specPath.Child("template", "metadata"))...)
 
 	if len(allErrs) == 0 {
 		return nil
@@ -234,24 +223,24 @@ func (webhook *MachineSet) validate(oldMS, newMS *clusterv1.MachineSet) error {
 	return apierrors.NewInvalid(clusterv1.GroupVersion.WithKind("MachineSet").GroupKind(), newMS.Name, allErrs)
 }
 
-func validateMSMachineNamingStrategy(machineNamingStrategy *clusterv1.MachineNamingStrategy, pathPrefix *field.Path) field.ErrorList {
+func validateMSMachineNaming(machineNaming clusterv1.MachineNamingSpec, pathPrefix *field.Path) field.ErrorList {
 	var allErrs field.ErrorList
 
-	if machineNamingStrategy.Template != "" {
-		if !strings.Contains(machineNamingStrategy.Template, "{{ .random }}") {
+	if machineNaming.Template != "" {
+		if !strings.Contains(machineNaming.Template, "{{ .random }}") {
 			allErrs = append(allErrs,
 				field.Invalid(
 					pathPrefix.Child("template"),
-					machineNamingStrategy.Template,
+					machineNaming.Template,
 					"invalid template, {{ .random }} is missing",
 				))
 		}
-		name, err := topologynames.MachineSetMachineNameGenerator(machineNamingStrategy.Template, "cluster", "machineset").GenerateName()
+		name, err := topologynames.MachineSetMachineNameGenerator(machineNaming.Template, "cluster", "machineset").GenerateName()
 		if err != nil {
 			allErrs = append(allErrs,
 				field.Invalid(
 					pathPrefix.Child("template"),
-					machineNamingStrategy.Template,
+					machineNaming.Template,
 					fmt.Sprintf("invalid template: %v", err),
 				))
 		} else {
@@ -259,7 +248,7 @@ func validateMSMachineNamingStrategy(machineNamingStrategy *clusterv1.MachineNam
 				allErrs = append(allErrs,
 					field.Invalid(
 						pathPrefix.Child("template"),
-						machineNamingStrategy.Template,
+						machineNaming.Template,
 						fmt.Sprintf("invalid template, generated names would not be valid Kubernetes object names: %v", err),
 					))
 			}

@@ -34,6 +34,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -49,15 +50,14 @@ import (
 	toolscache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	. "sigs.k8s.io/cluster-api/test/framework/ginkgoextensions"
 	"sigs.k8s.io/cluster-api/test/framework/internal/log"
 )
 
 const (
-	nodeRoleOldControlPlane = "node-role.kubernetes.io/master" // Deprecated: https://github.com/kubernetes/kubeadm/issues/2200
-	nodeRoleControlPlane    = "node-role.kubernetes.io/control-plane"
+	nodeRoleControlPlane = "node-role.kubernetes.io/control-plane"
 )
 
 // WaitForDeploymentsAvailableInput is the input for WaitForDeploymentsAvailable.
@@ -251,7 +251,7 @@ func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
 		return
 	}
 
-	for _, container := range pod.Spec.Containers {
+	for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
 		log.Logf("Creating log watcher for controller %s, pod %s, container %s", klog.KRef(eh.input.Namespace, eh.input.ManagingResourceName), pod.Name, container.Name)
 
 		// Create log metadata file.
@@ -288,6 +288,7 @@ func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
 			}
 
 			// Retry streaming the logs of the pods unless ctx.Done() or if the pod does not exist anymore.
+			streamed := false
 			err = wait.PollUntilContextCancel(eh.ctx, 2*time.Second, false, func(ctx context.Context) (done bool, err error) {
 				// Wait for pod to be in running state
 				actual, err := eh.input.ClientSet.CoreV1().Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
@@ -298,6 +299,14 @@ func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
 					}
 					// Only log the error to not cause the test to fail via GinkgoRecover
 					log.Logf("Error getting pod %s, container %s: %v", klog.KRef(pod.Namespace, pod.Name), container.Name, err)
+					return true, nil
+				}
+				// On retries, stop if the container has terminated (e.g.
+				// completed init container or pod terminated during upgrade).
+				// This also covers pods in Succeeded/Failed phase.
+				// Skip this check on the first attempt so we still capture
+				// historical logs from already-completed containers.
+				if streamed && containerHasTerminated(actual, container.Name) {
 					return true, nil
 				}
 				// Retry later if pod is currently not running
@@ -319,6 +328,7 @@ func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
 					// Failing to stream logs should not cause the test to fail
 					log.Logf("Got error while streaming logs for pod %s, container %s: %v", klog.KRef(pod.Namespace, pod.Name), container.Name, err)
 				}
+				streamed = true
 				return false, nil
 			})
 			if err != nil {
@@ -328,8 +338,23 @@ func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
 	}
 }
 
+// containerHasTerminated checks whether a specific container (regular or init)
+// has terminated in the given pod.
+func containerHasTerminated(pod *corev1.Pod, containerName string) bool {
+	// Check pod phase first — if the whole pod is done, all containers are done.
+	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+		return true
+	}
+	for _, cs := range append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...) {
+		if cs.Name == containerName {
+			return cs.State.Terminated != nil
+		}
+	}
+	return false
+}
+
 // logMetadata contains metadata about the logs.
-// The format is very similar to the one used by promtail.
+// The format is very similar to the one used by alloy.
 type logMetadata struct {
 	Job       string            `json:"job"`
 	Namespace string            `json:"namespace"`
@@ -413,13 +438,13 @@ func dumpPodMetrics(ctx context.Context, client *kubernetes.Clientset, metricsPa
 		}
 
 		if !errorRetrievingMetrics {
-			Expect(verifyMetrics(data)).To(Succeed())
+			Expect(verifyMetrics(data, &pod)).To(Succeed())
 		}
 	}
 }
 
-func verifyMetrics(data []byte) error {
-	var parser expfmt.TextParser
+func verifyMetrics(data []byte, pod *corev1.Pod) error {
+	parser := expfmt.NewTextParser(model.UTF8Validation)
 	mf, err := parser.TextToMetricFamilies(bytes.NewReader(data))
 	if err != nil {
 		return errors.Wrapf(err, "failed to parse data to metrics families")
@@ -448,10 +473,18 @@ func verifyMetrics(data []byte) error {
 				}
 			}
 		}
+
+		if metric == "controller_runtime_conversion_webhook_panics_total" {
+			for _, webhookPanicMetric := range metricFamily.Metric {
+				if webhookPanicMetric.Counter != nil && webhookPanicMetric.Counter.Value != nil && *webhookPanicMetric.Counter.Value > 0 {
+					errs = append(errs, fmt.Errorf("%.0f panics occurred in conversion webhooks (check logs for more details)", *webhookPanicMetric.Counter.Value))
+				}
+			}
+		}
 	}
 
 	if len(errs) > 0 {
-		return kerrors.NewAggregate(errs)
+		return errors.WithMessagef(kerrors.NewAggregate(errs), "panics occurred in Pod %s", klog.KObj(pod))
 	}
 
 	return nil
@@ -645,7 +678,7 @@ func generateDeployment(input generateDeploymentInput) *appsv1.Deployment {
 					Containers: []corev1.Container{
 						{
 							Name:  "main",
-							Image: "registry.k8s.io/pause:3.10",
+							Image: "registry.k8s.io/pause:3.10.1",
 						},
 					},
 					Affinity: &corev1.Affinity{
