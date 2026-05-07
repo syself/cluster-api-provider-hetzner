@@ -290,3 +290,80 @@ const (
 	// BootIDEmptyReason indicates that an empty boot ID is present on the node object.
 	BootIDEmptyReason = "BootIDEmpty"
 )
+
+// v1beta2 conditions.
+
+// common conditions used across resource types.
+
+const (
+	// HCloudRateLimitExceededV1Beta2Condition reports on whether the HCloud API rate limit has been exceeded.
+	HCloudRateLimitExceededV1Beta2Condition = "HCloudRateLimitExceeded"
+	// HCloudRateLimitExceededV1Beta2Reason indicates that the HCloud API rate limit has been exceeded.
+	HCloudRateLimitExceededV1Beta2Reason = "RateLimitExceeded"
+)
+
+const (
+	// HCloudTokenAvailableV1Beta2Condition reports on whether the HCloud Token is available.
+	HCloudTokenAvailableV1Beta2Condition = "HCloudTokenAvailable"
+	// HCloudTokenAvailableV1Beta2Reason indicates that the HCloudToken is available.
+	HCloudTokenAvailableV1Beta2Reason = clusterv1beta1.AvailableV1Beta2Reason
+	// HCloudTokenInvalidV1Beta2Reason indicates that the HCloudToken is invalid.
+	HCloudTokenInvalidV1Beta2Reason = "Invalid"
+	// HetznerSecretUnreachableV1Beta2Reason indicates that Hetzner secret is unreachable.
+	HetznerSecretUnreachableV1Beta2Reason = "HetznerSecretUnreachable" // #nosec
+)
+
+const (
+	// InternalErrorV1Beta2Reason indicates an internal error in reconciler.
+	InternalErrorV1Beta2Reason = "InternalError"
+)
+
+// HetznerBareMetalMachine v1beta2 condition types.
+
+const (
+	// HetznerBareMetalMachineReadyV1Beta2Condition is true when the HetznerBareMetalMachine is ready.
+	HetznerBareMetalMachineReadyV1Beta2Condition = clusterv1beta1.ReadyV1Beta2Condition
+
+	// HetznerBareMetalMachineReadyV1Beta2Reason surfaces when the HetznerBareMetalMachine is ready.
+	HetznerBareMetalMachineReadyV1Beta2Reason = clusterv1beta1.ReadyV1Beta2Reason
+
+	// HetznerBareMetalMachineNotReadyV1Beta2Reason surfaces when the HetznerBareMetalMachine is not ready.
+	HetznerBareMetalMachineNotReadyV1Beta2Reason = clusterv1beta1.NotReadyV1Beta2Reason
+
+	// HetznerBareMetalMachineReadyUnknownV1Beta2Reason surfaces when the HetznerBareMetalMachine readiness is unknown.
+	HetznerBareMetalMachineReadyUnknownV1Beta2Reason = clusterv1beta1.ReadyUnknownV1Beta2Reason
+)
+
+const (
+	// HetznerBareMetalMachineHostAssociatedV1Beta2Condition is true when the host is associated.
+	HetznerBareMetalMachineHostAssociatedV1Beta2Condition = "HostAssociated"
+
+	// HetznerBareMetalMachineHostAssociatedV1Beta2Reason surfaces when the host is associated.
+	HetznerBareMetalMachineHostAssociatedV1Beta2Reason = "Associated"
+
+	// HetznerBareMetalMachineNoAvailableHostV1Beta2Reason surfaces when no available host is found.
+	HetznerBareMetalMachineNoAvailableHostV1Beta2Reason = "NoAvailableHost"
+
+	// HetznerBareMetalMachineHostAssociationFailedV1Beta2Reason surfaces when host association failed.
+	HetznerBareMetalMachineHostAssociationFailedV1Beta2Reason = "AssociationFailed"
+
+	// HetznerBareMetalMachineWaitingForBootstrapDataV1Beta2Reason surfaces when waiting for bootstrap data.
+	HetznerBareMetalMachineWaitingForBootstrapDataV1Beta2Reason = clusterv1beta1.WaitingForBootstrapDataV1Beta2Reason
+)
+
+const (
+	// HetznerBareMetalMachineHostReadyV1Beta2Condition is true when the associated host is ready.
+	HetznerBareMetalMachineHostReadyV1Beta2Condition = "HostReady"
+
+	// HetznerBareMetalMachineHostReadyV1Beta2Reason surfaces when the host is ready.
+	HetznerBareMetalMachineHostReadyV1Beta2Reason = "Ready"
+
+	// HetznerBareMetalMachineHostNotFoundV1Beta2Reason surfaces when the host is not found.
+	HetznerBareMetalMachineHostNotFoundV1Beta2Reason = "HostNotFound"
+
+	// HetznerBareMetalMachineHostNotReadyV1Beta2Reason surfaces when the host is not ready.
+	HetznerBareMetalMachineHostNotReadyV1Beta2Reason = "NotReady"
+
+	// HetznerBareMetalMachineDeletingV1Beta2Reason surfaces when the HetznerBareMetalMachine is being deleted.
+	HetznerBareMetalMachineDeletingV1Beta2Reason = clusterv1beta1.DeletingV1Beta2Reason
+)

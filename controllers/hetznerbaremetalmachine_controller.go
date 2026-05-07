@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
@@ -31,6 +32,7 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -89,6 +91,14 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hbmMachine))
 
+	if !hbmMachine.DeletionTimestamp.IsZero() {
+		v1beta2conditions.Set(hbmMachine, metav1.Condition{
+			Type:   infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
+			Status: metav1.ConditionFalse,
+			Reason: infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
+		})
+	}
+
 	// Fetch the Machine.
 	capiMachine, err := util.GetOwnerMachine(ctx, r, hbmMachine.ObjectMeta)
 	if err != nil {
@@ -132,7 +142,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hbmMachine, r)
+		return hcloudTokenErrorResult(ctx, err, hbmMachine, r, infrav1.HetznerBareMetalMachineV1Beta2SummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
@@ -155,8 +165,19 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
 			v1beta1conditions.MarkFalse(hbmMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1beta1.ConditionSeverityError, "wrong hcloud token")
+			v1beta2conditions.Set(hbmMachine, metav1.Condition{
+				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
+				Message: "wrong hcloud token",
+			})
 		} else {
 			v1beta1conditions.MarkTrue(hbmMachine, infrav1.HCloudTokenAvailableCondition)
+			v1beta2conditions.Set(hbmMachine, metav1.Condition{
+				Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
+			})
 		}
 
 		v1beta1conditions.SetSummary(hbmMachine)

@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 )
 
 const (
@@ -345,6 +346,21 @@ type HetznerBareMetalMachineStatus struct {
 	// Conditions define the current service state of the HetznerBareMetalMachine.
 	// +optional
 	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
+
+	// v1beta2 groups all the fields that will be added or modified in HetznerBareMetalMachine's status with the V1Beta2 version.
+	// +optional
+	V1Beta2 *HetznerBareMetalMachineV1Beta2Status `json:"v1beta2,omitempty"`
+}
+
+// HetznerBareMetalMachineV1Beta2Status groups all the fields that will be added or modified in HetznerBareMetalMachine with the V1Beta2 version.
+type HetznerBareMetalMachineV1Beta2Status struct {
+	// conditions represents the observations of a HetznerBareMetalMachine's current state.
+	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated and HostReady.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
@@ -378,6 +394,51 @@ func (hbmm *HetznerBareMetalMachine) GetConditions() clusterv1beta1.Conditions {
 // SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1beta1.Conditions.
 func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1beta1.Conditions) {
 	hbmm.Status.Conditions = conditions
+}
+
+// GetV1Beta2Conditions returns the list of conditions for a HetznerBareMetalMachine API object.
+func (hbmm *HetznerBareMetalMachine) GetV1Beta2Conditions() []metav1.Condition {
+	if hbmm.Status.V1Beta2 == nil {
+		return nil
+	}
+	return hbmm.Status.V1Beta2.Conditions
+}
+
+// SetV1Beta2Conditions sets conditions for a HetznerBareMetalMachine API object.
+func (hbmm *HetznerBareMetalMachine) SetV1Beta2Conditions(conditions []metav1.Condition) {
+	if hbmm.Status.V1Beta2 == nil {
+		hbmm.Status.V1Beta2 = &HetznerBareMetalMachineV1Beta2Status{}
+	}
+	hbmm.Status.V1Beta2.Conditions = conditions
+}
+
+// HetznerBareMetalMachineV1Beta2SummaryOpts returns the v1beta2 summary options for a HetznerBareMetalMachine.
+// It is the single source of truth for which conditions contribute to the Ready summary,
+// used both by BareMetalMachineScope.Close() and by early-exit error paths that bypass the scope.
+func HetznerBareMetalMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
+	return []v1beta2conditions.SummaryOption{
+		v1beta2conditions.ForConditionTypes{
+			HCloudTokenAvailableV1Beta2Condition,
+			HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+			HetznerBareMetalMachineHostReadyV1Beta2Condition,
+		},
+		v1beta2conditions.IgnoreTypesIfMissing{
+			HCloudTokenAvailableV1Beta2Condition,
+			HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+			HetznerBareMetalMachineHostReadyV1Beta2Condition,
+		},
+		v1beta2conditions.CustomMergeStrategy{
+			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				v1beta2conditions.ComputeReasonFunc(
+					v1beta2conditions.GetDefaultComputeMergeReasonFunc(
+						HetznerBareMetalMachineNotReadyV1Beta2Reason,
+						HetznerBareMetalMachineReadyUnknownV1Beta2Reason,
+						HetznerBareMetalMachineReadyV1Beta2Reason,
+					),
+				),
+			),
+		},
+	}
 }
 
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.
