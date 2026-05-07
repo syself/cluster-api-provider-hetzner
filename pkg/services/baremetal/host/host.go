@@ -1612,6 +1612,9 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, errorMessage)
 	}
 	if needsDownload {
+		// DownloadImage is a synchronous process. This means the controller waits until the
+		// download is finished. Note: We should use StartImageURLCommand(), similar to the handling
+		// of ImageURLCommand.
 		out := sshClient.DownloadImage(ctx, imagePath, image.URL)
 		if err := handleSSHError(out); err != nil {
 			err := fmt.Errorf("failed to download image: %s %s %w", out.StdOut, out.StdErr, err)
