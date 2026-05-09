@@ -25,6 +25,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -98,6 +99,24 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, nil
 	}
 
+	// Skip remediation when the previous successful remediation is within the cooldown window.
+	// Only evaluated on a fresh CR (Phase is empty) to avoid interrupting in-progress remediations.
+	if s.scope.HCloudRemediation.Status.Phase == "" {
+		cooldown := s.scope.HCloudRemediation.Spec.Strategy.EffectiveCooldown()
+		if cooldown > 0 && s.scope.HCloudMachine.Status.LastRemediatedAt != nil {
+			since := time.Since(s.scope.HCloudMachine.Status.LastRemediatedAt.Time)
+			if since < cooldown {
+				err := s.markRemediationSkipped(ctx,
+					fmt.Sprintf("previous remediation was %s ago within cooldown window %s", since.Round(time.Second), cooldown))
+				if err != nil {
+					record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
+					return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
+				}
+				return reconcile.Result{}, nil
+			}
+		}
+	}
+
 	// If no phase set, default to running
 	if s.scope.HCloudRemediation.Status.Phase == "" {
 		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseRunning
@@ -167,6 +186,19 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (reconcile.Result, err
 		return reconcile.Result{RequeueAfter: nextCheck}, nil
 	}
 
+	// If the Node is healthy again, the reboot worked. Finish remediation
+	// without touching MachineOwnerRemediatedCondition: that condition belongs
+	// to the Machine's owning controller (MachineSet/KCP/MachineDeployment),
+	// not to external remediation. Leaving it unset keeps the machine alive.
+	if deprecatedv1beta1conditions.IsTrue(s.scope.Machine, clusterv1.MachineNodeHealthyCondition) {
+		if err := s.markRemediationSucceeded(ctx,
+			"reboot remediation succeeded: Node is healthy again"); err != nil {
+			record.Warn(s.scope.HCloudRemediation, "FailedFinishingRemediation", err.Error())
+			return reconcile.Result{}, fmt.Errorf("failed to finish remediation: %w", err)
+		}
+		return reconcile.Result{}, nil
+	}
+
 	err := s.setOwnerRemediatedConditionToFailed(ctx,
 		"exit remediation because because retryLimit is reached and reboot timed out")
 	if err != nil {
@@ -202,9 +234,9 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	}
 
 	// Move control to CAPI machine controller. CAPI will delete the machine.
-	// s.scope.Machine is a CAPI core v1beta2 Machine, so its legacy conditions
-	// live at Status.Deprecated.V1Beta1.Conditions — use deprecatedv1beta1conditions,
-	// not v1beta1conditions. See .golangci.yaml for the full mapping.
+	// CAPI v1.13 MachineSet reads MachineOwnerRemediated from the v1beta2
+	// conditions list, so we must write to BOTH lists: the deprecated v1beta1
+	// list (legacy consumers) and the v1beta2 list (current MachineSet filter).
 	deprecatedv1beta1conditions.MarkFalse(
 		s.scope.Machine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
@@ -212,12 +244,89 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 		clusterv1.ConditionSeverityWarning,
 		"Remediation finished (machine will be deleted): %s", msg,
 	)
+	conditions.Set(s.scope.Machine, metav1.Condition{
+		Type:    clusterv1.MachineOwnerRemediatedCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  clusterv1.MachineOwnerRemediatedWaitingForRemediationReason,
+		Message: fmt.Sprintf("Remediation finished (machine will be deleted): %s", msg),
+	})
 
 	if err := patchHelper.Patch(ctx, s.scope.Machine); err != nil {
 		return fmt.Errorf("failed to patch: %w", err)
 	}
 
 	record.Event(s.scope.HCloudRemediation, "ExitRemediation", msg)
+
+	s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
+	return nil
+}
+
+// markRemediationSucceeded clears the remediate-machine annotation (CAPI MHC
+// does not clear it for external remediation), stamps LastRemediatedAt for the
+// cooldown guard, and moves the CR to PhaseSucceeded.
+// MachineOwnerRemediatedCondition is intentionally untouched: it belongs to the
+// Machine's owning controller (MachineSet/KCP/MachineDeployment), not to
+// external remediation.
+func (s *Service) markRemediationSucceeded(ctx context.Context, msg string) error {
+	machinePatchHelper, err := patch.NewHelper(s.scope.Machine, s.scope.Client)
+	if err != nil {
+		return fmt.Errorf("failed to init patch helper for machine: %w", err)
+	}
+
+	delete(s.scope.Machine.Annotations, clusterv1.RemediateMachineAnnotation)
+
+	if err := machinePatchHelper.Patch(ctx, s.scope.Machine); err != nil {
+		return fmt.Errorf("failed to patch machine: %w", err)
+	}
+
+	hcloudMachinePatchHelper, err := patch.NewHelper(s.scope.HCloudMachine, s.scope.Client)
+	if err != nil {
+		return fmt.Errorf("failed to init patch helper for hcloud machine: %w", err)
+	}
+
+	now := metav1.Now()
+	s.scope.HCloudMachine.Status.LastRemediatedAt = &now
+
+	if err := hcloudMachinePatchHelper.Patch(ctx, s.scope.HCloudMachine); err != nil {
+		return fmt.Errorf("failed to patch hcloud machine: %w", err)
+	}
+
+	record.Event(s.scope.HCloudRemediation, "RemediationSucceeded", msg)
+
+	s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseSucceeded
+	return nil
+}
+
+// markRemediationSkipped escalates to deletion via MachineOwnerRemediated=False
+// using RemediationCooldownTriggeredReason, so operators can distinguish a
+// cooldown skip from a genuine failure.
+func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error {
+	patchHelper, err := patch.NewHelper(s.scope.Machine, s.scope.Client)
+	if err != nil {
+		return fmt.Errorf("failed to init patch helper: %w", err)
+	}
+
+	// Dual-write: deprecated v1beta1 list AND v1beta2 list. CAPI v1.13 MachineSet
+	// reads from the v1beta2 list to trigger Machine deletion.
+	deprecatedv1beta1conditions.MarkFalse(
+		s.scope.Machine,
+		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
+		infrav1.RemediationCooldownTriggeredReason,
+		clusterv1.ConditionSeverityWarning,
+		"Remediation cooldown active (machine will be deleted): %s", msg,
+	)
+	conditions.Set(s.scope.Machine, metav1.Condition{
+		Type:    clusterv1.MachineOwnerRemediatedCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  infrav1.RemediationCooldownTriggeredReason,
+		Message: fmt.Sprintf("Remediation cooldown active (machine will be deleted): %s", msg),
+	})
+
+	if err := patchHelper.Patch(ctx, s.scope.Machine); err != nil {
+		return fmt.Errorf("failed to patch: %w", err)
+	}
+
+	record.Event(s.scope.HCloudRemediation, "RemediationSkipped", msg)
 
 	s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
 	return nil
