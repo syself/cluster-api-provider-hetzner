@@ -24,8 +24,12 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -176,4 +180,52 @@ func (s *BareMetalHostScope) hasConstantHostname() bool {
 // SSHAfterInstallImageEnabled returns the effective SSH-after-installimage setting for the host.
 func (s *BareMetalHostScope) SSHAfterInstallImageEnabled() bool {
 	return !s.HetznerBareMetalHost.Spec.Status.SSHSpec.NoSSHAfterInstallImage
+}
+
+// SetHetznerBareMetalHostV1Beta2ReadySummary computes and sets the Ready v1beta2 summary
+// condition on the HetznerBareMetalHost. It is the single source of truth for computing the
+// summary and is called from both the controller defer block and any early-exit paths that
+// bypass it.
+//
+// If the summary cannot be computed, Ready is set to Unknown with InternalError reason so the
+// summary is never silently omitted.
+func SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost *infrav1.HetznerBareMetalHost) {
+	readyCondition, err := v1beta2conditions.NewSummaryCondition(
+		bmHost, infrav1.HetznerBareMetalHostReadyV1Beta2Condition,
+		infrav1.HetznerBareMetalHostV1Beta2SummaryOpts()...,
+	)
+	if err != nil {
+		v1beta2conditions.Set(bmHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostReadyV1Beta2Condition,
+			Status:  metav1.ConditionUnknown,
+			Reason:  infrav1.InternalErrorV1Beta2Reason,
+			Message: err.Error(),
+		})
+		return
+	}
+	v1beta2conditions.Set(bmHost, *readyCondition)
+}
+
+// BareMetalHostPatchOpts returns the patch options declaring both v1beta1 and v1beta2 owned
+// conditions for HetznerBareMetalHost so the patch helper does not strip them on three-way merge.
+func BareMetalHostPatchOpts() []v1beta1patch.Option {
+	return []v1beta1patch.Option{
+		v1beta1patch.WithOwnedConditions{Conditions: []clusterv1beta1.ConditionType{
+			clusterv1beta1.ReadyCondition,
+			infrav1.CredentialsAvailableCondition,
+			infrav1.RobotCredentialsAvailableCondition,
+			infrav1.RootDeviceHintsValidatedCondition,
+			infrav1.ProvisionSucceededCondition,
+			infrav1.HetznerAPIReachableCondition,
+		}},
+		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
+			infrav1.HetznerBareMetalHostReadyV1Beta2Condition,
+			infrav1.HetznerBareMetalHostCredentialsAvailableV1Beta2Condition,
+			infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+			infrav1.HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+			infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			infrav1.HetznerBareMetalHostDeletingV1Beta2Condition,
+			infrav1.HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+		}},
+	}
 }

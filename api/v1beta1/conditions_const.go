@@ -290,3 +290,104 @@ const (
 	// BootIDEmptyReason indicates that an empty boot ID is present on the node object.
 	BootIDEmptyReason = "BootIDEmpty"
 )
+
+// v1beta2 conditions for HetznerBareMetalHost.
+
+// InternalErrorV1Beta2Reason is a generic reason for internal errors during summary computation
+// or other unexpected failures that do not have a more specific reason.
+const InternalErrorV1Beta2Reason = "InternalError"
+
+const (
+	// HetznerBareMetalHostReadyV1Beta2Condition is the summary condition for HetznerBareMetalHost.
+	HetznerBareMetalHostReadyV1Beta2Condition = "Ready"
+	// HetznerBareMetalHostReadyV1Beta2Reason indicates that the HetznerBareMetalHost is ready.
+	HetznerBareMetalHostReadyV1Beta2Reason = "Ready"
+	// HetznerBareMetalHostNotReadyV1Beta2Reason indicates that the HetznerBareMetalHost is not ready.
+	HetznerBareMetalHostNotReadyV1Beta2Reason = "NotReady"
+	// HetznerBareMetalHostReadyUnknownV1Beta2Reason indicates that readiness of the HetznerBareMetalHost is unknown.
+	HetznerBareMetalHostReadyUnknownV1Beta2Reason = "ReadyUnknown"
+)
+
+const (
+	// HetznerBareMetalHostCredentialsAvailableV1Beta2Condition reports whether SSH credentials for the host are available.
+	HetznerBareMetalHostCredentialsAvailableV1Beta2Condition = "CredentialsAvailable"
+	// HetznerBareMetalHostCredentialsAvailableV1Beta2Reason indicates SSH credentials are available.
+	HetznerBareMetalHostCredentialsAvailableV1Beta2Reason = "Available"
+	// HetznerBareMetalHostSSHCredentialsInSecretInvalidV1Beta2Reason indicates SSH credentials in the secret are invalid.
+	HetznerBareMetalHostSSHCredentialsInSecretInvalidV1Beta2Reason = "SSHCredentialsInSecretInvalid" // #nosec
+	// HetznerBareMetalHostSSHKeyAlreadyExistsV1Beta2Reason indicates the SSH key already exists under a different name in Hetzner Robot.
+	HetznerBareMetalHostSSHKeyAlreadyExistsV1Beta2Reason = "SSHKeyAlreadyExists"
+	// HetznerBareMetalHostOSSSHSecretMissingV1Beta2Reason indicates the OS SSH secret is missing.
+	HetznerBareMetalHostOSSSHSecretMissingV1Beta2Reason = "OSSSHSecretMissing"
+	// HetznerBareMetalHostRescueSSHSecretMissingV1Beta2Reason indicates the rescue SSH secret is missing.
+	HetznerBareMetalHostRescueSSHSecretMissingV1Beta2Reason = "RescueSSHSecretMissing"
+	// HetznerBareMetalHostHetznerSecretUnreachableV1Beta2Reason indicates the Hetzner secret is unreachable.
+	HetznerBareMetalHostHetznerSecretUnreachableV1Beta2Reason = "HetznerSecretUnreachable" // #nosec
+)
+
+const (
+	// HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition reports whether Robot API credentials are valid and reachable.
+	HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition = "RobotCredentialsAvailable"
+	// HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Reason indicates the Robot credentials are available.
+	HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Reason = "Available"
+	// HetznerBareMetalHostRobotCredentialsInvalidV1Beta2Reason indicates Robot credentials are invalid.
+	HetznerBareMetalHostRobotCredentialsInvalidV1Beta2Reason = "RobotCredentialsInvalid" // #nosec
+)
+
+const (
+	// HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition reports whether the root device hints could be validated.
+	HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition = "RootDeviceHintsValidated"
+	// HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Reason indicates root device hints are validated.
+	HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Reason = "Validated"
+	// HetznerBareMetalHostValidationFailedV1Beta2Reason indicates the specified root device hints could not be validated.
+	HetznerBareMetalHostValidationFailedV1Beta2Reason = "ValidationFailed"
+)
+
+const (
+	// HetznerBareMetalHostProvisionSucceededV1Beta2Condition reports whether the host has been provisioned.
+	HetznerBareMetalHostProvisionSucceededV1Beta2Condition = "ProvisionSucceeded"
+	// HetznerBareMetalHostProvisionSucceededV1Beta2Reason indicates the host has been provisioned.
+	HetznerBareMetalHostProvisionSucceededV1Beta2Reason = "Provisioned"
+	// HetznerBareMetalHostStillProvisioningV1Beta2Reason indicates the server is still provisioning.
+	HetznerBareMetalHostStillProvisioningV1Beta2Reason = "StillProvisioning"
+	// HetznerBareMetalHostSSHConnectionRefusedV1Beta2Reason indicates the server cannot be reached via SSH.
+	HetznerBareMetalHostSSHConnectionRefusedV1Beta2Reason = "SSHConnectionRefused"
+	// HetznerBareMetalHostRescueSystemUnavailableV1Beta2Reason indicates the server has no rescue system.
+	HetznerBareMetalHostRescueSystemUnavailableV1Beta2Reason = "RescueSystemUnavailable"
+	// HetznerBareMetalHostImageSpecInvalidV1Beta2Reason indicates the image specification is invalid.
+	HetznerBareMetalHostImageSpecInvalidV1Beta2Reason = "ImageSpecInvalid"
+	// HetznerBareMetalHostImageDownloadFailedV1Beta2Reason indicates downloading the machine image failed.
+	HetznerBareMetalHostImageDownloadFailedV1Beta2Reason = "ImageDownloadFailed"
+	// HetznerBareMetalHostNoStorageDeviceFoundV1Beta2Reason indicates no suitable storage device could be found.
+	HetznerBareMetalHostNoStorageDeviceFoundV1Beta2Reason = "NoStorageDeviceFound"
+	// HetznerBareMetalHostCloudInitNotInstalledV1Beta2Reason indicates cloud-init is not installed.
+	HetznerBareMetalHostCloudInitNotInstalledV1Beta2Reason = "CloudInitNotInstalled"
+	// HetznerBareMetalHostServerNotFoundV1Beta2Reason indicates a bare metal server could not be found.
+	HetznerBareMetalHostServerNotFoundV1Beta2Reason = "ServerNotFound"
+	// HetznerBareMetalHostServerHasNoIPv4V1Beta2Reason indicates a bare metal server has no IPv4 address.
+	HetznerBareMetalHostServerHasNoIPv4V1Beta2Reason = "ServerHasNoIPv4"
+	// HetznerBareMetalHostLinuxOnOtherDiskFoundV1Beta2Reason indicates the server cannot be provisioned on the given WWN.
+	HetznerBareMetalHostLinuxOnOtherDiskFoundV1Beta2Reason = "LinuxOnOtherDiskFound"
+	// HetznerBareMetalHostWipeDiskFailedV1Beta2Reason indicates erasing the disks before provisioning failed.
+	HetznerBareMetalHostWipeDiskFailedV1Beta2Reason = "WipeDiskFailed"
+	// HetznerBareMetalHostSSHToRescueSystemFailedV1Beta2Reason indicates the rescue system cannot be reached via SSH.
+	HetznerBareMetalHostSSHToRescueSystemFailedV1Beta2Reason = "SSHToRescueSystemFailed"
+	// HetznerBareMetalHostRebootTimedOutV1Beta2Reason indicates the reboot timed out.
+	HetznerBareMetalHostRebootTimedOutV1Beta2Reason = "RebootTimedOut"
+	// HetznerBareMetalHostCheckDiskFailedV1Beta2Reason indicates checking the health of the disk was not successful.
+	HetznerBareMetalHostCheckDiskFailedV1Beta2Reason = "CheckDiskFailed"
+)
+
+const (
+	// HetznerBareMetalHostDeletingV1Beta2Condition reports on whether the HetznerBareMetalHost is being deleted (negative polarity).
+	HetznerBareMetalHostDeletingV1Beta2Condition = "Deleting"
+	// HetznerBareMetalHostDeletingV1Beta2Reason indicates the HetznerBareMetalHost is being deleted.
+	HetznerBareMetalHostDeletingV1Beta2Reason = "Deleting"
+)
+
+const (
+	// HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition reports whether the Robot API rate limit has been exceeded (negative polarity).
+	HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition = "RobotRateLimitExceeded"
+	// HetznerBareMetalHostRobotRateLimitExceededV1Beta2Reason indicates the Robot API rate limit has been exceeded.
+	HetznerBareMetalHostRobotRateLimitExceededV1Beta2Reason = "RateLimitExceeded"
+)
