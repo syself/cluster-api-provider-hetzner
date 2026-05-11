@@ -104,7 +104,8 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			since := time.Since(s.scope.BareMetalMachine.Status.LastRemediatedAt.Time)
 			if since < cooldown {
 				err := s.markRemediationSkipped(ctx,
-					fmt.Sprintf("previous remediation was %s ago within cooldown window %s", since.Round(time.Second), cooldown))
+					fmt.Sprintf("skipping reboot: last remediation completed %s ago (cooldown window: %s)",
+						since.Round(time.Second), cooldown.Round(time.Second)))
 				if err != nil {
 					record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
 					return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
@@ -201,7 +202,7 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result,
 	if err != nil && !apierrors.IsNotFound(err) {
 		return reconcile.Result{}, fmt.Errorf("failed to get owner machine: %w", err)
 	}
-	if capiMachine != nil && deprecatedv1beta1conditions.IsTrue(capiMachine, clusterv1.MachineNodeHealthyCondition) {
+	if capiMachine != nil && conditions.IsTrue(capiMachine, clusterv1.MachineNodeHealthyCondition) {
 		return reconcile.Result{}, s.markRemediationSucceeded(ctx, capiMachine,
 			"reboot remediation succeeded: Node is healthy again")
 	}
@@ -281,12 +282,16 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	return nil
 }
 
-// markRemediationSucceeded clears the remediate-machine annotation (CAPI MHC
-// does not clear it for external remediation), stamps LastRemediatedAt for the
-// cooldown guard, and moves the CR to PhaseSucceeded.
-// MachineOwnerRemediatedCondition is intentionally untouched: it belongs to the
-// Machine's owning controller (MachineSet/KCP/MachineDeployment), not to
-// external remediation.
+// markRemediationSucceeded updates three resources on success:
+//   - CAPI Machine: clears the cluster.x-k8s.io/remediate-machine annotation
+//     (CAPI MHC does not clear it for external remediation).
+//   - HetznerBareMetalMachine: stamps LastRemediatedAt on its status for the
+//     cooldown guard.
+//   - HetznerBareMetalRemediation: moves the CR to PhaseSucceeded.
+//
+// MachineOwnerRemediatedCondition on the CAPI Machine is intentionally left
+// untouched: it belongs to the Machine's owning controller
+// (MachineSet/KCP/MachineDeployment), not to external remediation.
 func (s *Service) markRemediationSucceeded(ctx context.Context, capiMachine *clusterv1.Machine, msg string) error {
 	machinePatchHelper, err := patch.NewHelper(capiMachine, s.scope.Client)
 	if err != nil {

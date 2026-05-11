@@ -107,7 +107,8 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			since := time.Since(s.scope.HCloudMachine.Status.LastRemediatedAt.Time)
 			if since < cooldown {
 				err := s.markRemediationSkipped(ctx,
-					fmt.Sprintf("previous remediation was %s ago within cooldown window %s", since.Round(time.Second), cooldown))
+					fmt.Sprintf("skipping reboot: last remediation completed %s ago (cooldown window: %s)",
+						since.Round(time.Second), cooldown.Round(time.Second)))
 				if err != nil {
 					record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
 					return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
@@ -190,7 +191,7 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (reconcile.Result, err
 	// without touching MachineOwnerRemediatedCondition: that condition belongs
 	// to the Machine's owning controller (MachineSet/KCP/MachineDeployment),
 	// not to external remediation. Leaving it unset keeps the machine alive.
-	if deprecatedv1beta1conditions.IsTrue(s.scope.Machine, clusterv1.MachineNodeHealthyCondition) {
+	if conditions.IsTrue(s.scope.Machine, clusterv1.MachineNodeHealthyCondition) {
 		if err := s.markRemediationSucceeded(ctx,
 			"reboot remediation succeeded: Node is healthy again"); err != nil {
 			record.Warn(s.scope.HCloudRemediation, "FailedFinishingRemediation", err.Error())
@@ -261,12 +262,16 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	return nil
 }
 
-// markRemediationSucceeded clears the remediate-machine annotation (CAPI MHC
-// does not clear it for external remediation), stamps LastRemediatedAt for the
-// cooldown guard, and moves the CR to PhaseSucceeded.
-// MachineOwnerRemediatedCondition is intentionally untouched: it belongs to the
-// Machine's owning controller (MachineSet/KCP/MachineDeployment), not to
-// external remediation.
+// markRemediationSucceeded updates three resources on success:
+//   - CAPI Machine: clears the cluster.x-k8s.io/remediate-machine annotation
+//     (CAPI MHC does not clear it for external remediation).
+//   - HCloudMachine: stamps LastRemediatedAt on its status for the cooldown
+//     guard.
+//   - HCloudRemediation: moves the CR to PhaseSucceeded.
+//
+// MachineOwnerRemediatedCondition on the CAPI Machine is intentionally left
+// untouched: it belongs to the Machine's owning controller
+// (MachineSet/KCP/MachineDeployment), not to external remediation.
 func (s *Service) markRemediationSucceeded(ctx context.Context, msg string) error {
 	machinePatchHelper, err := patch.NewHelper(s.scope.Machine, s.scope.Client)
 	if err != nil {
