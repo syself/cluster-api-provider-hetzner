@@ -29,10 +29,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -381,6 +383,42 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 	}
 }
 
+// These Machine conditions directly control control-plane load balancer membership,
+// but they arrive as status-only updates. We must treat them as significant so the
+// HCloudMachine controller reconciles when a replacement control plane becomes safe
+// to add to the LB or when an old node becomes ready to be removed from it.
+func machineConditionsAffectingLoadBalancerReconcileChanged(oldMachine, newMachine *clusterv1.Machine) bool {
+	for _, conditionType := range []clusterv1.ConditionType{
+		clusterv1.PreDrainDeleteHookSucceededV1Beta1Condition,
+		controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+	} {
+		if !reflect.DeepEqual(conditions.Get(oldMachine, string(conditionType)), conditions.Get(newMachine, string(conditionType))) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// HCloudMachine reconciliation uses HetznerCluster status to decide whether a
+// control-plane server is already attached to the load balancer. Target list
+// changes therefore need to bypass the generic status-update filter so pending
+// add/remove decisions are reevaluated.
+func controlPlaneLoadBalancerTargetsChanged(oldCluster, newCluster *infrav1.HetznerCluster) bool {
+	return !reflect.DeepEqual(
+		normalizeLoadBalancerTargets(oldCluster.Status.ControlPlaneLoadBalancer),
+		normalizeLoadBalancerTargets(newCluster.Status.ControlPlaneLoadBalancer),
+	)
+}
+
+func normalizeLoadBalancerTargets(loadBalancer *infrav1.LoadBalancerStatus) []infrav1.LoadBalancerTarget {
+	if loadBalancer == nil || len(loadBalancer.Target) == 0 {
+		return nil
+	}
+
+	return loadBalancer.Target
+}
+
 // IgnoreInsignificantHetznerClusterUpdates is a predicate used for ignoring insignificant HetznerCluster.Status updates.
 func IgnoreInsignificantHetznerClusterUpdates(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
@@ -415,6 +453,11 @@ func IgnoreInsignificantHetznerClusterUpdates(logger logr.Logger) predicate.Func
 
 			oldCluster.ResourceVersion = ""
 			newCluster.ResourceVersion = ""
+
+			if controlPlaneLoadBalancerTargetsChanged(oldCluster, newCluster) {
+				log.V(1).Info("HetznerCluster -> HCloudMachine event for control plane load balancer target change")
+				return true
+			}
 
 			oldCluster.Status.Conditions = nil
 			newCluster.Status.Conditions = nil
@@ -483,6 +526,11 @@ func IgnoreInsignificantMachineStatusUpdates(logger logr.Logger) predicate.Funcs
 
 			oldMachine.ResourceVersion = ""
 			newMachine.ResourceVersion = ""
+
+			if machineConditionsAffectingLoadBalancerReconcileChanged(oldMachine, newMachine) {
+				log.V(1).Info("Machine -> HCloudMachine event for load balancer related condition change")
+				return true
+			}
 
 			oldMachine.Status = clusterv1.MachineStatus{}
 			newMachine.Status = clusterv1.MachineStatus{}
