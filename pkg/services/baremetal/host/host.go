@@ -2015,6 +2015,14 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	host := s.scope.HetznerBareMetalHost
 
+	// Fast path: no reboot requested and boot ID already captured.
+	// No need to contact the workload cluster; nothing can change.
+	if !rebootDesired && host.Spec.Status.NodeBootID != "" {
+		host.Spec.Status.Rebooted = false
+		host.Spec.Status.RebootTriggeredAt = nil
+		return actionFinished{}
+	}
+
 	// Connect to the workload cluster to read node state.
 	wlClient, err := s.scope.WorkloadClusterClientFactory.NewWorkloadClient(ctx)
 	if err != nil {
