@@ -34,16 +34,12 @@ func (r *HCloudRemediationTemplate) SetupWebhookWithManager(mgr ctrl.Manager) er
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudremediationtemplate,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudremediationtemplates,verbs=create;update,versions=v1beta1,name=mhcloudremediationtemplate.kb.io,admissionReviewVersions=v1
-
 var _ admission.Defaulter[*HCloudRemediationTemplate] = &hcloudRemediationTemplateWebhook{}
 
 // Default implements admission.Defaulter[*HCloudRemediationTemplate] so a webhook will be registered for the type.
 func (*hcloudRemediationTemplateWebhook) Default(context.Context, *HCloudRemediationTemplate) error {
 	return nil
 }
-
-//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudremediationtemplate,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudremediationtemplates,verbs=create;update,versions=v1beta1,name=vhcloudremediationtemplate.kb.io,admissionReviewVersions=v1
 
 var _ admission.Validator[*HCloudRemediationTemplate] = &hcloudRemediationTemplateWebhook{}
 

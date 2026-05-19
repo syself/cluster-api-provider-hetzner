@@ -34,16 +34,12 @@ func (r *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) erro
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=create;update,versions=v1beta1,name=mutation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
-
 var _ admission.Defaulter[*HetznerBareMetalMachine] = &hetznerBareMetalMachineWebhook{}
 
 // Default implements admission.Defaulter[*HetznerBareMetalMachine] so a webhook will be registered for the type.
 func (*hetznerBareMetalMachineWebhook) Default(context.Context, *HetznerBareMetalMachine) error {
 	return nil
 }
-
-//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
 var _ admission.Validator[*HetznerBareMetalMachine] = &hetznerBareMetalMachineWebhook{}
 

@@ -48,8 +48,6 @@ func (*hcloudMachineTemplateWebhook) Default(context.Context, *HCloudMachineTemp
 	return nil
 }
 
-// +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachinetemplate,mutating=false,sideEffects=None,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates,verbs=create;update,versions=v1beta1,name=validation.hcloudmachinetemplate.infrastructure.x-k8s.io,admissionReviewVersions=v1;v1beta1
-
 var _ admission.Validator[*HCloudMachineTemplate] = &hcloudMachineTemplateWebhook{}
 
 // ValidateCreate implements admission.Validator[*HCloudMachineTemplate] so a webhook will be registered for the type.
