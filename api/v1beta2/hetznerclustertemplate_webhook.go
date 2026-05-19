@@ -41,15 +41,12 @@ func (r *HetznerClusterTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerclustertemplate,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerclustertemplates,verbs=create;update,versions=v1beta1,name=mutation.hetznerclustertemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 var _ admission.Defaulter[*HetznerClusterTemplate] = &hetznerClusterTemplateWebhook{}
 
 // Default implements admission.Defaulter[*HetznerClusterTemplate] so a webhook will be registered for the type.
 func (*hetznerClusterTemplateWebhook) Default(context.Context, *HetznerClusterTemplate) error {
 	return nil
 }
-
-// +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerclustertemplate,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerclustertemplates,verbs=create;update,versions=v1beta1,name=validation.hetznerclustertemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
 var _ admission.Validator[*HetznerClusterTemplate] = &hetznerClusterTemplateWebhook{}
 
