@@ -17,14 +17,19 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
@@ -32,8 +37,10 @@ import (
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -222,6 +229,141 @@ func TestIgnoreInsignificantMachineStatusUpdates(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestIgnoreInsignificantSecretUpdates(t *testing.T) {
+	p := IgnoreInsignificantSecretUpdates(klog.Background())
+
+	makeSecret := func(data map[string][]byte, rv string) *corev1.Secret {
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "hetzner",
+				Namespace:       "default",
+				ResourceVersion: rv,
+			},
+			Data: data,
+		}
+	}
+
+	testCases := []struct {
+		name     string
+		oldObj   *corev1.Secret
+		newObj   *corev1.Secret
+		expected bool
+	}{
+		{
+			name:     "Data changed",
+			oldObj:   makeSecret(map[string][]byte{"hcloud-token": []byte("old")}, "1"),
+			newObj:   makeSecret(map[string][]byte{"hcloud-token": []byte("new")}, "2"),
+			expected: true,
+		},
+		{
+			name:     "Only ResourceVersion changed",
+			oldObj:   makeSecret(map[string][]byte{"hcloud-token": []byte("same")}, "1"),
+			newObj:   makeSecret(map[string][]byte{"hcloud-token": []byte("same")}, "2"),
+			expected: false,
+		},
+		{
+			name:     "Unrelated data key added",
+			oldObj:   makeSecret(map[string][]byte{"hcloud-token": []byte("same")}, "1"),
+			newObj:   makeSecret(map[string][]byte{"hcloud-token": []byte("same"), "other": []byte("x")}, "2"),
+			expected: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := p.Update(event.UpdateEvent{ObjectOld: tc.oldObj, ObjectNew: tc.newObj})
+			require.Equal(t, tc.expected, got)
+		})
+	}
+
+	require.True(t, p.Create(event.CreateEvent{Object: makeSecret(nil, "1")}))
+	require.True(t, p.Delete(event.DeleteEvent{Object: makeSecret(nil, "1")}))
+	require.False(t, p.Generic(event.GenericEvent{Object: makeSecret(nil, "1")}))
+}
+
+func TestHetznerSecretToHCloudMachines(t *testing.T) {
+	ctx := context.Background()
+
+	testScheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(testScheme))
+	utilruntime.Must(infrav1.AddToScheme(testScheme))
+	utilruntime.Must(clusterv1.AddToScheme(testScheme))
+
+	const (
+		ns          = "default"
+		secretName  = "hetzner"
+		clusterName = "cluster-a"
+	)
+
+	newCluster := func(name string) *clusterv1.Cluster {
+		return &clusterv1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns, UID: types.UID(name + "-uid")},
+		}
+	}
+	newHetznerCluster := func(name, clusterOwner, secret string) *infrav1.HetznerCluster {
+		return &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: ns,
+				OwnerReferences: []metav1.OwnerReference{
+					{APIVersion: clusterv1.GroupVersion.String(), Kind: "Cluster", Name: clusterOwner, UID: types.UID(clusterOwner + "-uid")},
+				},
+			},
+			Spec: infrav1.HetznerClusterSpec{
+				HetznerSecret: infrav1.HetznerSecretRef{
+					Name: secret,
+					Key:  infrav1.HetznerSecretKeyRef{HCloudToken: "hcloud-token"},
+				},
+			},
+		}
+	}
+	newMachine := func(name, clusterOwner, infraName string) *clusterv1.Machine {
+		return &clusterv1.Machine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: ns,
+				Labels:    map[string]string{clusterv1.ClusterNameLabel: clusterOwner},
+			},
+			Spec: clusterv1.MachineSpec{
+				ClusterName: clusterOwner,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HCloudMachine",
+					Name:     infraName,
+				},
+			},
+		}
+	}
+
+	capiClusterA := newCluster(clusterName)
+	capiClusterB := newCluster("cluster-b")
+	hcA := newHetznerCluster("hc-a", clusterName, secretName)
+	hcB := newHetznerCluster("hc-b", "cluster-b", secretName)
+	hcUnrelated := newHetznerCluster("hc-u", clusterName, "other-secret")
+	hcmA := &infrav1.HCloudMachine{ObjectMeta: metav1.ObjectMeta{Name: "m-a", Namespace: ns}}
+	hcmB := &infrav1.HCloudMachine{ObjectMeta: metav1.ObjectMeta{Name: "m-b", Namespace: ns}}
+	cmA := newMachine("cm-a", clusterName, hcmA.Name)
+	cmB := newMachine("cm-b", "cluster-b", hcmB.Name)
+	matchingSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: ns}}
+	otherSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "no-ref", Namespace: ns}}
+
+	c := fakeclient.NewClientBuilder().
+		WithScheme(testScheme).
+		WithObjects(capiClusterA, capiClusterB, hcA, hcB, hcUnrelated, hcmA, hcmB, cmA, cmB).
+		Build()
+
+	r := &HCloudMachineReconciler{Client: c}
+	mapper := r.HetznerSecretToHCloudMachines(ctx)
+
+	got := mapper(ctx, matchingSecret)
+	require.ElementsMatch(t, []reconcile.Request{
+		{NamespacedName: client.ObjectKey{Namespace: ns, Name: hcmA.Name}},
+		{NamespacedName: client.ObjectKey{Namespace: ns, Name: hcmB.Name}},
+	}, got)
+
+	require.Empty(t, mapper(ctx, otherSecret))
 }
 
 var _ = Describe("HCloudMachineReconciler", func() {
