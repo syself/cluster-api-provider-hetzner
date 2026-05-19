@@ -30,6 +30,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -366,6 +367,21 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					infrav1.RemediationSkippedCondition,
 					infrav1.IrrecoverableServerCreateFailureReason,
 				)
+			}, timeout).Should(BeTrue())
+
+			By("checking v1beta2 RemediationSkipped and Ready conditions are set")
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, hcloudRemediationkey, hcloudRemediation); err != nil {
+					return false
+				}
+				skipped := v1beta2conditions.Get(hcloudRemediation, infrav1.HCloudRemediationSkippedV1Beta2Condition)
+				if skipped == nil ||
+					skipped.Status != metav1.ConditionTrue ||
+					skipped.Reason != infrav1.IrrecoverableServerCreateFailureV1Beta2Reason {
+					return false
+				}
+				ready := v1beta2conditions.Get(hcloudRemediation, infrav1.HCloudRemediationReadyV1Beta2Condition)
+				return ready != nil && ready.Status == metav1.ConditionFalse
 			}, timeout).Should(BeTrue())
 		})
 
