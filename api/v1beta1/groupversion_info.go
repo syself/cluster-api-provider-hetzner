@@ -14,9 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package v1beta1 contains API Schema definitions for the infrastructure v1beta1 API group
-// +kubebuilder:object:generate=true
-// +groupName=infrastructure.cluster.x-k8s.io
 package v1beta1
 
 import (
@@ -31,6 +28,9 @@ var (
 
 	// schemeBuilder is used to add go types to the GroupVersionKind scheme.
 	schemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+
+	// localSchemeBuilder is used to register types into the scheme from the generated conversion code.
+	localSchemeBuilder = &schemeBuilder
 
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = schemeBuilder.AddToScheme
