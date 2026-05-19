@@ -27,6 +27,7 @@
 - [What is CAPH](#-what-is-the-cluster-api-provider-hetzner)
 - [Documentation](#-documentation)
 - [Getting Started](#-getting-started)
+- [CLI Usage](#-cli-usage)
 - [Version Compatibility](#%EF%B8%8F-compatibility-with-cluster-api-and-kubernetes-versions)
 - [Node Images](#-operating-system-images)
 - [Contributing](#-getting-involved-and-contributing)
@@ -66,6 +67,41 @@ Additional resources from the documentation:
 - [**Develop and test your own node-images**](https://syself.com/docs/caph/topics/node-image): Learn how to use your own machine images for production systems.
 
 In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates, and enables the metrics-server to run securely. [Click here](https://syself.com/docs/caph/topics/advanced/csr-controller) to read more about the CSR controller.
+
+## 🧭 CLI Usage
+
+The main binary prints its usage text before trying to connect to a Kubernetes cluster. The block below is updated from the binary itself.
+
+<!-- BEGIN MAIN BINARY USAGE -->
+```console
+$ cluster-api-provider-hetzner --help
+Usage:
+  cluster-api-provider-hetzner [flags]
+
+Flags:
+      --baremetal-image-url-command string        Command to run (in rescue-system) to provision an baremetal machine. Docs: https://syself.com/docs/caph/developers/image-url-command
+      --baremetal-ssh-after-install-image         Connect to the baremetal machine after install-image and ensure it is provisioned. Current default is true, but we might change that to false. Background: Users might not want the controller to be able to ssh onto the servers (default true)
+      --debug-hcloud-api-calls                    Debug all calls to the hcloud API.
+      --disable-csr-approval                      Disables builtin workload cluster CSR validation and approval.
+      --hcloudmachine-concurrency int             Number of HcloudMachines to process simultaneously (default 1)
+      --health-probe-bind-address string          The address the probe endpoint binds to. (default ":9440")
+      --hetznerbaremetalhost-concurrency int      Number of HetznerBareMetalHosts to process simultaneously (default 1)
+      --hetznerbaremetalmachine-concurrency int   Number of HetznerBareMetalMachines to process simultaneously (default 1)
+      --hetznercluster-concurrency int            Number of HetznerClusters to process simultaneously (default 1)
+      --kubeconfig string                         Paths to a kubeconfig. Only required if out-of-cluster.
+      --leader-elect                              Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager. (default true)
+      --leader-elect-namespace string             Namespace that the controller performs leader election in. If unspecified, the controller will discover which namespace it is running in.
+      --log-level string                          Specifies log level. Options are 'debug', 'info' and 'error' (default "info")
+      --metrics-bind-address string               The address the metric endpoint binds to. (default "localhost:8080")
+      --namespace string                          Namespace that the controller watches to reconcile cluster-api objects. If unspecified, the controller watches for cluster-api objects across all namespaces.
+      --pre-provision-command string              Command to run (in rescue-system) before installing the image on bare metal servers. You can use that to check if the machine is healthy before installing the image. If the exit value is non-zero, the machine is considered unhealthy. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir.
+      --rate-limit duration                       The rate limiting for HCloud controller (e.g. 5m) (default 5m0s)
+      --skip-crd-migration-phases strings         List of CRD migration phases to skip. Valid values are: StorageVersionMigration, CleanupManagedFields.
+      --skip-webhooks                             Skip setting up webhooks. Together with --leader-elect=false, this lets you run CAPH in a cluster connected via KUBECONFIG. You should scale down the deployed CAPH controller to 0 before doing that. This is only for testing.
+      --sync-period duration                      The minimum interval at which watched resources are reconciled (e.g. 3m) (default 3m0s)
+      --watch-filter string                       Label value that the controller watches to reconcile cluster-api objects. Label key is always cluster.x-k8s.io/watch-filter. If unspecified, the controller watches for all cluster-api objects.
+```
+<!-- END MAIN BINARY USAGE -->
 
 ## 🖇️ Compatibility with Cluster API and Kubernetes Versions
 

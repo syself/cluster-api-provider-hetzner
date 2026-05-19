@@ -22,6 +22,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -66,6 +67,8 @@ var (
 	commandRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
 )
 
+const binaryName = "cluster-api-provider-hetzner"
+
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
@@ -109,8 +112,7 @@ func (m *strictManager) GetClient() client.Client {
 	return m.strictClient
 }
 
-func main() {
-	fs := pflag.CommandLine
+func registerFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&metricsAddr, "metrics-bind-address", "localhost:8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":9440", "The address the probe endpoint binds to.")
 	fs.BoolVar(&enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
@@ -127,11 +129,35 @@ func main() {
 	fs.DurationVar(&rateLimitWaitTime, "rate-limit", 5*time.Minute, "The rate limiting for HCloud controller (e.g. 5m)")
 	fs.BoolVar(&hcloudclient.DebugAPICalls, "debug-hcloud-api-calls", false, "Debug all calls to the hcloud API.")
 	fs.StringVar(&preProvisionCommand, "pre-provision-command", "", "Command to run (in rescue-system) before installing the image on bare metal servers. You can use that to check if the machine is healthy before installing the image. If the exit value is non-zero, the machine is considered unhealthy. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir.")
-	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up of webhooks. Together with --leader-elect=false, you can use `go run main.go` to run CAPH in a cluster connected via KUBECONFIG. You should scale down the caph deployment to 0 before doing that. This is only for testing!")
+	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up webhooks. Together with --leader-elect=false, this lets you run CAPH in a cluster connected via KUBECONFIG. You should scale down the deployed CAPH controller to 0 before doing that. This is only for testing.")
 	fs.StringSliceVar(&skipCRDMigrationPhases, "skip-crd-migration-phases", []string{}, "List of CRD migration phases to skip. Valid values are: StorageVersionMigration, CleanupManagedFields.")
 
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
+	fs.AddGoFlagSet(flag.CommandLine)
+}
+
+func printUsage(fs *pflag.FlagSet, out io.Writer) {
+	fs.SetOutput(out)
+	defer fs.SetOutput(io.Discard)
+
+	_, _ = fmt.Fprintf(out, "Usage:\n  %s [flags]\n\nFlags:\n", binaryName)
+	fs.PrintDefaults()
+}
+
+func main() {
+	fs := pflag.NewFlagSet(binaryName, pflag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	registerFlags(fs)
+
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			printUsage(fs, os.Stdout)
+			return
+		}
+
+		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
+		printUsage(fs, os.Stderr)
+		os.Exit(2)
+	}
 
 	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
 

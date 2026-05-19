@@ -587,6 +587,17 @@ generate-modules-ci: generate-modules
 		exit 1; \
 	fi
 
+.PHONY: generate-readme-usage
+generate-readme-usage: ## Update the README usage block from the main binary
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
+	./hack/update-readme-usage.sh
+endif
+
 generate-manifests: ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 ifeq ($(BUILD_IN_CONTAINER),true)
 	docker run  --rm \
@@ -753,7 +764,7 @@ else
 endif
 
 .PHONY: generate
-generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules generate-mocks ## Generate Files
+generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules generate-mocks generate-readme-usage ## Generate Files
 
 ALL_VERIFY_CHECKS = boilerplate shellcheck starlark manifests capi-version
 .PHONY: verify
