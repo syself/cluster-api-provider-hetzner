@@ -38,6 +38,7 @@ import (
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -152,6 +153,12 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 				"%s",
 				msg,
 			)
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostRobotCredentialsInvalidV1Beta2Reason,
+				Message: msg,
+			})
 			record.Warnf(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsInvalidReason, msg)
 
 			return actionStop{}
@@ -168,6 +175,12 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 				"%s",
 				msg,
 			)
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostServerNotFoundV1Beta2Reason,
+				Message: msg,
+			})
 			record.Warnf(s.scope.HetznerBareMetalHost, infrav1.ServerNotFoundReason, msg)
 			s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
 			return actionStop{}
@@ -184,6 +197,11 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 	}
 
 	v1beta1conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableCondition)
+	v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+		Type:   infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Reason,
+	})
 
 	if server.ServerIP == "" {
 		msg := fmt.Sprintf("bare metal server %d has no IPv4 address assigned", s.scope.HetznerBareMetalHost.Spec.ServerID)
@@ -195,6 +213,12 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 			"%s",
 			msg,
 		)
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostServerHasNoIPv4V1Beta2Reason,
+			Message: msg,
+		})
 		record.Warnf(s.scope.HetznerBareMetalHost, infrav1.ServerHasNoIPv4Reason, msg)
 		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
 		return actionStop{}
@@ -344,6 +368,12 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 					"%s",
 					msg,
 				)
+				v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+					Type:    infrav1.HetznerBareMetalHostCredentialsAvailableV1Beta2Condition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav1.HetznerBareMetalHostSSHKeyAlreadyExistsV1Beta2Reason,
+					Message: msg,
+				})
 				record.Warnf(s.scope.HetznerBareMetalHost, infrav1.SSHKeyAlreadyExistsReason, msg)
 				return infrav1.SSHKey{}, s.recordActionFailure(infrav1.PreparationError, msg)
 			}
@@ -379,6 +409,12 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 					"%s",
 					msg,
 				)
+				v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+					Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav1.HetznerBareMetalHostSSHConnectionRefusedV1Beta2Reason,
+					Message: msg,
+				})
 				record.Warnf(s.scope.HetznerBareMetalHost, "SSHConnectionError", msg)
 				return true, fmt.Errorf("%w - might be due to wrong port", errSSHConnectionRefused)
 			}
@@ -551,6 +587,12 @@ func (s *Service) handleErrorTypeHardwareRebootFailed(ctx context.Context, isSSH
 			"%s",
 			msg,
 		)
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostRebootTimedOutV1Beta2Reason,
+			Message: msg,
+		})
 
 		record.Warn(s.scope.HetznerBareMetalHost, "HardwareRebootTimedOut", msg)
 
@@ -666,6 +708,12 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			clusterv1beta1.ConditionSeverityError,
 			infrav1.ErrorMessageMissingRootDeviceHints,
 		)
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
+			Message: infrav1.ErrorMessageMissingRootDeviceHints,
+		})
 		return s.recordActionFailure(infrav1.RegistrationError, infrav1.ErrorMessageMissingRootDeviceHints)
 	}
 	errMsg := s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.IsValidWithMessage()
@@ -678,6 +726,12 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			"%s",
 			errMsg,
 		)
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
+			Message: errMsg,
+		})
 		return s.recordActionFailure(infrav1.RegistrationError, errMsg)
 	}
 
@@ -691,6 +745,12 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			"%s",
 			err.Error(),
 		)
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
+			Message: err.Error(),
+		})
 		return s.recordActionFailure(infrav1.RegistrationError, err.Error())
 	}
 
@@ -718,10 +778,21 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			"%s",
 			msg,
 		)
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
+			Message: msg,
+		})
 		return s.recordActionFailure(infrav1.FatalError, msg)
 	}
 
 	v1beta1conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RootDeviceHintsValidatedCondition)
+	v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+		Type:   infrav1.HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Reason,
+	})
 	s.scope.HetznerBareMetalHost.ClearError()
 	return actionComplete{}
 }
@@ -1236,6 +1307,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandTimedOut", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  "ImageURLCommandTimedOut",
+			Message: msg,
+		})
 		return s.recordActionFailure(infrav1.FatalError, msg)
 	}
 
@@ -1277,6 +1354,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  "ImageURLCommandFailed",
+			Message: msg,
+		})
 		return s.recordActionFailure(infrav1.FatalError, msg)
 
 	case sshclient.ImageURLCommandStateNotStarted:
@@ -1293,6 +1376,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				"ImageURLCommandMissing",
 				clusterv1beta1.ConditionSeverityError,
 				"%s", err.Error())
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "ImageURLCommandMissing",
+				Message: err.Error(),
+			})
 			return actionStop{}
 		}
 
@@ -1304,6 +1393,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				"ImageURLCommandNotAccessible",
 				clusterv1beta1.ConditionSeverityWarning,
 				"%s", err.Error())
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "ImageURLCommandNotAccessible",
+				Message: err.Error(),
+			})
 			return actionStop{}
 		}
 
@@ -1329,6 +1424,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				"ImageURLCommandFailedToStart",
 				clusterv1beta1.ConditionSeverityWarning,
 				"%s", err.Error())
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "ImageURLCommandFailedToStart",
+				Message: err.Error(),
+			})
 			return actionError{err: err}
 		}
 
@@ -1342,6 +1443,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				"StartImageURLCommandFailed",
 				clusterv1beta1.ConditionSeverityWarning,
 				"%s", msg)
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "StartImageURLCommandFailed",
+				Message: msg,
+			})
 			return s.recordActionFailure(infrav1.ProvisioningError, msg)
 		}
 
@@ -1349,6 +1456,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			"ImageURLCommandStarted",
 			clusterv1beta1.ConditionSeverityInfo,
 			"imageURLCommand started")
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  "ImageURLCommandStarted",
+			Message: "imageURLCommand started",
+		})
 
 		return actionContinue{delay: 55 * time.Second}
 
@@ -1375,6 +1488,12 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 				"%s",
 				msg,
 			)
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostCheckDiskFailedV1Beta2Reason,
+				Message: msg,
+			})
 			record.Warn(s.scope.HetznerBareMetalHost, infrav1.CheckDiskFailedReason, msg)
 			s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
 			return actionStop{}
@@ -1407,6 +1526,12 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 					"%s",
 					msg,
 				)
+				v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+					Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav1.HetznerBareMetalHostWipeDiskFailedV1Beta2Reason,
+					Message: msg,
+				})
 				record.Warn(s.scope.HetznerBareMetalHost, infrav1.WipeDiskFailedReason, msg)
 				s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
 				return actionStop{}
@@ -1422,6 +1547,12 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 				"%s",
 				msg,
 			)
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostWipeDiskFailedV1Beta2Reason,
+				Message: msg,
+			})
 			record.Warn(s.scope.HetznerBareMetalHost, infrav1.WipeDiskFailedReason, msg)
 			return actionContinue{
 				delay: 10 * time.Second,
@@ -1450,6 +1581,12 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 				"%s",
 				msg,
 			)
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostLinuxOnOtherDiskFoundV1Beta2Reason,
+				Message: msg,
+			})
 			record.Warn(s.scope.HetznerBareMetalHost, infrav1.LinuxOnOtherDiskFoundReason, msg)
 			s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
 			return actionStop{}
@@ -1467,6 +1604,12 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 			"%s",
 			msg,
 		)
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostSSHToRescueSystemFailedV1Beta2Reason,
+			Message: msg,
+		})
 		record.Event(s.scope.HetznerBareMetalHost, infrav1.SSHToRescueSystemFailedReason, msg)
 		return actionContinue{
 			delay: 10 * time.Second,
@@ -1609,6 +1752,12 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 			"%s",
 			errorMessage,
 		)
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostImageSpecInvalidV1Beta2Reason,
+			Message: errorMessage,
+		})
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, errorMessage)
 	}
 	if needsDownload {
@@ -1626,6 +1775,12 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 				"%s",
 				err.Error(),
 			)
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostImageDownloadFailedV1Beta2Reason,
+				Message: err.Error(),
+			})
 			return autoSetupInput{}, actionError{err: err}
 		}
 	}
@@ -1651,6 +1806,12 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 			"%s",
 			msg,
 		)
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostNoStorageDeviceFoundV1Beta2Reason,
+			Message: msg,
+		})
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, msg)
 	}
 
@@ -1744,6 +1905,11 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		// SSH after installimage is disabled for this machine, so we skip the verification phase.
 		record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned ('ensure-provisioned' was skipped)")
 		v1beta1conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:   infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Reason,
+		})
 		s.scope.HetznerBareMetalHost.ClearError()
 		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = nil
 		return actionComplete{}
@@ -1866,6 +2032,11 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 
 	record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned")
 	v1beta1conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
+	v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+		Type:   infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Reason,
+	})
 	s.scope.HetznerBareMetalHost.ClearError()
 	return createEventWithCloudInitOutput(actionComplete{})
 }
@@ -2192,6 +2363,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 						"%s",
 						msg,
 					)
+					v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+						Type:    infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+						Status:  metav1.ConditionFalse,
+						Reason:  infrav1.HetznerBareMetalHostRobotCredentialsInvalidV1Beta2Reason,
+						Message: msg,
+					})
 					record.Warnf(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsInvalidReason, msg)
 
 					return actionStop{}
@@ -2211,6 +2388,11 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			createHardwareRebootEvent(ctx, host, msg)
 
 			v1beta1conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableCondition)
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:   infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Reason,
+			})
 		}
 
 		// Persist the pre-reboot BootID. Phase 2 compares the live BootID against this
@@ -2278,6 +2460,12 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 				"%s",
 				msg,
 			)
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostRobotCredentialsInvalidV1Beta2Reason,
+				Message: msg,
+			})
 			record.Warnf(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsInvalidReason, msg)
 
 			return actionStop{}
@@ -2290,12 +2478,18 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 			// Clear previous errors/conditions so deletion can finish.
 			s.scope.HetznerBareMetalHost.ClearError()
 			v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
+			v1beta2conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition)
 			return actionComplete{}
 		}
 		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 	}
 
 	v1beta1conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableCondition)
+	v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+		Type:   infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Reason,
+	})
 
 	if s.scope.SSHAfterInstallImageEnabled() {
 		// If it has been provisioned completely, stop all running pods
@@ -2322,6 +2516,7 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType != infrav1.PermanentError {
 		s.scope.HetznerBareMetalHost.ClearError()
 		v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
+		v1beta2conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition)
 	}
 	return actionComplete{} // next: None
 }
@@ -2343,6 +2538,12 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 			"%s",
 			msg,
 		)
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+			Status:  metav1.ConditionTrue,
+			Reason:  infrav1.HetznerBareMetalHostRobotRateLimitExceededV1Beta2Reason,
+			Message: msg,
+		})
 		record.Warnf(s.scope.HetznerBareMetalHost, "RateLimitExceeded", msg)
 	}
 }
@@ -2370,6 +2571,12 @@ func markProvisionPendingWithInfo(host *infrav1.HetznerBareMetalHost, state infr
 		clusterv1beta1.ConditionSeverityInfo,
 		"%s", msg,
 	)
+	v1beta2conditions.Set(host, metav1.Condition{
+		Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+		Status:  metav1.ConditionFalse,
+		Reason:  infrav1.HetznerBareMetalHostStillProvisioningV1Beta2Reason,
+		Message: msg,
+	})
 }
 
 func markProvisionPending(host *infrav1.HetznerBareMetalHost, state infrav1.ProvisioningState) {

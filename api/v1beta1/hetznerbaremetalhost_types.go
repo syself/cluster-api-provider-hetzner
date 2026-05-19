@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 )
 
@@ -330,6 +331,21 @@ type ControllerGeneratedStatus struct {
 	// Conditions define the current service state of the HetznerBareMetalHost.
 	// +optional
 	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
+
+	// v1beta2 groups all the fields that will be added or modified in HetznerBareMetalHost's status with the V1Beta2 version.
+	// +optional
+	V1Beta2 *HetznerBareMetalHostV1Beta2Status `json:"v1beta2,omitempty"`
+}
+
+// HetznerBareMetalHostV1Beta2Status groups all the fields that will be added or modified in HetznerBareMetalHost with the V1Beta2 version.
+type HetznerBareMetalHostV1Beta2Status struct {
+	// conditions represents the observations of a HetznerBareMetalHost's current state.
+	// Known condition types are Ready, CredentialsAvailable, RobotCredentialsAvailable, RootDeviceHintsValidated, ProvisionSucceeded, Deleting, RobotRateLimitExceeded.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // GetIPAddress returns the IPv6 if set, otherwise the IPv4.
@@ -353,6 +369,60 @@ func (host *HetznerBareMetalHost) GetConditions() clusterv1beta1.Conditions {
 // SetConditions sets the underlying service state of the HetznerBareMetalHost to the predescribed clusterv1beta1.Conditions.
 func (host *HetznerBareMetalHost) SetConditions(conditions clusterv1beta1.Conditions) {
 	host.Spec.Status.Conditions = conditions
+}
+
+// GetV1Beta2Conditions returns the list of v1beta2 conditions for a HetznerBareMetalHost API object.
+func (host *HetznerBareMetalHost) GetV1Beta2Conditions() []metav1.Condition {
+	if host.Spec.Status.V1Beta2 == nil {
+		return nil
+	}
+	return host.Spec.Status.V1Beta2.Conditions
+}
+
+// SetV1Beta2Conditions sets v1beta2 conditions for a HetznerBareMetalHost API object.
+func (host *HetznerBareMetalHost) SetV1Beta2Conditions(conditions []metav1.Condition) {
+	if host.Spec.Status.V1Beta2 == nil {
+		host.Spec.Status.V1Beta2 = &HetznerBareMetalHostV1Beta2Status{}
+	}
+	host.Spec.Status.V1Beta2.Conditions = conditions
+}
+
+// HetznerBareMetalHostV1Beta2SummaryOpts returns the v1beta2 summary options for a HetznerBareMetalHost.
+// It is the single source of truth for which conditions contribute to the Ready summary,
+// used both by the scope's Close() and by early-exit error paths that bypass the scope.
+func HetznerBareMetalHostV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
+	return []v1beta2conditions.SummaryOption{
+		v1beta2conditions.ForConditionTypes{
+			HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+			HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+			HetznerBareMetalHostDeletingV1Beta2Condition,
+			HetznerBareMetalHostCredentialsAvailableV1Beta2Condition,
+			HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+			HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+		},
+		v1beta2conditions.NegativePolarityConditionTypes{
+			HetznerBareMetalHostDeletingV1Beta2Condition,
+			HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+		},
+		v1beta2conditions.IgnoreTypesIfMissing{
+			HetznerBareMetalHostCredentialsAvailableV1Beta2Condition,
+			HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+			HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			HetznerBareMetalHostDeletingV1Beta2Condition,
+			HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+		},
+		v1beta2conditions.CustomMergeStrategy{
+			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				v1beta2conditions.ComputeReasonFunc(
+					v1beta2conditions.GetDefaultComputeMergeReasonFunc(
+						HetznerBareMetalHostNotReadyV1Beta2Reason,
+						HetznerBareMetalHostReadyUnknownV1Beta2Reason,
+						HetznerBareMetalHostReadyV1Beta2Reason,
+					),
+				),
+			),
+		},
+	}
 }
 
 // SSHStatus contains all status information about SSHStatus.
