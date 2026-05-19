@@ -26,10 +26,13 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -98,10 +101,36 @@ type MachineScope struct {
 	SSHClientFactory sshclient.Factory
 }
 
-// Close closes the current scope persisting the cluster configuration and status.
+// Close closes the current scope persisting the machine configuration and status.
 func (m *MachineScope) Close(ctx context.Context) error {
+	// set summary for v1beta1 conditions.
 	v1beta1conditions.SetSummary(m.HCloudMachine)
-	return m.patchHelper.Patch(ctx, m.HCloudMachine)
+
+	// set summary for v1beta2 conditions.
+	readyCondition, err := v1beta2conditions.NewSummaryCondition(
+		m.HCloudMachine,
+		clusterv1beta1.ReadyV1Beta2Condition,
+		infrav1.HCloudMachineV1Beta2SummaryOpts()...,
+	)
+	if err != nil {
+		// Note, this could only happen if we hit edge cases in computing the summary, which should not happen due to the fact
+		// that we are passing a non empty list of ForConditionTypes.
+		m.Error(err, "Failed to set v1beta2 Ready condition")
+		unknownReadyCondition := metav1.Condition{
+			Type:   clusterv1beta1.ReadyV1Beta2Condition,
+			Status: metav1.ConditionUnknown,
+			Reason: infrav1.InternalErrorV1Beta2Reason,
+		}
+
+		v1beta2conditions.Set(m.HCloudMachine, unknownReadyCondition)
+
+		patchErr := m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
+		return errors.Join(err, patchErr)
+	}
+
+	v1beta2conditions.Set(m.HCloudMachine, *readyCondition)
+
+	return m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
 }
 
 // IsControlPlane returns true if the machine is a control plane.
@@ -121,7 +150,39 @@ func (m *MachineScope) Namespace() string {
 
 // PatchObject persists the machine spec and status.
 func (m *MachineScope) PatchObject(ctx context.Context) error {
-	return m.patchHelper.Patch(ctx, m.HCloudMachine)
+	return m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
+}
+
+// SetHCloudMachineV1Beta2SummaryCondition computes the HCloudMachine v1beta2 Ready condition.
+func SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine *infrav1.HCloudMachine) error {
+	return v1beta2conditions.SetSummaryCondition(hcloudMachine, hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition,
+		infrav1.HCloudMachineV1Beta2SummaryOpts()...,
+	)
+}
+
+// machinePatchOpts returns the list of patch.Option for HCloudMachine.
+func machinePatchOpts() []v1beta1patch.Option {
+	return []v1beta1patch.Option{
+		// owned v1beta1 conditions.
+		v1beta1patch.WithOwnedConditions{Conditions: []clusterv1beta1.ConditionType{
+			clusterv1beta1.ReadyCondition,
+			infrav1.BootstrapReadyCondition,
+			infrav1.HCloudTokenAvailableCondition,
+			infrav1.HetznerAPIReachableCondition,
+			infrav1.ServerCreateSucceededCondition,
+			infrav1.ServerProvisionedCondition,
+			infrav1.ServerAvailableCondition,
+		}},
+		// owned v1beta2 conditions.
+		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
+			clusterv1beta1.ReadyV1Beta2Condition,
+			infrav1.HCloudTokenAvailableV1Beta2Condition,
+			infrav1.HCloudRateLimitExceededV1Beta2Condition,
+			infrav1.HCloudMachineServerCreatedV1Beta2Condition,
+			infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+			infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+		}},
+	}
 }
 
 // SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding

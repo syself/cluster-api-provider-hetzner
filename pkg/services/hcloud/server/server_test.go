@@ -36,6 +36,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -300,6 +301,7 @@ var _ = Describe("Delete", func() {
 		Expect(hcloudMachine.Status.InstanceState).To(Equal(ptr.To(hcloud.ServerStatusDeleting)))
 		Expect(v1beta1conditions.IsFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(BeTrue())
 		Expect(v1beta1conditions.GetReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(Equal(infrav1.HCloudCredentialsInvalidReason))
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 
 		hcloudClient.AssertExpectations(GinkgoT())
 	})
@@ -325,8 +327,10 @@ var _ = Describe("Test handleRateLimit", func() {
 			}
 			if tc.expectCondition {
 				Expect(isPresentAndFalseWithReason(tc.hm, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+				Expect(isPresentWithStatusAndReasonV1Beta2(tc.hm, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
 			} else {
 				Expect(v1beta1conditions.Get(tc.hm, infrav1.HetznerAPIReachableCondition)).To(BeNil())
+				Expect(v1beta2conditions.Get(tc.hm, infrav1.HCloudRateLimitExceededV1Beta2Condition)).To(BeNil())
 			}
 		},
 		Entry("machine not ready, rate limit exceeded error", testCaseHandleRateLimit{
@@ -916,6 +920,11 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring the BootstrapReady condition is marked as false")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)).To(BeTrue())
+
+		By("ensuring the v1beta2 ServerCreated condition is false with WaitingForBootstrapData reason")
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason)).To(BeTrue())
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, clusterv1beta1.ReadyV1Beta2Condition, metav1.ConditionFalse, clusterv1beta1.NotReadyV1Beta2Reason)).To(BeTrue())
 	})
 
 	It("sets the region in status of hcloudMachine, by fetching the failure domain from cluster.status if machine.spec.failureDomain is empty", func() {
@@ -1257,6 +1266,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring condition HCloudCredentialsInvalid is set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, clusterv1beta1.ReadyV1Beta2Condition, metav1.ConditionFalse, clusterv1beta1.NotReadyV1Beta2Reason)).To(BeTrue())
 
 		// Ensure that the HCloudCredentialsInvalid condition persists even when we hit rate-limit on Hetzner.
 		By("making hcloud client return a rate-limit error on GetServerType API call")
@@ -1271,7 +1283,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring conditions HCloudCredentialsInvalid and RateLimitExceeded are set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
 	})
 
 	It("requeues for 5 minutes when server creation is not possible while creating a server", func() {
@@ -1328,6 +1342,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring condition HCloudCredentialsInvalid is set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, clusterv1beta1.ReadyV1Beta2Condition, metav1.ConditionFalse, clusterv1beta1.NotReadyV1Beta2Reason)).To(BeTrue())
 
 		// Ensure that the HCloudCredentialsInvalid condition persists even when we hit rate-limit on Hetzner.
 		By("making hcloud client return a rate-limit error on GetServer API call")
@@ -1343,7 +1360,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring conditions HCloudCredentialsInvalid and RateLimitExceeded are set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
 	})
 
 	It("does not create a server when the image-url-command is not available on disk", func() {
@@ -1460,5 +1479,14 @@ func isPresentAndFalseWithReason(getter v1beta1conditions.Getter, condition clus
 	}
 	objectCondition := v1beta1conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionFalse &&
+		objectCondition.Reason == reason
+}
+
+func isPresentWithStatusAndReasonV1Beta2(getter v1beta2conditions.Getter, condition string, status metav1.ConditionStatus, reason string) bool {
+	if !v1beta2conditions.Has(getter, condition) {
+		return false
+	}
+	objectCondition := v1beta2conditions.Get(getter, condition)
+	return objectCondition.Status == status &&
 		objectCondition.Reason == reason
 }

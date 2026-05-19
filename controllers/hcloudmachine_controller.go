@@ -26,14 +26,18 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -142,9 +146,21 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
+
 	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r)
+		// On the token-error early-return, hcloudTokenErrorResult does a full
+		// Status().Update. Set the deletion markers here so they are persisted
+		// (the scope's patchHelper is not created on this path).
+		if !hcloudMachine.DeletionTimestamp.IsZero() {
+			hcloudMachine.Status.InstanceState = ptr.To(hcloud.ServerStatusDeleting)
+			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+				Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Status: metav1.ConditionFalse,
+				Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
+			})
+		}
+		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r, infrav1.HCloudMachineV1Beta2SummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
