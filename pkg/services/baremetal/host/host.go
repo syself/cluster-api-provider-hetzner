@@ -2259,6 +2259,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 // next: None
 func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
+	// remove the reboot annotation if present.
+	s.scope.HetznerBareMetalHost.ClearRebootAnnotations()
+
+	// remove the RebootSucceeded condition if present.
+	v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.RebootSucceededCondition)
+
 	// Update server name via RobotAPI, strip "bm-" from the desired hostname.
 	// Example: If the hostname is "bm-abc-1-2356799" it should be renamed to "abc-1-2356799".
 	if _, err := s.scope.RobotClient.SetBMServerName(
