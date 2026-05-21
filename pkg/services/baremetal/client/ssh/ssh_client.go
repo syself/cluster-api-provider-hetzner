@@ -1012,12 +1012,10 @@ func (c *sshClient) StateOfImageURLCommandV2(ctx context.Context) (state ImageUR
 	// either present and valid, or the file does not exist yet (binary crashed before rename).
 	// Treat any read or parse failure as "not done yet" and requeue; the 7-minute timeout in
 	// handleBootStateRunningImageCommandV2 handles the case where the binary crashed permanently.
-	content, err := c.ReadOutputJSON(ctx)
-	if err != nil {
-		return ImageURLCommandStateRunning, "", nil
-	}
+	content, _ := c.ReadOutputJSON(ctx) // missing file = still running; treat error as not-done
 	var output ImageURLCommandOutputV2
-	if err := json.Unmarshal([]byte(content), &output); err != nil || output.Status == "" {
+	_ = json.Unmarshal([]byte(content), &output) // parse failure leaves Status empty = not-done
+	if output.Status == "" {
 		return ImageURLCommandStateRunning, "", nil
 	}
 	return ImageURLCommandStateFinishedSuccessfully, content, nil
