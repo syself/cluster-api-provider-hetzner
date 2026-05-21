@@ -120,12 +120,12 @@ func (m *BareMetalMachineScope) Close(ctx context.Context) error {
 // summary is never silently omitted.
 func SetHetznerBareMetalMachineV1Beta2ReadySummary(hbmm *infrav1.HetznerBareMetalMachine) {
 	readyCondition, err := v1beta2conditions.NewSummaryCondition(
-		hbmm, infrav1.HetznerBareMetalMachineReadyV1Beta2Condition,
+		hbmm, clusterv1beta1.ReadyV1Beta2Condition,
 		infrav1.HetznerBareMetalMachineV1Beta2SummaryOpts()...,
 	)
 	if err != nil {
 		v1beta2conditions.Set(hbmm, metav1.Condition{
-			Type:    infrav1.HetznerBareMetalMachineReadyV1Beta2Condition,
+			Type:    clusterv1beta1.ReadyV1Beta2Condition,
 			Status:  metav1.ConditionUnknown,
 			Reason:  infrav1.InternalErrorV1Beta2Reason,
 			Message: err.Error(),
@@ -146,7 +146,7 @@ func bareMetalMachinePatchOpts() []v1beta1patch.Option {
 			infrav1.HostReadyCondition,
 		}},
 		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
-			infrav1.HetznerBareMetalMachineReadyV1Beta2Condition,
+			clusterv1beta1.ReadyV1Beta2Condition,
 			infrav1.HCloudTokenAvailableV1Beta2Condition,
 			infrav1.HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
 			infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,

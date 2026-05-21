@@ -296,13 +296,6 @@ const (
 // common conditions used across resource types.
 
 const (
-	// HCloudRateLimitExceededV1Beta2Condition reports on whether the HCloud API rate limit has been exceeded.
-	HCloudRateLimitExceededV1Beta2Condition = "HCloudRateLimitExceeded"
-	// HCloudRateLimitExceededV1Beta2Reason indicates that the HCloud API rate limit has been exceeded.
-	HCloudRateLimitExceededV1Beta2Reason = "RateLimitExceeded"
-)
-
-const (
 	// HCloudTokenAvailableV1Beta2Condition reports on whether the HCloud Token is available.
 	HCloudTokenAvailableV1Beta2Condition = "HCloudTokenAvailable"
 	// HCloudTokenAvailableV1Beta2Reason indicates that the HCloudToken is available.
@@ -319,20 +312,6 @@ const (
 )
 
 // HetznerBareMetalMachine v1beta2 condition types.
-
-const (
-	// HetznerBareMetalMachineReadyV1Beta2Condition is true when the HetznerBareMetalMachine is ready.
-	HetznerBareMetalMachineReadyV1Beta2Condition = clusterv1beta1.ReadyV1Beta2Condition
-
-	// HetznerBareMetalMachineReadyV1Beta2Reason surfaces when the HetznerBareMetalMachine is ready.
-	HetznerBareMetalMachineReadyV1Beta2Reason = clusterv1beta1.ReadyV1Beta2Reason
-
-	// HetznerBareMetalMachineNotReadyV1Beta2Reason surfaces when the HetznerBareMetalMachine is not ready.
-	HetznerBareMetalMachineNotReadyV1Beta2Reason = clusterv1beta1.NotReadyV1Beta2Reason
-
-	// HetznerBareMetalMachineReadyUnknownV1Beta2Reason surfaces when the HetznerBareMetalMachine readiness is unknown.
-	HetznerBareMetalMachineReadyUnknownV1Beta2Reason = clusterv1beta1.ReadyUnknownV1Beta2Reason
-)
 
 const (
 	// HetznerBareMetalMachineHostAssociatedV1Beta2Condition is true when the host is associated.

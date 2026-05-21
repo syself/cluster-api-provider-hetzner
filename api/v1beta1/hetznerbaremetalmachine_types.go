@@ -431,9 +431,9 @@ func HetznerBareMetalMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOpti
 			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
 				v1beta2conditions.ComputeReasonFunc(
 					v1beta2conditions.GetDefaultComputeMergeReasonFunc(
-						HetznerBareMetalMachineNotReadyV1Beta2Reason,
-						HetznerBareMetalMachineReadyUnknownV1Beta2Reason,
-						HetznerBareMetalMachineReadyV1Beta2Reason,
+						clusterv1beta1.NotReadyV1Beta2Reason,
+						clusterv1beta1.ReadyUnknownV1Beta2Reason,
+						clusterv1beta1.ReadyV1Beta2Reason,
 					),
 				),
 			),
