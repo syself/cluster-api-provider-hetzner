@@ -52,13 +52,23 @@ func (r actionContinue) Result() (reconcile.Result, error) {
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-// actionComplete is a result indicating that the current action has completed,
-// and that the resource should transition to the next state.
+// actionComplete is a result indicating that the current action has completed, and that the
+// resource should transition to the next state. If you want to not reconcile again (end of last
+// phase), use actionFinished instead.
 type actionComplete struct{}
 
 func (actionComplete) Result() (reconcile.Result, error) {
 	// One phase is done. Go to the next phase in the next reconcile.
 	return reconcile.Result{RequeueAfter: time.Second}, nil
+}
+
+// actionFinished is a result indicating that the host has reached a stable
+// steady state and no further reconciliation is needed until an external
+// event (e.g. a watch) triggers a new reconcile.
+type actionFinished struct{}
+
+func (actionFinished) Result() (reconcile.Result, error) {
+	return reconcile.Result{}, nil
 }
 
 // deleteComplete is a result indicating that the deletion action has

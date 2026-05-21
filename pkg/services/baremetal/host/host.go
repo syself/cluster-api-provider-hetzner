@@ -2186,6 +2186,14 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	host := s.scope.HetznerBareMetalHost
 
+	// Fast path: no reboot requested and boot ID already captured.
+	// No need to contact the workload cluster; nothing can change.
+	if !rebootDesired && host.Spec.Status.NodeBootID != "" {
+		host.Spec.Status.Rebooted = false
+		host.Spec.Status.RebootTriggeredAt = nil
+		return actionFinished{}
+	}
+
 	// Connect to the workload cluster to read node state.
 	wlClient, err := s.scope.WorkloadClusterClientFactory.NewWorkloadClient(ctx)
 	if err != nil {
@@ -2433,6 +2441,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 // next: None
 func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
+	// remove the reboot annotation if present.
+	s.scope.HetznerBareMetalHost.ClearRebootAnnotations()
+
+	// remove the RebootSucceeded condition if present.
+	v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.RebootSucceededCondition)
+
 	// Update server name via RobotAPI, strip "bm-" from the desired hostname.
 	// Example: If the hostname is "bm-abc-1-2356799" it should be renamed to "abc-1-2356799".
 	if _, err := s.scope.RobotClient.SetBMServerName(
