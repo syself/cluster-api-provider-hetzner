@@ -258,6 +258,9 @@ func (r *HCloudMachine) SetV1Beta2Conditions(conditions []metav1.Condition) {
 //  5. ServerAvailable
 func HCloudMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
 	return []v1beta2conditions.SummaryOption{
+		// ForConditionTypes lists every condition that contributes to Ready, in
+		// priority order. When multiple conditions are unhealthy the summary
+		// surfaces them in this order, so the most important issue is listed first.
 		v1beta2conditions.ForConditionTypes{
 			HCloudTokenAvailableV1Beta2Condition,
 			HCloudRateLimitExceededV1Beta2Condition,
@@ -265,9 +268,18 @@ func HCloudMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
 			HCloudMachineServerProvisionedV1Beta2Condition,
 			HCloudMachineServerAvailableV1Beta2Condition,
 		},
+		// NegativePolarityConditionTypes lists conditions whose polarity is
+		// inverted: Status=True means a problem (not healthy). RateLimitExceeded
+		// fits this shape - when True, the HCloud API is rate-limited and the
+		// machine cannot progress.
 		v1beta2conditions.NegativePolarityConditionTypes{
 			HCloudRateLimitExceededV1Beta2Condition,
 		},
+		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
+		// listed condition as Unknown. Some reconcile paths exit before every
+		// condition has been set (for example, before the token is checked or
+		// before the server is created), and we don't want those early exits to
+		// flip Ready to Unknown.
 		v1beta2conditions.IgnoreTypesIfMissing{
 			HCloudTokenAvailableV1Beta2Condition,
 			HCloudMachineServerCreatedV1Beta2Condition,
