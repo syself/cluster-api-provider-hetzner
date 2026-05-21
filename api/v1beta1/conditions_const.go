@@ -307,8 +307,8 @@ const (
 	HCloudTokenAvailableV1Beta2Reason = clusterv1beta1.AvailableV1Beta2Reason
 	// HCloudTokenInvalidV1Beta2Reason indicates that the HCloudToken is invalid.
 	HCloudTokenInvalidV1Beta2Reason = "Invalid"
-	// HetznerSecretUnreachableV1Beta2Reason indicates that Hetzner secret is unreachable.
-	HetznerSecretUnreachableV1Beta2Reason = "HetznerSecretUnreachable" // #nosec
+	// SecretUnreachableV1Beta2Reason indicates that the configured Hetzner secret is unreachable.
+	SecretUnreachableV1Beta2Reason = "SecretUnreachable" // #nosec
 )
 
 const (
@@ -342,8 +342,8 @@ const (
 	// HetznerBareMetalMachineHostReadyV1Beta2Reason surfaces when the host is ready.
 	HetznerBareMetalMachineHostReadyV1Beta2Reason = "Ready"
 
-	// HetznerBareMetalMachineHostNotFoundV1Beta2Reason surfaces when the host is not found.
-	HetznerBareMetalMachineHostNotFoundV1Beta2Reason = "HostNotFound"
+	// HetznerBareMetalMachineNotFoundV1Beta2Reason surfaces when the host is not found.
+	HetznerBareMetalMachineNotFoundV1Beta2Reason = "NotFound"
 
 	// HetznerBareMetalMachineHostNotReadyV1Beta2Reason surfaces when the host is not ready.
 	HetznerBareMetalMachineHostNotReadyV1Beta2Reason = "NotReady"
