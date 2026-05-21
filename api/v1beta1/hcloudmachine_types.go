@@ -94,6 +94,19 @@ type HCloudMachineSpec struct {
 	// +optional
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`
 
+	// ImageURLCommandAPIVersion is the output format version of the ImageURLCommand binary.
+	// When set to "v2", CAPH reads /root/output.json after the command completes and maps each
+	// provisioning phase to a condition on the HCloudMachine (PreparationSucceeded,
+	// ImageDeploymentSucceeded, BootstrapDeliverySucceeded, HandoverSucceeded, and the aggregate
+	// NodeProvisioningSucceeded).
+	//
+	// Leave empty (default) to use the legacy IMAGE_URL_DONE log-based detection.
+	//
+	// +kubebuilder:validation:Enum="";v2
+	// +kubebuilder:validation:Optional
+	// +optional
+	ImageURLCommandAPIVersion string `json:"imageURLCommandAPIVersion,omitempty"`
+
 	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
 	SSHKeys []SSHKey `json:"sshKeys,omitempty"`

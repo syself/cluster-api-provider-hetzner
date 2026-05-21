@@ -45,8 +45,30 @@ const (
 	sshTimeOut time.Duration = 5 * time.Second
 	sshUser                  = "root"
 
-	imageURLCommandLog = "/root/image-url-command.log"
+	imageURLCommandLog  = "/root/image-url-command.log"
+	outputJSONPath      = "/root/output.json"
+	outputJSONMaxRetries = 10
 )
+
+// ImageURLCommandOutputV2 is the format of /root/output.json written by the v2 image-url-command binary.
+type ImageURLCommandOutputV2 struct {
+	APIVersion string                                `json:"apiVersion"`
+	Phases     map[string]ImageURLCommandPhaseResult `json:"phases"`
+}
+
+// ImageURLCommandPhaseResult holds the result of one provisioning phase.
+type ImageURLCommandPhaseResult struct {
+	Status     string                      `json:"status"`
+	FailedStep string                      `json:"failedStep,omitempty"`
+	Steps      []ImageURLCommandStepResult `json:"steps"`
+}
+
+// ImageURLCommandStepResult holds the result of one step within a phase.
+type ImageURLCommandStepResult struct {
+	Name    string `json:"name"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
 
 //go:embed detect-linux-on-another-disk.sh
 var detectLinuxOnAnotherDiskShellScript string
@@ -215,6 +237,16 @@ type Client interface {
 	// StateOfImageURLCommand returns the current states of the ImageURLCommand. States can
 	// be: NotStarted, Running, Failed, FinishedSuccesfully.
 	StateOfImageURLCommand(ctx context.Context) (state ImageURLCommandState, logFile string, err error)
+
+	// StateOfImageURLCommandV2 is the v2 variant of StateOfImageURLCommand.
+	// Instead of checking IMAGE_URL_DONE in the log, it reads /root/output.json once the
+	// binary exits. Returns (FinishedSuccessfully, outputJSONContent, nil) on completion.
+	StateOfImageURLCommandV2(ctx context.Context) (state ImageURLCommandState, outputJSON string, err error)
+
+	// ReadOutputJSON reads /root/output.json from the rescue system.
+	// It retries up to outputJSONMaxRetries times when the content does not end with '}',
+	// which guards against reading a partially-written file.
+	ReadOutputJSON(ctx context.Context) (string, error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -928,4 +960,48 @@ func (c *sshClient) getImageURLCommandOutput(ctx context.Context) (string, error
 		return "", fmt.Errorf("getting logs of image-url-command failed. Non zero status of 'cat'")
 	}
 	return out.StdOut, nil
+}
+
+func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
+	for range outputJSONMaxRetries {
+		out := c.runSSH(ctx, "cat "+outputJSONPath)
+		exitStatus, err := out.ExitStatus()
+		if err != nil {
+			return "", fmt.Errorf("reading output.json: %w", err)
+		}
+		if exitStatus != 0 {
+			return "", fmt.Errorf("reading output.json failed with exit status %d", exitStatus)
+		}
+		content := strings.TrimSpace(out.StdOut)
+		if strings.HasSuffix(content, "}") {
+			return content, nil
+		}
+	}
+	return "", fmt.Errorf("output.json did not end with '}' after %d retries", outputJSONMaxRetries)
+}
+
+func (c *sshClient) StateOfImageURLCommandV2(ctx context.Context) (state ImageURLCommandState, outputJSON string, err error) {
+	out := c.runSSH(ctx, `[ -e /root/image-url-command.pid ]`)
+	exitStatus, err := out.ExitStatus()
+	if err != nil {
+		return ImageURLCommandStateNotStarted, "", fmt.Errorf("checking PID file: %w", err)
+	}
+	if exitStatus > 0 {
+		return ImageURLCommandStateNotStarted, "", nil
+	}
+
+	out = c.runSSH(ctx, `ps -p "$(cat /root/image-url-command.pid)" -o args= | grep -q image-url-command`)
+	exitStatus, err = out.ExitStatus()
+	if err != nil {
+		return ImageURLCommandStateNotStarted, "", fmt.Errorf("checking if image-url-command is running: %w", err)
+	}
+	if exitStatus == 0 {
+		return ImageURLCommandStateRunning, "", nil
+	}
+
+	content, err := c.ReadOutputJSON(ctx)
+	if err != nil {
+		return ImageURLCommandStateFailed, err.Error(), nil
+	}
+	return ImageURLCommandStateFinishedSuccessfully, content, nil
 }

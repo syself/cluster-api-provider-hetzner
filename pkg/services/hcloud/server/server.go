@@ -19,6 +19,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -653,6 +654,10 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (wait for image-url-command): %w", err)
 	}
 
+	if hm.Spec.ImageURLCommandAPIVersion == "v2" {
+		return s.handleBootStateRunningImageCommandV2(ctx, hcloudSSHClient)
+	}
+
 	state, logFile, err := hcloudSSHClient.StateOfImageURLCommand(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("StateOfImageURLCommand failed: %w", err)
@@ -718,6 +723,147 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown ImageURLCommandState: %q", state)
 	}
+}
+
+// handleBootStateRunningImageCommandV2 handles the RunningImageCommand boot state for
+// imageURLCommandAPIVersion=v2. It reads /root/output.json once the binary exits and maps
+// phase results to HCloudMachine conditions.
+func (s *Service) handleBootStateRunningImageCommandV2(ctx context.Context, hcloudSSHClient sshclient.Client) (reconcile.Result, error) {
+	hm := s.scope.HCloudMachine
+
+	state, outputJSON, err := hcloudSSHClient.StateOfImageURLCommandV2(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("StateOfImageURLCommandV2 failed: %w", err)
+	}
+
+	durationOfState := time.Since(hm.Status.BootStateSince.Time)
+	// Please keep the number (7) in sync with the docstring of ImageURL.
+	if durationOfState > 7*time.Minute {
+		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
+			durationOfState.Round(time.Second).String())
+		s.scope.Error(errors.New(msg), "", "outputJSON", outputJSON)
+		if err := s.scope.SetErrorAndRemediate(ctx, msg); err != nil {
+			return reconcile.Result{}, err
+		}
+		record.Warn(hm, "ImageURLCommandFailed", outputJSON)
+		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+			"RunningImageCommandTimedOut", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
+		return reconcile.Result{}, nil
+	}
+
+	switch state {
+	case sshclient.ImageURLCommandStateRunning:
+		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+			"HCloudImageURLCommandRunning", clusterv1beta1.ConditionSeverityInfo,
+			"imageURLCommand running")
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+
+	case sshclient.ImageURLCommandStateFinishedSuccessfully:
+		var output sshclient.ImageURLCommandOutputV2
+		if err := json.Unmarshal([]byte(outputJSON), &output); err != nil {
+			return reconcile.Result{}, fmt.Errorf("parsing output.json: %w", err)
+		}
+
+		allSucceeded := applyNodeProvisioningConditions(hm, output)
+		if !allSucceeded {
+			msg := "ImageURLCommand provisioning failed. Deleting machine"
+			s.scope.Error(errors.New(msg), "", "outputJSON", outputJSON)
+			if err := s.scope.SetErrorAndRemediate(ctx, msg); err != nil {
+				return reconcile.Result{}, err
+			}
+			record.Warn(hm, "ImageURLCommandFailed", outputJSON)
+			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+				"ImageCommandFailed", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
+			return reconcile.Result{}, nil
+		}
+
+		if rebootErr := hcloudSSHClient.Reboot(ctx).Err; rebootErr != nil {
+			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w", rebootErr)
+		}
+		hm.SetBootState(infrav1.HCloudBootStateBootingToRealOS)
+		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+			"BootingToRealOS", clusterv1beta1.ConditionSeverityInfo,
+			"Operating system of node is booting")
+		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
+
+	case sshclient.ImageURLCommandStateFailed:
+		msg := "ImageURLCommand failed to read output.json. Deleting machine"
+		s.scope.Error(errors.New(msg), "", "detail", outputJSON)
+		if err := s.scope.SetErrorAndRemediate(ctx, msg); err != nil {
+			return reconcile.Result{}, err
+		}
+		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+			"ImageCommandFailed", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
+		return reconcile.Result{}, nil
+
+	case sshclient.ImageURLCommandStateNotStarted:
+		return reconcile.Result{}, fmt.Errorf("image-url-command not started in BootState RunningImageCommand? Should not happen")
+
+	default:
+		return reconcile.Result{}, fmt.Errorf("unknown ImageURLCommandState: %q", state)
+	}
+}
+
+// applyNodeProvisioningConditions parses an ImageURLCommandOutputV2 and sets phase conditions
+// on the HCloudMachine. Returns true if all four phases succeeded.
+func applyNodeProvisioningConditions(hm *infrav1.HCloudMachine, output sshclient.ImageURLCommandOutputV2) bool {
+	type phaseMapping struct {
+		name      string
+		condition clusterv1beta1.ConditionType
+	}
+	phases := []phaseMapping{
+		{"Preparation", infrav1.PreparationSucceededCondition},
+		{"ImageDeployment", infrav1.ImageDeploymentSucceededCondition},
+		{"BootstrapDelivery", infrav1.BootstrapDeliverySucceededCondition},
+		{"Handover", infrav1.HandoverSucceededCondition},
+	}
+
+	allSucceeded := true
+	anyFailed := false
+	for _, pm := range phases {
+		phase, ok := output.Phases[pm.name]
+		if !ok {
+			v1beta1conditions.MarkUnknown(hm, pm.condition,
+				infrav1.ProvisioningPhaseNotStartedReason, "phase not present in output.json")
+			allSucceeded = false
+			continue
+		}
+		switch phase.Status {
+		case "Succeeded":
+			v1beta1conditions.MarkTrue(hm, pm.condition)
+		case "Failed":
+			reason := infrav1.ProvisioningPhaseFailedReason
+			message := ""
+			for _, step := range phase.Steps {
+				if step.Name == phase.FailedStep {
+					reason = step.Name
+					message = step.Message
+					break
+				}
+			}
+			v1beta1conditions.MarkFalse(hm, pm.condition, reason,
+				clusterv1beta1.ConditionSeverityError, "%s", message)
+			allSucceeded = false
+			anyFailed = true
+		default: // "NotStarted" or unknown
+			v1beta1conditions.MarkUnknown(hm, pm.condition,
+				infrav1.ProvisioningPhaseNotStartedReason, "phase was not reached")
+			allSucceeded = false
+		}
+	}
+
+	if allSucceeded {
+		v1beta1conditions.MarkTrue(hm, infrav1.NodeProvisioningSucceededCondition)
+	} else if anyFailed {
+		v1beta1conditions.MarkFalse(hm, infrav1.NodeProvisioningSucceededCondition,
+			infrav1.ProvisioningPhaseFailedReason, clusterv1beta1.ConditionSeverityError,
+			"A provisioning phase failed.")
+	} else {
+		v1beta1conditions.MarkUnknown(hm, infrav1.NodeProvisioningSucceededCondition,
+			infrav1.ProvisioningPhaseNotStartedReason, "Not all phases completed.")
+	}
+
+	return allSucceeded
 }
 
 // handleBootingToRealOS is used for both ways (imageName/snapshot and imageURL).

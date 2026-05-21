@@ -272,6 +272,27 @@ const (
 )
 
 const (
+	// NodeProvisioningSucceededCondition aggregates the result of all image-url-command v2 phases.
+	// True once all four phase conditions are True; False on any permanent failure; Unknown while in progress.
+	NodeProvisioningSucceededCondition clusterv1beta1.ConditionType = "NodeProvisioningSucceeded"
+	// PreparationSucceededCondition reports disks partitioned, filesystems mounted, required binaries verified.
+	PreparationSucceededCondition clusterv1beta1.ConditionType = "PreparationSucceeded"
+	// ImageDeploymentSucceededCondition reports OCI tarball pulled, checksum/signature verified, image written to disk.
+	ImageDeploymentSucceededCondition clusterv1beta1.ConditionType = "ImageDeploymentSucceeded"
+	// BootstrapDeliverySucceededCondition reports cloud-init/CAPI bootstrap data written into the deployed image.
+	BootstrapDeliverySucceededCondition clusterv1beta1.ConditionType = "BootstrapDeliverySucceeded"
+	// HandoverSucceededCondition reports reboot initiated; binary completed, controller takes over.
+	HandoverSucceededCondition clusterv1beta1.ConditionType = "HandoverSucceeded"
+
+	// ProvisioningPhaseSucceededReason indicates a provisioning phase completed successfully.
+	ProvisioningPhaseSucceededReason = "Succeeded"
+	// ProvisioningPhaseFailedReason indicates a provisioning phase failed permanently.
+	ProvisioningPhaseFailedReason = "Failed"
+	// ProvisioningPhaseNotStartedReason indicates a provisioning phase was never reached.
+	ProvisioningPhaseNotStartedReason = "NotStarted"
+)
+
+const (
 	// RemediationSkippedCondition reports that remediation was skipped because
 	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
 	RemediationSkippedCondition clusterv1beta1.ConditionType = "RemediationSkipped"
