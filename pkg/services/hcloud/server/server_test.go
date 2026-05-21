@@ -1189,7 +1189,7 @@ var _ = Describe("Reconcile", func() {
 			StdErr: "",
 			Err:    nil,
 		})
-		startImageURLCommandMock := testEnv.HCloudSSHClient.On("StartImageURLCommand", mock.Anything, mock.Anything, mock.Anything, mock.Anything, "my-machine", []string{"sda"}).Return(0, "", nil)
+		startImageURLCommandMock := testEnv.HCloudSSHClient.On("StartImageURLCommand", mock.Anything, mock.Anything, mock.Anything, mock.Anything, "my-machine", []string{"sda"}, mock.Anything).Return(0, "", nil)
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateRunningImageCommand))

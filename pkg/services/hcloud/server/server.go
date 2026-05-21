@@ -607,7 +607,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		return reconcile.Result{}, fmt.Errorf("resolving imageURLCommand failed: %w", err)
 	}
 
-	exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, imageURLCommandPath, hm.Spec.ImageURL, data, s.scope.Name(), []string{"sda"})
+	exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, imageURLCommandPath, hm.Spec.ImageURL, data, s.scope.Name(), []string{"sda"}, hm.Spec.ImageURLCommandAPIVersion)
 	if err != nil {
 		err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
 		// This could be a temporary network error. Retry.

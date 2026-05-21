@@ -23,6 +23,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -51,8 +52,11 @@ const (
 )
 
 // ImageURLCommandOutputV2 is the format of /root/output.json written by the v2 image-url-command binary.
+// Status is the top-level completion signal: "Succeeded" or "Failed". A missing or empty Status
+// means the file is not yet complete (binary still running or crashed before the atomic rename).
 type ImageURLCommandOutputV2 struct {
 	APIVersion string                                `json:"apiVersion"`
+	Status     string                                `json:"status"`
 	Phases     map[string]ImageURLCommandPhaseResult `json:"phases"`
 }
 
@@ -232,7 +236,8 @@ type Client interface {
 	// This gets used when imageURL set.
 	// For hcloud deviceNames is always {"sda"}. For baremetal it corresponds to the WWNs
 	// of RootDeviceHints.
-	StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (exitStatus int, stdoutAndStderr string, err error)
+	// apiVersion is appended as --api-version=<value> unless it is empty or "v1".
+	StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string, apiVersion string) (exitStatus int, stdoutAndStderr string, err error)
 
 	// StateOfImageURLCommand returns the current states of the ImageURLCommand. States can
 	// be: NotStarted, Running, Failed, FinishedSuccesfully.
@@ -831,7 +836,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	return exitStatus, s, nil
 }
 
-func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
+func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string, apiVersion string) (int, string, error) {
 	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
 
 	// validate deviceNames
@@ -892,11 +897,15 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 		return 0, "", fmt.Errorf("error copying bootstrap data to %s:%d:%s %w", c.ip, c.port, dest, err)
 	}
 
+	apiVersionFlag := ""
+	if apiVersion != "" && apiVersion != "v1" {
+		apiVersionFlag = " --api-version=" + apiVersion
+	}
 	cmd := fmt.Sprintf(`#!/usr/bin/bash
-OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/image-url-command '%s' /root/bootstrap.data '%s' '%s' >%s 2>&1 </dev/null &
+OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/image-url-command '%s' /root/bootstrap.data '%s' '%s'%s >%s 2>&1 </dev/null &
 echo $! > /root/image-url-command.pid
 `, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL, machineName, strings.Join(deviceNames, " "),
-		imageURLCommandLog)
+		apiVersionFlag, imageURLCommandLog)
 
 	out := c.runSSH(ctx, cmd)
 
@@ -999,9 +1008,17 @@ func (c *sshClient) StateOfImageURLCommandV2(ctx context.Context) (state ImageUR
 		return ImageURLCommandStateRunning, "", nil
 	}
 
+	// Binary has exited. output.json is written atomically (rename), so the Status field is
+	// either present and valid, or the file does not exist yet (binary crashed before rename).
+	// Treat any read or parse failure as "not done yet" and requeue; the 7-minute timeout in
+	// handleBootStateRunningImageCommandV2 handles the case where the binary crashed permanently.
 	content, err := c.ReadOutputJSON(ctx)
 	if err != nil {
-		return ImageURLCommandStateFailed, err.Error(), err
+		return ImageURLCommandStateRunning, "", nil
+	}
+	var output ImageURLCommandOutputV2
+	if err := json.Unmarshal([]byte(content), &output); err != nil || output.Status == "" {
+		return ImageURLCommandStateRunning, "", nil
 	}
 	return ImageURLCommandStateFinishedSuccessfully, content, nil
 }
