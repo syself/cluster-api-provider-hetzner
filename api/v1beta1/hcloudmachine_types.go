@@ -178,6 +178,11 @@ type HCloudMachineStatus struct {
 
 	// ExternalIDs contains temporary data during the provisioning process
 	ExternalIDs HCloudMachineStatusExternalIDs `json:"externalIDs,omitempty"`
+
+	// LastRemediatedAt records when the most recent successful remediation completed.
+	// Used to prevent reboot loops across successive MHC incidents.
+	// +optional
+	LastRemediatedAt *metav1.Time `json:"lastRemediatedAt,omitempty"`
 }
 
 // HCloudMachineV1Beta2Status groups all the fields that will be added or modified in HCloudMachineStatus with the V1Beta2 version.

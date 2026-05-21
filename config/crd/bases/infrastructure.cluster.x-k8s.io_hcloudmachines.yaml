@@ -286,6 +286,12 @@ spec:
               instanceState:
                 description: InstanceState is the state of the server for this machine.
                 type: string
+              lastRemediatedAt:
+                description: |-
+                  LastRemediatedAt records when the most recent successful remediation completed.
+                  Used to prevent reboot loops across successive MHC incidents.
+                format: date-time
+                type: string
               ready:
                 description: Ready is true when the provider resource is ready.
                 type: boolean

@@ -345,6 +345,11 @@ type HetznerBareMetalMachineStatus struct {
 	// Conditions define the current service state of the HetznerBareMetalMachine.
 	// +optional
 	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
+
+	// LastRemediatedAt records when the most recent successful remediation completed.
+	// Used to prevent reboot loops across successive MHC incidents.
+	// +optional
+	LastRemediatedAt *metav1.Time `json:"lastRemediatedAt,omitempty"`
 }
 
 // HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
