@@ -1919,6 +1919,27 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			expectedNodeBootID:              fakeBootID,
 		}),
 	)
+
+	It("fast path: no reboot and NodeBootID already set returns actionFinished", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(23),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+		host.Spec.Status.NodeBootID = fakeBootID
+
+		sshMock := &sshmock.Client{}
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		actResult := service.actionProvisioned(ctx)
+		Expect(actResult).Should(BeAssignableToTypeOf(actionFinished{}))
+		Expect(host.Spec.Status.Rebooted).To(BeFalse())
+		Expect(host.Spec.Status.RebootTriggeredAt).To(BeNil())
+		Expect(host.Spec.Status.NodeBootID).To(Equal(fakeBootID))
+	})
 })
 
 var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {

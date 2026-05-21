@@ -192,6 +192,21 @@ func run() int {
 
 	fmt.Println("")
 	fmt.Println("_Thanks to all our contributors!_ 😊")
+	fmt.Println("")
+	fmt.Println("---")
+	fmt.Println("")
+	fmt.Println("## No time to manage Kubernetes yourself?")
+	fmt.Println("")
+	fmt.Println("Feel free to try our 🚀 [Syself Autopilot](https://syself.com/)")
+	fmt.Println("")
+	fmt.Println(`[<img width="1920" height="1080" alt="syself-autopilot-banner" src="https://github.com/user-attachments/assets/ad9f82d0-fb58-4460-92b9-49be7ce59d97" />`)
+	fmt.Println("](https://cdn.syself.com/syself-autopilot-banner.png)")
+	fmt.Println("")
+	fmt.Println("## Open Source User?")
+	fmt.Println("")
+	fmt.Println("Please give us a ⭐ at [github.com/syself/cluster-api-provider-hetzner](https://github.com/syself/cluster-api-provider-hetzner)")
+	fmt.Println("")
+	fmt.Println("---")
 
 	return 0
 }

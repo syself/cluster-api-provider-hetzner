@@ -1612,6 +1612,9 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, errorMessage)
 	}
 	if needsDownload {
+		// DownloadImage is a synchronous process. This means the controller waits until the
+		// download is finished. Note: We should use StartImageURLCommand(), similar to the handling
+		// of ImageURLCommand.
 		out := sshClient.DownloadImage(ctx, imagePath, image.URL)
 		if err := handleSSHError(out); err != nil {
 			err := fmt.Errorf("failed to download image: %s %s %w", out.StdOut, out.StdErr, err)
@@ -2012,6 +2015,14 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	host := s.scope.HetznerBareMetalHost
 
+	// Fast path: no reboot requested and boot ID already captured.
+	// No need to contact the workload cluster; nothing can change.
+	if !rebootDesired && host.Spec.Status.NodeBootID != "" {
+		host.Spec.Status.Rebooted = false
+		host.Spec.Status.RebootTriggeredAt = nil
+		return actionFinished{}
+	}
+
 	// Connect to the workload cluster to read node state.
 	wlClient, err := s.scope.WorkloadClusterClientFactory.NewWorkloadClient(ctx)
 	if err != nil {
@@ -2044,11 +2055,11 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	// The machine would be remediated.
 	if machine.Status.NodeRef.Name == "" {
 		msg := "machine.Status.NodeRef.Name is empty"
-		s.scope.Error(errors.New(msg), "")
 
 		// Without looking at the node object we can't confirm whether a reboot completed, so that is fatal error.
 		// When no reboot is requested the boot ID is non-critical; requeue and wait for kubelet to populate it.
 		if rebootDesired {
+			s.scope.Error(errors.New(msg), "")
 			s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
 			return actionStop{}
 		}
@@ -2248,10 +2259,17 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 // next: None
 func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
-	// Update name in robot API
+	// remove the reboot annotation if present.
+	s.scope.HetznerBareMetalHost.ClearRebootAnnotations()
+
+	// remove the RebootSucceeded condition if present.
+	v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.RebootSucceededCondition)
+
+	// Update server name via RobotAPI, strip "bm-" from the desired hostname.
+	// Example: If the hostname is "bm-abc-1-2356799" it should be renamed to "abc-1-2356799".
 	if _, err := s.scope.RobotClient.SetBMServerName(
 		s.scope.HetznerBareMetalHost.Spec.ServerID,
-		s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name,
+		strings.TrimPrefix(s.scope.Hostname(), infrav1.BareMetalHostNamePrefix),
 	); err != nil {
 		if models.IsError(err, models.ErrorCodeUnauthorized) {
 			// If Robot API returned "unauthorized" error while trying to set baremetal server name, then

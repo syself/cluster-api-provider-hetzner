@@ -350,6 +350,11 @@ type HetznerBareMetalMachineStatus struct {
 	// v1beta2 groups all the fields that will be added or modified in HetznerBareMetalMachine's status with the V1Beta2 version.
 	// +optional
 	V1Beta2 *HetznerBareMetalMachineV1Beta2Status `json:"v1beta2,omitempty"`
+
+	// LastRemediatedAt records when the most recent successful remediation completed.
+	// Used to prevent reboot loops across successive MHC incidents.
+	// +optional
+	LastRemediatedAt *metav1.Time `json:"lastRemediatedAt,omitempty"`
 }
 
 // HetznerBareMetalMachineV1Beta2Status groups all the fields that will be added or modified in HetznerBareMetalMachine with the V1Beta2 version.

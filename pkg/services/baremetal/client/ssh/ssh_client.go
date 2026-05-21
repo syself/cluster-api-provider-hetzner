@@ -25,6 +25,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -173,7 +174,12 @@ type Client interface {
 	GetResultOfInstallImage(ctx context.Context) (string, error)
 	GetCloudInitOutput(ctx context.Context) Output
 	CreateAutoSetup(ctx context.Context, data string) Output
+
+	// DownloadImage is a synchronous process. This means the controller waits until the
+	// download is finished. Note: We should use StartImageURLCommand(), similar to the handling
+	// of ImageURLCommand.
 	DownloadImage(ctx context.Context, path, url string) Output
+
 	CreatePostInstallScript(ctx context.Context, data string) Output
 	ExecuteInstallImage(ctx context.Context, hasPostInstallScript bool) Output
 	Reboot(ctx context.Context) Output
@@ -668,7 +674,7 @@ func (c *sshClient) runSSH(ctx context.Context, command string) Output {
 		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}
 	}
 	defer func() {
-		if err := sess.Close(); err != nil {
+		if err := sess.Close(); err != nil && !errors.Is(err, io.EOF) {
 			logger.Error(err, "failed to close ssh session")
 		}
 	}()
