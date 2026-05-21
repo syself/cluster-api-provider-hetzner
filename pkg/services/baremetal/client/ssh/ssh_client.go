@@ -45,8 +45,8 @@ const (
 	sshTimeOut time.Duration = 5 * time.Second
 	sshUser                  = "root"
 
-	imageURLCommandLog  = "/root/image-url-command.log"
-	outputJSONPath      = "/root/output.json"
+	imageURLCommandLog   = "/root/image-url-command.log"
+	outputJSONPath       = "/root/output.json"
 	outputJSONMaxRetries = 10
 )
 
@@ -1001,7 +1001,7 @@ func (c *sshClient) StateOfImageURLCommandV2(ctx context.Context) (state ImageUR
 
 	content, err := c.ReadOutputJSON(ctx)
 	if err != nil {
-		return ImageURLCommandStateFailed, err.Error(), nil
+		return ImageURLCommandStateFailed, err.Error(), err
 	}
 	return ImageURLCommandStateFinishedSuccessfully, content, nil
 }
