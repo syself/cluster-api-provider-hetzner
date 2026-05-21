@@ -191,14 +191,14 @@ func (s *BareMetalHostScope) SSHAfterInstallImageEnabled() bool {
 // summary is never silently omitted.
 func SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost *infrav1.HetznerBareMetalHost) {
 	readyCondition, err := v1beta2conditions.NewSummaryCondition(
-		bmHost, infrav1.HetznerBareMetalHostReadyV1Beta2Condition,
+		bmHost, clusterv1beta1.ReadyV1Beta2Condition,
 		infrav1.HetznerBareMetalHostV1Beta2SummaryOpts()...,
 	)
 	if err != nil {
 		v1beta2conditions.Set(bmHost, metav1.Condition{
-			Type:    infrav1.HetznerBareMetalHostReadyV1Beta2Condition,
+			Type:    clusterv1beta1.ReadyV1Beta2Condition,
 			Status:  metav1.ConditionUnknown,
-			Reason:  infrav1.InternalErrorV1Beta2Reason,
+			Reason:  clusterv1beta1.InternalErrorV1Beta2Reason,
 			Message: err.Error(),
 		})
 		return
@@ -219,11 +219,13 @@ func BareMetalHostPatchOpts() []v1beta1patch.Option {
 			infrav1.HetznerAPIReachableCondition,
 		}},
 		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
-			infrav1.HetznerBareMetalHostReadyV1Beta2Condition,
-			infrav1.HetznerBareMetalHostCredentialsAvailableV1Beta2Condition,
+			clusterv1beta1.ReadyV1Beta2Condition,
+			infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
 			infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
 			infrav1.HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
 			infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
+			infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
 			infrav1.HetznerBareMetalHostDeletingV1Beta2Condition,
 			infrav1.HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
 		}},

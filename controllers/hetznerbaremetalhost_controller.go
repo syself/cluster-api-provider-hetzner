@@ -379,7 +379,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					msg,
 				)
 				v1beta2conditions.Set(bmHost, metav1.Condition{
-					Type:    infrav1.HetznerBareMetalHostCredentialsAvailableV1Beta2Condition,
+					Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
 					Status:  metav1.ConditionFalse,
 					Reason:  infrav1.HetznerBareMetalHostOSSSHSecretMissingV1Beta2Reason,
 					Message: msg,
@@ -404,7 +404,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					infrav1.ErrorMessageMissingRescueSSHSecret,
 				)
 				v1beta2conditions.Set(bmHost, metav1.Condition{
-					Type:    infrav1.HetznerBareMetalHostCredentialsAvailableV1Beta2Condition,
+					Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
 					Status:  metav1.ConditionFalse,
 					Reason:  infrav1.HetznerBareMetalHostRescueSSHSecretMissingV1Beta2Reason,
 					Message: infrav1.ErrorMessageMissingRescueSSHSecret,
@@ -477,15 +477,15 @@ func hetznerSecretErrorResult(
 		// at some point in the future.
 		v1beta1conditions.MarkFalse(
 			bmHost,
-			infrav1.CredentialsAvailableCondition,
+			infrav1.RobotCredentialsAvailableCondition,
 			infrav1.HetznerSecretUnreachableReason,
 			clusterv1beta1.ConditionSeverityError,
 			infrav1.ErrorMessageMissingHetznerSecret,
 		)
 		v1beta2conditions.Set(bmHost, metav1.Condition{
-			Type:    infrav1.HetznerBareMetalHostCredentialsAvailableV1Beta2Condition,
+			Type:    infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerBareMetalHostHetznerSecretUnreachableV1Beta2Reason,
+			Reason:  infrav1.HetznerBareMetalHostSecretUnreachableV1Beta2Reason,
 			Message: infrav1.ErrorMessageMissingHetznerSecret,
 		})
 

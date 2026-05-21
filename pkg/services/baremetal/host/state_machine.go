@@ -95,9 +95,9 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 	// Assume credentials are ready for now. This can be changed while the state is handled.
 	v1beta1conditions.MarkTrue(hsm.host, infrav1.CredentialsAvailableCondition)
 	v1beta2conditions.Set(hsm.host, metav1.Condition{
-		Type:   infrav1.HetznerBareMetalHostCredentialsAvailableV1Beta2Condition,
+		Type:   infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
 		Status: metav1.ConditionTrue,
-		Reason: infrav1.HetznerBareMetalHostCredentialsAvailableV1Beta2Reason,
+		Reason: infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Reason,
 	})
 
 	// This state was removed. We have to handle the edge-case where
@@ -194,9 +194,9 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 			msg,
 		)
 		v1beta2conditions.Set(hsm.host, metav1.Condition{
-			Type:    infrav1.HetznerBareMetalHostCredentialsAvailableV1Beta2Condition,
+			Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerBareMetalHostSSHCredentialsInSecretInvalidV1Beta2Reason,
+			Reason:  infrav1.HetznerBareMetalHostSSHKeysInvalidV1Beta2Reason,
 			Message: msg,
 		})
 
@@ -238,9 +238,9 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 			msg,
 		)
 		v1beta2conditions.Set(hsm.host, metav1.Condition{
-			Type:    infrav1.HetznerBareMetalHostCredentialsAvailableV1Beta2Condition,
+			Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerBareMetalHostSSHCredentialsInSecretInvalidV1Beta2Reason,
+			Reason:  infrav1.HetznerBareMetalHostSSHKeysInvalidV1Beta2Reason,
 			Message: msg,
 		})
 		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)

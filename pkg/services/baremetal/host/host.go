@@ -113,6 +113,12 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 			clusterv1beta1.ConditionSeverityWarning,
 			"Host is not ready because it is being deleted",
 		)
+		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostDeletingV1Beta2Condition,
+			Status:  metav1.ConditionTrue,
+			Reason:  infrav1.HetznerBareMetalHostDeletingV1Beta2Reason,
+			Message: "Host is being deleted",
+		})
 	}
 
 	hostStateMachine := newHostStateMachine(s.scope.HetznerBareMetalHost, s, s.scope.Logger)
@@ -369,7 +375,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 					msg,
 				)
 				v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
-					Type:    infrav1.HetznerBareMetalHostCredentialsAvailableV1Beta2Condition,
+					Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
 					Status:  metav1.ConditionFalse,
 					Reason:  infrav1.HetznerBareMetalHostSSHKeyAlreadyExistsV1Beta2Reason,
 					Message: msg,
@@ -1491,7 +1497,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HetznerBareMetalHostCheckDiskFailedV1Beta2Reason,
+				Reason:  infrav1.HetznerBareMetalHostCheckingDiskFailedV1Beta2Reason,
 				Message: msg,
 			})
 			record.Warn(s.scope.HetznerBareMetalHost, infrav1.CheckDiskFailedReason, msg)
@@ -1529,7 +1535,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 				v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 					Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 					Status:  metav1.ConditionFalse,
-					Reason:  infrav1.HetznerBareMetalHostWipeDiskFailedV1Beta2Reason,
+					Reason:  infrav1.HetznerBareMetalHostWipingDiskFailedV1Beta2Reason,
 					Message: msg,
 				})
 				record.Warn(s.scope.HetznerBareMetalHost, infrav1.WipeDiskFailedReason, msg)
@@ -1550,7 +1556,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HetznerBareMetalHostWipeDiskFailedV1Beta2Reason,
+				Reason:  infrav1.HetznerBareMetalHostWipingDiskFailedV1Beta2Reason,
 				Message: msg,
 			})
 			record.Warn(s.scope.HetznerBareMetalHost, infrav1.WipeDiskFailedReason, msg)
@@ -1778,7 +1784,7 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HetznerBareMetalHostImageDownloadFailedV1Beta2Reason,
+				Reason:  infrav1.HetznerBareMetalHostDownloadingImageFailedV1Beta2Reason,
 				Message: err.Error(),
 			})
 			return autoSetupInput{}, actionError{err: err}
@@ -2203,6 +2209,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			infrav1.GetWorkloadClusterClientFailedReason,
 			clusterv1beta1.ConditionSeverityWarning, "%s",
 			err.Error())
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
+			Status:  metav1.ConditionUnknown,
+			Reason:  infrav1.HetznerBareMetalHostGettingWorkloadClusterClientFailedV1Beta2Reason,
+			Message: err.Error(),
+		})
 		return actionError{err: err}
 	}
 
@@ -2250,6 +2262,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			clusterv1beta1.ConditionSeverityWarning,
 			"%s",
 			err.Error())
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
+			Status:  metav1.ConditionUnknown,
+			Reason:  infrav1.HetznerBareMetalHostGettingNodeInWorkloadClusterFailedV1Beta2Reason,
+			Message: err.Error(),
+		})
 		return actionError{err: err}
 	}
 
@@ -2264,6 +2282,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			clusterv1beta1.ConditionSeverityWarning,
 			"%s",
 			msg)
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostBootIDEmptyV1Beta2Reason,
+			Message: msg,
+		})
 
 		s.scope.Error(errors.New(msg), "")
 
@@ -2278,6 +2302,11 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	}
 
 	v1beta1conditions.MarkTrue(host, infrav1.NodeBootIDRetrievedCondition)
+	v1beta2conditions.Set(host, metav1.Condition{
+		Type:   infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Reason,
+	})
 
 	if !rebootDesired {
 		// No reboot annotation, ensure all reboot-related state is cleared.
@@ -2314,6 +2343,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 				"%s",
 				msg,
 			)
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostRebootSucceededTimeoutReachedOutV1Beta2Reason,
+				Message: msg,
+			})
 			return s.recordActionFailure(infrav1.FatalError, msg)
 		}
 	}
@@ -2343,6 +2378,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 					"RebootViaSSHFailed",
 					clusterv1beta1.ConditionSeverityWarning, "%s",
 					err.Error())
+				v1beta2conditions.Set(host, metav1.Condition{
+					Type:    infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav1.HetznerBareMetalHostRebootingViaSSHFailedV1Beta2Reason,
+					Message: err.Error(),
+				})
 				return actionError{err: err}
 			}
 
@@ -2382,6 +2423,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 					"RebootBMServerViaAPIFailed",
 					clusterv1beta1.ConditionSeverityWarning, "%s",
 					err.Error())
+				v1beta2conditions.Set(host, metav1.Condition{
+					Type:    infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav1.HetznerBareMetalHostRebootingBMServerViaAPIFailedV1Beta2Reason,
+					Message: err.Error(),
+				})
 				return actionError{err: err}
 			}
 
@@ -2405,6 +2452,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			"WaitingForNodeToBeRebooted",
 			clusterv1beta1.ConditionSeverityInfo, "%s",
 			msg)
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostWaitingForNodeToBeRebootedV1Beta2Reason,
+			Message: msg,
+		})
 		return actionContinue{delay: 30 * time.Second}
 	}
 
@@ -2421,6 +2474,11 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		host.Spec.Status.Rebooted = false
 
 		v1beta1conditions.MarkTrue(host, infrav1.RebootSucceededCondition)
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:   infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Reason,
+		})
 
 		host.ClearRebootAnnotations()
 		host.ClearError()
@@ -2435,6 +2493,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		clusterv1beta1.ConditionSeverityInfo,
 		"Waiting for BootID of Node in workload cluster to change",
 	)
+	v1beta2conditions.Set(host, metav1.Condition{
+		Type:    infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
+		Status:  metav1.ConditionFalse,
+		Reason:  infrav1.HetznerBareMetalHostWaitingForNodeToBeRebootedV1Beta2Reason,
+		Message: "Waiting for BootID of Node in workload cluster to change",
+	})
 
 	return actionContinue{delay: 10 * time.Second}
 }
