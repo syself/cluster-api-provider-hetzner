@@ -309,8 +309,8 @@ const (
 	HCloudTokenAvailableV1Beta2Reason = clusterv1beta1.AvailableV1Beta2Reason
 	// HCloudTokenInvalidV1Beta2Reason indicates that the HCloudToken is invalid.
 	HCloudTokenInvalidV1Beta2Reason = "Invalid"
-	// HetznerSecretUnreachableV1Beta2Reason indicates that Hetzner secret is unreachable.
-	HetznerSecretUnreachableV1Beta2Reason = "HetznerSecretUnreachable" // #nosec
+	// SecretUnreachableV1Beta2Reason indicates that the Hetzner secret is unreachable.
+	SecretUnreachableV1Beta2Reason = "SecretUnreachable" // #nosec
 )
 
 const (
@@ -320,15 +320,6 @@ const (
 
 // HCloudRemediation v1beta2 conditions and reasons.
 const (
-	// HCloudRemediationReadyV1Beta2Condition summarizes the readiness of the HCloudRemediation.
-	HCloudRemediationReadyV1Beta2Condition = clusterv1beta1.ReadyV1Beta2Condition
-	// HCloudRemediationReadyV1Beta2Reason surfaces when the HCloudRemediation is ready.
-	HCloudRemediationReadyV1Beta2Reason = clusterv1beta1.ReadyV1Beta2Reason
-	// HCloudRemediationNotReadyV1Beta2Reason surfaces when the HCloudRemediation is not ready.
-	HCloudRemediationNotReadyV1Beta2Reason = clusterv1beta1.NotReadyV1Beta2Reason
-	// HCloudRemediationReadyUnknownV1Beta2Reason surfaces when the HCloudRemediation readiness is unknown.
-	HCloudRemediationReadyUnknownV1Beta2Reason = clusterv1beta1.ReadyUnknownV1Beta2Reason
-
 	// HCloudRemediationSkippedV1Beta2Condition reports that remediation was skipped because
 	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
 	HCloudRemediationSkippedV1Beta2Condition = "RemediationSkipped"

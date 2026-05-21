@@ -370,6 +370,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			}, timeout).Should(BeTrue())
 
 			By("checking v1beta2 RemediationSkipped and Ready conditions are set")
+			expectedSkippedMsg := "Remediation skipped: HCloudMachine has an irrecoverable server creation error. Delete the Machine to trigger a new creation attempt. Error: server type cax31 not available in location fsn1: resource_unavailable"
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, hcloudRemediationkey, hcloudRemediation); err != nil {
 					return false
@@ -377,11 +378,14 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				skipped := v1beta2conditions.Get(hcloudRemediation, infrav1.HCloudRemediationSkippedV1Beta2Condition)
 				if skipped == nil ||
 					skipped.Status != metav1.ConditionTrue ||
-					skipped.Reason != infrav1.IrrecoverableServerCreateFailureV1Beta2Reason {
+					skipped.Reason != infrav1.IrrecoverableServerCreateFailureV1Beta2Reason ||
+					skipped.Message != expectedSkippedMsg {
 					return false
 				}
-				ready := v1beta2conditions.Get(hcloudRemediation, infrav1.HCloudRemediationReadyV1Beta2Condition)
-				return ready != nil && ready.Status == metav1.ConditionFalse
+				ready := v1beta2conditions.Get(hcloudRemediation, clusterv1beta1.ReadyV1Beta2Condition)
+				return ready != nil &&
+					ready.Status == metav1.ConditionFalse &&
+					ready.Reason == clusterv1beta1.NotReadyV1Beta2Reason
 			}, timeout).Should(BeTrue())
 		})
 

@@ -476,7 +476,7 @@ func hcloudTokenErrorResult(
 			v1beta2conditions.Set(v1beta2Setter, metav1.Condition{
 				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HetznerSecretUnreachableV1Beta2Reason,
+				Reason:  infrav1.SecretUnreachableV1Beta2Reason,
 				Message: "could not find HetznerSecret",
 			})
 		}

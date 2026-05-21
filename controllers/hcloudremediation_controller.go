@@ -157,7 +157,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		// Ready summary here using the shared SummaryOpts.
 		if readyCondition, err := v1beta2conditions.NewSummaryCondition(
 			hcloudRemediation,
-			infrav1.HCloudRemediationReadyV1Beta2Condition,
+			clusterv1beta1.ReadyV1Beta2Condition,
 			infrav1.HCloudRemediationV1Beta2SummaryOpts()...,
 		); err == nil {
 			v1beta2conditions.Set(hcloudRemediation, *readyCondition)

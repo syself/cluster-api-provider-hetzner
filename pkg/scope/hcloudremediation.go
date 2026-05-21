@@ -108,7 +108,7 @@ func (m *HCloudRemediationScope) Close(ctx context.Context, opts ...v1beta1patch
 
 	readyCondition, err := v1beta2conditions.NewSummaryCondition(
 		m.HCloudRemediation,
-		infrav1.HCloudRemediationReadyV1Beta2Condition,
+		clusterv1beta1.ReadyV1Beta2Condition,
 		infrav1.HCloudRemediationV1Beta2SummaryOpts()...,
 	)
 	if err != nil {
