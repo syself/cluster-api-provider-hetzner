@@ -273,13 +273,6 @@ func HCloudMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
 			HCloudMachineServerProvisionedV1Beta2Condition,
 			HCloudMachineServerAvailableV1Beta2Condition,
 		},
-		// NegativePolarityConditionTypes lists conditions whose polarity is
-		// inverted: Status=True means a problem (not healthy). RateLimitExceeded
-		// fits this shape - when True, the HCloud API is rate-limited and the
-		// machine cannot progress.
-		v1beta2conditions.NegativePolarityConditionTypes{
-			HCloudRateLimitExceededV1Beta2Condition,
-		},
 		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
 		// listed condition as Unknown. Some reconcile paths exit before every
 		// condition has been set (for example, before the token is checked or
@@ -292,14 +285,20 @@ func HCloudMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
 			HCloudMachineServerAvailableV1Beta2Condition,
 			HCloudRateLimitExceededV1Beta2Condition,
 		},
-		// Customize the Ready summary: flag RateLimitExceeded=True as an issue
-		// (negative-polarity), and report HCloudMachine-specific reasons instead
-		// of CAPI's generic defaults (IssuesReported / UnknownReported / InfoReported).
+		// CustomMergeStrategy is used only to override the merge reasons, so
+		// the Ready summary uses CAPI's standard Ready reasons (Ready /
+		// NotReady / ReadyUnknown) instead of the generic merge defaults
+		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
 		v1beta2conditions.CustomMergeStrategy{
 			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
-				// Register the rate-limit condition as negative-polarity (True = problem)
-				// so it's bucketed as an issue and drives the Ready summary when firing.
 				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
+					// conditions with negative polarity
 					HCloudRateLimitExceededV1Beta2Condition,
 				)),
 				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(
