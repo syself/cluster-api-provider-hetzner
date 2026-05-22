@@ -422,6 +422,12 @@ spec:
 
                   Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
                 type: string
+              lastRemediatedAt:
+                description: |-
+                  LastRemediatedAt records when the most recent successful remediation completed.
+                  Used to prevent reboot loops across successive MHC incidents.
+                format: date-time
+                type: string
               lastUpdated:
                 description: LastUpdated identifies when this status was last observed.
                 format: date-time

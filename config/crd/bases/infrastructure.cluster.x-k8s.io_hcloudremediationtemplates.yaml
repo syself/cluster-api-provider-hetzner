@@ -70,6 +70,17 @@ spec:
                       strategy:
                         description: Strategy field defines remediation strategy.
                         properties:
+                          cooldown:
+                            default: 30m
+                            description: |-
+                              Cooldown is the minimum time between successive remediations of the same
+                              machine. If a new remediation starts within this window of the previous
+                              successful one, the reboot is skipped and the machine is deleted.
+                              Set to 0s to disable the guard.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: cooldown must be non-negative
+                              rule: duration(self) >= duration('0s')
                           retryLimit:
                             description: RetryLimit sets the maximum number of remediation
                               retries. Zero retries if not set.
