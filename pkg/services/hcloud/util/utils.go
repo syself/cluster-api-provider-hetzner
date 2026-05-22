@@ -91,6 +91,7 @@ func HandleRateLimitExceeded(obj runtimeObjectWithConditions, err error, functio
 			"%s",
 			msg,
 		)
+
 		// set v1beta2 condition if the object supports it.
 		if setter, ok := obj.(v1beta2conditions.Setter); ok {
 			v1beta2conditions.Set(setter, metav1.Condition{
@@ -104,5 +105,6 @@ func HandleRateLimitExceeded(obj runtimeObjectWithConditions, err error, functio
 		record.Warnf(obj, "RateLimitExceeded", msg)
 		return true
 	}
+
 	return false
 }

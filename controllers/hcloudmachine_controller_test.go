@@ -453,21 +453,21 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 				Eventually(func() bool {
 					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerCreateSucceededCondition) &&
-						isPresentAndTrueV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerCreatedV1Beta2Reason)
+						isPresentAndTrueWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerCreatedV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 
 				By("checking if server provisioned condition is set")
 
 				Eventually(func() bool {
 					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerProvisionedCondition) &&
-						isPresentAndTrueV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, infrav1.HCloudMachineServerProvisionedV1Beta2Reason)
+						isPresentAndTrueWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, infrav1.HCloudMachineServerProvisionedV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 
 				By("checking if server available condition is set")
 
 				Eventually(func() bool {
 					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerAvailableCondition) &&
-						isPresentAndTrueV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition, infrav1.HCloudMachineServerAvailableV1Beta2Reason)
+						isPresentAndTrueWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition, infrav1.HCloudMachineServerAvailableV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 
 				By("checking if the v1beta2 summary condition is set")

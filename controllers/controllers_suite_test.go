@@ -483,9 +483,8 @@ func isPresentAndTrue(key types.NamespacedName, getter v1beta1conditions.Getter,
 	return objectCondition.Status == corev1.ConditionTrue
 }
 
-func isPresentAndFalseWithReasonV1Beta2(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
-	err := testEnv.Get(ctx, key, getter)
-	if err != nil {
+func isV1Beta2ConditionWithStatusAndReason(key types.NamespacedName, getter client.Object, condition string, status metav1.ConditionStatus, reason string) bool {
+	if err := testEnv.Get(ctx, key, getter); err != nil {
 		return false
 	}
 
@@ -493,24 +492,30 @@ func isPresentAndFalseWithReasonV1Beta2(key types.NamespacedName, getter client.
 	if !ok || !v1beta2conditions.Has(v1beta2Getter, condition) {
 		return false
 	}
+
 	objectCondition := v1beta2conditions.Get(v1beta2Getter, condition)
-	return objectCondition.Status == metav1.ConditionFalse &&
-		objectCondition.Reason == reason
+	return objectCondition.Status == status && objectCondition.Reason == reason
 }
 
-func isPresentAndTrueV1Beta2(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
-	err := testEnv.Get(ctx, key, getter)
-	if err != nil {
+func isPresentAndTrueWithReasonV1Beta2(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
+	return isV1Beta2ConditionWithStatusAndReason(key, getter, condition, metav1.ConditionTrue, reason)
+}
+
+func isPresentAndFalseWithReasonV1Beta2(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
+	return isV1Beta2ConditionWithStatusAndReason(key, getter, condition, metav1.ConditionFalse, reason)
+}
+
+func isAbsentV1Beta2(key types.NamespacedName, getter client.Object, condition string) bool {
+	if err := testEnv.Get(ctx, key, getter); err != nil {
 		return false
 	}
 
 	v1beta2Getter, ok := getter.(v1beta2conditions.Getter)
-	if !ok || !v1beta2conditions.Has(v1beta2Getter, condition) {
+	if !ok {
 		return false
 	}
-	objectCondition := v1beta2conditions.Get(v1beta2Getter, condition)
-	return objectCondition.Status == metav1.ConditionTrue &&
-		objectCondition.Reason == reason
+
+	return !v1beta2conditions.Has(v1beta2Getter, condition)
 }
 
 func hasEvent(ctx context.Context, c client.Client, namespace, involvedObjectName, reason, message string) bool {

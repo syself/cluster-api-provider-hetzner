@@ -314,7 +314,7 @@ const (
 	HCloudTokenAvailableV1Beta2Reason = clusterv1beta1.AvailableV1Beta2Reason
 	// HCloudTokenInvalidV1Beta2Reason indicates that the HCloudToken is invalid.
 	HCloudTokenInvalidV1Beta2Reason = "Invalid"
-	// SecretUnreachableV1Beta2Reason indicates that the Hetzner secret is unreachable.
+	// SecretUnreachableV1Beta2Reason indicates that secret containing the HCloudToken is unreachable.
 	SecretUnreachableV1Beta2Reason = "SecretUnreachable" // #nosec
 )
 
@@ -444,4 +444,74 @@ const (
 	HCloudMachineAttachingToLoadBalancerFailedV1Beta2Reason = "AttachingToLoadBalancerFailed"
 	// HCloudMachineDeletingV1Beta2Reason surfaces when the HCloudMachine is being deleted.
 	HCloudMachineDeletingV1Beta2Reason = clusterv1beta1.DeletingV1Beta2Reason
+)
+
+// HetznerCluster's v1beta2 conditions.
+
+const (
+	// NetworkReadyV1Beta2Condition reports on whether the network is ready.
+	NetworkReadyV1Beta2Condition = "NetworkReady"
+	// NetworkReadyV1Beta2Reason indicates that the network is ready.
+	NetworkReadyV1Beta2Reason = clusterv1beta1.ReadyV1Beta2Reason
+	// NetworkReconcilingFailedV1Beta2Reason indicates that reconciling the network failed.
+	NetworkReconcilingFailedV1Beta2Reason = "ReconcilingFailed"
+)
+
+const (
+	// LoadBalancerReadyV1Beta2Condition reports on whether a control plane load balancer was successfully reconciled.
+	LoadBalancerReadyV1Beta2Condition = "LoadBalancerReady"
+	// LoadBalancerReadyV1Beta2Reason indicates that a control plane load balancer is ready.
+	LoadBalancerReadyV1Beta2Reason = clusterv1beta1.ReadyV1Beta2Reason
+	// LoadBalancerCreationFailedV1Beta2Reason indicates that load balancer creation failed.
+	LoadBalancerCreationFailedV1Beta2Reason = "CreationFailed"
+	// LoadBalancerReadyMissingControlPlaneEndpointV1Beta2Reason indicates that the control plane endpoint is not set.
+	LoadBalancerReadyMissingControlPlaneEndpointV1Beta2Reason = "MissingControlPlaneEndpoint"
+	// LoadBalancerReadySyncingServicesFailedV1Beta2Reason indicates that there an error occurred while syncing services of load balancer.
+	LoadBalancerReadySyncingServicesFailedV1Beta2Reason = "SyncingServicesFailed"
+	// LoadBalancerReadyAttachingToNetworkFailedV1Beta2Reason indicates that the server could not be attached to network.
+	LoadBalancerReadyAttachingToNetworkFailedV1Beta2Reason = "AttachingToNetworkFailed"
+	// LoadBalancerOwningFailedV1Beta2Reason indicates no owned label could be set on a load balancer.
+	LoadBalancerOwningFailedV1Beta2Reason = "OwningFailed"
+	// LoadBalancerUpdateFailedV1Beta2Reason indicates that an error occurred during load balancer update.
+	LoadBalancerUpdateFailedV1Beta2Reason = "UpdateFailed"
+	// LoadBalancerDeletionFailedV1Beta2Reason indicates that an error occurred during load balancer delete.
+	LoadBalancerDeletionFailedV1Beta2Reason = "DeletionFailed"
+)
+
+const (
+	// PlacementGroupsSyncedV1Beta2Condition reports on whether the placement groups are successfully synced.
+	PlacementGroupsSyncedV1Beta2Condition = "PlacementGroupsSynced"
+	// PlacementGroupsSyncingFailedV1Beta2Reason indicates that syncing the placement groups failed.
+	PlacementGroupsSyncingFailedV1Beta2Reason = "SyncingFailed"
+	// PlacementGroupsSyncedV1Beta2Reason indicates that placement groups are synced successfully.
+	PlacementGroupsSyncedV1Beta2Reason = "Synced"
+)
+
+const (
+	// ControlPlaneEndpointSetV1Beta2Condition reports on whether the control plane endpoint is set.
+	ControlPlaneEndpointSetV1Beta2Condition = "ControlPlaneEndpointSet"
+	// ControlPlaneEndpointSetV1Beta2Reason indicates that the control plane endpoint is set.
+	ControlPlaneEndpointSetV1Beta2Reason = "Set"
+	// ControlPlaneEndpointNotSetV1Beta2Reason indicates that the control plane endpoint is not set.
+	ControlPlaneEndpointNotSetV1Beta2Reason = "NotSet"
+)
+
+const (
+	// TargetClusterReadyV1Beta2Condition reports on whether the kubeconfig in the target cluster is ready.
+	TargetClusterReadyV1Beta2Condition = "TargetClusterReady"
+	// TargetClusterReadyV1Beta2Reason indicates that the kubeconfig in the target cluster is ready.
+	TargetClusterReadyV1Beta2Reason = clusterv1beta1.ReadyV1Beta2Reason
+	// TargetClusterCreationFailedV1Beta2Reason indicates that the target cluster could not be created.
+	TargetClusterCreationFailedV1Beta2Reason = "CreationFailed"
+)
+
+const (
+	// TargetClusterSecretReadyV1Beta2Condition reports on whether the hetzner secret in the target cluster is ready.
+	TargetClusterSecretReadyV1Beta2Condition = "TargetClusterSecretReady"
+	// TargetClusterSecretReadyV1Beta2Reason indicates that the the hetzner secret in the target cluster is ready.
+	TargetClusterSecretReadyV1Beta2Reason = clusterv1beta1.ReadyV1Beta2Reason
+	// TargetClusterControlPlaneNotReadyV1Beta2Reason indicates that the target cluster's control plane is not ready yet.
+	TargetClusterControlPlaneNotReadyV1Beta2Reason = "ControlPlaneNotReady"
+	// TargetClusterSyncingSecretFailedV1Beta2Reason indicates that the secret could not be synced.
+	TargetClusterSyncingSecretFailedV1Beta2Reason = "SyncingSecretFailed"
 )
