@@ -989,37 +989,54 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 	return "", fmt.Errorf("output.json did not end with '}' after %d retries", outputJSONMaxRetries)
 }
 
-func (c *sshClient) StateOfImageURLCommandV2(ctx context.Context) (state ImageURLCommandState, outputJSON string, err error) {
+func (c *sshClient) StateOfImageURLCommandV2(ctx context.Context) (ImageURLCommandState, string, error) {
 	out := c.runSSH(ctx, `[ -e /root/image-url-command.pid ]`)
-	exitStatus, err := out.ExitStatus()
-	if err != nil {
-		return ImageURLCommandStateNotStarted, "", fmt.Errorf("checking PID file: %w", err)
+	pidExitCode, pidErr := out.ExitStatus()
+
+	var psExitCode int
+	var psErr error
+	if pidErr == nil && pidExitCode == 0 {
+		out = c.runSSH(ctx, `ps -p "$(cat /root/image-url-command.pid)" -o args= | grep -q image-url-command`)
+		psExitCode, psErr = out.ExitStatus()
 	}
-	if exitStatus > 0 {
+
+	var outputJSONContent string
+	var outputJSONErr error
+	if pidErr == nil && pidExitCode == 0 && psErr == nil && psExitCode != 0 {
+		outputJSONContent, outputJSONErr = c.ReadOutputJSON(ctx)
+	}
+
+	return stateOfImageURLCommandV2Logic(pidExitCode, pidErr, psExitCode, psErr, outputJSONContent, outputJSONErr)
+}
+
+func stateOfImageURLCommandV2Logic(
+	pidExitCode int, pidErr error,
+	psExitCode int, psErr error,
+	outputJSONContent string, outputJSONErr error,
+) (ImageURLCommandState, string, error) {
+	if pidErr != nil {
+		return ImageURLCommandStateNotStarted, "", fmt.Errorf("checking PID file: %w", pidErr)
+	}
+	if pidExitCode > 0 {
 		return ImageURLCommandStateNotStarted, "", nil
 	}
-
-	out = c.runSSH(ctx, `ps -p "$(cat /root/image-url-command.pid)" -o args= | grep -q image-url-command`)
-	exitStatus, err = out.ExitStatus()
-	if err != nil {
-		return ImageURLCommandStateNotStarted, "", fmt.Errorf("checking if image-url-command is running: %w", err)
+	if psErr != nil {
+		return ImageURLCommandStateNotStarted, "", fmt.Errorf("checking if image-url-command is running: %w", psErr)
 	}
-	if exitStatus == 0 {
+	if psExitCode == 0 {
 		return ImageURLCommandStateRunning, "", nil
 	}
-
 	// Process has exited. Fail immediately if output.json is missing or incomplete —
 	// don't wait for the 7-minute timeout.
-	content, err := c.ReadOutputJSON(ctx)
-	if err != nil {
-		return ImageURLCommandStateFailed, fmt.Sprintf("process exited but output.json not readable: %s", err), nil
+	if outputJSONErr != nil {
+		return ImageURLCommandStateFailed, fmt.Sprintf("process exited but output.json not readable: %s", outputJSONErr), nil
 	}
 	var output ImageURLCommandOutputV2
-	if err := json.Unmarshal([]byte(content), &output); err != nil {
-		return ImageURLCommandStateFailed, content, nil
+	if err := json.Unmarshal([]byte(outputJSONContent), &output); err != nil {
+		return ImageURLCommandStateFailed, outputJSONContent, nil
 	}
 	if output.Status == "" {
-		return ImageURLCommandStateFailed, content, nil
+		return ImageURLCommandStateFailed, outputJSONContent, nil
 	}
-	return ImageURLCommandStateFinishedSuccessfully, content, nil
+	return ImageURLCommandStateFinishedSuccessfully, outputJSONContent, nil
 }
