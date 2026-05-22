@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
@@ -208,6 +209,63 @@ func TestIgnoreInsignificantMachineStatusUpdates(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "Changes in APIServerPodHealthy condition",
+			oldObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: clusterv1.MachineStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+							Status: metav1.ConditionFalse,
+						},
+					},
+				},
+			},
+			newObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: clusterv1.MachineStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Changes in pre-drain delete hook condition",
+			oldObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: clusterv1.MachineStatus{},
+			},
+			newObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: clusterv1.MachineStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   string(clusterv1.PreDrainDeleteHookSucceededV1Beta1Condition),
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			},
+			expected: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -221,6 +279,50 @@ func TestIgnoreInsignificantMachineStatusUpdates(t *testing.T) {
 				t.Errorf("Expected %v, but got %v", tc.expected, result)
 			}
 		})
+	}
+}
+
+func TestIgnoreInsignificantHetznerClusterUpdates_TargetChanges(t *testing.T) {
+	logger := klog.Background()
+	predicate := IgnoreInsignificantHetznerClusterUpdates(logger)
+
+	oldObj := &infrav1.HetznerCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "default",
+		},
+		Status: infrav1.HetznerClusterStatus{
+			ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+				ID: 1,
+				Target: []infrav1.LoadBalancerTarget{
+					{
+						Type:     infrav1.LoadBalancerTargetTypeServer,
+						ServerID: 1,
+					},
+				},
+			},
+		},
+	}
+
+	newObj := oldObj.DeepCopy()
+	newObj.ResourceVersion = "2"
+	newObj.Status.ControlPlaneLoadBalancer.Target = []infrav1.LoadBalancerTarget{
+		{
+			Type:     infrav1.LoadBalancerTargetTypeServer,
+			ServerID: 1,
+		},
+		{
+			Type:     infrav1.LoadBalancerTargetTypeServer,
+			ServerID: 2,
+		},
+	}
+
+	updateEvent := event.UpdateEvent{
+		ObjectOld: oldObj,
+		ObjectNew: newObj,
+	}
+	if !predicate.Update(updateEvent) {
+		t.Errorf("expected control plane load balancer target change to trigger reconcile")
 	}
 }
 
