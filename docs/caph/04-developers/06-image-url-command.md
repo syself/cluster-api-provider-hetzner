@@ -67,8 +67,11 @@ Example (v2):
 /root/image-url-command oci://example.com/yourimage:v1 /root/bootstrap.data my-md-bm-kh57r-5z2v8-zdfc9 'sda sdb' --api-version=v2
 ```
 
-It is up to the command to download from that URL and provision the disk accordingly. The command
-must be accessible by the controller pod below `/shared`. You can use an initContainer to copy the
+The image format — whole-disk image, root-filesystem tarball, or anything else — is entirely
+your choice, as long as the `imageURLCommand` binary and the artifact at `imageURL` match each other.
+Both are user-configurable; you are responsible for keeping them in sync.
+
+The command must be accessible by the controller pod below `/shared`. You can use an initContainer to copy the
 command to a shared emptyDir.
 For both hcloud and bare metal, the command field is only the basename of a command below `/shared`
 and must start with `image-url-command-`.
@@ -84,7 +87,8 @@ provisioning.
 ## API versions
 
 There are two output protocol versions, selected by `spec.imageURLCommandAPIVersion` on
-HCloudMachine (hcloud only). Once set, this field is immutable.
+HCloudMachine (hcloud) or `spec.installImage.imageURLCommandAPIVersion` on
+HetznerBareMetalMachine (bare metal). Once set, this field is immutable.
 
 ### v1 (deprecated)
 
@@ -95,7 +99,7 @@ considered to have failed.
 
 ### v2
 
-Set `imageURLCommandAPIVersion: v2` on the HCloudMachineTemplate to opt in:
+Set `imageURLCommandAPIVersion: v2` to opt in. For hcloud:
 
 ```yaml
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -109,6 +113,17 @@ spec:
       imageURL: oci://example.com/yourimage:v1
       imageURLCommand: image-url-command-install-foo.sh
       imageURLCommandAPIVersion: v2
+```
+
+For bare metal:
+
+```yaml
+spec:
+  installImage:
+    imageURLCommand: image-url-command-install-foo.sh
+    imageURLCommandAPIVersion: v2
+    image:
+      url: oci://example.com/yourimage:v1
 ```
 
 With v2, the command signals completion by writing `/root/output.json` before it exits.
@@ -176,7 +191,7 @@ On failure, set `status: "Failed"` and mark the failed phase and step accordingl
 
 #### Conditions set by v2
 
-CAPH maps each phase to a condition on the HCloudMachine:
+CAPH maps each phase to a condition on the machine (HCloudMachine or HetznerBareMetalHost):
 
 | Condition | Phase |
 |-----------|-------|
