@@ -24,12 +24,14 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -117,13 +119,41 @@ func (s *ClusterScope) HetznerSecret() *corev1.Secret {
 
 // Close closes the current scope persisting the cluster configuration and status.
 func (s *ClusterScope) Close(ctx context.Context) error {
+	// set summary for v1beta1 conditions.
 	v1beta1conditions.SetSummary(s.HetznerCluster)
-	return s.patchHelper.Patch(ctx, s.HetznerCluster)
+
+	// set summary for v1beta2 conditions.
+
+	readyCondition, err := v1beta2conditions.NewSummaryCondition(
+		s.HetznerCluster,
+		clusterv1beta1.ReadyV1Beta2Condition,
+		infrav1.ClusterV1Beta2SummaryOpts()...,
+	)
+	if err != nil {
+		// Note, this could only happen if we hit edge cases in computing the summary, which should not happen due to the fact
+		// that we are passing a non empty list of ForConditionTypes.
+		s.Error(err, "Failed to set v1beta2 Ready condition")
+		unknownReadyCondition := metav1.Condition{
+			Type:   clusterv1beta1.ReadyV1Beta2Condition,
+			Status: metav1.ConditionUnknown,
+			Reason: infrav1.InternalErrorV1Beta2Reason,
+		}
+
+		// set the ready condition with unknown status.
+		v1beta2conditions.Set(s.HetznerCluster, unknownReadyCondition)
+
+		patchErr := s.patchHelper.Patch(ctx, s.HetznerCluster, clusterpatchOpts()...)
+		return errors.Join(err, patchErr)
+	}
+
+	v1beta2conditions.Set(s.HetznerCluster, *readyCondition)
+
+	return s.patchHelper.Patch(ctx, s.HetznerCluster, clusterpatchOpts()...)
 }
 
 // PatchObject persists the machine spec and status.
 func (s *ClusterScope) PatchObject(ctx context.Context) error {
-	return s.patchHelper.Patch(ctx, s.HetznerCluster)
+	return s.patchHelper.Patch(ctx, s.HetznerCluster, clusterpatchOpts()...)
 }
 
 // GetSpecRegion returns a region.
@@ -191,6 +221,37 @@ func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, 
 	}
 
 	return machineList, hcloudMachineList, nil
+}
+
+// clusterpatchOpts returns the list of patch.Option for HetznerCluster.
+func clusterpatchOpts() []v1beta1patch.Option {
+	return []v1beta1patch.Option{
+		// owned v1beta1 conditions.
+		v1beta1patch.WithOwnedConditions{Conditions: []clusterv1beta1.ConditionType{
+			clusterv1.ReadyCondition,
+			infrav1.HCloudTokenAvailableCondition,
+			infrav1.HetznerAPIReachableCondition,
+			infrav1.NetworkReadyCondition,
+			infrav1.LoadBalancerReadyCondition,
+			infrav1.PlacementGroupsSyncedCondition,
+			infrav1.ControlPlaneEndpointSetCondition,
+			infrav1.TargetClusterReadyCondition,
+			infrav1.TargetClusterSecretReadyCondition,
+		}},
+		// owned v1beta2 conditions.
+		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
+			clusterv1beta1.ReadyV1Beta2Condition,
+			infrav1.HCloudTokenAvailableV1Beta2Condition,
+			infrav1.HCloudRateLimitExceededV1Beta2Condition,
+			clusterv1beta1.DeletingV1Beta2Condition,
+			infrav1.NetworkReadyV1Beta2Condition,
+			infrav1.LoadBalancerReadyV1Beta2Condition,
+			infrav1.PlacementGroupsSyncedV1Beta2Condition,
+			infrav1.ControlPlaneEndpointSetV1Beta2Condition,
+			infrav1.TargetClusterReadyV1Beta2Condition,
+			infrav1.TargetClusterSecretReadyV1Beta2Condition,
+		}},
+	}
 }
 
 // IsControlPlaneReady returns nil if the control plane is ready.
