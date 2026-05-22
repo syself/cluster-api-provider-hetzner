@@ -393,8 +393,17 @@ const (
 	TargetClusterSyncingSecretFailedV1Beta2Reason = "SyncingSecretFailed"
 )
 
-// HetznerBareMetalMachine v1beta2 condition types.
+// HCloudRemediation v1beta2 conditions and reasons.
+const (
+	// HCloudRemediationSkippedV1Beta2Condition reports that remediation was skipped because
+	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
+	HCloudRemediationSkippedV1Beta2Condition = "RemediationSkipped"
+	// IrrecoverableServerCreateFailureV1Beta2Reason indicates remediation was skipped because
+	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
+	IrrecoverableServerCreateFailureV1Beta2Reason = "IrrecoverableServerCreateFailure"
+)
 
+// HetznerBareMetalMachine v1beta2 condition types.
 const (
 	// HetznerBareMetalMachineHostAssociatedV1Beta2Condition is true when the host is associated.
 	HetznerBareMetalMachineHostAssociatedV1Beta2Condition = "HostAssociated"
