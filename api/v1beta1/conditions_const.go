@@ -323,6 +323,129 @@ const (
 	InternalErrorV1Beta2Reason = "InternalError"
 )
 
+const (
+	// HCloudMachineServerCreatedV1Beta2Condition reports on whether the HCloud server was created.
+	HCloudMachineServerCreatedV1Beta2Condition = "ServerCreated"
+	// HCloudMachineServerCreatedV1Beta2Reason surfaces when the HCloud server has been created.
+	HCloudMachineServerCreatedV1Beta2Reason = "Created"
+	// HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason surfaces when the server cannot be created because bootstrap data is not yet available.
+	HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason = clusterv1beta1.WaitingForBootstrapDataV1Beta2Reason
+	// HCloudMachineServerCreationFailedIrrecoverablyV1Beta2Reason surfaces an irrecoverable create failure.
+	HCloudMachineServerCreationFailedIrrecoverablyV1Beta2Reason = "CreationFailedIrrecoverably"
+	// HCloudMachineServerImageNotFoundV1Beta2Reason surfaces when the specified image cannot be found.
+	HCloudMachineServerImageNotFoundV1Beta2Reason = "ImageNotFound"
+	// HCloudMachineServerImageAmbiguousV1Beta2Reason surfaces when multiple images match the specified name.
+	HCloudMachineServerImageAmbiguousV1Beta2Reason = "ImageAmbiguous"
+	// HCloudMachineServerTypeNotFoundV1Beta2Reason surfaces when the specified server type cannot be found.
+	HCloudMachineServerTypeNotFoundV1Beta2Reason = "ServerTypeNotFound"
+	// HCloudMachineServerSSHKeyNotFoundV1Beta2Reason surfaces when a required SSH key is not present in HCloud.
+	HCloudMachineServerSSHKeyNotFoundV1Beta2Reason = "SSHKeyNotFound"
+	// HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason surfaces when the specified placement group does not exist.
+	HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason = "PlacementGroupNotFound"
+	// HCloudMachineServerCreationFailedV1Beta2Reason surfaces when the HCloud API CreateServer call fails.
+	HCloudMachineServerCreationFailedV1Beta2Reason = "CreationFailed"
+)
+
+const (
+	// HCloudMachineServerProvisionedV1Beta2Condition reports on whether the HCloud server has completed
+	// boot-time provisioning (rescue boot, image install, OS startup).
+	HCloudMachineServerProvisionedV1Beta2Condition = "ServerProvisioned"
+	// HCloudMachineServerProvisionedV1Beta2Reason surfaces when the boot state machine has completed.
+	HCloudMachineServerProvisionedV1Beta2Reason = clusterv1beta1.ProvisionedV1Beta2Reason
+	// HCloudMachineBootStateInitializingV1Beta2Reason indicates the boot state is being initialized.
+	HCloudMachineBootStateInitializingV1Beta2Reason = "BootStateInitializing"
+	// HCloudMachineBootStateInitializingTimedOutV1Beta2Reason indicates the boot state initialization timed out.
+	HCloudMachineBootStateInitializingTimedOutV1Beta2Reason = "BootStateInitializingTimedOut"
+	// HCloudMachineProvisioningServerV1Beta2Reason indicates the server is being provisioned.
+	HCloudMachineProvisioningServerV1Beta2Reason = "Provisioning"
+	// HCloudMachineServerNotRunningYetV1Beta2Reason indicates the server is not running yet.
+	HCloudMachineServerNotRunningYetV1Beta2Reason = "ServerNotRunningYet"
+	// HCloudMachineServerStatusUnknownV1Beta2Reason indicates the hcloud server returned a status that the controller does not handle.
+	HCloudMachineServerStatusUnknownV1Beta2Reason = "ServerStatusUnknown"
+
+	// HCloudMachineWaitingForRescueSystemV1Beta2Reason indicates waiting for the rescue system to be enabled.
+	HCloudMachineWaitingForRescueSystemV1Beta2Reason = "WaitingForRescueSystem"
+	// HCloudMachineEnablingRescueTimedOutV1Beta2Reason indicates enabling rescue system timed out.
+	HCloudMachineEnablingRescueTimedOutV1Beta2Reason = "EnablingRescueTimedOut"
+	// HCloudMachineActionIDForEnablingRescueSystemNotSetV1Beta2Reason indicates the action ID for enabling rescue is not set.
+	HCloudMachineActionIDForEnablingRescueSystemNotSetV1Beta2Reason = "ActionIDForEnablingRescueSystemNotSet"
+	// HCloudMachineEnablingRescueGetActionFailedV1Beta2Reason indicates getting the rescue enable action failed.
+	HCloudMachineEnablingRescueGetActionFailedV1Beta2Reason = "EnablingRescueGetActionFailed"
+	// HCloudMachineWaitingForEnablingRescueActionV1Beta2Reason indicates waiting for the rescue enable action to finish.
+	HCloudMachineWaitingForEnablingRescueActionV1Beta2Reason = "WaitingForEnablingRescueAction"
+	// HCloudMachineEnablingRescueActionFailedV1Beta2Reason indicates the rescue enable action failed.
+	HCloudMachineEnablingRescueActionFailedV1Beta2Reason = "EnablingRescueActionFailed"
+	// HCloudMachineEnablingRescueActionDoneV1Beta2Reason indicates the rescue enable action is done.
+	HCloudMachineEnablingRescueActionDoneV1Beta2Reason = "EnablingRescueActionDone"
+	// HCloudMachineRescueNotEnabledYetV1Beta2Reason indicates the rescue system is not enabled yet.
+	HCloudMachineRescueNotEnabledYetV1Beta2Reason = "RescueNotEnabledYet"
+
+	// HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason indicates getting the SSH private key failed.
+	HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason = "GettingSSHPrivateKeyFailed"
+	// HCloudMachineGettingSSHClientFailedV1Beta2Reason indicates getting the SSH client failed.
+	HCloudMachineGettingSSHClientFailedV1Beta2Reason = "GettingSSHClientFailed"
+	// HCloudMachineRetryingSSHConnectionV1Beta2Reason indicates the SSH connection is being retried.
+	HCloudMachineRetryingSSHConnectionV1Beta2Reason = "RetryingSSHConnection"
+	// HCloudMachineRebootViaSSHFailedV1Beta2Reason indicates rebooting via SSH failed.
+	HCloudMachineRebootViaSSHFailedV1Beta2Reason = "RebootViaSSHFailed"
+	// HCloudMachineGettingHostnameFailedV1Beta2Reason indicates getting the hostname failed.
+	HCloudMachineGettingHostnameFailedV1Beta2Reason = "GettingHostnameFailed"
+	// HCloudMachineUnexpectedHostnameV1Beta2Reason indicates the remote hostname was unexpected.
+	HCloudMachineUnexpectedHostnameV1Beta2Reason = "UnexpectedHostname"
+
+	// HCloudMachineBootingToRescueV1Beta2Reason indicates the server is booting to rescue mode.
+	HCloudMachineBootingToRescueV1Beta2Reason = "BootingToRescue"
+	// HCloudMachineBootingToRescueTimedOutV1Beta2Reason indicates booting to rescue mode timed out.
+	HCloudMachineBootingToRescueTimedOutV1Beta2Reason = "BootingToRescueTimedOut"
+	// HCloudMachineWaitForRescueEnabledToBeFalseV1Beta2Reason indicates waiting for rescue enabled to become false.
+	HCloudMachineWaitForRescueEnabledToBeFalseV1Beta2Reason = "WaitingForRescueEnabledToBeFalse"
+
+	// HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason indicates the image URL command is not accessible.
+	HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason = "ImageURLCommandNotAccessible"
+	// HCloudMachineStartImageURLCommandFailedV1Beta2Reason indicates starting the image URL command failed.
+	HCloudMachineStartImageURLCommandFailedV1Beta2Reason = "StartImageURLCommandFailed"
+	// HCloudMachineStartImageURLCommandNonZeroExitCodeV1Beta2Reason indicates the image URL command returned a non-zero exit code.
+	HCloudMachineStartImageURLCommandNonZeroExitCodeV1Beta2Reason = "StartImageURLCommandNonZeroExitCode"
+	// HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason indicates the image URL command is running.
+	HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason = "HCloudImageURLCommandRunning"
+	// HCloudMachineRunningImageURLCommandTimedOutV1Beta2Reason indicates the running image command timed out.
+	HCloudMachineRunningImageURLCommandTimedOutV1Beta2Reason = "RunningImageURLCommandTimedOut"
+	// HCloudMachineImageURLCommandFailedV1Beta2Reason indicates the image command failed.
+	HCloudMachineImageURLCommandFailedV1Beta2Reason = "ImageURLCommandFailed"
+	// HCloudMachineBootingToRealOSV1Beta2Reason indicates the server is booting to the real OS.
+	HCloudMachineBootingToRealOSV1Beta2Reason = "BootingToRealOS"
+	// HCloudMachineBootingToRealOSTimedOutV1Beta2Reason indicates booting to the real OS timed out.
+	HCloudMachineBootingToRealOSTimedOutV1Beta2Reason = "BootingToRealOSTimedOut"
+
+	// HCloudMachineGettingServerImageFailedV1Beta2Reason indicates getting the server image failed.
+	HCloudMachineGettingServerImageFailedV1Beta2Reason = "GettingServerImageFailed"
+	// HCloudMachineGettingRawBootstrapDataFailedV1Beta2Reason indicates getting the raw bootstrap data failed.
+	HCloudMachineGettingRawBootstrapDataFailedV1Beta2Reason = "GettingRawBootstrapDataFailed"
+	// HCloudMachinePoweringOnServerFailedV1Beta2Reason indicates powering on the server failed.
+	HCloudMachinePoweringOnServerFailedV1Beta2Reason = "PoweringOnServerFailed"
+	// HCloudMachineServerOffV1Beta2Reason indicates the server is off.
+	HCloudMachineServerOffV1Beta2Reason = "ServerOff"
+	// HCloudMachineServerOffTimeoutV1Beta2Reason indicates the server off timeout was reached.
+	HCloudMachineServerOffTimeoutV1Beta2Reason = "ServerOffTimeoutReached"
+)
+
+const (
+	// HCloudMachineServerAvailableV1Beta2Condition reports on whether the HCloud server is available.
+	HCloudMachineServerAvailableV1Beta2Condition = "ServerAvailable"
+	// HCloudMachineServerAvailableV1Beta2Reason surfaces when the HCloud server is available.
+	HCloudMachineServerAvailableV1Beta2Reason = clusterv1beta1.AvailableV1Beta2Reason
+	// HCloudMachineServerNotFoundV1Beta2Reason surfaces when the HCloud server cannot be found.
+	HCloudMachineServerNotFoundV1Beta2Reason = "NotFound"
+	// HCloudMachineAttachingToNetworkFailedV1Beta2Reason surfaces a network attachment failure.
+	HCloudMachineAttachingToNetworkFailedV1Beta2Reason = "AttachingToNetworkFailed"
+	// HCloudMachineWaitingForAPIServerV1Beta2Reason indicates waiting for the API server to be healthy.
+	HCloudMachineWaitingForAPIServerV1Beta2Reason = "WaitingForAPIServer"
+	// HCloudMachineAttachingToLoadBalancerFailedV1Beta2Reason surfaces a load balancer attachment failure.
+	HCloudMachineAttachingToLoadBalancerFailedV1Beta2Reason = "AttachingToLoadBalancerFailed"
+	// HCloudMachineDeletingV1Beta2Reason surfaces when the HCloudMachine is being deleted.
+	HCloudMachineDeletingV1Beta2Reason = clusterv1beta1.DeletingV1Beta2Reason
+)
+
 // HetznerCluster's v1beta2 conditions.
 
 const (
