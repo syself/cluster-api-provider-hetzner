@@ -596,7 +596,7 @@ func (s *Service) handleErrorTypeHardwareRebootFailed(ctx context.Context, isSSH
 		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerBareMetalHostRebootTimedOutV1Beta2Reason,
+			Reason:  infrav1.HetznerBareMetalHostRebootTimeoutReachedV1Beta2Reason,
 			Message: msg,
 		})
 
@@ -2455,7 +2455,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		v1beta2conditions.Set(host, metav1.Condition{
 			Type:    infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerBareMetalHostWaitingForNodeToBeRebootedV1Beta2Reason,
+			Reason:  infrav1.HetznerBareMetalHostRebootingV1Beta2Reason,
 			Message: msg,
 		})
 		return actionContinue{delay: 30 * time.Second}
@@ -2496,7 +2496,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	v1beta2conditions.Set(host, metav1.Condition{
 		Type:    infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
 		Status:  metav1.ConditionFalse,
-		Reason:  infrav1.HetznerBareMetalHostWaitingForNodeToBeRebootedV1Beta2Reason,
+		Reason:  infrav1.HetznerBareMetalHostRebootingV1Beta2Reason,
 		Message: "Waiting for BootID of Node in workload cluster to change",
 	})
 
@@ -2644,7 +2644,7 @@ func markProvisionPendingWithInfo(host *infrav1.HetznerBareMetalHost, state infr
 	v1beta2conditions.Set(host, metav1.Condition{
 		Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 		Status:  metav1.ConditionFalse,
-		Reason:  infrav1.HetznerBareMetalHostStillProvisioningV1Beta2Reason,
+		Reason:  infrav1.HetznerBareMetalHostProvisioningV1Beta2Reason,
 		Message: msg,
 	})
 }

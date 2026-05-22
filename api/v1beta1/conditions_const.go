@@ -338,8 +338,8 @@ const (
 	HetznerBareMetalHostProvisionSucceededV1Beta2Condition = "ProvisionSucceeded"
 	// HetznerBareMetalHostProvisionSucceededV1Beta2Reason indicates the host has been provisioned.
 	HetznerBareMetalHostProvisionSucceededV1Beta2Reason = "Provisioned"
-	// HetznerBareMetalHostStillProvisioningV1Beta2Reason indicates the server is still provisioning.
-	HetznerBareMetalHostStillProvisioningV1Beta2Reason = "StillProvisioning"
+	// HetznerBareMetalHostProvisioningV1Beta2Reason indicates the server is provisioning.
+	HetznerBareMetalHostProvisioningV1Beta2Reason = "Provisioning"
 	// HetznerBareMetalHostSSHConnectionRefusedV1Beta2Reason indicates the server cannot be reached via SSH.
 	HetznerBareMetalHostSSHConnectionRefusedV1Beta2Reason = "SSHConnectionRefused"
 	// HetznerBareMetalHostImageSpecInvalidV1Beta2Reason indicates the image specification is invalid.
@@ -358,8 +358,8 @@ const (
 	HetznerBareMetalHostWipingDiskFailedV1Beta2Reason = "WipingDiskFailed"
 	// HetznerBareMetalHostSSHToRescueSystemFailedV1Beta2Reason indicates the rescue system cannot be reached via SSH.
 	HetznerBareMetalHostSSHToRescueSystemFailedV1Beta2Reason = "SSHToRescueSystemFailed"
-	// HetznerBareMetalHostRebootTimedOutV1Beta2Reason indicates the reboot timed out.
-	HetznerBareMetalHostRebootTimedOutV1Beta2Reason = "RebootTimedOutReached"
+	// HetznerBareMetalHostRebootTimeoutReachedV1Beta2Reason indicates the reboot timeout was reached.
+	HetznerBareMetalHostRebootTimeoutReachedV1Beta2Reason = "RebootTimeoutReached"
 	// HetznerBareMetalHostCheckingDiskFailedV1Beta2Reason indicates checking the health of the disk was not successful.
 	HetznerBareMetalHostCheckingDiskFailedV1Beta2Reason = "CheckingDiskFailed"
 )
@@ -389,8 +389,8 @@ const (
 	HetznerBareMetalHostRebootSucceededV1Beta2Condition = "RebootSucceeded"
 	// HetznerBareMetalHostRebootSucceededV1Beta2Reason indicates the most recent reboot succeeded.
 	HetznerBareMetalHostRebootSucceededV1Beta2Reason = "Succeeded"
-	// HetznerBareMetalHostWaitingForNodeToBeRebootedV1Beta2Reason indicates the controller is waiting for the node to come back after a reboot.
-	HetznerBareMetalHostWaitingForNodeToBeRebootedV1Beta2Reason = "WaitingForNodeToBeRebooted"
+	// HetznerBareMetalHostRebootingV1Beta2Reason indicates the host is rebooting.
+	HetznerBareMetalHostRebootingV1Beta2Reason = "Rebooting"
 	// HetznerBareMetalHostRebootSucceededTimeoutReachedOutV1Beta2Reason indicates the reboot did not complete within the timeout.
 	HetznerBareMetalHostRebootSucceededTimeoutReachedOutV1Beta2Reason = "TimeoutReached"
 	// HetznerBareMetalHostRebootingViaSSHFailedV1Beta2Reason indicates triggering the reboot via SSH failed.
