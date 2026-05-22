@@ -45,10 +45,10 @@ func TestStateOfImageURLCommandV2Logic(t *testing.T) {
 			wantState:   ImageURLCommandStateNotStarted,
 		},
 		{
-			name:        "pid file check errors → not started with error",
-			pidErr:      someErr,
-			wantState:   ImageURLCommandStateNotStarted,
-			wantErr:     true,
+			name:      "pid file check errors → not started with error",
+			pidErr:    someErr,
+			wantState: ImageURLCommandStateNotStarted,
+			wantErr:   true,
 		},
 		{
 			name:       "process still running → running",

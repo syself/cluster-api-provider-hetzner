@@ -1032,9 +1032,7 @@ func stateOfImageURLCommandV2Logic(
 		return ImageURLCommandStateFailed, fmt.Sprintf("process exited but output.json not readable: %s", outputJSONErr), nil
 	}
 	var output ImageURLCommandOutputV2
-	if err := json.Unmarshal([]byte(outputJSONContent), &output); err != nil {
-		return ImageURLCommandStateFailed, outputJSONContent, nil
-	}
+	_ = json.Unmarshal([]byte(outputJSONContent), &output)
 	if output.Status == "" {
 		return ImageURLCommandStateFailed, outputJSONContent, nil
 	}
