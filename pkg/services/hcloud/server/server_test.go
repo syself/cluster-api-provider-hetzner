@@ -494,6 +494,72 @@ var _ = Describe("Delete", func() {
 	})
 })
 
+var _ = Describe("handleBootStateEnablingRescue", func() {
+	It("sets HCloudTokenAvailable when GetAction returns unauthorized", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootStateSince: metav1.Now(),
+				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
+					ActionIDEnableRescueSystem: 123456,
+				},
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetAction", mock.Anything, int64(123456)).Return(nil, fmt.Errorf("%w: invalid HCloud token", hcloudclient.ErrUnauthorized)).Once()
+
+		res, err := service.handleBootStateEnablingRescue(context.Background(), &hcloud.Server{
+			ID:     1,
+			Status: hcloud.ServerStatusRunning,
+		})
+
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("routes GetAction rate-limit errors through handleRateLimit", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootStateSince: metav1.Now(),
+				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
+					ActionIDEnableRescueSystem: 123456,
+				},
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		rateLimitErr := hcloud.Error{
+			Code:    hcloud.ErrorCodeRateLimitExceeded,
+			Message: "rate limit exceeded for ip 48.49.48.49",
+		}
+		hcloudClient.On("GetAction", mock.Anything, int64(123456)).Return(nil, rateLimitErr).Once()
+
+		res, err := service.handleBootStateEnablingRescue(context.Background(), &hcloud.Server{
+			ID:     1,
+			Status: hcloud.ServerStatusRunning,
+		})
+
+		Expect(res).To(Equal(reconcile.Result{}))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(Equal("failed to get enabling rescue action: rate limit exceeded for ip 48.49.48.49 (rate_limit_exceeded)"))
+		Expect(hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded)).To(BeTrue())
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+})
+
 var _ = Describe("getSSHKeys", func() {
 	var (
 		service      *Service

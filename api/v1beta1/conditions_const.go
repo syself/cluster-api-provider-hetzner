@@ -330,8 +330,8 @@ const (
 	HCloudMachineServerCreatedV1Beta2Reason = "Created"
 	// HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason surfaces when the server cannot be created because bootstrap data is not yet available.
 	HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason = clusterv1beta1.WaitingForBootstrapDataV1Beta2Reason
-	// HCloudMachineServerCreateFailedIrrecoverablyV1Beta2Reason surfaces an irrecoverable create failure.
-	HCloudMachineServerCreateFailedIrrecoverablyV1Beta2Reason = "CreateFailedIrrecoverably"
+	// HCloudMachineServerCreationFailedIrrecoverablyV1Beta2Reason surfaces an irrecoverable create failure.
+	HCloudMachineServerCreationFailedIrrecoverablyV1Beta2Reason = "CreationFailedIrrecoverably"
 	// HCloudMachineServerImageNotFoundV1Beta2Reason surfaces when the specified image cannot be found.
 	HCloudMachineServerImageNotFoundV1Beta2Reason = "ImageNotFound"
 	// HCloudMachineServerImageAmbiguousV1Beta2Reason surfaces when multiple images match the specified name.
@@ -342,8 +342,8 @@ const (
 	HCloudMachineServerSSHKeyNotFoundV1Beta2Reason = "SSHKeyNotFound"
 	// HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason surfaces when the specified placement group does not exist.
 	HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason = "PlacementGroupNotFound"
-	// HCloudMachineServerCreateFailedV1Beta2Reason surfaces when the HCloud API CreateServer call fails.
-	HCloudMachineServerCreateFailedV1Beta2Reason = "CreateFailed"
+	// HCloudMachineServerCreationFailedV1Beta2Reason surfaces when the HCloud API CreateServer call fails.
+	HCloudMachineServerCreationFailedV1Beta2Reason = "CreationFailed"
 )
 
 const (

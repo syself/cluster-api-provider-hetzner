@@ -310,19 +310,23 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		// or resource_unavailable (e.g. server location disabled) will never succeed on retry.
 		// Mark the machine as irrecoverably failed and stop reconciling.
 		if hcloud.IsError(err, hcloud.ErrorCodeInvalidInput) || hcloud.IsError(err, hcloud.ErrorCodeResourceUnavailable) {
+			msg := fmt.Sprintf(
+				"Server creation failed with an irrecoverable error: %s. If the requested resources (server type or location) become available again, delete the Machine to trigger a new creation attempt.",
+				err.Error(),
+			)
 			v1beta1conditions.MarkFalse(
 				s.scope.HCloudMachine,
 				infrav1.ServerCreateSucceededCondition,
 				infrav1.ServerCreateFailedIrrecoverableErrorReason,
 				clusterv1beta1.ConditionSeverityError,
-				"Server creation failed with an irrecoverable error: %s. If the requested resources (server type or location) become available again, delete the Machine to trigger a new creation attempt.",
-				err.Error(),
+				"%s",
+				msg,
 			)
 			v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
 				Type:    infrav1.HCloudMachineServerCreatedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineServerCreateFailedIrrecoverablyV1Beta2Reason,
-				Message: err.Error(),
+				Reason:  infrav1.HCloudMachineServerCreationFailedIrrecoverablyV1Beta2Reason,
+				Message: msg,
 			})
 			return reconcile.Result{}, nil
 		}
@@ -410,47 +414,6 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	}
 
 	updateHCloudMachineStatusFromServer(hm, server)
-
-	// This is a new machine with imageURL. The webhook validates that ImageURLCommand is set
-	// when ImageURL is set, and rejects any name that does not match the basename pattern. We
-	// still resolve the path at runtime so an empty or invalid name (for example, if the webhook
-	// has been disabled temporarily) is rejected before we copy anything into the rescue system.
-	imageURLCommandName := hm.Spec.ImageURLCommand
-	if _, err := utils.ResolveImageURLCommandPath(hcloudImageURLCommandDir, imageURLCommandName); err != nil {
-		err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", imageURLCommandName, err)
-		s.scope.Error(err, "")
-		v1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerProvisionedCondition,
-			"ImageURLCommandNotAccessible", clusterv1beta1.ConditionSeverityWarning,
-			"%s", err.Error())
-		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
-			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason,
-			Message: err.Error(),
-		})
-		return reconcile.Result{}, nil
-	}
-
-	// Fetch the SSH private key from the secret referenced in HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.
-	// Check that we have valid SSH private key in the secret. A failure could also mean there is a
-	// network failure while trying to access the api-server.
-	_, err := s.getSSHPrivateKey(ctx)
-	if err != nil {
-		err = fmt.Errorf("getSSHPrivateKey failed: %w", err)
-		s.scope.Error(err, "")
-		v1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerProvisionedCondition,
-			"GetSSHPrivateKeyFailed", clusterv1beta1.ConditionSeverityWarning,
-			"%s", err.Error())
-		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
-			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason,
-			Message: err.Error(),
-		})
-		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
-	}
-
-	// end of pre-flight checks.
 
 	// analyze status of server
 	switch server.Status {
@@ -564,6 +527,26 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 	if hm.Status.ExternalIDs.ActionIDEnableRescueSystem != actionDone {
 		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ExternalIDs.ActionIDEnableRescueSystem)
 		if err != nil {
+			if errors.Is(err, hcloudclient.ErrUnauthorized) {
+				v1beta1conditions.MarkFalse(
+					hm,
+					infrav1.HCloudTokenAvailableCondition,
+					infrav1.HCloudCredentialsInvalidReason,
+					clusterv1beta1.ConditionSeverityError,
+					"wrong hcloud token",
+				)
+				v1beta2conditions.Set(hm, metav1.Condition{
+					Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
+					Message: "wrong hcloud token",
+				})
+				return reconcile.Result{}, nil
+			}
+			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				return reconcile.Result{}, handleRateLimit(hm, err, "GetAction", "failed to get enabling rescue action")
+			}
+
 			// If this error persists, then the BootState will time out, and a new
 			// machine will be created.
 			err = fmt.Errorf("GetAction failed: %w", err)
@@ -1565,7 +1548,7 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerCreatedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerCreateFailedV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerCreationFailedV1Beta2Reason,
 			Message: msg,
 		})
 		record.Warn(hm, "FailedCreateHCloudServer", msg)
