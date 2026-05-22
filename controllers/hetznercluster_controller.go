@@ -531,6 +531,10 @@ func getAndValidateHCloudToken(ctx context.Context, namespace string, hetznerClu
 	return hcloudToken, hetznerSecret, nil
 }
 
+// hcloudTokenErrorResult handles errors from getAndValidateHCloudToken, setting the appropriate
+// v1beta1 HCloudTokenAvailable condition (always) and v1beta2 HCloudTokenAvailable condition (when
+// the setter implements v1beta2conditions.Setter). When v1beta2SummaryOpts is non-nil, it also
+// computes the Ready v1beta2 summary so early-return paths don't leave it stale.
 func hcloudTokenErrorResult(
 	ctx context.Context,
 	inerr error,
@@ -593,8 +597,8 @@ func hcloudTokenErrorResult(
 			v1beta2conditions.Set(v1beta2Setter, metav1.Condition{
 				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
-				Message: "invalid or not specified hcloud token in Hetzner secret",
+				Reason:  infrav1.InternalErrorV1Beta2Reason,
+				Message: inerr.Error(),
 			})
 		}
 
