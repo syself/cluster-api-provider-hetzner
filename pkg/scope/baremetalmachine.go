@@ -149,6 +149,7 @@ func bareMetalMachinePatchOpts() []v1beta1patch.Option {
 			clusterv1beta1.ReadyV1Beta2Condition,
 			infrav1.HCloudTokenAvailableV1Beta2Condition,
 			infrav1.HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+			infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
 			infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
 		}},
 	}

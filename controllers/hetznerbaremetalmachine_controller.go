@@ -93,8 +93,8 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 	if !hbmMachine.DeletionTimestamp.IsZero() {
 		v1beta2conditions.Set(hbmMachine, metav1.Condition{
-			Type:   infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
-			Status: metav1.ConditionFalse,
+			Type:   infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
+			Status: metav1.ConditionTrue,
 			Reason: infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
 		})
 	}

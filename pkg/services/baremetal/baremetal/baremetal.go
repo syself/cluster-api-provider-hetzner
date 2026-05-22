@@ -206,8 +206,8 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 		// remove control plane as load balancer target
 		if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-				Type:    infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
+				Type:    infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
+				Status:  metav1.ConditionTrue,
 				Reason:  infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
 				Message: "Removing server from load balancer",
 			})
@@ -226,8 +226,8 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 
 		if removeMachineSpecsFromHost(host) {
 			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-				Type:    infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
+				Type:    infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
+				Status:  metav1.ConditionTrue,
 				Reason:  infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
 				Message: "Waiting for host to deprovision",
 			})
@@ -242,8 +242,8 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 		// check if deprovisioning is done
 		if host.Spec.Status.ProvisioningState != infrav1.StateNone {
 			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-				Type:    infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
+				Type:    infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
+				Status:  metav1.ConditionTrue,
 				Reason:  infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
 				Message: fmt.Sprintf("Waiting for host to deprovision (state: %s)", host.Spec.Status.ProvisioningState),
 			})

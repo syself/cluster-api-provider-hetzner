@@ -336,6 +336,14 @@ const (
 )
 
 const (
+	// HetznerBareMetalMachineDeletingV1Beta2Condition surfaces details about ongoing deletion of the HetznerBareMetalMachine.
+	HetznerBareMetalMachineDeletingV1Beta2Condition = clusterv1beta1.DeletingV1Beta2Condition
+
+	// HetznerBareMetalMachineDeletingV1Beta2Reason surfaces when the HetznerBareMetalMachine is being deleted.
+	HetznerBareMetalMachineDeletingV1Beta2Reason = clusterv1beta1.DeletingV1Beta2Reason
+)
+
+const (
 	// HetznerBareMetalMachineHostReadyV1Beta2Condition is true when the associated host is ready.
 	HetznerBareMetalMachineHostReadyV1Beta2Condition = "HostReady"
 
@@ -347,7 +355,4 @@ const (
 
 	// HetznerBareMetalMachineHostNotReadyV1Beta2Reason surfaces when the host is not ready.
 	HetznerBareMetalMachineHostNotReadyV1Beta2Reason = "NotReady"
-
-	// HetznerBareMetalMachineDeletingV1Beta2Reason surfaces when the HetznerBareMetalMachine is being deleted.
-	HetznerBareMetalMachineDeletingV1Beta2Reason = clusterv1beta1.DeletingV1Beta2Reason
 )

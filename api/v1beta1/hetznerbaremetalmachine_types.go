@@ -426,7 +426,8 @@ func (hbmm *HetznerBareMetalMachine) SetV1Beta2Conditions(conditions []metav1.Co
 // order (highest-priority first). The ordering reflects operational importance:
 //  1. HCloudTokenAvailable - invalid credentials block everything.
 //  2. HostAssociated       - host association precedes host readiness; bootstrap readiness is folded in as a reason.
-//  3. HostReady            - underlying HetznerBareMetalHost readiness.
+//  3. Deleting             - deletion progress, which should be surfaced before host readiness.
+//  4. HostReady            - underlying HetznerBareMetalHost readiness.
 func HetznerBareMetalMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
 	return []v1beta2conditions.SummaryOption{
 		// ForConditionTypes lists every condition that contributes to Ready, in
@@ -435,6 +436,7 @@ func HetznerBareMetalMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOpti
 		v1beta2conditions.ForConditionTypes{
 			HCloudTokenAvailableV1Beta2Condition,
 			HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+			HetznerBareMetalMachineDeletingV1Beta2Condition,
 			HetznerBareMetalMachineHostReadyV1Beta2Condition,
 		},
 		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
@@ -445,14 +447,27 @@ func HetznerBareMetalMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOpti
 		v1beta2conditions.IgnoreTypesIfMissing{
 			HCloudTokenAvailableV1Beta2Condition,
 			HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+			HetznerBareMetalMachineDeletingV1Beta2Condition,
 			HetznerBareMetalMachineHostReadyV1Beta2Condition,
 		},
 		// CustomMergeStrategy is used only to override the merge reasons, so
 		// the Ready summary uses CAPI's standard Ready reasons (Ready /
 		// NotReady / ReadyUnknown) instead of the generic merge defaults
 		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
 		v1beta2conditions.CustomMergeStrategy{
 			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				v1beta2conditions.GetPriorityFunc(
+					v1beta2conditions.GetDefaultMergePriorityFunc(
+						// conditions with negative polarity
+						HetznerBareMetalMachineDeletingV1Beta2Condition,
+					),
+				),
 				v1beta2conditions.ComputeReasonFunc(
 					v1beta2conditions.GetDefaultComputeMergeReasonFunc(
 						clusterv1beta1.NotReadyV1Beta2Reason,
