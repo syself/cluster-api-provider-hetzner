@@ -706,7 +706,7 @@ func (in *HCloudRemediationV1Beta2Status) DeepCopyInto(out *HCloudRemediationV1B
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]metav1.Condition, len(*in))
+		*out = make([]v1.Condition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -859,7 +859,7 @@ func (in *HetznerBareMetalHostV1Beta2Status) DeepCopyInto(out *HetznerBareMetalH
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]metav1.Condition, len(*in))
+		*out = make([]v1.Condition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -1103,7 +1103,7 @@ func (in *HetznerBareMetalMachineV1Beta2Status) DeepCopyInto(out *HetznerBareMet
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]metav1.Condition, len(*in))
+		*out = make([]v1.Condition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
