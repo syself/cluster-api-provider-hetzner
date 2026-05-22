@@ -44,6 +44,7 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/imageurlcmd"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -764,7 +765,7 @@ func (s *Service) handleBootStateRunningImageCommandV2(ctx context.Context, hclo
 			return reconcile.Result{}, fmt.Errorf("parsing output.json: %w", err)
 		}
 
-		allSucceeded := applyNodeProvisioningConditions(hm, output)
+		allSucceeded := imageurlcmd.ApplyNodeProvisioningConditions(hm, output)
 		if !allSucceeded {
 			msg := "ImageURLCommand provisioning failed. Deleting machine"
 			s.scope.Error(errors.New(msg), "", "outputJSON", outputJSON)
@@ -802,68 +803,6 @@ func (s *Service) handleBootStateRunningImageCommandV2(ctx context.Context, hclo
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown ImageURLCommandState: %q", state)
 	}
-}
-
-// applyNodeProvisioningConditions parses an ImageURLCommandOutputV2 and sets phase conditions
-// on the HCloudMachine. Returns true if all four phases succeeded.
-func applyNodeProvisioningConditions(hm *infrav1.HCloudMachine, output sshclient.ImageURLCommandOutputV2) bool {
-	type phaseMapping struct {
-		name      string
-		condition clusterv1beta1.ConditionType
-	}
-	phases := []phaseMapping{
-		{"Preparation", infrav1.PreparationSucceededCondition},
-		{"ImageDeployment", infrav1.ImageDeploymentSucceededCondition},
-		{"BootstrapDelivery", infrav1.BootstrapDeliverySucceededCondition},
-		{"Handover", infrav1.HandoverSucceededCondition},
-	}
-
-	allSucceeded := true
-	anyFailed := false
-	for _, pm := range phases {
-		phase, ok := output.Phases[pm.name]
-		if !ok {
-			v1beta1conditions.MarkUnknown(hm, pm.condition,
-				infrav1.ProvisioningPhaseNotStartedReason, "phase not present in output.json")
-			allSucceeded = false
-			continue
-		}
-		switch phase.Status {
-		case "Succeeded":
-			v1beta1conditions.MarkTrue(hm, pm.condition)
-		case "Failed":
-			reason := infrav1.ProvisioningPhaseFailedReason
-			message := ""
-			for _, step := range phase.Steps {
-				if step.Name == phase.FailedStep {
-					reason = step.Name
-					message = step.Message
-					break
-				}
-			}
-			v1beta1conditions.MarkFalse(hm, pm.condition, reason,
-				clusterv1beta1.ConditionSeverityError, "%s", message)
-			allSucceeded = false
-			anyFailed = true
-		default: // "NotStarted" or unknown
-			v1beta1conditions.MarkUnknown(hm, pm.condition,
-				infrav1.ProvisioningPhaseNotStartedReason, "phase was not reached")
-			allSucceeded = false
-		}
-	}
-
-	if allSucceeded {
-		v1beta1conditions.MarkTrue(hm, infrav1.NodeProvisioningSucceededCondition)
-	} else if anyFailed {
-		v1beta1conditions.MarkFalse(hm, infrav1.NodeProvisioningSucceededCondition,
-			infrav1.ProvisioningPhaseFailedReason, clusterv1beta1.ConditionSeverityError,
-			"A provisioning phase failed.")
-	} else {
-		v1beta1conditions.MarkUnknown(hm, infrav1.NodeProvisioningSucceededCondition,
-			infrav1.ProvisioningPhaseNotStartedReason, "Not all phases completed.")
-	}
-
-	return allSucceeded
 }
 
 // handleBootingToRealOS is used for both ways (imageName/snapshot and imageURL).

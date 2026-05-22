@@ -174,6 +174,19 @@ type InstallImage struct {
 	// +optional
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`
 
+	// ImageURLCommandAPIVersion is the output format version of the ImageURLCommand binary.
+	// When set to "v2", CAPH reads /root/output.json after the command completes and maps each
+	// provisioning phase to a condition on the HetznerBareMetalHost (PreparationSucceeded,
+	// ImageDeploymentSucceeded, BootstrapDeliverySucceeded, HandoverSucceeded, and the aggregate
+	// NodeProvisioningSucceeded).
+	//
+	// Leave empty (default) to use the legacy IMAGE_URL_DONE log-based detection.
+	//
+	// +kubebuilder:validation:Enum="";v2
+	// +kubebuilder:validation:Optional
+	// +optional
+	ImageURLCommandAPIVersion string `json:"imageURLCommandAPIVersion,omitempty"`
+
 	// PostInstallScript (Bash) is used for configuring commands that should be executed after installimage.
 	// It is passed along with the installimage command.
 	PostInstallScript string `json:"postInstallScript,omitempty"`

@@ -154,6 +154,19 @@ spec:
                               ImageURLCommand must be set if the machine should be provisioned from Image.URL without
                               installimage. The command name must start with image-url-command-.
                             type: string
+                          imageURLCommandAPIVersion:
+                            description: |-
+                              ImageURLCommandAPIVersion is the output format version of the ImageURLCommand binary.
+                              When set to "v2", CAPH reads /root/output.json after the command completes and maps each
+                              provisioning phase to a condition on the HetznerBareMetalHost (PreparationSucceeded,
+                              ImageDeploymentSucceeded, BootstrapDeliverySucceeded, HandoverSucceeded, and the aggregate
+                              NodeProvisioningSucceeded).
+
+                              Leave empty (default) to use the legacy IMAGE_URL_DONE log-based detection.
+                            enum:
+                            - ""
+                            - v2
+                            type: string
                           logicalVolumeDefinitions:
                             description: LVMDefinitions defines the logical volume
                               definitions to be created.
