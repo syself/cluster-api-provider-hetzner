@@ -199,7 +199,6 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	machineTemplateScope, err := scope.NewHCloudMachineTemplateScope(scope.HCloudMachineTemplateScopeParams{
-		Client:                r,
 		Logger:                &log,
 		HCloudMachineTemplate: machineTemplate,
 		HCloudClient:          hcc,
