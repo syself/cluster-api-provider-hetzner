@@ -324,6 +324,19 @@ const (
 )
 
 const (
+	// HCloudMachineTemplateAvailableV1Beta2Condition reports whether the HCloudMachineTemplate is available.
+	HCloudMachineTemplateAvailableV1Beta2Condition = clusterv1beta1.AvailableV1Beta2Condition
+	// HCloudMachineTemplateAvailableV1Beta2Reason surfaces when the HCloudMachineTemplate is available.
+	HCloudMachineTemplateAvailableV1Beta2Reason = clusterv1beta1.AvailableV1Beta2Reason
+	// HCloudMachineTemplateOwnedByClusterClassV1Beta2Reason surfaces when the HCloudMachineTemplate is owned by a ClusterClass.
+	HCloudMachineTemplateOwnedByClusterClassV1Beta2Reason = "OwnedByClusterClass"
+	// HCloudMachineTemplateWaitingForOwnerClusterV1Beta2Reason surfaces when the HCloudMachineTemplate is waiting for its owner Cluster.
+	HCloudMachineTemplateWaitingForOwnerClusterV1Beta2Reason = "WaitingForOwnerCluster"
+	// HCloudMachineTemplateMissingInfrastructureRefV1Beta2Reason surfaces when the owner Cluster has no infrastructure reference.
+	HCloudMachineTemplateMissingInfrastructureRefV1Beta2Reason = "MissingInfrastructureRef"
+)
+
+const (
 	// HCloudMachineServerCreatedV1Beta2Condition reports on whether the HCloud server was created.
 	HCloudMachineServerCreatedV1Beta2Condition = "ServerCreated"
 	// HCloudMachineServerCreatedV1Beta2Reason surfaces when the HCloud server has been created.
