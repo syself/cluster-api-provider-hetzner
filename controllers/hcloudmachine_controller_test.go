@@ -819,7 +819,7 @@ var _ = Describe("Hetzner secret", func() {
 
 			expectedV1Beta2Reason := infrav1.HCloudTokenInvalidV1Beta2Reason
 			if expectedReason == infrav1.HetznerSecretUnreachableReason {
-				expectedV1Beta2Reason = infrav1.SecretUnreachableV1Beta2Reason
+				expectedV1Beta2Reason = infrav1.HCloudTokenSecretUnreachableV1Beta2Reason
 			}
 
 			Eventually(func() bool {

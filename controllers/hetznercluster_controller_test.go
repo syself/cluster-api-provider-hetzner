@@ -695,7 +695,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				Eventually(func() bool {
 					return isPresentAndTrue(key, instance, infrav1.LoadBalancerReadyCondition) &&
-						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.LoadBalancerReadyV1Beta2Condition, string(infrav1.LoadBalancerReadyV1Beta2Reason))
+						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition, string(infrav1.HetznerClusterLoadBalancerReadyV1Beta2Reason))
 				}, timeout, time.Second).Should(BeTrue())
 
 				newLBName := "new-lb-name"
@@ -765,7 +765,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				Eventually(func() bool {
 					return isPresentAndTrue(key, instance, infrav1.LoadBalancerReadyCondition) &&
-						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.LoadBalancerReadyV1Beta2Condition, string(infrav1.LoadBalancerReadyV1Beta2Reason))
+						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition, string(infrav1.HetznerClusterLoadBalancerReadyV1Beta2Reason))
 				}, timeout).Should(BeTrue())
 
 				By("adding additional extra services")
@@ -888,7 +888,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				}, timeout, time.Second).Should(BeTrue())
 
 				By("making sure LoadBalancerReady condition is not set")
-				Expect(isAbsentV1Beta2(key, instance, infrav1.LoadBalancerReadyV1Beta2Condition)).To(BeTrue())
+				Expect(isAbsentV1Beta2(key, instance, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition)).To(BeTrue())
 			})
 
 			It("should take over an existing load balancer with correct name", func() {
@@ -1023,7 +1023,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				Eventually(func() bool {
 					return isPresentAndFalseWithReason(key, instance, infrav1.LoadBalancerReadyCondition, infrav1.LoadBalancerFailedToOwnReason) &&
-						isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.LoadBalancerReadyV1Beta2Condition, infrav1.LoadBalancerOwningFailedV1Beta2Reason)
+						isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition, infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -1037,7 +1037,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				Eventually(func() bool {
 					return isPresentAndFalseWithReason(key, instance, infrav1.LoadBalancerReadyCondition, infrav1.LoadBalancerFailedToOwnReason) &&
-						isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.LoadBalancerReadyV1Beta2Condition, infrav1.LoadBalancerOwningFailedV1Beta2Reason)
+						isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition, infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -1054,7 +1054,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					}
 
 					return isPresentAndFalseWithReason(key, instance, infrav1.ControlPlaneEndpointSetCondition, infrav1.ControlPlaneEndpointNotSetReason) &&
-						isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.ControlPlaneEndpointSetV1Beta2Condition, infrav1.ControlPlaneEndpointNotSetV1Beta2Reason)
+						isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition, infrav1.HetznerClusterControlPlaneEndpointNotSetV1Beta2Reason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -1074,7 +1074,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					}
 
 					return isPresentAndFalseWithReason(key, instance, infrav1.ControlPlaneEndpointSetCondition, infrav1.ControlPlaneEndpointNotSetReason) &&
-						isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.ControlPlaneEndpointSetV1Beta2Condition, infrav1.ControlPlaneEndpointNotSetV1Beta2Reason)
+						isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition, infrav1.HetznerClusterControlPlaneEndpointNotSetV1Beta2Reason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -1094,7 +1094,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					}
 
 					return isPresentAndTrue(key, instance, infrav1.ControlPlaneEndpointSetCondition) &&
-						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.ControlPlaneEndpointSetV1Beta2Condition, infrav1.ControlPlaneEndpointSetV1Beta2Reason)
+						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Reason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -1113,7 +1113,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					}
 
 					return isPresentAndTrue(key, instance, infrav1.ControlPlaneEndpointSetCondition) &&
-						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.ControlPlaneEndpointSetV1Beta2Condition, infrav1.ControlPlaneEndpointSetV1Beta2Reason)
+						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Reason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 		})
@@ -1175,7 +1175,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 					Eventually(func() bool {
 						return isPresentAndTrue(key, instance, infrav1.PlacementGroupsSyncedCondition) &&
-							isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.PlacementGroupsSyncedV1Beta2Condition, infrav1.PlacementGroupsSyncedV1Beta2Reason)
+							isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.HetznerClusterPlacementGroupsSyncedV1Beta2Condition, infrav1.HetznerClusterPlacementGroupsSyncedV1Beta2Reason)
 					}, timeout).Should(BeTrue())
 
 					By("checking for presence of HCloudPlacementGroup objects")
@@ -1397,7 +1397,7 @@ var _ = Describe("Hetzner secret", func() {
 					"hcloud": []byte("my-token"),
 				},
 			}
-		}, infrav1.HetznerSecretUnreachableReason, infrav1.SecretUnreachableV1Beta2Reason),
+		}, infrav1.HetznerSecretUnreachableReason, infrav1.HCloudTokenSecretUnreachableV1Beta2Reason),
 		Entry("empty hcloud token", func() *corev1.Secret {
 			return &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
