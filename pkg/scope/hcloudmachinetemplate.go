@@ -23,8 +23,11 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2/textlogger"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -88,11 +91,55 @@ func (s *HCloudMachineTemplateScope) Namespace() string {
 
 // Close closes the current scope persisting the cluster configuration and status.
 func (s *HCloudMachineTemplateScope) Close(ctx context.Context) error {
+	// set summary for v1beta1 conditions.
 	v1beta1conditions.SetSummary(s.HCloudMachineTemplate)
-	return s.patchHelper.Patch(ctx, s.HCloudMachineTemplate)
+
+	// set summary for v1beta2 conditions.
+	if err := SetHCloudMachineTemplateV1Beta2SummaryCondition(s.HCloudMachineTemplate); err != nil {
+		s.Error(err, "Failed to set v1beta2 Ready condition")
+		unknownReadyCondition := metav1.Condition{
+			Type:   clusterv1beta1.ReadyV1Beta2Condition,
+			Status: metav1.ConditionUnknown,
+			Reason: infrav1.InternalErrorV1Beta2Reason,
+		}
+		v1beta2conditions.Set(s.HCloudMachineTemplate, unknownReadyCondition)
+
+		patchErr := s.patchHelper.Patch(ctx, s.HCloudMachineTemplate, MachineTemplatePatchOpts()...)
+		return errors.Join(err, patchErr)
+	}
+
+	return s.patchHelper.Patch(ctx, s.HCloudMachineTemplate, MachineTemplatePatchOpts()...)
 }
 
 // PatchObject persists the machine spec and status.
 func (s *HCloudMachineTemplateScope) PatchObject(ctx context.Context) error {
-	return s.patchHelper.Patch(ctx, s.HCloudMachineTemplate)
+	return s.patchHelper.Patch(ctx, s.HCloudMachineTemplate, MachineTemplatePatchOpts()...)
+}
+
+// SetHCloudMachineTemplateV1Beta2SummaryCondition computes the HCloudMachineTemplate v1beta2 Ready condition.
+func SetHCloudMachineTemplateV1Beta2SummaryCondition(hcloudMachineTemplate *infrav1.HCloudMachineTemplate) error {
+	return v1beta2conditions.SetSummaryCondition(hcloudMachineTemplate, hcloudMachineTemplate, clusterv1beta1.ReadyV1Beta2Condition,
+		infrav1.HCloudMachineTemplateV1Beta2SummaryOpts()...,
+	)
+}
+
+// MachineTemplatePatchOpts returns the list of patch.Option for HCloudMachineTemplate,
+// declaring both the v1beta1 and v1beta2 conditions owned by this controller so the
+// patch helper handles three-way merge correctly across concurrent updates.
+func MachineTemplatePatchOpts() []v1beta1patch.Option {
+	return []v1beta1patch.Option{
+		// owned v1beta1 conditions.
+		v1beta1patch.WithOwnedConditions{Conditions: []clusterv1beta1.ConditionType{
+			clusterv1beta1.ReadyCondition,
+			infrav1.HCloudTokenAvailableCondition,
+			infrav1.HetznerAPIReachableCondition,
+		}},
+		// owned v1beta2 conditions.
+		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
+			clusterv1beta1.ReadyV1Beta2Condition,
+			infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
+			infrav1.HCloudTokenAvailableV1Beta2Condition,
+			infrav1.HCloudRateLimitExceededV1Beta2Condition,
+		}},
+	}
 }
