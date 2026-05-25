@@ -62,9 +62,9 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 			)
 
 			v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-				Type:    infrav1.PlacementGroupsSyncedV1Beta2Condition,
+				Type:    infrav1.HetznerClusterPlacementGroupsSyncedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.PlacementGroupsSyncingFailedV1Beta2Reason,
+				Reason:  infrav1.HetznerClusterPlacementGroupsSyncingFailedV1Beta2Reason,
 				Message: err.Error(),
 			})
 		}
@@ -142,9 +142,9 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	v1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav1.PlacementGroupsSyncedCondition)
 
 	v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-		Type:   infrav1.PlacementGroupsSyncedV1Beta2Condition,
+		Type:   infrav1.HetznerClusterPlacementGroupsSyncedV1Beta2Condition,
 		Status: metav1.ConditionTrue,
-		Reason: infrav1.PlacementGroupsSyncedV1Beta2Reason,
+		Reason: infrav1.HetznerClusterPlacementGroupsSyncedV1Beta2Reason,
 	})
 
 	return nil

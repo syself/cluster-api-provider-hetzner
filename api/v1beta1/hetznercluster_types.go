@@ -179,21 +179,21 @@ func ClusterV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
 		v1beta2conditions.ForConditionTypes{
 			HCloudTokenAvailableV1Beta2Condition,
 			HCloudRateLimitExceededV1Beta2Condition,
-			clusterv1beta1.DeletingV1Beta2Condition,
-			NetworkReadyV1Beta2Condition,
-			LoadBalancerReadyV1Beta2Condition,
-			PlacementGroupsSyncedV1Beta2Condition,
-			ControlPlaneEndpointSetV1Beta2Condition,
-			TargetClusterReadyV1Beta2Condition,
-			TargetClusterSecretReadyV1Beta2Condition,
+			HetznerClusterDeletingV1Beta2Condition,
+			HetznerClusterNetworkReadyV1Beta2Condition,
+			HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			HetznerClusterPlacementGroupsSyncedV1Beta2Condition,
+			HetznerClusterControlPlaneEndpointSetV1Beta2Condition,
+			HetznerClusterTargetClusterReadyV1Beta2Condition,
+			HetznerClusterTargetClusterSecretReadyV1Beta2Condition,
 		},
 		// IgnoreTypesIfMissing lists conditions that may legitimately not be present on the object.
 		// If any of these are missing, the summary treats them as if they are healthy.
 		v1beta2conditions.IgnoreTypesIfMissing{
-			NetworkReadyV1Beta2Condition,
-			LoadBalancerReadyV1Beta2Condition,
+			HetznerClusterNetworkReadyV1Beta2Condition,
+			HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			HetznerClusterDeletingV1Beta2Condition,
 			HCloudRateLimitExceededV1Beta2Condition,
-			clusterv1beta1.DeletingV1Beta2Condition,
 		},
 		// CustomMergeStrategy is used only to override the merge reasons, so
 		// the Ready summary uses CAPI's standard Ready reasons (Ready /
@@ -210,7 +210,7 @@ func ClusterV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
 				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
 					// conditions with negative polarity
 					HCloudRateLimitExceededV1Beta2Condition,
-					clusterv1beta1.DeletingV1Beta2Condition,
+					HetznerClusterDeletingV1Beta2Condition,
 				)),
 				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(
 					clusterv1beta1.NotReadyV1Beta2Reason,

@@ -101,9 +101,9 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 					)
 
 					v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-						Type:    infrav1.LoadBalancerReadyV1Beta2Condition,
+						Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
 						Status:  metav1.ConditionFalse,
-						Reason:  infrav1.LoadBalancerReadyMissingControlPlaneEndpointV1Beta2Reason,
+						Reason:  infrav1.HetznerClusterLoadBalancerMissingControlPlaneEndpointV1Beta2Reason,
 						Message: err.Error(),
 					})
 
@@ -129,9 +129,9 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		)
 
 		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.LoadBalancerReadyV1Beta2Condition,
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.LoadBalancerReadyMissingControlPlaneEndpointV1Beta2Reason,
+			Reason:  infrav1.HetznerClusterLoadBalancerMissingControlPlaneEndpointV1Beta2Reason,
 			Message: err.Error(),
 		})
 
@@ -153,9 +153,9 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		)
 
 		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.LoadBalancerReadyV1Beta2Condition,
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.LoadBalancerReadySyncingServicesFailedV1Beta2Reason,
+			Reason:  infrav1.HetznerClusterLoadBalancerSyncingServicesFailedV1Beta2Reason,
 			Message: err.Error(),
 		})
 
@@ -165,9 +165,9 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	v1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav1.LoadBalancerReadyCondition)
 
 	v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-		Type:   infrav1.LoadBalancerReadyV1Beta2Condition,
+		Type:   infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
 		Status: metav1.ConditionTrue,
-		Reason: string(infrav1.LoadBalancerReadyV1Beta2Reason),
+		Reason: string(infrav1.HetznerClusterLoadBalancerReadyV1Beta2Reason),
 	})
 
 	return reconcile.Result{}, nil
@@ -197,9 +197,9 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 		)
 
 		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.LoadBalancerReadyV1Beta2Condition,
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.LoadBalancerReadyAttachingToNetworkFailedV1Beta2Reason,
+			Reason:  infrav1.HetznerClusterLoadBalancerAttachingToNetworkFailedV1Beta2Reason,
 			Message: err.Error(),
 		})
 
@@ -233,9 +233,9 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 		)
 
 		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.LoadBalancerReadyV1Beta2Condition,
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.LoadBalancerReadyAttachingToNetworkFailedV1Beta2Reason,
+			Reason:  infrav1.HetznerClusterLoadBalancerAttachingToNetworkFailedV1Beta2Reason,
 			Message: err.Error(),
 		})
 
@@ -373,9 +373,9 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 		)
 
 		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.LoadBalancerReadyV1Beta2Condition,
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.LoadBalancerCreationFailedV1Beta2Reason,
+			Reason:  infrav1.HetznerClusterLoadBalancerCreationFailedV1Beta2Reason,
 			Message: err.Error(),
 		})
 
@@ -463,9 +463,9 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 			)
 
 			v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-				Type:    infrav1.LoadBalancerReadyV1Beta2Condition,
+				Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.LoadBalancerUpdateFailedV1Beta2Reason,
+				Reason:  infrav1.HetznerClusterLoadBalancerUpdateFailedV1Beta2Reason,
 				Message: err.Error(),
 			})
 
@@ -496,9 +496,9 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 		)
 
 		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.LoadBalancerReadyV1Beta2Condition,
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.LoadBalancerDeletionFailedV1Beta2Reason,
+			Reason:  infrav1.HetznerClusterLoadBalancerDeletionFailedV1Beta2Reason,
 			Message: err.Error(),
 		})
 
@@ -559,9 +559,9 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 		)
 
 		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.LoadBalancerReadyV1Beta2Condition,
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.LoadBalancerOwningFailedV1Beta2Reason,
+			Reason:  infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason,
 			Message: fmt.Sprintf("load balancer %q not found", name),
 		})
 
@@ -582,9 +582,9 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 			)
 
 			v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-				Type:    infrav1.LoadBalancerReadyV1Beta2Condition,
+				Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.LoadBalancerOwningFailedV1Beta2Reason,
+				Reason:  infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason,
 				Message: fmt.Sprintf("load balancer %q already owned with label %q", name, label),
 			})
 
@@ -614,9 +614,9 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 		)
 
 		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.LoadBalancerReadyV1Beta2Condition,
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.LoadBalancerOwningFailedV1Beta2Reason,
+			Reason:  infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason,
 			Message: err.Error(),
 		})
 

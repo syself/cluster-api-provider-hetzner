@@ -196,9 +196,9 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Handle deleted clusters
 	if !hetznerCluster.DeletionTimestamp.IsZero() {
 		v1beta2conditions.Set(hetznerCluster, metav1.Condition{
-			Type:   clusterv1beta1.DeletingV1Beta2Condition,
+			Type:   infrav1.HetznerClusterDeletingV1Beta2Condition,
 			Status: metav1.ConditionTrue,
-			Reason: clusterv1beta1.DeletingV1Beta2Reason,
+			Reason: infrav1.HetznerClusterDeletingV1Beta2Reason,
 		})
 
 		return r.reconcileDelete(ctx, clusterScope)
@@ -260,9 +260,9 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	v1beta1conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterReadyCondition)
 
 	v1beta2conditions.Set(hetznerCluster, metav1.Condition{
-		Type:   infrav1.TargetClusterReadyV1Beta2Condition,
+		Type:   infrav1.HetznerClusterTargetClusterReadyV1Beta2Condition,
 		Status: metav1.ConditionTrue,
-		Reason: string(infrav1.TargetClusterReadyV1Beta2Reason),
+		Reason: string(infrav1.HetznerClusterTargetClusterReadyV1Beta2Reason),
 	})
 
 	result, err = reconcileWorkloadClusterSecrets(ctx, clusterScope)
@@ -278,9 +278,9 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		)
 
 		v1beta2conditions.Set(hetznerCluster, metav1.Condition{
-			Type:    infrav1.TargetClusterSecretReadyV1Beta2Condition,
+			Type:    infrav1.HetznerClusterTargetClusterSecretReadyV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.TargetClusterSyncingSecretFailedV1Beta2Reason,
+			Reason:  infrav1.HetznerClusterTargetClusterSyncingSecretFailedV1Beta2Reason,
 			Message: reterr.Error(),
 		})
 
@@ -294,9 +294,9 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	v1beta1conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterSecretReadyCondition)
 
 	v1beta2conditions.Set(hetznerCluster, metav1.Condition{
-		Type:   infrav1.TargetClusterSecretReadyV1Beta2Condition,
+		Type:   infrav1.HetznerClusterTargetClusterSecretReadyV1Beta2Condition,
 		Status: metav1.ConditionTrue,
-		Reason: string(infrav1.TargetClusterSecretReadyV1Beta2Reason),
+		Reason: string(infrav1.HetznerClusterTargetClusterSecretReadyV1Beta2Reason),
 	})
 
 	return reconcile.Result{}, nil
@@ -324,9 +324,9 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 			v1beta1conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
 
 			v1beta2conditions.Set(hetznerCluster, metav1.Condition{
-				Type:   infrav1.ControlPlaneEndpointSetV1Beta2Condition,
+				Type:   infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition,
 				Status: metav1.ConditionTrue,
-				Reason: infrav1.ControlPlaneEndpointSetV1Beta2Reason,
+				Reason: infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Reason,
 			})
 
 			hetznerCluster.Status.Ready = true
@@ -339,9 +339,9 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 				msg)
 
 			v1beta2conditions.Set(hetznerCluster, metav1.Condition{
-				Type:    infrav1.ControlPlaneEndpointSetV1Beta2Condition,
+				Type:    infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.ControlPlaneEndpointNotSetV1Beta2Reason,
+				Reason:  infrav1.HetznerClusterControlPlaneEndpointNotSetV1Beta2Reason,
 				Message: msg,
 			})
 
@@ -352,9 +352,9 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 			v1beta1conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
 
 			v1beta2conditions.Set(hetznerCluster, metav1.Condition{
-				Type:   infrav1.ControlPlaneEndpointSetV1Beta2Condition,
+				Type:   infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition,
 				Status: metav1.ConditionTrue,
-				Reason: infrav1.ControlPlaneEndpointSetV1Beta2Reason,
+				Reason: infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Reason,
 			})
 
 			hetznerCluster.Status.Ready = true
@@ -367,9 +367,9 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 				msg)
 
 			v1beta2conditions.Set(hetznerCluster, metav1.Condition{
-				Type:    infrav1.ControlPlaneEndpointSetV1Beta2Condition,
+				Type:    infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.ControlPlaneEndpointNotSetV1Beta2Reason,
+				Reason:  infrav1.HetznerClusterControlPlaneEndpointNotSetV1Beta2Reason,
 				Message: msg,
 			})
 
@@ -560,7 +560,7 @@ func hcloudTokenErrorResult(
 			v1beta2conditions.Set(v1beta2Setter, metav1.Condition{
 				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.SecretUnreachableV1Beta2Reason,
+				Reason:  infrav1.HCloudTokenSecretUnreachableV1Beta2Reason,
 				Message: "could not find HetznerSecret",
 			})
 		}
@@ -655,9 +655,9 @@ func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.Cl
 		)
 
 		v1beta2conditions.Set(clusterScope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.TargetClusterSecretReadyV1Beta2Condition,
+			Type:    infrav1.HetznerClusterTargetClusterSecretReadyV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.TargetClusterControlPlaneNotReadyV1Beta2Reason,
+			Reason:  infrav1.HetznerClusterTargetClusterControlPlaneNotReadyV1Beta2Reason,
 			Message: "target cluster not ready",
 		})
 
@@ -807,9 +807,9 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 			)
 
 			v1beta2conditions.Set(clusterScope.HetznerCluster, metav1.Condition{
-				Type:    infrav1.TargetClusterReadyV1Beta2Condition,
+				Type:    infrav1.HetznerClusterTargetClusterReadyV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.TargetClusterCreationFailedV1Beta2Reason,
+				Reason:  infrav1.HetznerClusterTargetClusterCreationFailedV1Beta2Reason,
 				Message: err.Error(),
 			})
 
@@ -850,9 +850,9 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 				)
 
 				v1beta2conditions.Set(clusterScope.HetznerCluster, metav1.Condition{
-					Type:    infrav1.TargetClusterReadyV1Beta2Condition,
+					Type:    infrav1.HetznerClusterTargetClusterReadyV1Beta2Condition,
 					Status:  metav1.ConditionFalse,
-					Reason:  infrav1.TargetClusterCreationFailedV1Beta2Reason,
+					Reason:  infrav1.HetznerClusterTargetClusterCreationFailedV1Beta2Reason,
 					Message: msg,
 				})
 			} else {

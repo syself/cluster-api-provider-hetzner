@@ -69,9 +69,9 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 			)
 
 			v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-				Type:    infrav1.NetworkReadyV1Beta2Condition,
+				Type:    infrav1.HetznerClusterNetworkReadyV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.NetworkReconcilingFailedV1Beta2Reason,
+				Reason:  infrav1.HetznerClusterNetworkReconcilingFailedV1Beta2Reason,
 				Message: err.Error(),
 			})
 		}
@@ -92,9 +92,9 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	v1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkReadyCondition)
 
 	v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-		Type:   infrav1.NetworkReadyV1Beta2Condition,
+		Type:   infrav1.HetznerClusterNetworkReadyV1Beta2Condition,
 		Status: metav1.ConditionTrue,
-		Reason: string(infrav1.NetworkReadyV1Beta2Reason),
+		Reason: string(infrav1.HetznerClusterNetworkReadyV1Beta2Reason),
 	})
 
 	s.scope.HetznerCluster.Status.Network = statusFromHCloudNetwork(network)
