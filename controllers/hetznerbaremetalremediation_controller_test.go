@@ -75,6 +75,58 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 
 		machineName = utils.GenerateName(nil, "machine")
 
+		// Set up mock expectations immediately after namespace reset, before any object
+		// creation. This prevents a race where a stale reconcile goroutine from a previous
+		// test reads the newly-created mock factory (set by ResetAndInitNamespace) before
+		// On() expectations are registered, causing an unexpected-call failure that gets
+		// attributed to this BeforeEach via Ginkgo's global test state.
+		robotClient = testEnv.RobotClient
+		rescueSSHClient = testEnv.RescueSSHClient
+		osSSHClientAfterInstallImage = testEnv.OSSSHClientAfterInstallImage
+		osSSHClientAfterCloudInit = testEnv.OSSSHClientAfterCloudInit
+
+		robotClient.On("GetBMServer", mock.Anything).Return(&models.Server{
+			ServerNumber: 1,
+			ServerIP:     "1.2.3.4",
+			Rescue:       true,
+		}, nil)
+		robotClient.On("ListSSHKeys").Return([]models.Key{
+			{
+				Name:        "my-name",
+				Fingerprint: "my-fingerprint",
+				Data:        "my-public-key",
+			},
+		}, nil)
+		robotClient.On("GetReboot", mock.Anything).Return(&models.Reset{Type: []string{"hw", "sw"}}, nil)
+		robotClient.On("GetBootRescue", 1).Return(&models.Rescue{Active: true}, nil)
+		robotClient.On("SetBootRescue", mock.Anything, mock.Anything).Return(&models.Rescue{Active: true}, nil)
+		robotClient.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
+		robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
+		robotClient.On("SetBMServerName", mock.Anything, mock.Anything).Return(nil, nil)
+
+		configureRescueSSHClient(rescueSSHClient)
+
+		osSSHClientAfterInstallImage.On("Reboot", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
+		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+		osSSHClientAfterInstallImage.On("GetHostName", mock.Anything).Return(sshclient.Output{
+			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
+			StdErr: "",
+			Err:    nil,
+		})
+		osSSHClientAfterCloudInit.On("Reboot", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterCloudInit.On("GetHostName", mock.Anything).Return(sshclient.Output{
+			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
+			StdErr: "",
+			Err:    nil,
+		})
+		osSSHClientAfterCloudInit.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
+		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterCloudInit.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterCloudInit.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+
 		capiCluster = &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test1-",
@@ -178,53 +230,6 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		}
 
 		hetznerBaremetalRemediationkey = client.ObjectKey{Namespace: testNs.Name, Name: "hetzner-baremetal-remediation"}
-
-		robotClient = testEnv.RobotClient
-		rescueSSHClient = testEnv.RescueSSHClient
-		osSSHClientAfterInstallImage = testEnv.OSSSHClientAfterInstallImage
-		osSSHClientAfterCloudInit = testEnv.OSSSHClientAfterCloudInit
-
-		robotClient.On("GetBMServer", mock.Anything).Return(&models.Server{
-			ServerNumber: 1,
-			ServerIP:     "1.2.3.4",
-			Rescue:       true,
-		}, nil)
-		robotClient.On("ListSSHKeys").Return([]models.Key{
-			{
-				Name:        "my-name",
-				Fingerprint: "my-fingerprint",
-				Data:        "my-public-key",
-			},
-		}, nil)
-		robotClient.On("GetReboot", mock.Anything).Return(&models.Reset{Type: []string{"hw", "sw"}}, nil)
-		robotClient.On("GetBootRescue", 1).Return(&models.Rescue{Active: true}, nil)
-		robotClient.On("SetBootRescue", mock.Anything, mock.Anything).Return(&models.Rescue{Active: true}, nil)
-		robotClient.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
-		robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
-		robotClient.On("SetBMServerName", mock.Anything, mock.Anything).Return(nil, nil)
-
-		configureRescueSSHClient(rescueSSHClient)
-
-		osSSHClientAfterInstallImage.On("Reboot", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
-		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
-		osSSHClientAfterInstallImage.On("GetHostName", mock.Anything).Return(sshclient.Output{
-			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
-			StdErr: "",
-			Err:    nil,
-		})
-		osSSHClientAfterCloudInit.On("Reboot", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterCloudInit.On("GetHostName", mock.Anything).Return(sshclient.Output{
-			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
-			StdErr: "",
-			Err:    nil,
-		})
-		osSSHClientAfterCloudInit.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
-		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterCloudInit.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterCloudInit.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 	})
 
 	AfterEach(func() {
