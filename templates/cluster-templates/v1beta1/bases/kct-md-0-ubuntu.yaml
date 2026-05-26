@@ -1,4 +1,4 @@
-apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
 kind: KubeadmConfigTemplate
 metadata:
   name: "${CLUSTER_NAME}-md-0"
@@ -8,17 +8,10 @@ spec:
       joinConfiguration:
         nodeRegistration:
           kubeletExtraArgs:
-            cloud-provider: external
-            tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
-            kubeconfig: /etc/kubernetes/kubelet.conf
-            authentication-token-webhook: "true"
-            authorization-mode: Webhook
-            anonymous-auth: "false"
-            read-only-port: "0"
-            event-qps: "5"
-            rotate-server-certificates: "true"
-            max-pods: "220"
-            resolv-conf: /etc/kubernetes/resolv.conf
+            - name: cloud-provider
+              value: external
+            - name: config
+              value: /etc/kubernetes/kubelet/config.yaml
       files:
         - path: /etc/sysctl.d/99-cilium.conf
           owner: "root:root"
@@ -52,6 +45,33 @@ spec:
             nameserver 1.1.1.1
             nameserver 1.0.0.1
             nameserver 2606:4700:4700::1111
+        - path: /etc/kubernetes/kubelet/config.yaml
+          owner: "root:root"
+          permissions: "0644"
+          content: |
+            apiVersion: kubelet.config.k8s.io/v1beta1
+            kind: KubeletConfiguration
+            authentication:
+              anonymous:
+                enabled: false
+              webhook:
+                enabled: true
+            authorization:
+              mode: Webhook
+            eventRecordQPS: 5
+            maxPods: 220
+            readOnlyPort: 0
+            resolvConf: /etc/kubernetes/resolv.conf
+            serverTLSBootstrap: true
+            tlsCipherSuites:
+              - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+              - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+              - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+              - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+              - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+              - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+              - TLS_RSA_WITH_AES_256_GCM_SHA384
+              - TLS_RSA_WITH_AES_128_GCM_SHA256
         - content: |
             # Copyright The containerd Authors.
             #
@@ -102,7 +122,7 @@ spec:
       preKubeadmCommands:
         - set -x
         - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
-        - export CONTAINERD=1.7.26 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
+        - export CONTAINERD=2.3.1 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
         - export RUNC=1.2.5
         - export KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//')
         - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')

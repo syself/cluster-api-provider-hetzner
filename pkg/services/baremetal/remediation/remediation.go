@@ -25,9 +25,11 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -94,6 +96,25 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, nil
 	}
 
+	// Skip remediation when the previous successful remediation is within the cooldown window.
+	// Only evaluated on a fresh CR (Phase is empty) to avoid interrupting in-progress remediations.
+	if s.scope.BareMetalRemediation.Status.Phase == "" {
+		cooldown := s.scope.BareMetalRemediation.Spec.Strategy.EffectiveCooldown()
+		if cooldown > 0 && s.scope.BareMetalMachine.Status.LastRemediatedAt != nil {
+			since := time.Since(s.scope.BareMetalMachine.Status.LastRemediatedAt.Time)
+			if since < cooldown {
+				err := s.markRemediationSkipped(ctx,
+					fmt.Sprintf("skipping reboot: last remediation completed %s ago (cooldown window: %s)",
+						since.Round(time.Second), cooldown.Round(time.Second)))
+				if err != nil {
+					record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
+					return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
+				}
+				return reconcile.Result{}, nil
+			}
+		}
+	}
+
 	// If no phase set, default to running
 	if s.scope.BareMetalRemediation.Status.Phase == "" {
 		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseRunning
@@ -104,7 +125,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		return s.handlePhaseRunning(ctx, host)
 	case infrav1.PhaseWaiting:
 		return s.handlePhaseWaiting(ctx)
-	case infrav1.PhaseDeleting:
+	case infrav1.PhaseDeleting, infrav1.PhaseSucceeded:
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, fmt.Errorf("internal error, unhandled BareMetalRemediation.Status.Phase: %v", s.scope.BareMetalRemediation.Status.Phase)
@@ -143,7 +164,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerB
 func (s *Service) remediate(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
 	var err error
 
-	patchHelper, err := patch.NewHelper(host, s.scope.Client)
+	patchHelper, err := v1beta1patch.NewHelper(host, s.scope.Client)
 	if err != nil {
 		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
@@ -175,6 +196,15 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result,
 	if nextCheck > 0 {
 		// Not yet time to stop remediation, requeue
 		return reconcile.Result{RequeueAfter: nextCheck}, nil
+	}
+
+	capiMachine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.BareMetalRemediation.ObjectMeta)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return reconcile.Result{}, fmt.Errorf("failed to get owner machine: %w", err)
+	}
+	if capiMachine != nil && conditions.IsTrue(capiMachine, clusterv1.MachineNodeHealthyCondition) {
+		return reconcile.Result{}, s.markRemediationSucceeded(ctx, capiMachine,
+			"reboot remediation succeeded: Node is healthy again")
 	}
 
 	return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx, "because retryLimit is reached and reboot timed out")
@@ -224,13 +254,21 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
 	// moves control to CAPI machine controller. The owning controller will do
 	// preflight checks and handles the Machine deletion.
-	conditions.MarkFalse(
+	// Dual-write: deprecated v1beta1 list AND v1beta2 list. CAPI v1.13 MachineSet
+	// reads from the v1beta2 list to trigger Machine deletion.
+	deprecatedv1beta1conditions.MarkFalse(
 		capiMachine,
-		clusterv1.MachineOwnerRemediatedCondition,
-		clusterv1.WaitingForRemediationReason,
+		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
+		clusterv1.WaitingForRemediationV1Beta1Reason,
 		clusterv1.ConditionSeverityWarning,
 		"Remediation finished (machine will be deleted): %s", msg,
 	)
+	conditions.Set(capiMachine, metav1.Condition{
+		Type:    clusterv1.MachineOwnerRemediatedCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  clusterv1.MachineOwnerRemediatedWaitingForRemediationReason,
+		Message: fmt.Sprintf("Remediation finished (machine will be deleted): %s", msg),
+	})
 
 	if err := patchHelper.Patch(ctx, capiMachine); err != nil {
 		// retry
@@ -240,6 +278,91 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	record.Event(s.scope.BareMetalRemediation, "ExitRemediation", msg)
 
 	// do not retry
+	s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
+	return nil
+}
+
+// markRemediationSucceeded updates three resources on success:
+//   - CAPI Machine: clears the cluster.x-k8s.io/remediate-machine annotation
+//     (CAPI MHC does not clear it for external remediation).
+//   - HetznerBareMetalMachine: stamps LastRemediatedAt on its status for the
+//     cooldown guard.
+//   - HetznerBareMetalRemediation: moves the CR to PhaseSucceeded.
+//
+// MachineOwnerRemediatedCondition on the CAPI Machine is intentionally left
+// untouched: it belongs to the Machine's owning controller
+// (MachineSet/KCP/MachineDeployment), not to external remediation.
+func (s *Service) markRemediationSucceeded(ctx context.Context, capiMachine *clusterv1.Machine, msg string) error {
+	machinePatchHelper, err := patch.NewHelper(capiMachine, s.scope.Client)
+	if err != nil {
+		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
+	}
+
+	delete(capiMachine.Annotations, clusterv1.RemediateMachineAnnotation)
+
+	if err := machinePatchHelper.Patch(ctx, capiMachine); err != nil {
+		return fmt.Errorf("failed to patch: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
+	}
+
+	bareMetalMachinePatchHelper, err := patch.NewHelper(s.scope.BareMetalMachine, s.scope.Client)
+	if err != nil {
+		return fmt.Errorf("failed to init patch helper for baremetal machine: %w", err)
+	}
+
+	now := metav1.Now()
+	s.scope.BareMetalMachine.Status.LastRemediatedAt = &now
+
+	if err := bareMetalMachinePatchHelper.Patch(ctx, s.scope.BareMetalMachine); err != nil {
+		return fmt.Errorf("failed to patch baremetal machine: %w", err)
+	}
+
+	record.Event(s.scope.BareMetalRemediation, "RemediationSucceeded", msg)
+
+	s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseSucceeded
+	return nil
+}
+
+// markRemediationSkipped escalates to deletion via MachineOwnerRemediated=False
+// using RemediationCooldownTriggeredReason, so operators can distinguish a
+// cooldown skip from a genuine failure.
+func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error {
+	capiMachine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.BareMetalRemediation.ObjectMeta)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get capi machine: %w", err)
+		}
+		record.Event(s.scope.BareMetalRemediation, "CapiMachineGone", "CAPI machine does not exist. Remediation will be stopped. Infra Machine will be deleted soon by GC.")
+		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
+		return nil
+	}
+
+	patchHelper, err := patch.NewHelper(capiMachine, s.scope.Client)
+	if err != nil {
+		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
+	}
+
+	// Dual-write: deprecated v1beta1 list AND v1beta2 list. CAPI v1.13 MachineSet
+	// reads from the v1beta2 list to trigger Machine deletion.
+	deprecatedv1beta1conditions.MarkFalse(
+		capiMachine,
+		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
+		infrav1.RemediationCooldownTriggeredReason,
+		clusterv1.ConditionSeverityWarning,
+		"Remediation cooldown active (machine will be deleted): %s", msg,
+	)
+	conditions.Set(capiMachine, metav1.Condition{
+		Type:    clusterv1.MachineOwnerRemediatedCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  infrav1.RemediationCooldownTriggeredReason,
+		Message: fmt.Sprintf("Remediation cooldown active (machine will be deleted): %s", msg),
+	})
+
+	if err := patchHelper.Patch(ctx, capiMachine); err != nil {
+		return fmt.Errorf("failed to patch: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
+	}
+
+	record.Event(s.scope.BareMetalRemediation, "RemediationSkipped", msg)
+
 	s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
 	return nil
 }

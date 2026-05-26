@@ -139,7 +139,7 @@ type HetznerSecretKeyRef struct {
 	HCloudToken string `json:"hcloudToken"`
 
 	// HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
-	// stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
+	// stored. It gets used for reading the credential in the mgt-cluster, and it gets used for
 	// creating a secret in the wl-cluster. We recommend to use "robot-user", because this is the
 	// default of upstream hcloud-ccm.
 	//

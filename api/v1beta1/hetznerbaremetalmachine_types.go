@@ -24,7 +24,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 )
 
 const (
@@ -118,6 +119,11 @@ type SSHSpec struct {
 	// SecretRef gives reference to the secret where the SSH key is stored.
 	SecretRef SSHSecretRef `json:"secretRef"`
 
+	// NoSSHAfterInstallImage disables SSH access to the machine after installimage
+	// completed successfully.
+	// +optional
+	NoSSHAfterInstallImage bool `json:"noSSHAfterInstallImage,omitempty"`
+
 	// PortAfterInstallImage specifies the port that has to be used to connect to the machine
 	// by reaching the server via SSH after installing the image successfully.
 	// +kubebuilder:default=22
@@ -157,6 +163,18 @@ type InstallImage struct {
 	// Image is the image to be provisioned. It defines the image for baremetal machine.
 	Image Image `json:"image"`
 
+	// ImageURLCommand is the basename of a command file below /shared on the controller pod which
+	// provisions a machine from Image.URL. CAPH copies that command into the rescue system and
+	// executes it there.
+	//
+	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	//
+	// ImageURLCommand must be set if the machine should be provisioned from Image.URL without
+	// installimage. The command name must start with image-url-command-.
+	// +kubebuilder:validation:Optional
+	// +optional
+	ImageURLCommand string `json:"imageURLCommand,omitempty"`
+
 	// PostInstallScript (Bash) is used for configuring commands that should be executed after installimage.
 	// It is passed along with the installimage command.
 	PostInstallScript string `json:"postInstallScript,omitempty"`
@@ -186,15 +204,15 @@ type InstallImage struct {
 	SwraidLevel int `json:"swraidLevel,omitempty"`
 }
 
+// UsesImageURLCommand reports whether the machine should be provisioned via image-url-command.
+func (installImage InstallImage) UsesImageURLCommand() bool {
+	return installImage.ImageURLCommand != ""
+}
+
 // Image defines the properties for the autosetup config.
 type Image struct {
 	// URL defines the remote URL for downloading a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
 	URL string `json:"url,omitempty"`
-
-	// UseCustomImageURLCommand makes the controller use the command provided by `--baremetal-image-url-command` instead of installimage.
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
-	// +optional
-	UseCustomImageURLCommand bool `json:"useCustomImageURLCommand"`
 
 	// Name defines the archive name after download. This has to be a valid name for Installimage.
 	Name string `json:"name,omitempty"`
@@ -205,10 +223,6 @@ type Image struct {
 
 // GetDetails returns the path of the image and whether the image has to be downloaded.
 func (image Image) GetDetails() (imagePath string, needsDownload bool, errorMessage string) {
-	// If image is set, then the URL is also set and we have to download a remote file
-	if image.UseCustomImageURLCommand {
-		return "", false, "internal error: image.UseCustomImageURLCommand is active. Method GetDetails() should be used for the traditional way (without image-url-command)."
-	}
 	switch {
 	case image.Name != "" && image.URL != "":
 		suffix, err := GetImageSuffix(image.URL)
@@ -318,7 +332,7 @@ type HetznerBareMetalMachineStatus struct {
 	// Addresses is a list of addresses assigned to the machine.
 	// This field is copied from the infrastructure provider reference.
 	// +optional
-	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
+	Addresses []clusterv1beta1.MachineAddress `json:"addresses,omitempty"`
 
 	// Ready is the state of the hetznerbaremetalmachine.
 	// +optional
@@ -327,11 +341,31 @@ type HetznerBareMetalMachineStatus struct {
 	// Phase represents the current phase of HetznerBareMetalMachineStatus actuation.
 	// E.g. Pending, Running, Terminating, Failed, etc.
 	// +optional
-	Phase clusterv1.MachinePhase `json:"phase,omitempty"`
+	Phase clusterv1beta1.MachinePhase `json:"phase,omitempty"`
 
 	// Conditions define the current service state of the HetznerBareMetalMachine.
 	// +optional
-	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
+
+	// v1beta2 groups all the fields that will be added or modified in HetznerBareMetalMachine's status with the V1Beta2 version.
+	// +optional
+	V1Beta2 *HetznerBareMetalMachineV1Beta2Status `json:"v1beta2,omitempty"`
+
+	// LastRemediatedAt records when the most recent successful remediation completed.
+	// Used to prevent reboot loops across successive MHC incidents.
+	// +optional
+	LastRemediatedAt *metav1.Time `json:"lastRemediatedAt,omitempty"`
+}
+
+// HetznerBareMetalMachineV1Beta2Status groups all the fields that will be added or modified in HetznerBareMetalMachine with the V1Beta2 version.
+type HetznerBareMetalMachineV1Beta2Status struct {
+	// conditions represents the observations of a HetznerBareMetalMachine's current state.
+	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated and HostReady.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
@@ -358,13 +392,92 @@ type HetznerBareMetalMachine struct {
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalMachine resource.
-func (hbmm *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
+func (hbmm *HetznerBareMetalMachine) GetConditions() clusterv1beta1.Conditions {
 	return hbmm.Status.Conditions
 }
 
-// SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1.Conditions.
-func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
+// SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1beta1.Conditions.
+func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1beta1.Conditions) {
 	hbmm.Status.Conditions = conditions
+}
+
+// GetV1Beta2Conditions returns the list of conditions for a HetznerBareMetalMachine API object.
+func (hbmm *HetznerBareMetalMachine) GetV1Beta2Conditions() []metav1.Condition {
+	if hbmm.Status.V1Beta2 == nil {
+		return nil
+	}
+	return hbmm.Status.V1Beta2.Conditions
+}
+
+// SetV1Beta2Conditions sets conditions for a HetznerBareMetalMachine API object.
+func (hbmm *HetznerBareMetalMachine) SetV1Beta2Conditions(conditions []metav1.Condition) {
+	if hbmm.Status.V1Beta2 == nil {
+		hbmm.Status.V1Beta2 = &HetznerBareMetalMachineV1Beta2Status{}
+	}
+	hbmm.Status.V1Beta2.Conditions = conditions
+}
+
+// HetznerBareMetalMachineV1Beta2SummaryOpts returns the v1beta2 summary options for a HetznerBareMetalMachine.
+// It is the single source of truth for which conditions contribute to the Ready summary,
+// used both by BareMetalMachineScope.Close() and by early-exit error paths that bypass the scope.
+//
+// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
+// when multiple conditions are unhealthy, the summary lists all of them in priority
+// order (highest-priority first). The ordering reflects operational importance:
+//  1. HCloudTokenAvailable - invalid credentials block everything.
+//  2. HostAssociated       - host association precedes host readiness; bootstrap readiness is folded in as a reason.
+//  3. Deleting             - deletion progress, which should be surfaced before host readiness.
+//  4. HostReady            - underlying HetznerBareMetalHost readiness.
+func HetznerBareMetalMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
+	return []v1beta2conditions.SummaryOption{
+		// ForConditionTypes lists every condition that contributes to Ready, in
+		// priority order. When multiple conditions are unhealthy the summary
+		// surfaces them in this order, so the most important issue is listed first.
+		v1beta2conditions.ForConditionTypes{
+			HCloudTokenAvailableV1Beta2Condition,
+			HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+			HetznerBareMetalMachineDeletingV1Beta2Condition,
+			HetznerBareMetalMachineHostReadyV1Beta2Condition,
+		},
+		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
+		// listed condition as Unknown. Some reconcile paths exit before every
+		// condition has been set (for example, before the token is checked or
+		// before a host is associated), and we don't want those early exits to
+		// flip Ready to Unknown.
+		v1beta2conditions.IgnoreTypesIfMissing{
+			HCloudTokenAvailableV1Beta2Condition,
+			HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+			HetznerBareMetalMachineDeletingV1Beta2Condition,
+			HetznerBareMetalMachineHostReadyV1Beta2Condition,
+		},
+		// CustomMergeStrategy is used only to override the merge reasons, so
+		// the Ready summary uses CAPI's standard Ready reasons (Ready /
+		// NotReady / ReadyUnknown) instead of the generic merge defaults
+		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
+		v1beta2conditions.CustomMergeStrategy{
+			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				v1beta2conditions.GetPriorityFunc(
+					v1beta2conditions.GetDefaultMergePriorityFunc(
+						// conditions with negative polarity
+						HetznerBareMetalMachineDeletingV1Beta2Condition,
+					),
+				),
+				v1beta2conditions.ComputeReasonFunc(
+					v1beta2conditions.GetDefaultComputeMergeReasonFunc(
+						clusterv1beta1.NotReadyV1Beta2Reason,
+						clusterv1beta1.ReadyUnknownV1Beta2Reason,
+						clusterv1beta1.ReadyV1Beta2Reason,
+					),
+				),
+			),
+		},
+	}
 }
 
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.

@@ -18,31 +18,69 @@ package v1beta1
 
 import (
 	"fmt"
+	"net/url"
 	"reflect"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 func validateHetznerBareMetalMachineSpecCreate(spec HetznerBareMetalMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
+	installImage := spec.InstallImage
+	image := installImage.Image
 
-	if (spec.InstallImage.Image.Name == "" || spec.InstallImage.Image.URL == "") &&
-		spec.InstallImage.Image.Path == "" {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "installImage", "image"), spec.InstallImage.Image,
-				"have to specify either image name and url or path"),
-		)
-	}
-
-	if spec.InstallImage.Image.URL != "" {
-		if _, err := GetImageSuffix(spec.InstallImage.Image.URL); err != nil {
+	if installImage.UsesImageURLCommand() {
+		if image.URL == "" {
 			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "installImage", "image", "url"), spec.InstallImage.Image.URL,
-					"unknown image type in URL"),
+				field.Required(field.NewPath("spec", "installImage", "image", "url"),
+					"url is required when imageURLCommand is set"),
 			)
+		} else if _, err := url.ParseRequestURI(image.URL); err != nil {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "image", "url"), image.URL, err.Error()),
+			)
+		}
+
+		if image.Name != "" {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "image", "name"), image.Name,
+					"name must be empty when imageURLCommand is set"),
+			)
+		}
+
+		if image.Path != "" {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "image", "path"), image.Path,
+					"path must be empty when imageURLCommand is set"),
+			)
+		}
+
+		if err := utils.ValidateImageURLCommandName(installImage.ImageURLCommand); err != nil {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), installImage.ImageURLCommand,
+					err.Error()),
+			)
+		}
+	} else {
+		if (image.Name == "" || image.URL == "") && image.Path == "" {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "image"), image,
+					"have to specify either image name and url or path"),
+			)
+		}
+
+		if image.URL != "" {
+			if _, err := GetImageSuffix(image.URL); err != nil {
+				allErrs = append(allErrs,
+					field.Invalid(field.NewPath("spec", "installImage", "image", "url"), image.URL,
+						"unknown image type in URL"),
+				)
+			}
 		}
 	}
 
@@ -72,17 +110,17 @@ func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec HetznerBareMetal
 	var allErrs field.ErrorList
 	if !reflect.DeepEqual(newSpec.InstallImage, oldSpec.InstallImage) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "installImage"), newSpec.InstallImage, "installImage immutable"),
+			field.Forbidden(field.NewPath("spec", "installImage"), "installImage is immutable"),
 		)
 	}
 	if !reflect.DeepEqual(newSpec.SSHSpec, oldSpec.SSHSpec) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "sshSpec"), newSpec.SSHSpec, "sshSpec immutable"),
+			field.Forbidden(field.NewPath("spec", "sshSpec"), "sshSpec is immutable"),
 		)
 	}
 	if !reflect.DeepEqual(newSpec.HostSelector, oldSpec.HostSelector) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "hostSelector"), newSpec.HostSelector, "hostSelector immutable"),
+			field.Forbidden(field.NewPath("spec", "hostSelector"), "hostSelector is immutable"),
 		)
 	}
 
@@ -90,7 +128,7 @@ func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec HetznerBareMetal
 		// once the ProviderID was set, the value must not change.
 		if newSpec.ProviderID == nil || *oldSpec.ProviderID != *newSpec.ProviderID {
 			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "providerID"), newSpec.ProviderID, "providerID immutable"),
+				field.Forbidden(field.NewPath("spec", "providerID"), "providerID is immutable"),
 			)
 		}
 	}

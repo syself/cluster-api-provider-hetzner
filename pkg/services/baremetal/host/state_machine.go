@@ -22,8 +22,10 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -74,7 +76,7 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 			hsm.log.V(1).Info("changing provisioning state", "old", initialState, "new", hsm.nextState)
 			hsm.host.Spec.Status.ProvisioningState = hsm.nextState
 
-			cond := conditions.Get(hsm.host, infrav1.ProvisionSucceededCondition)
+			cond := v1beta1conditions.Get(hsm.host, infrav1.ProvisionSucceededCondition)
 			if cond != nil && cond.Reason == infrav1.StillProvisioningReason {
 				markProvisionPending(hsm.host, hsm.nextState)
 			}
@@ -91,7 +93,12 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 	}
 
 	// Assume credentials are ready for now. This can be changed while the state is handled.
-	conditions.MarkTrue(hsm.host, infrav1.CredentialsAvailableCondition)
+	v1beta1conditions.MarkTrue(hsm.host, infrav1.CredentialsAvailableCondition)
+	v1beta2conditions.Set(hsm.host, metav1.Condition{
+		Type:   infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Reason,
+	})
 
 	// This state was removed. We have to handle the edge-case where
 	// the controller got updated and a machine
@@ -178,14 +185,20 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 	}
 	if err := validateSSHKey(osSSHSecret, hsm.host.Spec.Status.SSHSpec.SecretRef); err != nil {
 		msg := fmt.Sprintf("ssh credentials are invalid: %s", err.Error())
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			hsm.host,
 			infrav1.CredentialsAvailableCondition,
 			infrav1.SSHCredentialsInSecretInvalidReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			"%s",
 			msg,
 		)
+		v1beta2conditions.Set(hsm.host, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostSSHKeysInvalidV1Beta2Reason,
+			Message: msg,
+		})
 
 		record.Warnf(hsm.host, infrav1.SSHKeyAlreadyExistsReason, msg)
 		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
@@ -216,14 +229,20 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 	}
 	if err := validateSSHKey(rescueSSHSecret, hsm.reconciler.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef); err != nil {
 		msg := fmt.Sprintf("ssh credentials for rescue system are invalid: %s", err.Error())
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			hsm.host,
 			infrav1.CredentialsAvailableCondition,
 			infrav1.SSHCredentialsInSecretInvalidReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			"%s",
 			msg,
 		)
+		v1beta2conditions.Set(hsm.host, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostSSHKeysInvalidV1Beta2Reason,
+			Message: msg,
+		})
 		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 	}
 	return nil

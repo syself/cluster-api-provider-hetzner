@@ -24,8 +24,10 @@ import (
 	"strings"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -50,14 +52,21 @@ func NewService(scope *scope.ClusterScope) *Service {
 func (s *Service) Reconcile(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
-			conditions.MarkFalse(
+			v1beta1conditions.MarkFalse(
 				s.scope.HetznerCluster,
 				infrav1.PlacementGroupsSyncedCondition,
 				infrav1.PlacementGroupsSyncFailedReason,
-				clusterv1.ConditionSeverityWarning,
+				clusterv1beta1.ConditionSeverityWarning,
 				"%s",
 				err.Error(),
 			)
+
+			v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+				Type:    infrav1.HetznerClusterPlacementGroupsSyncedV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerClusterPlacementGroupsSyncingFailedV1Beta2Reason,
+				Message: err.Error(),
+			})
 		}
 	}()
 
@@ -130,7 +139,13 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	}
 
 	s.scope.HetznerCluster.Status.HCloudPlacementGroups = statusFromHCloudPlacementGroups(placementGroups, s.scope.HetznerCluster.Name)
-	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.PlacementGroupsSyncedCondition)
+	v1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav1.PlacementGroupsSyncedCondition)
+
+	v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+		Type:   infrav1.HetznerClusterPlacementGroupsSyncedV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HetznerClusterPlacementGroupsSyncedV1Beta2Reason,
+	})
 
 	return nil
 }

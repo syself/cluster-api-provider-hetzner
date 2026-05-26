@@ -30,8 +30,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/patch"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -100,11 +100,10 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: infrav1.GroupVersion.String(),
-					Kind:       "HetznerCluster",
-					Name:       hetznerClusterName,
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
 				},
 			},
 		}
@@ -116,7 +115,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
+						APIVersion: clusterv1.GroupVersion.String(),
 						Kind:       "Cluster",
 						Name:       capiCluster.Name,
 						UID:        capiCluster.UID,
@@ -166,27 +165,27 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 		configureRescueSSHClient(rescueSSHClient)
 
-		osSSHClientAfterInstallImage.On("Reboot").Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
-		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("ResetKubeadm").Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("GetHostName").Return(sshclient.Output{
+		osSSHClientAfterInstallImage.On("Reboot", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
+		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("GetHostName", mock.Anything).Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
-		osSSHClientAfterInstallImage.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+		osSSHClientAfterInstallImage.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 
-		osSSHClientAfterCloudInit.On("Reboot").Return(sshclient.Output{})
-		osSSHClientAfterCloudInit.On("GetHostName").Return(sshclient.Output{
+		osSSHClientAfterCloudInit.On("Reboot", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterCloudInit.On("GetHostName", mock.Anything).Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
-		osSSHClientAfterCloudInit.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
-		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
-		osSSHClientAfterCloudInit.On("ResetKubeadm").Return(sshclient.Output{})
-		osSSHClientAfterCloudInit.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+		osSSHClientAfterCloudInit.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
+		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterCloudInit.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterCloudInit.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 	})
 
 	AfterEach(func() {
@@ -262,12 +261,12 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				},
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
-					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-						Kind:       "HetznerBareMetalMachine",
-						Name:       machineName,
+					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+						APIGroup: "infrastructure.cluster.x-k8s.io",
+						Kind:     "HetznerBareMetalMachine",
+						Name:     machineName,
 					},
-					FailureDomain: &defaultFailureDomain,
+					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
 					},
@@ -284,7 +283,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: "cluster.x-k8s.io/v1beta1",
+							APIVersion: clusterv1.GroupVersion.String(),
 							Kind:       "Machine",
 							Name:       capiMachine.Name,
 							UID:        capiMachine.UID,
@@ -326,7 +325,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			})
 
 			It("reaches the state image installing", func() {
-				ph, err := patch.NewHelper(host, testEnv)
+				ph, err := v1beta1patch.NewHelper(host, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				host.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
@@ -334,7 +333,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				}
 
 				Eventually(func() error {
-					return ph.Patch(ctx, host, patch.WithStatusObservedGeneration{})
+					return ph.Patch(ctx, host, v1beta1patch.WithStatusObservedGeneration{})
 				}, timeout, time.Second).Should(BeNil())
 
 				Eventually(func() bool {
@@ -436,12 +435,12 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				},
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
-					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-						Kind:       "HetznerBareMetalMachine",
-						Name:       machineName,
+					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+						APIGroup: "infrastructure.cluster.x-k8s.io",
+						Kind:     "HetznerBareMetalMachine",
+						Name:     machineName,
 					},
-					FailureDomain: &defaultFailureDomain,
+					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
 					},
@@ -458,7 +457,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: "cluster.x-k8s.io/v1beta1",
+							APIVersion: clusterv1.GroupVersion.String(),
 							Kind:       "Machine",
 							Name:       capiMachine.Name,
 							UID:        capiMachine.UID,
@@ -520,12 +519,12 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				},
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
-					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-						Kind:       "HetznerBareMetalMachine",
-						Name:       machineName,
+					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+						APIGroup: "infrastructure.cluster.x-k8s.io",
+						Kind:     "HetznerBareMetalMachine",
+						Name:     machineName,
 					},
-					FailureDomain: &defaultFailureDomain,
+					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
 					},
@@ -542,7 +541,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: "cluster.x-k8s.io/v1beta1",
+							APIVersion: clusterv1.GroupVersion.String(),
 							Kind:       "Machine",
 							Name:       capiMachine.Name,
 							UID:        capiMachine.UID,
@@ -631,11 +630,10 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: infrav1.GroupVersion.String(),
-					Kind:       "HetznerCluster",
-					Name:       hetznerClusterName,
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
 				},
 			},
 		}
@@ -647,7 +645,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
+						APIVersion: clusterv1.GroupVersion.String(),
 						Kind:       "Cluster",
 						Name:       capiCluster.Name,
 						UID:        capiCluster.UID,
@@ -670,12 +668,12 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 			},
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HetznerBareMetalMachine",
-					Name:       machineName,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HetznerBareMetalMachine",
+					Name:     machineName,
 				},
-				FailureDomain: &defaultFailureDomain,
+				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				},
@@ -692,7 +690,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				},
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
+						APIVersion: clusterv1.GroupVersion.String(),
 						Kind:       "Machine",
 						Name:       capiMachine.Name,
 						UID:        capiMachine.UID,
@@ -927,75 +925,75 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 })
 
 func configureRescueSSHClient(sshClient *sshmock.Client) {
-	sshClient.On("GetHostName").Return(sshclient.Output{
+	sshClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
 		StdOut: "rescue",
 		StdErr: "",
 		Err:    nil,
 	})
-	sshClient.On("GetHardwareDetailsRAM").Return(sshclient.Output{
+	sshClient.On("GetHardwareDetailsRAM", mock.Anything).Return(sshclient.Output{
 		StdOut: "100000",
 		StdErr: "",
 		Err:    nil,
 	})
-	sshClient.On("GetHardwareDetailsStorage").Return(sshclient.Output{
+	sshClient.On("GetHardwareDetailsStorage", mock.Anything).Return(sshclient.Output{
 		StdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
 NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
 NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
 		StdErr: "",
 		Err:    nil,
 	})
-	sshClient.On("GetHardwareDetailsNics").Return(sshclient.Output{
+	sshClient.On("GetHardwareDetailsNics", mock.Anything).Return(sshclient.Output{
 		StdOut: `name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ip="23.88.6.239/26" speedMbps="1000"
 name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ip="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
 		StdErr: "",
 		Err:    nil,
 	})
-	sshClient.On("GetHardwareDetailsCPUArch").Return(sshclient.Output{
+	sshClient.On("GetHardwareDetailsCPUArch", mock.Anything).Return(sshclient.Output{
 		StdOut: "myarch",
 		StdErr: "",
 		Err:    nil,
 	})
-	sshClient.On("GetHardwareDetailsCPUModel").Return(sshclient.Output{
+	sshClient.On("GetHardwareDetailsCPUModel", mock.Anything).Return(sshclient.Output{
 		StdOut: "mymodel",
 		StdErr: "",
 		Err:    nil,
 	})
-	sshClient.On("GetHardwareDetailsCPUClockGigahertz").Return(sshclient.Output{
+	sshClient.On("GetHardwareDetailsCPUClockGigahertz", mock.Anything).Return(sshclient.Output{
 		StdOut: "42654",
 		StdErr: "",
 		Err:    nil,
 	})
-	sshClient.On("GetHardwareDetailsCPUFlags").Return(sshclient.Output{
+	sshClient.On("GetHardwareDetailsCPUFlags", mock.Anything).Return(sshclient.Output{
 		StdOut: "flag1 flag2 flag3",
 		StdErr: "",
 		Err:    nil,
 	})
-	sshClient.On("GetHardwareDetailsCPUThreads").Return(sshclient.Output{
+	sshClient.On("GetHardwareDetailsCPUThreads", mock.Anything).Return(sshclient.Output{
 		StdOut: "123",
 		StdErr: "",
 		Err:    nil,
 	})
-	sshClient.On("GetHardwareDetailsCPUCores").Return(sshclient.Output{
+	sshClient.On("GetHardwareDetailsCPUCores", mock.Anything).Return(sshclient.Output{
 		StdOut: "12",
 		StdErr: "",
 		Err:    nil,
 	})
-	sshClient.On("GetHardwareDetailsDebug").Return(sshclient.Output{
+	sshClient.On("GetHardwareDetailsDebug", mock.Anything).Return(sshclient.Output{
 		StdOut: "Dummy output",
 		StdErr: "",
 		Err:    nil,
 	})
 	sshClient.On("DownloadImage", mock.Anything, mock.Anything).Return(sshclient.Output{})
 	sshClient.On("CreateAutoSetup", mock.Anything).Return(sshclient.Output{})
-	sshClient.On("UntarTGZ").Return(sshclient.Output{})
+	sshClient.On("UntarTGZ", mock.Anything).Return(sshclient.Output{})
 	sshClient.On("CreatePostInstallScript", mock.Anything).Return(sshclient.Output{})
 	sshClient.On("ExecuteInstallImage", mock.Anything).Return(sshclient.Output{StdOut: hostpkg.PostInstallScriptFinished})
-	sshClient.On("Reboot").Return(sshclient.Output{})
-	sshClient.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+	sshClient.On("Reboot", mock.Anything).Return(sshclient.Output{})
+	sshClient.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 	sshClient.On("DetectLinuxOnAnotherDisk", mock.Anything).Return(sshclient.Output{})
 	sshClient.On("ExecutePreProvisionCommand", mock.Anything, mock.Anything).Return(0, "", nil)
-	sshClient.On("GetInstallImageState").Return(sshclient.InstallImageStateFinished, nil)
-	sshClient.On("GetResultOfInstallImage").Return(hostpkg.PostInstallScriptFinished, nil)
+	sshClient.On("GetInstallImageState", mock.Anything).Return(sshclient.InstallImageStateFinished, nil)
+	sshClient.On("GetResultOfInstallImage", mock.Anything).Return(hostpkg.PostInstallScriptFinished, nil)
 }
 
 func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {

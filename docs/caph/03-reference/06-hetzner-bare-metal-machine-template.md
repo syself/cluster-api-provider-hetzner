@@ -44,6 +44,7 @@ Via MatchLabels you can specify a certain label (key and value) that identifies 
 | ---------------------------------------------------------------- | --------------------- | ------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `template.spec.providerID`                                       | `string`              |                           | no       | Provider ID set by controller                                                                                                                      |
 | `template.spec.installImage`                                     | `object`              |                           | yes      | Configuration used in autosetup                                                                                                                    |
+| `template.spec.installImage.imageURLCommand`                     | `string`              |                           | no       | Basename of a command below `/shared` on the controller pod that CAPH copies into the rescue system and executes instead of `installimage`. Must start with `image-url-command-` and requires `template.spec.installImage.image.url`. |
 | `template.spec.installImage.image`                               | `object`              |                           | yes      | Defines image for bm machine. See below for details.                                                                                               |
 | `template.spec.installImage.image.url`                           | `string`              |                           | no       | Remote URL of image. Can be tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz                                                                    |
 | `template.spec.installImage.image.name`                          | `string`              |                           | no       | Name of the image                                                                                                                                  |
@@ -83,7 +84,11 @@ Via MatchLabels you can specify a certain label (key and value) that identifies 
 
 ## installImage.image
 
-You must specify either name and url, or a local path.
+You must specify either:
+
+- `name` and `url`
+- `path`
+- `url` and `imageURLCommand`
 
 Example of an image provided by Hetzner via NFS:
 
@@ -141,3 +146,13 @@ You can push an image to an oci-registry with a tool like [oras](https://oras.la
 oras push ghcr.io/myorg/images/Ubuntu-2404-noble-amd64-custom:1.0.1 \
     --artifact-type application/vnd.myorg.machine-image.v1 Ubuntu-2404-noble-amd64-custom.tar.gz
 ```
+
+Example of provisioning a bare metal machine via a custom image-url-command:
+
+```yaml
+imageURLCommand: image-url-command-install-foo.sh
+image:
+  url: oci://ghcr.io/myorg/images/Ubuntu-2404-noble-amd64-custom:1.0.1
+```
+
+In this mode, `name` and `path` must be empty.

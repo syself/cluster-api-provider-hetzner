@@ -26,9 +26,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -75,11 +78,10 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HetznerCluster",
-					Name:       "hetzner-test1",
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HetznerCluster",
+					Name:     "hetzner-test1",
 				},
 			},
 		}
@@ -99,13 +101,12 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			},
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HCloudMachine",
-					Name:       hcloudMachineName,
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HCloudMachine",
+					Name:     hcloudMachineName,
 				},
-				FailureDomain: &defaultFailureDomain,
+				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				},
@@ -236,7 +237,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if hcloudRemediation.Status.Phase != infrav1.PhaseDeleting {
 					return fmt.Errorf("hcloudRemediation.Status.Phase is not infrav1.PhaseDeleting")
 				}
-				if !isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason) {
+				if !isPresentAndFalseWithReasonV2(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
 					return fmt.Errorf("MachineOwnerRemediatedCondition not set")
 				}
 				return nil
@@ -257,7 +258,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					return fmt.Errorf("hcloudMachine.Status.BootState is not HCloudBootStateOperatingSystemRunning, but: %q", hcloudMachine.Status.BootState)
 				}
 				return nil
-			}).NotTo(HaveOccurred())
+			}, timeout).NotTo(HaveOccurred())
 
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
@@ -291,7 +292,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 						hcloudMachine.Status.BootState)
 				}
 				return nil
-			}).NotTo(HaveOccurred())
+			}, timeout).NotTo(HaveOccurred())
 			hcloudRemediation.Status.RetryCount = hcloudRemediation.Spec.Strategy.RetryLimit
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
@@ -311,7 +312,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
 			By("updating the status to waiting and setting the last remediation to past")
-			hcloudRemediationPatchHelper, err := patch.NewHelper(hcloudRemediation, testEnv.GetClient())
+			hcloudRemediationPatchHelper, err := v1beta1patch.NewHelper(hcloudRemediation, testEnv.GetClient())
 			Expect(err).NotTo(HaveOccurred())
 
 			hcloudRemediation.Status.Phase = infrav1.PhaseWaiting
@@ -327,7 +328,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 
 				testEnv.GetLogger().Info("status of hcloudRemediation", "status", hcloudRemediation.Status.Phase)
 				return hcloudRemediation.Status.Phase == infrav1.PhaseDeleting &&
-					isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
+					isPresentAndFalseWithReasonV2(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
 			}, timeout).Should(BeTrue())
 		})
 		It("should set RemediationSkippedCondition when HCloudMachine has irrecoverable server creation failure", func() {
@@ -344,13 +345,13 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			}, timeout).Should(Succeed())
 
 			By("marking HCloudMachine with irrecoverable server creation failure condition")
-			patchHelper, err := patch.NewHelper(hcloudMachine, testEnv.GetClient())
+			patchHelper, err := v1beta1patch.NewHelper(hcloudMachine, testEnv.GetClient())
 			Expect(err).NotTo(HaveOccurred())
-			conditions.MarkFalse(
+			v1beta1conditions.MarkFalse(
 				hcloudMachine,
 				infrav1.ServerCreateSucceededCondition,
 				infrav1.ServerCreateFailedIrrecoverableErrorReason,
-				clusterv1.ConditionSeverityError,
+				clusterv1beta1.ConditionSeverityError,
 				"server type cax31 not available in location fsn1: resource_unavailable",
 			)
 			Expect(patchHelper.Patch(ctx, hcloudMachine)).To(Succeed())
@@ -366,6 +367,25 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					infrav1.RemediationSkippedCondition,
 					infrav1.IrrecoverableServerCreateFailureReason,
 				)
+			}, timeout).Should(BeTrue())
+
+			By("checking v1beta2 RemediationSkipped and Ready conditions are set")
+			expectedSkippedMsg := "Remediation skipped: HCloudMachine has an irrecoverable server creation error. Delete the Machine to trigger a new creation attempt. Error: server type cax31 not available in location fsn1: resource_unavailable"
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, hcloudRemediationkey, hcloudRemediation); err != nil {
+					return false
+				}
+				skipped := v1beta2conditions.Get(hcloudRemediation, infrav1.HCloudRemediationSkippedV1Beta2Condition)
+				if skipped == nil ||
+					skipped.Status != metav1.ConditionTrue ||
+					skipped.Reason != infrav1.HCloudRemediationIrrecoverableServerCreateFailureV1Beta2Reason ||
+					skipped.Message != expectedSkippedMsg {
+					return false
+				}
+				ready := v1beta2conditions.Get(hcloudRemediation, clusterv1beta1.ReadyV1Beta2Condition)
+				return ready != nil &&
+					ready.Status == metav1.ConditionFalse &&
+					ready.Reason == clusterv1beta1.NotReadyV1Beta2Reason
 			}, timeout).Should(BeTrue())
 		})
 
@@ -475,7 +495,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					return err
 				}
 
-				c := conditions.Get(capiMachine, clusterv1.MachineOwnerRemediatedCondition)
+				c := deprecatedv1beta1conditions.Get(capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition)
 				if c == nil {
 					return fmt.Errorf("not set: MachineOwnerRemediatedCondition")
 				}

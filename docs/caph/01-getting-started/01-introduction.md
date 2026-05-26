@@ -26,20 +26,32 @@ This provider's versions are compatible with the following versions of Cluster A
 | `v1.10.x`                                                                                                 | ✅                        | ✅                        |
 | `v1.11.x` [start of beta2](https://cluster-api.sigs.k8s.io/developer/providers/migrations/v1.10-to-v1.11) | ❌                        | ✅                        |
 | `v1.12.x`                                                                                                 | ❌                        | ✅                        |
+| `v1.13.x`                                                                                                 | ❌                        | ✅                        |
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
-|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x` |
-| ----------------- | ------------------------- | ------------------------- |
-| Kubernetes 1.31.x | ✅                        | ❌                        |
-| Kubernetes 1.32.x | ✅                        | ✅                        |
-| Kubernetes 1.33.x | ✅                        | ✅                        |
-| Kubernetes 1.34.x | ❔                        | ✅                        |
+|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x`  |
+| ----------------- | ------------------------- | -------------------------- |
+| Kubernetes 1.31.x | ✅                        | ❌                         |
+| Kubernetes 1.32.x | ✅                        | ✅                         |
+| Kubernetes 1.33.x | ✅                        | ✅                         |
+| Kubernetes 1.34.x | ✅                        | ✅                         |
+| Kubernetes 1.35.x | ❔                        | ✅                         |
+| Kubernetes 1.36.x | ❔                        | ✅                         |
 
 Test status:
 
 - ✅ tested
-- ❔ should work
+- ❔ should work, but we weren't able to test it
+
+Related:
+
+- [Support matrix for the Cluster API core provider](https://cluster-api.sigs.k8s.io/reference/versions.html#core-provider-cluster-api-controller)
+
+Compatibility notes:
+
+- CAPH `v1.1.x` still implements the deprecated `v1beta1` contract. On CAPI `v1.11.x` through `v1.15.x`, this should keep working via the temporary compatibility layer for the deprecated `v1beta1` contract, but upstream documents limitations and does not recommend staying on `v1beta1` long term. That compatibility is planned to end when `v1beta1` stops being served in CAPI `v1.16.x`. See the upstream [version support page](https://cluster-api.sigs.k8s.io/reference/versions), the upstream [v1.10 to v1.11 migration guide](https://cluster-api.sigs.k8s.io/developer/providers/migrations/v1.10-to-v1.11), the upstream [InfraMachine contract notes](https://cluster-api.sigs.k8s.io/developer/providers/contracts/infra-machine), and the upstream [removal plan](https://github.com/kubernetes-sigs/cluster-api/issues/11920).
+- CAPH `v1.2.x` will be the `v1beta2` line and aligns with CAPI `v1.11.x` and later `v1beta2` releases.
 
 Each version of Cluster API for Hetzner will attempt to support at least two Kubernetes versions.
 
