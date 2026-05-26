@@ -225,21 +225,39 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
 	if durationOfState > 6*time.Minute {
 		// timeout. Something has failed.
-		msg := fmt.Sprintf("handleBootStateUnset timed out after %s. Deleting machine",
-			durationOfState.Round(time.Second).String())
-		err := s.scope.SetErrorAndRemediate(ctx, msg)
+		timeoutMsg := fmt.Sprintf("boot state unset timed out, in this state since %s", durationOfState.Round(time.Second).String())
+
+		v1beta1Reason := "HandleBootStateUnsetTimedOut"
+		v1beta1Msg := timeoutMsg
+		if existing := v1beta1conditions.Get(hm, infrav1.ServerCreateSucceededCondition); existing != nil {
+			v1beta1Reason = existing.Reason
+			if existing.Message != "" {
+				v1beta1Msg = fmt.Sprintf("%s (%s)", existing.Message, timeoutMsg)
+			}
+		}
+
+		v1beta2Reason := infrav1.HCloudMachineBootStateUnsetTimedOutV1Beta2Reason
+		v1beta2Msg := timeoutMsg
+		if existing := v1beta2conditions.Get(hm, infrav1.HCloudMachineServerCreatedV1Beta2Condition); existing != nil {
+			v1beta2Reason = existing.Reason
+			if existing.Message != "" {
+				v1beta2Msg = fmt.Sprintf("%s (%s)", existing.Message, timeoutMsg)
+			}
+		}
+
+		err := s.scope.SetErrorAndRemediate(ctx, v1beta2Msg)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		s.scope.Error(nil, msg)
+		s.scope.Error(nil, v1beta2Msg)
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,
-			"HandleBootStateUnsetTimedOut", clusterv1beta1.ConditionSeverityWarning,
-			"%s", msg)
+			v1beta1Reason, clusterv1beta1.ConditionSeverityWarning,
+			"%s", v1beta1Msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerCreatedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineBootStateInitializingTimedOutV1Beta2Reason,
-			Message: msg,
+			Reason:  v1beta2Reason,
+			Message: v1beta2Msg,
 		})
 		return reconcile.Result{}, nil
 	}
@@ -394,21 +412,39 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
 	if durationOfState > 6*time.Minute {
 		// timeout. Something has failed.
-		msg := fmt.Sprintf("handleBootStateInitializing timed out after %s. Deleting machine",
-			durationOfState.Round(time.Second).String())
-		err := s.scope.SetErrorAndRemediate(ctx, msg)
+		timeoutMsg := fmt.Sprintf("boot state initializing timed out, in this state since %s", durationOfState.Round(time.Second).String())
+
+		v1beta1Reason := "BootStateInitializingTimedOut"
+		v1beta1Msg := timeoutMsg
+		if existing := v1beta1conditions.Get(hm, infrav1.ServerProvisionedCondition); existing != nil {
+			v1beta1Reason = existing.Reason
+			if existing.Message != "" {
+				v1beta1Msg = fmt.Sprintf("%s (%s)", existing.Message, timeoutMsg)
+			}
+		}
+
+		v1beta2Reason := infrav1.HCloudMachineBootStateInitializingTimedOutV1Beta2Reason
+		v1beta2Msg := timeoutMsg
+		if existing := v1beta2conditions.Get(hm, infrav1.HCloudMachineServerProvisionedV1Beta2Condition); existing != nil {
+			v1beta2Reason = existing.Reason
+			if existing.Message != "" {
+				v1beta2Msg = fmt.Sprintf("%s (%s)", existing.Message, timeoutMsg)
+			}
+		}
+
+		err := s.scope.SetErrorAndRemediate(ctx, v1beta2Msg)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		s.scope.Error(nil, msg)
+		s.scope.Error(nil, v1beta2Msg)
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"BootStateInitializingTimedOut", clusterv1beta1.ConditionSeverityWarning,
-			"%s", msg)
+			v1beta1Reason, clusterv1beta1.ConditionSeverityWarning,
+			"%s", v1beta1Msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineBootStateInitializingTimedOutV1Beta2Reason,
-			Message: msg,
+			Reason:  v1beta2Reason,
+			Message: v1beta2Msg,
 		})
 		return reconcile.Result{}, nil
 	}
@@ -486,20 +522,38 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
 	if durationOfState > 6*time.Minute {
 		// timeout. Something has failed.
-		msg := fmt.Sprintf("handleBootStateEnablingRescue timed out after %s. Deleting machine",
-			durationOfState.Round(time.Second).String())
-		s.scope.Error(nil, msg)
-		err := s.scope.SetErrorAndRemediate(ctx, msg)
+		timeoutMsg := fmt.Sprintf("enabling rescue system timed out, in this state since %s", durationOfState.Round(time.Second).String())
+
+		v1beta1Reason := "EnablingRescueTimedOut"
+		v1beta1Msg := timeoutMsg
+		if existing := v1beta1conditions.Get(hm, infrav1.ServerProvisionedCondition); existing != nil {
+			v1beta1Reason = existing.Reason
+			if existing.Message != "" {
+				v1beta1Msg = fmt.Sprintf("%s (%s)", existing.Message, timeoutMsg)
+			}
+		}
+
+		v1beta2Reason := infrav1.HCloudMachineEnablingRescueTimedOutV1Beta2Reason
+		v1beta2Msg := timeoutMsg
+		if existing := v1beta2conditions.Get(hm, infrav1.HCloudMachineServerProvisionedV1Beta2Condition); existing != nil {
+			v1beta2Reason = existing.Reason
+			if existing.Message != "" {
+				v1beta2Msg = fmt.Sprintf("%s (%s)", existing.Message, timeoutMsg)
+			}
+		}
+
+		s.scope.Error(nil, v1beta2Msg)
+		err := s.scope.SetErrorAndRemediate(ctx, v1beta2Msg)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"EnablingRescueTimedOut", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
+			v1beta1Reason, clusterv1beta1.ConditionSeverityWarning, "%s", v1beta1Msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineEnablingRescueTimedOutV1Beta2Reason,
-			Message: msg,
+			Reason:  v1beta2Reason,
+			Message: v1beta2Msg,
 		})
 		return reconcile.Result{}, nil
 	}
@@ -707,21 +761,39 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
 	if durationOfState > 6*time.Minute {
 		// timeout. Something has failed.
-		msg := fmt.Sprintf("reaching rescue system has timed out after %s. Deleting machine",
-			durationOfState.Round(time.Second).String())
-		err := s.scope.SetErrorAndRemediate(ctx, msg)
+		timeoutMsg := fmt.Sprintf("reaching rescue system timed out, in this state since %s", durationOfState.Round(time.Second).String())
+
+		v1beta1Reason := "BootingToRescueTimedOut"
+		v1beta1Msg := timeoutMsg
+		if existing := v1beta1conditions.Get(hm, infrav1.ServerProvisionedCondition); existing != nil {
+			v1beta1Reason = existing.Reason
+			if existing.Message != "" {
+				v1beta1Msg = fmt.Sprintf("%s (%s)", existing.Message, timeoutMsg)
+			}
+		}
+
+		v1beta2Reason := infrav1.HCloudMachineBootingToRescueTimedOutV1Beta2Reason
+		v1beta2Msg := timeoutMsg
+		if existing := v1beta2conditions.Get(hm, infrav1.HCloudMachineServerProvisionedV1Beta2Condition); existing != nil {
+			v1beta2Reason = existing.Reason
+			if existing.Message != "" {
+				v1beta2Msg = fmt.Sprintf("%s (%s)", existing.Message, timeoutMsg)
+			}
+		}
+
+		err := s.scope.SetErrorAndRemediate(ctx, v1beta2Msg)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		s.scope.Error(nil, msg)
+		s.scope.Error(nil, v1beta2Msg)
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"BootingToRescueTimedOut", clusterv1beta1.ConditionSeverityWarning,
-			"%s", msg)
+			v1beta1Reason, clusterv1beta1.ConditionSeverityWarning,
+			"%s", v1beta1Msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineBootingToRescueTimedOutV1Beta2Reason,
-			Message: msg,
+			Reason:  v1beta2Reason,
+			Message: v1beta2Msg,
 		})
 		return reconcile.Result{}, nil
 	}
@@ -896,23 +968,40 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	// Please keep the number (7) in sync with the docstring of ImageURL.
 	if durationOfState > 7*time.Minute {
 		// timeout. Something has failed.
-		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
-			durationOfState.Round(time.Second).String())
-		err = errors.New(msg)
-		s.scope.Error(err, "", "logFile", logFile)
-		err := s.scope.SetErrorAndRemediate(ctx, msg)
+		timeoutMsg := fmt.Sprintf("image URL command timed out, in this state since %s", durationOfState.Round(time.Second).String())
+
+		v1beta1Reason := "RunningImageCommandTimedOut"
+		v1beta1Msg := timeoutMsg
+		if existing := v1beta1conditions.Get(hm, infrav1.ServerProvisionedCondition); existing != nil {
+			v1beta1Reason = existing.Reason
+			if existing.Message != "" {
+				v1beta1Msg = fmt.Sprintf("%s (%s)", existing.Message, timeoutMsg)
+			}
+		}
+
+		v1beta2Reason := infrav1.HCloudMachineRunningImageURLCommandTimedOutV1Beta2Reason
+		v1beta2Msg := timeoutMsg
+		if existing := v1beta2conditions.Get(hm, infrav1.HCloudMachineServerProvisionedV1Beta2Condition); existing != nil {
+			v1beta2Reason = existing.Reason
+			if existing.Message != "" {
+				v1beta2Msg = fmt.Sprintf("%s (%s)", existing.Message, timeoutMsg)
+			}
+		}
+
+		s.scope.Error(errors.New(v1beta2Msg), "", "logFile", logFile)
+		err := s.scope.SetErrorAndRemediate(ctx, v1beta2Msg)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 		record.Warn(hm, "ImageURLCommandFailed", logFile)
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"RunningImageCommandTimedOut", clusterv1beta1.ConditionSeverityWarning,
-			"%s", msg)
+			v1beta1Reason, clusterv1beta1.ConditionSeverityWarning,
+			"%s", v1beta1Msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineRunningImageURLCommandTimedOutV1Beta2Reason,
-			Message: msg,
+			Reason:  v1beta2Reason,
+			Message: v1beta2Msg,
 		})
 		return reconcile.Result{}, nil
 	}
@@ -986,21 +1075,39 @@ func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Serv
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
 	if durationOfState > 6*time.Minute {
 		// timeout. Something has failed.
-		msg := fmt.Sprintf("handleBootingToRealOS timed out after %s. Deleting machine",
-			durationOfState.Round(time.Second).String())
-		err := s.scope.SetErrorAndRemediate(ctx, msg)
+		timeoutMsg := fmt.Sprintf("booting to real OS timed out, in this state since %s", durationOfState.Round(time.Second).String())
+
+		v1beta1Reason := "BootingToRealOSTimedOut"
+		v1beta1Msg := timeoutMsg
+		if existing := v1beta1conditions.Get(hm, infrav1.ServerProvisionedCondition); existing != nil {
+			v1beta1Reason = existing.Reason
+			if existing.Message != "" {
+				v1beta1Msg = fmt.Sprintf("%s (%s)", existing.Message, timeoutMsg)
+			}
+		}
+
+		v1beta2Reason := infrav1.HCloudMachineBootingToRealOSTimedOutV1Beta2Reason
+		v1beta2Msg := timeoutMsg
+		if existing := v1beta2conditions.Get(hm, infrav1.HCloudMachineServerProvisionedV1Beta2Condition); existing != nil {
+			v1beta2Reason = existing.Reason
+			if existing.Message != "" {
+				v1beta2Msg = fmt.Sprintf("%s (%s)", existing.Message, timeoutMsg)
+			}
+		}
+
+		err := s.scope.SetErrorAndRemediate(ctx, v1beta2Msg)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		s.scope.Error(nil, msg)
+		s.scope.Error(nil, v1beta2Msg)
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"BootingToRealOSTimedOut", clusterv1beta1.ConditionSeverityWarning,
-			"%s", msg)
+			v1beta1Reason, clusterv1beta1.ConditionSeverityWarning,
+			"%s", v1beta1Msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineBootingToRealOSTimedOutV1Beta2Reason,
-			Message: msg,
+			Reason:  v1beta2Reason,
+			Message: v1beta2Msg,
 		})
 		return reconcile.Result{}, nil
 	}
