@@ -157,6 +157,13 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	r.HCloudMachineTemplateReconciler.HCloudClientFactory = hcloudClientFactory
 	r.HCloudMachineTemplateReconciler.Namespace = namespace
 
+	// Register base SSH expectations before wiring the factory into the reconciler.
+	// Any reconcile goroutine from a previous test that is still in-flight may read
+	// the new factory as soon as it is set below. Without expectations already in
+	// place, those goroutines trigger an unexpected-call panic that Ginkgo attributes
+	// to the next test's BeforeEach, causing flaky failures.
+	configureRescueSSHClient(rescueSSHClient)
+
 	r.HetznerBareMetalHostReconciler.RobotClientFactory = robotClientFactory
 	r.HetznerBareMetalHostReconciler.SSHClientFactory = baremetalSSHClientFactory
 	r.HetznerBareMetalHostReconciler.Namespace = namespace
