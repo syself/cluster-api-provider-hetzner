@@ -156,6 +156,17 @@ class TestBoilerplate(unittest.TestCase):
         self.assertEqual(actual_content, expected_content)
         self.assertEqual(actual_match, expected_match)
 
+    def test_duplicate_boilerplate_header_fails(self):
+        refs = boilerplate.get_refs()
+        regexs = boilerplate.get_regexs()
+        data = "\n".join(refs["go"] + refs["go"] + ["package main"])
+
+        passes = boilerplate.file_content_passes(
+            data, "duplicate.go", refs["go"], "go", False, regexs
+        )
+
+        self.assertFalse(passes)
+
     def test_ensure_command_line_flag(self):
         os.chdir("./testdata/default/")
         boilerplate.args.ensure = True
