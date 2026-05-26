@@ -1322,7 +1322,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		// get device names from storage device
 		deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storage)
 
-		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, commandPath, s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.URL, data, s.scope.Hostname(), deviceNames, host.Spec.Status.InstallImage.ImageURLCommandAPIVersion)
+		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, commandPath, s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.URL, data, s.scope.Hostname(), deviceNames)
 		if err != nil {
 			err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
 			// This could be a temporary network error. Retry.
@@ -1474,7 +1474,7 @@ func (s *Service) actionImageInstallingImageURLCommandV2(ctx context.Context, ss
 
 		deviceNames := getDeviceNames(host.Spec.RootDeviceHints.ListOfWWN(), storage)
 
-		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, commandPath, host.Spec.Status.InstallImage.Image.URL, data, s.scope.Hostname(), deviceNames, host.Spec.Status.InstallImage.ImageURLCommandAPIVersion)
+		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, commandPath, host.Spec.Status.InstallImage.Image.URL, data, s.scope.Hostname(), deviceNames)
 		if err != nil {
 			err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
 			s.scope.Error(err, "",

@@ -236,8 +236,7 @@ type Client interface {
 	// This gets used when imageURL set.
 	// For hcloud deviceNames is always {"sda"}. For baremetal it corresponds to the WWNs
 	// of RootDeviceHints.
-	// apiVersion is appended as --api-version=<value> unless it is empty or "v1".
-	StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string, apiVersion string) (exitStatus int, stdoutAndStderr string, err error)
+	StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (exitStatus int, stdoutAndStderr string, err error)
 
 	// StateOfImageURLCommand returns the current states of the ImageURLCommand. States can
 	// be: NotStarted, Running, Failed, FinishedSuccesfully.
@@ -836,7 +835,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	return exitStatus, s, nil
 }
 
-func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string, apiVersion string) (int, string, error) {
+func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
 	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
 
 	// validate deviceNames
@@ -897,15 +896,11 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 		return 0, "", fmt.Errorf("error copying bootstrap data to %s:%d:%s %w", c.ip, c.port, dest, err)
 	}
 
-	apiVersionFlag := ""
-	if apiVersion != "" && apiVersion != "v1" {
-		apiVersionFlag = " --api-version=" + apiVersion
-	}
 	cmd := fmt.Sprintf(`#!/usr/bin/bash
-OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/image-url-command '%s' /root/bootstrap.data '%s' '%s'%s >%s 2>&1 </dev/null &
+OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/image-url-command '%s' /root/bootstrap.data '%s' '%s' >%s 2>&1 </dev/null &
 echo $! > /root/image-url-command.pid
 `, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL, machineName, strings.Join(deviceNames, " "),
-		apiVersionFlag, imageURLCommandLog)
+		imageURLCommandLog)
 
 	out := c.runSSH(ctx, cmd)
 
