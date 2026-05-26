@@ -24,7 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 // InfrastructureMachineContract encodes information about the Cluster API contract for InfrastructureMachine objects
@@ -42,10 +42,16 @@ func InfrastructureMachine() *InfrastructureMachineContract {
 	return infrastructureMachine
 }
 
-// Ready provides access to status.ready field in an InfrastructureMachine object.
-func (m *InfrastructureMachineContract) Ready() *Bool {
+// Provisioned returns if the InfrastructureMachine is provisioned.
+func (m *InfrastructureMachineContract) Provisioned(contractVersion string) *Bool {
+	if contractVersion == "v1beta1" {
+		return &Bool{
+			path: []string{"status", "ready"},
+		}
+	}
+
 	return &Bool{
-		path: []string{"status", "ready"},
+		path: []string{"status", "initialization", "provisioned"},
 	}
 }
 
@@ -86,10 +92,17 @@ func (m *InfrastructureMachineContract) ProviderID() *String {
 	}
 }
 
-// FailureDomain provides access to the spec.failureDomain field in an InfrastructureMachine object. Note that this field is optional.
-func (m *InfrastructureMachineContract) FailureDomain() *String {
+// DeprecatedFailureDomain provides access to the spec.failureDomain field in an InfrastructureMachine object. Note that this field is optional.
+func (m *InfrastructureMachineContract) DeprecatedFailureDomain() *String {
 	return &String{
 		path: []string{"spec", "failureDomain"},
+	}
+}
+
+// FailureDomain provides access to the status.failureDomain field in an InfrastructureMachine object. Note that this field is optional.
+func (m *InfrastructureMachineContract) FailureDomain() *String {
+	return &String{
+		path: []string{"status", "failureDomain"},
 	}
 }
 

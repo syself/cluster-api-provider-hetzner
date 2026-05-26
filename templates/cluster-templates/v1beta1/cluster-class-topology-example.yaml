@@ -1,4 +1,4 @@
-apiVersion: cluster.x-k8s.io/v1beta1
+apiVersion: cluster.x-k8s.io/v1beta2
 kind: Cluster
 metadata:
   name: "test"
@@ -11,9 +11,9 @@ spec:
       cidrBlocks: ["192.168.0.0/16"]
     serviceDomain: "cluster.local"
   topology:
-    class: quick-start
+    classRef:
+      name: quick-start
     controlPlane:
-      metadata: {}
       replicas: 3
     variables:
       # All Variables:
@@ -53,7 +53,7 @@ spec:
       #   value: ubuntu-24.04
       - name: hcloudControlPlanePlacementGroupName
         value: control-plane
-    version: v1.31.6
+    version: v1.36.0
     workers:
       machineDeployments:
         - class: hcloud-worker
@@ -63,7 +63,7 @@ spec:
           variables:
             overrides:
               - name: hcloudWorkerMachineType
-                value: cx21
+                value: cx23
               # - name: hcloudWorkerMachineImageName
               #   value: ubuntu-24.04
               - name: hcloudWorkerMachinePlacementGroupName
@@ -75,7 +75,7 @@ spec:
           variables:
             overrides:
               - name: hcloudWorkerMachineType
-                value: cx31
+                value: cx33
               # - name: hcloudWorkerMachineImageName
               #   value: ubuntu-24.04
               - name: hcloudWorkerMachinePlacementGroupName

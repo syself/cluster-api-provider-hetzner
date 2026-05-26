@@ -27,7 +27,7 @@ For a specific version, use the flag `--infrastructure hetzner:vX.X.X` with the 
 
 {% /callout %}
 
-You can switch back to the management cluster with the following command:
+You can switch back to the management cluster with the following command. This assumes the management cluster's kubeconfig is at `~/.kube/config` (which is the default when you set up the bootstrap cluster with `kind`). If your management kubeconfig lives elsewhere, point `KUBECONFIG` at that file instead.
 
 ```shell
 export KUBECONFIG=~/.kube/config

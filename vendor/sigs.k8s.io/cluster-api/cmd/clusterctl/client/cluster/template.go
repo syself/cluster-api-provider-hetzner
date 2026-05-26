@@ -26,7 +26,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/google/go-github/v53/github"
+	"github.com/google/go-github/v82/github"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
@@ -303,10 +303,12 @@ func getGitHubClient(ctx context.Context, configVariablesClient config.Variables
 	return github.NewClient(authenticatingHTTPClient), nil
 }
 
+var errRateLimit = errors.New("rate limit for github api has been reached. Please wait one hour or get a personal API token and assign it to the GITHUB_TOKEN environment variable")
+
 // handleGithubErr wraps error messages.
 func handleGithubErr(err error, message string, args ...interface{}) error {
 	if _, ok := err.(*github.RateLimitError); ok {
-		return errors.New("rate limit for github api has been reached. Please wait one hour or get a personal API token and assign it to the GITHUB_TOKEN environment variable")
+		return errRateLimit
 	}
 	return errors.Wrapf(err, message, args...)
 }

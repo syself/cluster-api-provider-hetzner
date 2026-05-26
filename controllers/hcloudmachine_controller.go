@@ -26,13 +26,18 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"k8s.io/utils/ptr"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -141,9 +146,21 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
+
 	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r)
+		// On the token-error early-return, hcloudTokenErrorResult does a full
+		// Status().Update. Set the deletion markers here so they are persisted
+		// (the scope's patchHelper is not created on this path).
+		if !hcloudMachine.DeletionTimestamp.IsZero() {
+			hcloudMachine.Status.InstanceState = ptr.To(hcloud.ServerStatusDeleting)
+			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+				Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Status: metav1.ConditionFalse,
+				Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
+			})
+		}
+		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r, infrav1.HCloudMachineV1Beta2SummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
@@ -200,8 +217,8 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			}
 		}
 
-		readyReason := conditions.GetReason(machineScope.HCloudMachine, clusterv1.ReadyCondition)
-		readyMessage := conditions.GetMessage(machineScope.HCloudMachine, clusterv1.ReadyCondition)
+		readyReason := v1beta1conditions.GetReason(machineScope.HCloudMachine, clusterv1beta1.ReadyCondition)
+		readyMessage := v1beta1conditions.GetMessage(machineScope.HCloudMachine, clusterv1beta1.ReadyCondition)
 
 		duration := time.Since(startReconcile)
 
@@ -318,7 +335,7 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
-			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureReady(mgr.GetScheme(), log)),
+			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(mgr.GetScheme(), log)),
 		).
 		Complete(r)
 	if err != nil {
@@ -365,7 +382,7 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 		}
 		for _, m := range machineList.Items {
 			log = log.WithValues("machine", m.Name)
-			if m.Spec.InfrastructureRef.GroupVersionKind().Kind != "HCloudMachine" {
+			if m.Spec.InfrastructureRef.Kind != "HCloudMachine" {
 				continue
 			}
 			if m.Spec.InfrastructureRef.Name == "" {

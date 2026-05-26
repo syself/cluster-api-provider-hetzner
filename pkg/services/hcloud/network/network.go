@@ -24,8 +24,10 @@ import (
 	"slices"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -49,7 +51,7 @@ func NewService(scope *scope.ClusterScope) *Service {
 // Reconcile implements life cycle of networks.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
 	// delete the deprecated condition from existing cluster objects
-	conditions.Delete(s.scope.HetznerCluster, infrav1.DeprecatedNetworkAttachedCondition)
+	v1beta1conditions.Delete(s.scope.HetznerCluster, infrav1.DeprecatedNetworkAttachedCondition)
 
 	if !s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled {
 		return nil
@@ -57,14 +59,21 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 
 	defer func() {
 		if err != nil {
-			conditions.MarkFalse(
+			v1beta1conditions.MarkFalse(
 				s.scope.HetznerCluster,
 				infrav1.NetworkReadyCondition,
 				infrav1.NetworkReconcileFailedReason,
-				clusterv1.ConditionSeverityWarning,
+				clusterv1beta1.ConditionSeverityWarning,
 				"%s",
 				err.Error(),
 			)
+
+			v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+				Type:    infrav1.HetznerClusterNetworkReadyV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerClusterNetworkReconcilingFailedV1Beta2Reason,
+				Message: err.Error(),
+			})
 		}
 	}()
 
@@ -80,7 +89,14 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		}
 	}
 
-	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkReadyCondition)
+	v1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkReadyCondition)
+
+	v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+		Type:   infrav1.HetznerClusterNetworkReadyV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: string(infrav1.HetznerClusterNetworkReadyV1Beta2Reason),
+	})
+
 	s.scope.HetznerCluster.Status.Network = statusFromHCloudNetwork(network)
 
 	return nil

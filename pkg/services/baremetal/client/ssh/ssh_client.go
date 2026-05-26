@@ -25,16 +25,18 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	scp "github.com/bramvdbogaerde/go-scp"
-	"github.com/go-logr/logr"
 	"golang.org/x/crypto/ssh"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -157,32 +159,37 @@ func (o Output) ExitStatus() (int, error) {
 
 // Client is the interface defining all functions necessary to talk to a bare metal server via SSH.
 type Client interface {
-	GetHostName() Output
-	GetHardwareDetailsRAM() Output
-	GetHardwareDetailsNics() Output
-	GetHardwareDetailsStorage() Output
-	GetHardwareDetailsCPUArch() Output
-	GetHardwareDetailsCPUModel() Output
-	GetHardwareDetailsCPUClockGigahertz() Output
-	GetHardwareDetailsCPUFlags() Output
-	GetHardwareDetailsCPUThreads() Output
-	GetHardwareDetailsCPUCores() Output
-	GetHardwareDetailsDebug() Output
-	GetInstallImageState() (InstallImageState, error)
-	GetResultOfInstallImage() (string, error)
-	GetCloudInitOutput() Output
-	CreateAutoSetup(data string) Output
-	DownloadImage(path, url string) Output
-	CreatePostInstallScript(data string) Output
-	ExecuteInstallImage(hasPostInstallScript bool) Output
-	Reboot() Output
-	CloudInitStatus() Output
-	CheckCloudInitLogsForSigTerm() Output
-	CleanCloudInitLogs() Output
-	CleanCloudInitInstances() Output
-	ResetKubeadm() Output
-	UntarTGZ() Output
-	DetectLinuxOnAnotherDisk(sliceOfWwns []string) Output
+	GetHostName(ctx context.Context) Output
+	GetHardwareDetailsRAM(ctx context.Context) Output
+	GetHardwareDetailsNics(ctx context.Context) Output
+	GetHardwareDetailsStorage(ctx context.Context) Output
+	GetHardwareDetailsCPUArch(ctx context.Context) Output
+	GetHardwareDetailsCPUModel(ctx context.Context) Output
+	GetHardwareDetailsCPUClockGigahertz(ctx context.Context) Output
+	GetHardwareDetailsCPUFlags(ctx context.Context) Output
+	GetHardwareDetailsCPUThreads(ctx context.Context) Output
+	GetHardwareDetailsCPUCores(ctx context.Context) Output
+	GetHardwareDetailsDebug(ctx context.Context) Output
+	GetInstallImageState(ctx context.Context) (InstallImageState, error)
+	GetResultOfInstallImage(ctx context.Context) (string, error)
+	GetCloudInitOutput(ctx context.Context) Output
+	CreateAutoSetup(ctx context.Context, data string) Output
+
+	// DownloadImage is a synchronous process. This means the controller waits until the
+	// download is finished. Note: We should use StartImageURLCommand(), similar to the handling
+	// of ImageURLCommand.
+	DownloadImage(ctx context.Context, path, url string) Output
+
+	CreatePostInstallScript(ctx context.Context, data string) Output
+	ExecuteInstallImage(ctx context.Context, hasPostInstallScript bool) Output
+	Reboot(ctx context.Context) Output
+	CloudInitStatus(ctx context.Context) Output
+	CheckCloudInitLogsForSigTerm(ctx context.Context) Output
+	CleanCloudInitLogs(ctx context.Context) Output
+	CleanCloudInitInstances(ctx context.Context) Output
+	ResetKubeadm(ctx context.Context) Output
+	UntarTGZ(ctx context.Context) Output
+	DetectLinuxOnAnotherDisk(ctx context.Context, sliceOfWwns []string) Output
 
 	// Erase filesystem, raid and partition-table signatures.
 	// String "all" will wipe all disks.
@@ -207,7 +214,7 @@ type Client interface {
 
 	// StateOfImageURLCommand returns the current states of the ImageURLCommand. States can
 	// be: NotStarted, Running, Failed, FinishedSuccesfully.
-	StateOfImageURLCommand() (state ImageURLCommandState, logFile string, err error)
+	StateOfImageURLCommand(ctx context.Context) (state ImageURLCommandState, logFile string, err error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -230,7 +237,6 @@ func (f *sshFactory) NewClient(in Input) Client {
 		privateSSHKey: in.PrivateKey,
 		ip:            in.IP,
 		port:          in.Port,
-		log:           ctrl.Log.WithName("ssh-client"),
 	}
 }
 
@@ -238,24 +244,23 @@ type sshClient struct {
 	ip            string
 	privateSSHKey string
 	port          int
-	log           logr.Logger
 }
 
 var _ = Client(&sshClient{})
 
 // GetHostName implements the GetHostName method of the SSHClient interface.
-func (c *sshClient) GetHostName() Output {
-	return c.runSSH("hostname")
+func (c *sshClient) GetHostName(ctx context.Context) Output {
+	return c.runSSH(ctx, "hostname")
 }
 
 // GetHardwareDetailsRAM implements the GetHardwareDetailsRAM method of the SSHClient interface.
-func (c *sshClient) GetHardwareDetailsRAM() Output {
-	return c.runSSH("grep MemTotal /proc/meminfo | awk '{print $2}'")
+func (c *sshClient) GetHardwareDetailsRAM(ctx context.Context) Output {
+	return c.runSSH(ctx, "grep MemTotal /proc/meminfo | awk '{print $2}'")
 }
 
 // GetHardwareDetailsNics implements the GetHardwareDetailsNics method of the SSHClient interface.
-func (c *sshClient) GetHardwareDetailsNics() Output {
-	return c.runSSH(fmt.Sprintf(`cat >/root/nic-info.sh <<'EOF_VIA_SSH'
+func (c *sshClient) GetHardwareDetailsNics(ctx context.Context) Output {
+	return c.runSSH(ctx, fmt.Sprintf(`cat >/root/nic-info.sh <<'EOF_VIA_SSH'
 %s
 EOF_VIA_SSH
 chmod a+rx /root/nic-info.sh
@@ -264,33 +269,33 @@ chmod a+rx /root/nic-info.sh
 }
 
 // GetHardwareDetailsStorage implements the GetHardwareDetailsStorage method of the SSHClient interface.
-func (c *sshClient) GetHardwareDetailsStorage() Output {
-	return c.runSSH(`lsblk -b -P -o "NAME,TYPE,SIZE,VENDOR,MODEL,SERIAL,WWN,HCTL,ROTA"`)
+func (c *sshClient) GetHardwareDetailsStorage(ctx context.Context) Output {
+	return c.runSSH(ctx, `lsblk -b -P -o "NAME,TYPE,SIZE,VENDOR,MODEL,SERIAL,WWN,HCTL,ROTA"`)
 }
 
 // GetHardwareDetailsCPUArch implements the GetHardwareDetailsCPUArch method of the SSHClient interface.
-func (c *sshClient) GetHardwareDetailsCPUArch() Output {
-	return c.runSSH(`lscpu | grep "Architecture:" | awk '{print $2}'`)
+func (c *sshClient) GetHardwareDetailsCPUArch(ctx context.Context) Output {
+	return c.runSSH(ctx, `lscpu | grep "Architecture:" | awk '{print $2}'`)
 }
 
 // GetHardwareDetailsCPUModel implements the GetHardwareDetailsCPUModel method of the SSHClient interface.
-func (c *sshClient) GetHardwareDetailsCPUModel() Output {
-	return c.runSSH(`lscpu | grep "Model name:" | awk '{$1=$2=""; print $0}' | sed "s/^[ \t]*//"`)
+func (c *sshClient) GetHardwareDetailsCPUModel(ctx context.Context) Output {
+	return c.runSSH(ctx, `lscpu | grep "Model name:" | awk '{$1=$2=""; print $0}' | sed "s/^[ \t]*//"`)
 }
 
 // GetHardwareDetailsCPUClockGigahertz implements the GetHardwareDetailsCPUClockGigahertz method of the SSHClient interface.
-func (c *sshClient) GetHardwareDetailsCPUClockGigahertz() Output {
-	return c.runSSH(`lscpu | grep "CPU max MHz:" |  awk '{printf "%.1f", $4/1000}'`)
+func (c *sshClient) GetHardwareDetailsCPUClockGigahertz(ctx context.Context) Output {
+	return c.runSSH(ctx, `lscpu | grep "CPU max MHz:" |  awk '{printf "%.1f", $4/1000}'`)
 }
 
 // GetHardwareDetailsCPUFlags implements the GetHardwareDetailsCPUFlags method of the SSHClient interface.
-func (c *sshClient) GetHardwareDetailsCPUFlags() Output {
-	return c.runSSH(`lscpu | grep "Flags:" |  awk '{ $1=""; print $0}' | sed "s/^[ \t]*//"`)
+func (c *sshClient) GetHardwareDetailsCPUFlags(ctx context.Context) Output {
+	return c.runSSH(ctx, `lscpu | grep "Flags:" |  awk '{ $1=""; print $0}' | sed "s/^[ \t]*//"`)
 }
 
 // GetCloudInitOutput implements the GetCloudInitOutput method of the SSHClient interface.
-func (c *sshClient) GetCloudInitOutput() Output {
-	out := c.runSSH(`cat /var/log/cloud-init-output.log`)
+func (c *sshClient) GetCloudInitOutput(ctx context.Context) Output {
+	out := c.runSSH(ctx, `cat /var/log/cloud-init-output.log`)
 	if out.Err == nil {
 		out.StdOut = removeUselessLinesFromCloudInitOutput(out.StdOut)
 	}
@@ -298,36 +303,36 @@ func (c *sshClient) GetCloudInitOutput() Output {
 }
 
 // GetHardwareDetailsCPUThreads implements the GetHardwareDetailsCPUThreads method of the SSHClient interface.
-func (c *sshClient) GetHardwareDetailsCPUThreads() Output {
-	return c.runSSH(`lscpu | grep "CPU(s):" | head -1 |  awk '{ print $2}'`)
+func (c *sshClient) GetHardwareDetailsCPUThreads(ctx context.Context) Output {
+	return c.runSSH(ctx, `lscpu | grep "CPU(s):" | head -1 |  awk '{ print $2}'`)
 }
 
 // GetHardwareDetailsCPUCores implements the GetHardwareDetailsCPUCores method of the SSHClient interface.
-func (c *sshClient) GetHardwareDetailsCPUCores() Output {
-	return c.runSSH(`grep 'cpu cores' /proc/cpuinfo | uniq | awk '{print $4}'`)
+func (c *sshClient) GetHardwareDetailsCPUCores(ctx context.Context) Output {
+	return c.runSSH(ctx, `grep 'cpu cores' /proc/cpuinfo | uniq | awk '{print $4}'`)
 }
 
 // GetHardwareDetailsDebug implements the GetHardwareDetailsDebug method of the SSHClient interface.
-func (c *sshClient) GetHardwareDetailsDebug() Output {
-	return c.runSSH(`ip a; echo ==========----------==========;
+func (c *sshClient) GetHardwareDetailsDebug(ctx context.Context) Output {
+	return c.runSSH(ctx, `ip a; echo ==========----------==========;
 	ethtool "*"; echo ==========----------==========;
 	lspci; echo ==========----------==========;
 	`)
 }
 
 // CreateAutoSetup implements the CreateAutoSetup method of the SSHClient interface.
-func (c *sshClient) CreateAutoSetup(data string) Output {
-	return c.runSSH(fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /autosetup
+func (c *sshClient) CreateAutoSetup(ctx context.Context, data string) Output {
+	return c.runSSH(ctx, fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /autosetup
 %s
 EOF_VIA_SSH`, data))
 }
 
 // DownloadImage implements the DownloadImage method of the SSHClient interface.
-func (c *sshClient) DownloadImage(path, url string) Output {
+func (c *sshClient) DownloadImage(ctx context.Context, path, url string) Output {
 	if !strings.HasPrefix(url, "oci://") {
-		return c.runSSH(fmt.Sprintf(`curl -sLo "%q" "%q"`, path, url))
+		return c.runSSH(ctx, fmt.Sprintf(`curl -sLo "%q" "%q"`, path, url))
 	}
-	return c.runSSH(fmt.Sprintf(`cat << 'ENDOFSCRIPT' > /root/download-from-oci.sh
+	return c.runSSH(ctx, fmt.Sprintf(`cat << 'ENDOFSCRIPT' > /root/download-from-oci.sh
 %s
 ENDOFSCRIPT
 chmod a+rx /root/download-from-oci.sh
@@ -337,20 +342,20 @@ OCI_REGISTRY_AUTH_TOKEN=%s /root/download-from-oci.sh %s %s`, downloadFromOciShe
 }
 
 // CreatePostInstallScript implements the CreatePostInstallScript method of the SSHClient interface.
-func (c *sshClient) CreatePostInstallScript(data string) Output {
-	out := c.runSSH(fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /root/post-install.sh
+func (c *sshClient) CreatePostInstallScript(ctx context.Context, data string) Output {
+	out := c.runSSH(ctx, fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /root/post-install.sh
 %s
 EOF_VIA_SSH`, data))
 
 	if out.Err != nil || out.StdErr != "" {
 		return out
 	}
-	return c.runSSH(`chmod +x /root/post-install.sh`)
+	return c.runSSH(ctx, `chmod +x /root/post-install.sh`)
 }
 
 // GetInstallImageState returns the running installimage processes.
-func (c *sshClient) GetInstallImageState() (InstallImageState, error) {
-	out := c.runSSH(`ps aux| grep installimage | grep -v grep; true`)
+func (c *sshClient) GetInstallImageState(ctx context.Context) (InstallImageState, error) {
+	out := c.runSSH(ctx, `ps aux| grep installimage | grep -v grep; true`)
 	if out.Err != nil {
 		return "", fmt.Errorf("failed to run `ps aux` to get running installimage process: %w", out.Err)
 	}
@@ -359,7 +364,7 @@ func (c *sshClient) GetInstallImageState() (InstallImageState, error) {
 		return InstallImageStateRunning, nil
 	}
 
-	out = c.runSSH(`[ -e /root/installimage-wrapper.sh.log ]`)
+	out = c.runSSH(ctx, `[ -e /root/installimage-wrapper.sh.log ]`)
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
 		return "", fmt.Errorf("failed to check if installimage-wrapper.sh.log exists: %w", err)
@@ -373,7 +378,7 @@ func (c *sshClient) GetInstallImageState() (InstallImageState, error) {
 }
 
 // ExecuteInstallImage implements the ExecuteInstallImage method of the SSHClient interface.
-func (c *sshClient) ExecuteInstallImage(hasPostInstallScript bool) Output {
+func (c *sshClient) ExecuteInstallImage(ctx context.Context, hasPostInstallScript bool) Output {
 	var cmd string
 	if hasPostInstallScript {
 		cmd = `/root/hetzner-installimage/installimage -a -c /autosetup -x /root/post-install.sh`
@@ -381,7 +386,7 @@ func (c *sshClient) ExecuteInstallImage(hasPostInstallScript bool) Output {
 		cmd = `/root/hetzner-installimage/installimage -a -c /autosetup`
 	}
 
-	out := c.runSSH(fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /root/installimage-wrapper.sh
+	out := c.runSSH(ctx, fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /root/installimage-wrapper.sh
 #!/bin/bash
 export TERM=xterm
 
@@ -392,24 +397,24 @@ EOF_VIA_SSH`, cmd))
 		return out
 	}
 
-	out = c.runSSH(`chmod +x /root/installimage-wrapper.sh . `)
+	out = c.runSSH(ctx, `chmod +x /root/installimage-wrapper.sh . `)
 	if out.Err != nil || out.StdErr != "" {
 		return out
 	}
 
-	return c.runSSH(`nohup /root/installimage-wrapper.sh >/root/installimage-wrapper.sh.log 2>&1 </dev/null &`)
+	return c.runSSH(ctx, `nohup /root/installimage-wrapper.sh >/root/installimage-wrapper.sh.log 2>&1 </dev/null &`)
 }
 
 // GetResultOfInstallImage returns the logs of install-image.
 // Before calling this method be sure that installimage is already terminated.
-func (c *sshClient) GetResultOfInstallImage() (string, error) {
-	out := c.runSSH(`cat /root/debug.txt`)
+func (c *sshClient) GetResultOfInstallImage(ctx context.Context) (string, error) {
+	out := c.runSSH(ctx, `cat /root/debug.txt`)
 	if out.Err != nil {
 		return "", fmt.Errorf("failed to get debug.txt: %w", out.Err)
 	}
 	debugTxt := out.StdOut
 
-	out = c.runSSH(`cat /root/installimage-wrapper.sh.log`)
+	out = c.runSSH(ctx, `cat /root/installimage-wrapper.sh.log`)
 	if out.Err != nil {
 		return "", fmt.Errorf("failed to get installimage-wrapper.sh.log: %w", out.Err)
 	}
@@ -428,8 +433,8 @@ func (c *sshClient) GetResultOfInstallImage() (string, error) {
 }
 
 // Reboot implements the Reboot method of the SSHClient interface.
-func (c *sshClient) Reboot() Output {
-	out := c.runSSH(`reboot`)
+func (c *sshClient) Reboot(ctx context.Context) Output {
+	out := c.runSSH(ctx, `reboot`)
 	if out.Err != nil && strings.Contains(out.Err.Error(), ErrCommandExitedWithoutExitSignal.Error()) {
 		return Output{}
 	}
@@ -437,13 +442,13 @@ func (c *sshClient) Reboot() Output {
 }
 
 // CloudInitStatus implements the CloudInitStatus method of the SSHClient interface.
-func (c *sshClient) CloudInitStatus() Output {
-	return c.runSSH("cloud-init status")
+func (c *sshClient) CloudInitStatus(ctx context.Context) Output {
+	return c.runSSH(ctx, "cloud-init status")
 }
 
 // CheckCloudInitLogsForSigTerm implements the CheckCloudInitLogsForSigTerm method of the SSHClient interface.
-func (c *sshClient) CheckCloudInitLogsForSigTerm() Output {
-	out := c.runSSH(`cat /var/log/cloud-init.log | grep "SIGTERM"`)
+func (c *sshClient) CheckCloudInitLogsForSigTerm(ctx context.Context) Output {
+	out := c.runSSH(ctx, `cat /var/log/cloud-init.log | grep "SIGTERM"`)
 	if out.Err != nil {
 		exitStatus, err := out.ExitStatus()
 		if err == nil && exitStatus == 1 {
@@ -456,19 +461,19 @@ func (c *sshClient) CheckCloudInitLogsForSigTerm() Output {
 }
 
 // CleanCloudInitLogs implements the CleanCloudInitLogs method of the SSHClient interface.
-func (c *sshClient) CleanCloudInitLogs() Output {
-	return c.runSSH(`cloud-init clean --logs`)
+func (c *sshClient) CleanCloudInitLogs(ctx context.Context) Output {
+	return c.runSSH(ctx, `cloud-init clean --logs`)
 }
 
 // CleanCloudInitInstances implements the CleanCloudInitInstances method of the SSHClient interface.
-func (c *sshClient) CleanCloudInitInstances() Output {
-	return c.runSSH(`rm -rf /var/lib/cloud/instances`)
+func (c *sshClient) CleanCloudInitInstances(ctx context.Context) Output {
+	return c.runSSH(ctx, `rm -rf /var/lib/cloud/instances`)
 }
 
 // ResetKubeadm implements the ResetKubeadm method of the SSHClient interface.
-func (c *sshClient) ResetKubeadm() Output {
+func (c *sshClient) ResetKubeadm(ctx context.Context) Output {
 	// if `kubeadm reset` fails, we disable all pods and related services explicitly.
-	output := c.runSSH(`kubeadm reset -f 2>&1
+	output := c.runSSH(ctx, `kubeadm reset -f 2>&1
 	echo
 	echo ========= stopping all pods =========
 	crictl pods -q | while read -r podid; do
@@ -485,8 +490,8 @@ func (c *sshClient) ResetKubeadm() Output {
 	return output
 }
 
-func (c *sshClient) DetectLinuxOnAnotherDisk(sliceOfWwns []string) Output {
-	return c.runSSH(fmt.Sprintf(`cat >/root/detect-linux-on-another-disk.sh <<'EOF_VIA_SSH'
+func (c *sshClient) DetectLinuxOnAnotherDisk(ctx context.Context, sliceOfWwns []string) Output {
+	return c.runSSH(ctx, fmt.Sprintf(`cat >/root/detect-linux-on-another-disk.sh <<'EOF_VIA_SSH'
 %s
 EOF_VIA_SSH
 chmod a+rx /root/detect-linux-on-another-disk.sh
@@ -510,7 +515,7 @@ func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) (string,
 		return "", nil
 	}
 	if slices.Contains(sliceOfWwns, "all") {
-		out := c.runSSH("lsblk --nodeps --noheadings -o WWN | sort -u")
+		out := c.runSSH(ctx, "lsblk --nodeps --noheadings -o WWN | sort -u")
 		if out.Err != nil {
 			return "", fmt.Errorf("failed to find WWNs of all disks: %w", out.Err)
 		}
@@ -525,7 +530,7 @@ func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) (string,
 			}
 		}
 	}
-	out := c.runSSH(fmt.Sprintf(`cat >/root/wipe-disk.sh <<'EOF_VIA_SSH'
+	out := c.runSSH(ctx, fmt.Sprintf(`cat >/root/wipe-disk.sh <<'EOF_VIA_SSH'
 %s
 EOF_VIA_SSH
 chmod a+rx /root/wipe-disk.sh
@@ -537,12 +542,12 @@ chmod a+rx /root/wipe-disk.sh
 	return out.String(), nil
 }
 
-func (c *sshClient) CheckDisk(_ context.Context, sliceOfWwns []string) (info string, err error) {
+func (c *sshClient) CheckDisk(ctx context.Context, sliceOfWwns []string) (info string, err error) {
 	if len(sliceOfWwns) == 0 {
 		return "", nil
 	}
 
-	out := c.runSSH(fmt.Sprintf(`cat >/root/check-disk.sh <<'EOF_VIA_SSH'
+	out := c.runSSH(ctx, fmt.Sprintf(`cat >/root/check-disk.sh <<'EOF_VIA_SSH'
 %s
 EOF_VIA_SSH
 chmod a+rx /root/check-disk.sh
@@ -565,7 +570,7 @@ chmod a+rx /root/check-disk.sh
 	return "", fmt.Errorf("CheckDisk for %+v failed: %s. %s: %w", sliceOfWwns, out.StdOut, out.StdErr, out.Err)
 }
 
-func (c *sshClient) UntarTGZ() Output {
+func (c *sshClient) UntarTGZ(ctx context.Context) Output {
 	// read tgz from container image.
 	fileName := "/installimage.tgz"
 	data, err := os.ReadFile(fileName)
@@ -574,7 +579,7 @@ func (c *sshClient) UntarTGZ() Output {
 	}
 
 	// send base64 encoded binary to machine via ssh.
-	return c.runSSH(fmt.Sprintf("echo %s | base64 -d | tar -xzf-",
+	return c.runSSH(ctx, fmt.Sprintf("echo %s | base64 -d | tar -xzf-",
 		base64.StdEncoding.EncodeToString(data)))
 }
 
@@ -598,7 +603,7 @@ func IsTimeoutError(err error) bool {
 	return strings.Contains(err.Error(), ErrTimeout.Error())
 }
 
-func (c *sshClient) getSSHClient() (*ssh.Client, error) {
+func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, error) {
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(c.privateSSHKey))
 	if err != nil {
@@ -615,33 +620,62 @@ func (c *sshClient) getSSHClient() (*ssh.Client, error) {
 		Timeout:         sshTimeOut,
 	}
 
-	// Connect to the remote server and perform the SSH handshake.
-	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%v", c.ip, c.port), config)
+	addr := net.JoinHostPort(c.ip, strconv.Itoa(c.port))
+
+	// ctx-aware TCP dial.
+	d := net.Dialer{Timeout: sshTimeOut}
+	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
+		// Return ctx.Err() unwrapped so os.IsTimeout detects it.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
 		return nil, fmt.Errorf("failed to dial ssh (%s): %w", c.connectionDetails(), err)
 	}
 
-	return client, nil
+	// If ctx fires during the SSH handshake, close the underlying conn so
+	// NewClientConn returns. stop() deregisters the callback on normal exit.
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stop()
+
+	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, fmt.Errorf("failed ssh handshake (%s): %w", c.connectionDetails(), err)
+	}
+	return ssh.NewClient(sshConn, chans, reqs), nil
 }
 
-func (c *sshClient) runSSH(command string) Output {
-	client, err := c.getSSHClient()
+func (c *sshClient) runSSH(ctx context.Context, command string) Output {
+	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
+
+	client, err := c.getSSHClient(ctx)
 	if err != nil {
 		return Output{Err: err}
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
-			c.log.Error(err, "failed to close ssh client")
+			logger.Error(err, "failed to close ssh client")
 		}
 	}()
 
+	// If ctx fires, close the transport so any in-flight call (NewSession,
+	// sess.Run) returns. stop() deregisters the callback on normal exit.
+	stop := context.AfterFunc(ctx, func() { _ = client.Close() })
+	defer stop()
+
 	sess, err := client.NewSession()
 	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return Output{Err: ctxErr}
+		}
 		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}
 	}
 	defer func() {
-		if err := sess.Close(); err != nil {
-			c.log.Error(err, "failed to close ssh session")
+		if err := sess.Close(); err != nil && !errors.Is(err, io.EOF) {
+			logger.Error(err, "failed to close ssh session")
 		}
 	}()
 
@@ -652,6 +686,13 @@ func (c *sshClient) runSSH(command string) Output {
 	sess.Stderr = &stderrBuffer
 
 	err = sess.Run(command)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return Output{
+			StdOut: stdoutBuffer.String(),
+			StdErr: stderrBuffer.String(),
+			Err:    ctxErr,
+		}
+	}
 	if err != nil {
 		err = fmt.Errorf("ssh command failed (%s): %w", c.connectionDetails(), err)
 	}
@@ -715,13 +756,15 @@ func removeUselessLinesFromCloudInitOutput(s string) string {
 }
 
 func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command string) (int, string, error) {
-	client, err := c.getSSHClient()
+	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
+
+	client, err := c.getSSHClient(ctx)
 	if err != nil {
 		return 0, "", err
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
-			c.log.Error(err, "failed to close ssh client")
+			logger.Error(err, "failed to close ssh client")
 		}
 	}()
 
@@ -744,7 +787,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
 	}
 
-	out := c.runSSH(dest)
+	out := c.runSSH(ctx, dest)
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
 		return 0, "", fmt.Errorf("error executing %q on %s:%d: %w", dest, c.ip, c.port, err)
@@ -757,6 +800,8 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 }
 
 func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
+	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
+
 	// validate deviceNames
 	for _, dn := range deviceNames {
 		if strings.Contains(dn, "/") {
@@ -769,22 +814,6 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 			return 0, "", errors.New("deviceName must not be empty")
 		}
 	}
-	client, err := c.getSSHClient()
-	if err != nil {
-		return 0, "", err
-	}
-	defer func() {
-		if err := client.Close(); err != nil {
-			c.log.Error(err, "failed to close ssh client")
-		}
-	}()
-
-	scpClient, err := scp.NewClientBySSH(client)
-	if err != nil {
-		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
-	}
-
-	defer scpClient.Close()
 
 	if command == "" {
 		return 0, "", fmt.Errorf("image-url-command is empty")
@@ -796,9 +825,26 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	}
 	defer func() {
 		if err := fdCommand.Close(); err != nil {
-			c.log.Error(err, "failed to close image-url-command file", "path", command)
+			logger.Error(err, "failed to close image-url-command file", "path", command)
 		}
 	}()
+
+	client, err := c.getSSHClient(ctx)
+	if err != nil {
+		return 0, "", err
+	}
+	defer func() {
+		if err := client.Close(); err != nil {
+			logger.Error(err, "failed to close ssh client")
+		}
+	}()
+
+	scpClient, err := scp.NewClientBySSH(client)
+	if err != nil {
+		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
+	}
+
+	defer scpClient.Close()
 
 	baseName := "image-url-command"
 	dest := "/root/" + baseName
@@ -811,7 +857,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	dest = "/root/bootstrap.data"
 	err = scpClient.CopyFile(ctx, reader, dest, "0700")
 	if err != nil {
-		return 0, "", fmt.Errorf("error copying boostrap data to %s:%d:%s %w", c.ip, c.port, dest, err)
+		return 0, "", fmt.Errorf("error copying bootstrap data to %s:%d:%s %w", c.ip, c.port, dest, err)
 	}
 
 	cmd := fmt.Sprintf(`#!/usr/bin/bash
@@ -820,7 +866,7 @@ echo $! > /root/image-url-command.pid
 `, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL, machineName, strings.Join(deviceNames, " "),
 		imageURLCommandLog)
 
-	out := c.runSSH(cmd)
+	out := c.runSSH(ctx, cmd)
 
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
@@ -833,8 +879,8 @@ echo $! > /root/image-url-command.pid
 	return exitStatus, s, nil
 }
 
-func (c *sshClient) StateOfImageURLCommand() (state ImageURLCommandState, stdoutStderr string, err error) {
-	out := c.runSSH(`[ -e /root/image-url-command.pid ]`)
+func (c *sshClient) StateOfImageURLCommand(ctx context.Context) (state ImageURLCommandState, stdoutStderr string, err error) {
+	out := c.runSSH(ctx, `[ -e /root/image-url-command.pid ]`)
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
 		return ImageURLCommandStateNotStarted, "", fmt.Errorf("getting exit status of image-url-command failed: %w", err)
@@ -844,13 +890,13 @@ func (c *sshClient) StateOfImageURLCommand() (state ImageURLCommandState, stdout
 		return ImageURLCommandStateNotStarted, "", nil
 	}
 
-	out = c.runSSH(`ps -p "$(cat /root/image-url-command.pid)" -o args= | grep -q image-url-command`)
+	out = c.runSSH(ctx, `ps -p "$(cat /root/image-url-command.pid)" -o args= | grep -q image-url-command`)
 	exitStatus, err = out.ExitStatus()
 	if err != nil {
 		return ImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if image-url-command is still running failed: %w", err)
 	}
 
-	logFile, err := c.getImageURLCommandOutput()
+	logFile, err := c.getImageURLCommandOutput(ctx)
 	if err != nil {
 		return ImageURLCommandStateFailed, logFile, err
 	}
@@ -859,7 +905,7 @@ func (c *sshClient) StateOfImageURLCommand() (state ImageURLCommandState, stdout
 		return ImageURLCommandStateRunning, logFile, nil
 	}
 
-	out = c.runSSH(fmt.Sprintf("tail -n 1 %s | grep -q IMAGE_URL_DONE", imageURLCommandLog))
+	out = c.runSSH(ctx, fmt.Sprintf("tail -n 1 %s | grep -q IMAGE_URL_DONE", imageURLCommandLog))
 	exitStatus, err = out.ExitStatus()
 	if err != nil {
 		return ImageURLCommandStateNotStarted, logFile, fmt.Errorf("detecting if image-url-command was successful failed: %w", err)
@@ -872,8 +918,8 @@ func (c *sshClient) StateOfImageURLCommand() (state ImageURLCommandState, stdout
 	return ImageURLCommandStateFinishedSuccessfully, logFile, nil
 }
 
-func (c *sshClient) getImageURLCommandOutput() (string, error) {
-	out := c.runSSH(fmt.Sprintf("cat %s", imageURLCommandLog)) // TODO: implement getFile for sshClient.
+func (c *sshClient) getImageURLCommandOutput(ctx context.Context) (string, error) {
+	out := c.runSSH(ctx, fmt.Sprintf("cat %s", imageURLCommandLog)) // TODO: implement getFile for sshClient.
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
 		return "", fmt.Errorf("getting logs of image-url-command failed: %w", err)

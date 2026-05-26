@@ -376,7 +376,12 @@ func (v *Viper) WatchConfig() {
 				}
 			}
 		}()
-		watcher.Add(configDir)
+		err = watcher.Add(configDir)
+		if err != nil {
+			v.logger.Error(fmt.Sprintf("failed to add watcher: %s", err))
+			initWG.Done()
+			return
+		}
 		initWG.Done()   // done initializing the watch in this go routine, so the parent routine can move on...
 		eventsWG.Wait() // now, wait for event loop to end in this go-routine...
 	}()
@@ -1181,11 +1186,26 @@ func (v *Viper) find(lcaseKey string, flagDefault bool) any {
 			s = strings.TrimSuffix(s, "]")
 			res, _ := readAsCSV(s)
 			return res
+		case "boolSlice":
+			s := strings.TrimPrefix(flag.ValueString(), "[")
+			s = strings.TrimSuffix(s, "]")
+			res, _ := readAsCSV(s)
+			return cast.ToBoolSlice(res)
 		case "intSlice":
 			s := strings.TrimPrefix(flag.ValueString(), "[")
 			s = strings.TrimSuffix(s, "]")
 			res, _ := readAsCSV(s)
 			return cast.ToIntSlice(res)
+		case "uintSlice":
+			s := strings.TrimPrefix(flag.ValueString(), "[")
+			s = strings.TrimSuffix(s, "]")
+			res, _ := readAsCSV(s)
+			return cast.ToUintSlice(res)
+		case "float64Slice":
+			s := strings.TrimPrefix(flag.ValueString(), "[")
+			s = strings.TrimSuffix(s, "]")
+			res, _ := readAsCSV(s)
+			return cast.ToFloat64Slice(res)
 		case "durationSlice":
 			s := strings.TrimPrefix(flag.ValueString(), "[")
 			s = strings.TrimSuffix(s, "]")
@@ -1268,11 +1288,26 @@ func (v *Viper) find(lcaseKey string, flagDefault bool) any {
 				s = strings.TrimSuffix(s, "]")
 				res, _ := readAsCSV(s)
 				return res
+			case "boolSlice":
+				s := strings.TrimPrefix(flag.ValueString(), "[")
+				s = strings.TrimSuffix(s, "]")
+				res, _ := readAsCSV(s)
+				return cast.ToBoolSlice(res)
 			case "intSlice":
 				s := strings.TrimPrefix(flag.ValueString(), "[")
 				s = strings.TrimSuffix(s, "]")
 				res, _ := readAsCSV(s)
 				return cast.ToIntSlice(res)
+			case "uintSlice":
+				s := strings.TrimPrefix(flag.ValueString(), "[")
+				s = strings.TrimSuffix(s, "]")
+				res, _ := readAsCSV(s)
+				return cast.ToUintSlice(res)
+			case "float64Slice":
+				s := strings.TrimPrefix(flag.ValueString(), "[")
+				s = strings.TrimSuffix(s, "]")
+				res, _ := readAsCSV(s)
+				return cast.ToFloat64Slice(res)
 			case "stringToString":
 				return stringToStringConv(flag.ValueString())
 			case "stringToInt":
@@ -1535,27 +1570,29 @@ func (v *Viper) MergeInConfig() error {
 func ReadConfig(in io.Reader) error { return v.ReadConfig(in) }
 
 func (v *Viper) ReadConfig(in io.Reader) error {
-	if v.configType == "" {
-		return errors.New("cannot decode configuration: config type is not set")
+	config := make(map[string]any)
+
+	err := v.unmarshalReader(in, config)
+	if err != nil {
+		return err
 	}
 
-	v.config = make(map[string]any)
-	return v.unmarshalReader(in, v.config)
+	v.config = config
+
+	return nil
 }
 
 // MergeConfig merges a new configuration with an existing config.
 func MergeConfig(in io.Reader) error { return v.MergeConfig(in) }
 
 func (v *Viper) MergeConfig(in io.Reader) error {
-	if v.configType == "" {
-		return errors.New("cannot decode configuration: config type is not set")
-	}
+	config := make(map[string]any)
 
-	cfg := make(map[string]any)
-	if err := v.unmarshalReader(in, cfg); err != nil {
+	if err := v.unmarshalReader(in, config); err != nil {
 		return err
 	}
-	return v.MergeConfigMap(cfg)
+
+	return v.MergeConfigMap(config)
 }
 
 // MergeConfigMap merges the configuration from the map given with an existing config.
@@ -1662,15 +1699,24 @@ func (v *Viper) writeConfig(filename string, force bool) error {
 }
 
 func (v *Viper) unmarshalReader(in io.Reader, c map[string]any) error {
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(in)
-
 	format := strings.ToLower(v.getConfigType())
+	if format == "" {
+		return errors.New("cannot decode configuration: unable to determine config type")
+	}
 
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(in)
+	if err != nil {
+		return fmt.Errorf("failed to read configuration from input: %w", err)
+	}
+
+	// TODO: remove this once SupportedExts is deprecated/removed
 	if !slices.Contains(SupportedExts, format) {
 		return UnsupportedConfigError(format)
 	}
 
+	// TODO: return [UnsupportedConfigError] if the registry does not contain the format
+	// TODO: consider deprecating this error type
 	decoder, err := v.decoderRegistry.Decoder(format)
 	if err != nil {
 		return ConfigParseError{err}

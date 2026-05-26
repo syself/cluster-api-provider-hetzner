@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -35,13 +36,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	clusterctlv1 "sigs.k8s.io/cluster-api/cmd/clusterctl/api/v1alpha3"
 	logf "sigs.k8s.io/cluster-api/cmd/clusterctl/log"
+	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/yaml"
 )
 
@@ -231,8 +233,7 @@ func (o *objectMover) checkProvisioningCompleted(ctx context.Context, graph *obj
 	// Checking all the clusters have infrastructure is ready
 	readClusterBackoff := newReadBackoff()
 	clusters := graph.getClusters()
-	for i := range clusters {
-		cluster := clusters[i]
+	for _, cluster := range clusters {
 		clusterObj := &clusterv1.Cluster{}
 		if err := retryWithExponentialBackoff(ctx, readClusterBackoff, func(ctx context.Context) error {
 			return getClusterObj(ctx, o.fromProxy, cluster, clusterObj)
@@ -240,19 +241,19 @@ func (o *objectMover) checkProvisioningCompleted(ctx context.Context, graph *obj
 			return err
 		}
 
-		if !clusterObj.Status.InfrastructureReady {
+		if !ptr.Deref(clusterObj.Status.Initialization.InfrastructureProvisioned, false) {
 			errList = append(errList, errors.Errorf("cannot start the move operation while %q %s/%s is still provisioning the infrastructure", clusterObj.GroupVersionKind(), clusterObj.GetNamespace(), clusterObj.GetName()))
 			continue
 		}
 
 		// Note: can't use IsFalse here because we need to handle the absence of the condition as well as false.
-		if !conditions.IsTrue(clusterObj, clusterv1.ControlPlaneInitializedCondition) {
+		if !conditions.IsTrue(clusterObj, clusterv1.ClusterControlPlaneInitializedCondition) {
 			errList = append(errList, errors.Errorf("cannot start the move operation while the control plane for %q %s/%s is not yet initialized", clusterObj.GroupVersionKind(), clusterObj.GetNamespace(), clusterObj.GetName()))
 			continue
 		}
 
-		if clusterObj.Spec.ControlPlaneRef != nil && !clusterObj.Status.ControlPlaneReady {
-			errList = append(errList, errors.Errorf("cannot start the move operation while the control plane for %q %s/%s is not yet ready", clusterObj.GroupVersionKind(), clusterObj.GetNamespace(), clusterObj.GetName()))
+		if clusterObj.Spec.ControlPlaneRef.IsDefined() && !ptr.Deref(clusterObj.Status.Initialization.ControlPlaneInitialized, false) {
+			errList = append(errList, errors.Errorf("cannot start the move operation while the control plane for %q %s/%s is not yet initialized", clusterObj.GroupVersionKind(), clusterObj.GetNamespace(), clusterObj.GetName()))
 			continue
 		}
 	}
@@ -270,7 +271,7 @@ func (o *objectMover) checkProvisioningCompleted(ctx context.Context, graph *obj
 			return err
 		}
 
-		if machineObj.Status.NodeRef == nil {
+		if !machineObj.Status.NodeRef.IsDefined() {
 			errList = append(errList, errors.Errorf("cannot start the move operation while %q %s/%s is still provisioning the node", machineObj.GroupVersionKind(), machineObj.GetNamespace(), machineObj.GetName()))
 		}
 	}
@@ -292,6 +293,25 @@ func getClusterObj(ctx context.Context, proxy Proxy, cluster *node, clusterObj *
 	if err := c.Get(ctx, clusterObjKey, clusterObj); err != nil {
 		return errors.Wrapf(err, "error reading Cluster %s/%s",
 			cluster.identity.Namespace, cluster.identity.Name)
+	}
+	return nil
+}
+
+// getClusterClassObj retrieves the clusterClassObj corresponding to a node with type ClusterClass.
+func getClusterClassObj(ctx context.Context, proxy Proxy, clusterClass *node, clusterClassObj *clusterv1.ClusterClass) error {
+	c, err := proxy.NewClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	clusterClassObjKey := client.ObjectKey{
+		Namespace: clusterClass.identity.Namespace,
+		Name:      clusterClass.identity.Name,
+	}
+
+	if err := c.Get(ctx, clusterClassObjKey, clusterClassObj); err != nil {
+		return errors.Wrapf(err, "error reading ClusterClass %s/%s",
+			clusterClass.identity.Namespace, clusterClass.identity.Name)
 	}
 	return nil
 }
@@ -319,9 +339,17 @@ func (o *objectMover) move(ctx context.Context, graph *objectGraph, toProxy Prox
 	log := logf.Log
 
 	clusters := graph.getClusters()
+	if err := checkClustersNotPaused(ctx, o.fromProxy, clusters); err != nil {
+		return err
+	}
+
 	log.Info("Moving Cluster API objects", "Clusters", len(clusters))
 
 	clusterClasses := graph.getClusterClasses()
+	if err := checkClusterClassesNotPaused(ctx, o.fromProxy, clusterClasses); err != nil {
+		return err
+	}
+
 	log.Info("Moving Cluster API objects", "ClusterClasses", len(clusterClasses))
 
 	// Sets the pause field on the Cluster object in the source management cluster, so the controllers stop reconciling it.
@@ -394,9 +422,17 @@ func (o *objectMover) toDirectory(ctx context.Context, graph *objectGraph, direc
 	log := logf.Log
 
 	clusters := graph.getClusters()
+	if err := checkClustersNotPaused(ctx, o.fromProxy, clusters); err != nil {
+		return err
+	}
+
 	log.Info("Starting move of Cluster API objects", "Clusters", len(clusters))
 
 	clusterClasses := graph.getClusterClasses()
+	if err := checkClusterClassesNotPaused(ctx, o.fromProxy, clusterClasses); err != nil {
+		return err
+	}
+
 	log.Info("Moving Cluster API objects", "ClusterClasses", len(clusterClasses))
 
 	// Sets the pause field on the Cluster object in the source management cluster, so the controllers stop reconciling it.
@@ -569,8 +605,7 @@ func setClusterPause(ctx context.Context, proxy Proxy, clusters []*node, value b
 	patch := client.RawPatch(types.MergePatchType, []byte(fmt.Sprintf("{\"spec\":{\"paused\":%s}}", patchValue)))
 
 	setClusterPauseBackoff := newWriteBackoff()
-	for i := range clusters {
-		cluster := clusters[i]
+	for _, cluster := range clusters {
 		log.V(5).Info("Set Cluster.Spec.Paused", "paused", value, "Cluster", klog.KRef(cluster.identity.Namespace, cluster.identity.Name))
 
 		// Nb. The operation is wrapped in a retry loop to make setClusterPause more resilient to unexpected conditions.
@@ -592,8 +627,7 @@ func setClusterClassPause(ctx context.Context, proxy Proxy, clusterclasses []*no
 	log := logf.Log
 
 	setClusterClassPauseBackoff := newWriteBackoff()
-	for i := range clusterclasses {
-		clusterclass := clusterclasses[i]
+	for _, clusterclass := range clusterclasses {
 		if pause {
 			log.V(5).Info("Set Paused annotation", "ClusterClass", clusterclass.identity.Name, "Namespace", clusterclass.identity.Namespace)
 		} else {
@@ -606,6 +640,44 @@ func setClusterClassPause(ctx context.Context, proxy Proxy, clusterclasses []*no
 		}); err != nil {
 			return errors.Wrapf(err, "error updating ClusterClass %s/%s", clusterclass.identity.Namespace, clusterclass.identity.Name)
 		}
+	}
+	return nil
+}
+
+// checkClustersNotPaused checks that no cluster in the graph is paused before proceeding.
+func checkClustersNotPaused(ctx context.Context, proxy Proxy, clusters []*node) error {
+	paused := []string{}
+	for _, cluster := range clusters {
+		clusterObj := &clusterv1.Cluster{}
+		if err := getClusterObj(ctx, proxy, cluster, clusterObj); err != nil {
+			return err
+		}
+
+		if ptr.Deref(clusterObj.Spec.Paused, false) || annotations.HasPaused(clusterObj) {
+			paused = append(paused, fmt.Sprintf("%s/%s", clusterObj.Namespace, clusterObj.Name))
+		}
+	}
+	if len(paused) > 0 {
+		return errors.Errorf("cannot start operation while the following Clusters are paused: %s", strings.Join(paused, ", "))
+	}
+	return nil
+}
+
+// checkClusterClassesNotPaused checks that no clusterClass in the graph is paused before proceeding.
+func checkClusterClassesNotPaused(ctx context.Context, proxy Proxy, clusterClasses []*node) error {
+	paused := []string{}
+	for _, clusterClass := range clusterClasses {
+		clusterClassObj := &clusterv1.ClusterClass{}
+		if err := getClusterClassObj(ctx, proxy, clusterClass, clusterClassObj); err != nil {
+			return err
+		}
+
+		if annotations.HasPaused(clusterClassObj) {
+			paused = append(paused, fmt.Sprintf("%s/%s", clusterClassObj.Namespace, clusterClassObj.Name))
+		}
+	}
+	if len(paused) > 0 {
+		return errors.Errorf("cannot start operation while the following ClusterClasses are paused: %s", strings.Join(paused, ", "))
 	}
 	return nil
 }
@@ -722,7 +794,8 @@ func pauseClusterClass(ctx context.Context, proxy Proxy, n *node, pause bool, mu
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      n.identity.Name,
 			Namespace: n.identity.Namespace,
-		}}, mutators...)
+		},
+	}, mutators...)
 	if err != nil {
 		return err
 	}
@@ -739,10 +812,7 @@ func pauseClusterClass(ctx context.Context, proxy Proxy, n *node, pause bool, mu
 		return errors.Wrapf(err, "error reading ClusterClass %s/%s", n.identity.Namespace, n.identity.Name)
 	}
 
-	patchHelper, err := patch.NewHelper(clusterClass, cFrom)
-	if err != nil {
-		return err
-	}
+	original := clusterClass.DeepCopy()
 
 	// Update the annotation to the desired state
 	ccAnnotations := clusterClass.GetAnnotations()
@@ -760,7 +830,7 @@ func pauseClusterClass(ctx context.Context, proxy Proxy, n *node, pause bool, mu
 	// Update the ClusterClass with the new annotations.
 	clusterClass.SetAnnotations(ccAnnotations)
 
-	return patchHelper.Patch(ctx, clusterClass)
+	return cFrom.Patch(ctx, clusterClass, client.MergeFrom(original))
 }
 
 // ensureNamespaces ensures all the expected target namespaces are in place before creating objects.
@@ -1071,7 +1141,7 @@ func (o *objectMover) backupTargetObject(ctx context.Context, nodeToCreate *node
 		}
 	}
 
-	err = os.WriteFile(objectFile, byObj, 0600)
+	err = os.WriteFile(objectFile, byObj, 0o600)
 	if err != nil {
 		return err
 	}
@@ -1172,7 +1242,6 @@ func (o *objectMover) deleteGroup(ctx context.Context, group moveGroup) error {
 		err := retryWithExponentialBackoff(ctx, deleteSourceObjectBackoff, func(ctx context.Context) error {
 			return o.deleteSourceObject(ctx, nodeToDelete)
 		})
-
 		if err != nil {
 			errList = append(errList, err)
 		}

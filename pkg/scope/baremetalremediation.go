@@ -22,8 +22,8 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/patch"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -55,7 +55,7 @@ func NewBareMetalRemediationScope(params BareMetalRemediationScopeParams) (*Bare
 		return nil, errors.New("failed to generate new scope from nil BareMetalMachine")
 	}
 
-	patchHelper, err := patch.NewHelper(params.BareMetalRemediation, params.Client)
+	patchHelper, err := v1beta1patch.NewHelper(params.BareMetalRemediation, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
@@ -74,14 +74,14 @@ func NewBareMetalRemediationScope(params BareMetalRemediationScopeParams) (*Bare
 type BareMetalRemediationScope struct {
 	*logr.Logger
 	Client               client.Client
-	patchHelper          *patch.Helper
+	patchHelper          *v1beta1patch.Helper
 	Machine              *clusterv1.Machine
 	BareMetalMachine     *infrav1.HetznerBareMetalMachine
 	BareMetalRemediation *infrav1.HetznerBareMetalRemediation
 }
 
 // Close closes the current scope persisting the cluster configuration and status.
-func (m *BareMetalRemediationScope) Close(ctx context.Context, opts ...patch.Option) error {
+func (m *BareMetalRemediationScope) Close(ctx context.Context, opts ...v1beta1patch.Option) error {
 	return m.patchHelper.Patch(ctx, m.BareMetalRemediation, opts...)
 }
 

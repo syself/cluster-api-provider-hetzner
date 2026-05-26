@@ -27,9 +27,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -89,7 +91,7 @@ func TestIgnoreInsignificantHCloudMachineStatusUpdates(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: infrav1.HCloudMachineSpec{
-					Type: "cx21",
+					Type: "cx23",
 				},
 			},
 			expected: true,
@@ -256,11 +258,10 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HetznerCluster",
-					Name:       "hetzner-test1",
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HetznerCluster",
+					Name:     "hetzner-test1",
 				},
 			},
 		}
@@ -280,12 +281,12 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			},
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HCloudMachine",
-					Name:       hcloudMachineName,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HCloudMachine",
+					Name:     hcloudMachineName,
 				},
-				FailureDomain: &defaultFailureDomain,
+				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				},
@@ -298,7 +299,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
+						APIVersion: clusterv1.GroupVersion.String(),
 						Kind:       "Cluster",
 						Name:       capiCluster.Name,
 						UID:        capiCluster.UID,
@@ -324,8 +325,14 @@ var _ = Describe("HCloudMachineReconciler", func() {
 	Context("Basic hcloudmachine test", func() {
 		Context("correct server", func() {
 			BeforeEach(func() {
-				// remove bootstrap infos
-				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{}
+				// clear DataSecretName to simulate "bootstrap not ready"
+				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
+					ConfigRef: clusterv1.ContractVersionedObjectReference{
+						APIGroup: "bootstrap.cluster.x-k8s.io",
+						Kind:     "KubeadmConfig",
+						Name:     "my-config",
+					},
+				}
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
 				hcloudMachine = &infrav1.HCloudMachine{
@@ -393,7 +400,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					c := conditions.Get(hcloudMachine, infrav1.BootstrapReadyCondition)
+					c := v1beta1conditions.Get(hcloudMachine, infrav1.BootstrapReadyCondition)
 					if c == nil {
 						return fmt.Errorf("BootstrapReadyCondition not set")
 					}
@@ -403,12 +410,15 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					if c.Reason != infrav1.BootstrapNotReadyReason {
 						return fmt.Errorf("BootstrapNotReadyReason not set. Reason: %q", c.Reason)
 					}
+					if !isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason) {
+						return fmt.Errorf("ServerCreatedV1Beta2Condition not false with WaitingForBootstrapData reason")
+					}
 					return nil
 				}, timeout, interval).Should(Succeed())
 
 				By("setting the bootstrap data")
 
-				ph, err := patch.NewHelper(capiMachine, testEnv)
+				ph, err := v1beta1patch.NewHelper(capiMachine, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
@@ -416,7 +426,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}
 
 				Eventually(func() error {
-					return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
+					return ph.Patch(ctx, capiMachine, v1beta1patch.WithStatusObservedGeneration{})
 				}, timeout, interval).Should(BeNil())
 
 				By("checking that bootstrap condition is ready")
@@ -442,19 +452,30 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				By("checking if server created condition is set")
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerCreateSucceededCondition)
+					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerCreateSucceededCondition) &&
+						isPresentAndTrueWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerCreatedV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 
 				By("checking if server provisioned condition is set")
+
 				Eventually(func() bool {
-					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerProvisionedCondition)
+					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerProvisionedCondition) &&
+						isPresentAndTrueWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, infrav1.HCloudMachineServerProvisionedV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 
 				By("checking if server available condition is set")
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerAvailableCondition)
+					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerAvailableCondition) &&
+						isPresentAndTrueWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition, infrav1.HCloudMachineServerAvailableV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
+
+				By("checking if the v1beta2 summary condition is set")
+				Eventually(func(g Gomega) {
+					g.Expect(testEnv.Get(ctx, key, hcloudMachine)).To(Succeed())
+					g.Expect(v1beta2conditions.IsTrue(hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition)).To(BeTrue())
+					g.Expect(v1beta2conditions.Get(hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition).Reason).To(Equal(clusterv1beta1.ReadyV1Beta2Reason))
+				}, timeout, interval).Should(Succeed())
 
 				By("checking if the BootState is now OperatingSystemRunning")
 				Eventually(func() bool {
@@ -514,7 +535,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 			It("checks that ImageNotFound is visible in conditions if image does not exist", func() {
 				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ImageNotFoundReason)
+					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ImageNotFoundReason) &&
+						isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerImageNotFoundV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 			})
 		})
@@ -621,7 +643,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 			It("should show the expected reason for server not created", func() {
 				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.InstanceHasNonExistingPlacementGroupReason)
+					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.InstanceHasNonExistingPlacementGroupReason) &&
+						isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason)
 				}, timeout).Should(BeTrue())
 			})
 		})
@@ -706,11 +729,10 @@ var _ = Describe("Hetzner secret", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: infrav1.GroupVersion.String(),
-					Kind:       "HetznerCluster",
-					Name:       hetznerClusterName,
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
 				},
 			},
 		}
@@ -722,7 +744,7 @@ var _ = Describe("Hetzner secret", func() {
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
+						APIVersion: clusterv1.GroupVersion.String(),
 						Kind:       "Cluster",
 						Name:       capiCluster.Name,
 						UID:        capiCluster.UID,
@@ -746,12 +768,12 @@ var _ = Describe("Hetzner secret", func() {
 			},
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HCloudMachine",
-					Name:       hcloudMachineName,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HCloudMachine",
+					Name:     hcloudMachineName,
 				},
-				FailureDomain: &defaultFailureDomain,
+				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				},
@@ -795,8 +817,19 @@ var _ = Describe("Hetzner secret", func() {
 			hetznerSecret = secretFunc()
 			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 
+			expectedV1Beta2Reason := infrav1.HCloudTokenInvalidV1Beta2Reason
+			if expectedReason == infrav1.HetznerSecretUnreachableReason {
+				expectedV1Beta2Reason = infrav1.HCloudTokenSecretUnreachableV1Beta2Reason
+			}
+
 			Eventually(func() bool {
 				return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudTokenAvailableCondition, expectedReason)
+			}, timeout, interval).Should(BeTrue())
+			Eventually(func() bool {
+				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, expectedV1Beta2Reason)
+			}, timeout, interval).Should(BeTrue())
+			Eventually(func() bool {
+				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition, clusterv1beta1.NotReadyV1Beta2Reason)
 			}, timeout, interval).Should(BeTrue())
 			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
 		},
@@ -834,6 +867,47 @@ var _ = Describe("Hetzner secret", func() {
 			}
 		}, infrav1.HCloudCredentialsInvalidReason),
 	)
+
+	It("sets InstanceState=Deleting and ServerAvailable=False on delete with missing secret", func() {
+		// Create a wrong secret so token validation fails.
+		hetznerSecret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "wrong-name",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"hcloud": []byte("my-token"),
+			},
+		}
+		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+
+		// Add a finalizer so the object is not immediately removed on delete.
+		Eventually(func(g Gomega) {
+			g.Expect(testEnv.Get(ctx, key, hcloudMachine)).To(Succeed())
+			hcloudMachine.Finalizers = append(hcloudMachine.Finalizers, infrav1.HCloudMachineFinalizer)
+			g.Expect(testEnv.Update(ctx, hcloudMachine)).To(Succeed())
+		}, timeout, interval).Should(Succeed())
+
+		// Delete the machine (sets DeletionTimestamp but keeps it because of the finalizer).
+		Expect(testEnv.Delete(ctx, hcloudMachine)).To(Succeed())
+
+		// InstanceState should be set to Deleting even though the secret is missing.
+		Eventually(func(g Gomega) {
+			g.Expect(testEnv.Get(ctx, key, hcloudMachine)).To(Succeed())
+			g.Expect(hcloudMachine.Status.InstanceState).ToNot(BeNil())
+			g.Expect(*hcloudMachine.Status.InstanceState).To(Equal(hcloud.ServerStatusDeleting))
+		}, timeout, interval).Should(Succeed())
+
+		// ServerAvailable v1beta2 condition should be False with Deleting reason.
+		Eventually(func() bool {
+			return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition, infrav1.HCloudMachineDeletingV1Beta2Reason)
+		}, timeout, interval).Should(BeTrue())
+
+		// Token condition should also be False (secret is missing).
+		Eventually(func() bool {
+			return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HetznerSecretUnreachableReason)
+		}, timeout, interval).Should(BeTrue())
+	})
 })
 
 var _ = Describe("HCloudMachine validation", func() {
@@ -901,17 +975,17 @@ var _ = Describe("IgnoreInsignificantHetznerClusterUpdates Predicate", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: "test-predicate", ResourceVersion: "1"},
 			Spec:       getDefaultHetznerClusterSpec(),
 			Status: infrav1.HetznerClusterStatus{
-				Conditions: []clusterv1.Condition{},
+				Conditions: []clusterv1beta1.Condition{},
 			},
 		}
-		conditions.MarkTrue(oldCluster, infrav1.CredentialsAvailableCondition)
+		v1beta1conditions.MarkTrue(oldCluster, infrav1.CredentialsAvailableCondition)
 
 		newCluster = oldCluster.DeepCopy()
 	})
 
 	It("should skip updates to the HetznerCluster conditions", func() {
 		// Make change to conditions & other fields that get changed on every update
-		conditions.MarkFalse(newCluster, infrav1.CredentialsAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "")
+		v1beta1conditions.MarkFalse(newCluster, infrav1.CredentialsAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1beta1.ConditionSeverityError, "")
 		newCluster.ResourceVersion = "2"
 		newCluster.SetManagedFields([]metav1.ManagedFieldsEntry{{
 			Manager:   "test",

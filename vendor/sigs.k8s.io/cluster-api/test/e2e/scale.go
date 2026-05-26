@@ -35,18 +35,23 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/yaml"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	runtimev1 "sigs.k8s.io/cluster-api/api/runtime/v1beta2"
 	"sigs.k8s.io/cluster-api/test/e2e/internal/log"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
-	"sigs.k8s.io/cluster-api/util/yaml"
+	utilyaml "sigs.k8s.io/cluster-api/util/yaml"
 )
 
 const (
@@ -144,7 +149,7 @@ type ScaleSpecInput struct {
 	// Note: This should only be set if a Runtime Extension is used.
 	ExtensionServiceNamespace string
 
-	// ExtensionServiceNamespace is the name where the service for the Runtime Extension is located.
+	// ExtensionServiceName is the name where the service for the Runtime Extension is located.
 	// Note: This should only be set if a Runtime Extension is used.
 	ExtensionServiceName string
 
@@ -171,6 +176,10 @@ type ScaleSpecInput struct {
 	// if the test suit should fail as soon as c6 fails or if it should fail after all cluster creations are done.
 	FailFast bool
 
+	// DumpResources instruct the test to dumo resources from the test namespace as well as from the
+	// cluster namespaces.
+	DumpResources bool
+
 	// SkipUpgrade if set to true will skip upgrading the workload clusters.
 	SkipUpgrade bool
 
@@ -187,10 +196,12 @@ type ScaleSpecInput struct {
 // ScaleSpec implements a scale test for clusters with MachineDeployments.
 func ScaleSpec(ctx context.Context, inputGetter func() ScaleSpecInput) {
 	var (
-		specName      = "scale"
-		input         ScaleSpecInput
-		namespace     *corev1.Namespace
-		cancelWatches context.CancelFunc
+		specName                          = "scale"
+		input                             ScaleSpecInput
+		namespace                         *corev1.Namespace
+		deployClusterInSeparateNamespaces bool
+		clusterNames                      []string
+		cancelWatches                     context.CancelFunc
 	)
 
 	BeforeEach(func() {
@@ -258,7 +269,7 @@ func ScaleSpec(ctx context.Context, inputGetter func() ScaleSpecInput) {
 		additionalClusterClassCount := *cmp.Or(variableAsInt64(input.E2EConfig.GetVariableOrEmpty(scaleAdditionalClusterClassCount)),
 			input.AdditionalClusterClassCount, ptr.To[int64](0),
 		)
-		deployClusterInSeparateNamespaces := *cmp.Or(variableAsBool(input.E2EConfig.GetVariableOrEmpty(scaleDeployClusterInSeparateNamespaces)),
+		deployClusterInSeparateNamespaces = *cmp.Or(variableAsBool(input.E2EConfig.GetVariableOrEmpty(scaleDeployClusterInSeparateNamespaces)),
 			input.DeployClusterInSeparateNamespaces, ptr.To[bool](false),
 		)
 		useCrossNamespaceClusterClass := *cmp.Or(variableAsBool(input.E2EConfig.GetVariableOrEmpty(scaleUseCrossNamespaceClusterClass)),
@@ -288,7 +299,7 @@ func ScaleSpec(ctx context.Context, inputGetter func() ScaleSpecInput) {
 			if !deployClusterInSeparateNamespaces {
 				namespaces = append(namespaces, namespace.Name)
 			}
-			extensionConfig := extensionConfig(input.ExtensionConfigName, input.ExtensionServiceNamespace, input.ExtensionServiceName, defaultAllHandlersToBlocking, namespaces...)
+			extensionConfig := extensionConfig(input.ExtensionConfigName, input.ExtensionServiceNamespace, input.ExtensionServiceName, true, defaultAllHandlersToBlocking, namespaces...)
 			if deployClusterInSeparateNamespaces {
 				extensionConfig.Spec.NamespaceSelector = &metav1.LabelSelector{
 					// Note: we are limiting the test extension to be used by the namespace where the test is run.
@@ -301,8 +312,8 @@ func ScaleSpec(ctx context.Context, inputGetter func() ScaleSpecInput) {
 					},
 				}
 			}
-			Expect(input.BootstrapClusterProxy.GetClient().Create(ctx,
-				extensionConfig)).
+			Expect(client.IgnoreAlreadyExists(input.BootstrapClusterProxy.GetClient().Create(ctx,
+				extensionConfig))).
 				To(Succeed(), "Failed to create the ExtensionConfig")
 		}
 
@@ -347,7 +358,7 @@ func ScaleSpec(ctx context.Context, inputGetter func() ScaleSpecInput) {
 		// then deploy the ClusterClass in this namespace.
 		if !deployClusterInSeparateNamespaces || useCrossNamespaceClusterClass {
 			if len(baseClusterClassYAML) > 0 {
-				clusterClassYAML := bytes.Replace(baseClusterClassYAML, []byte(scaleClusterNamespacePlaceholder), []byte(namespace.Name), -1)
+				clusterClassYAML := bytes.ReplaceAll(baseClusterClassYAML, []byte(scaleClusterNamespacePlaceholder), []byte(namespace.Name))
 				log.Logf("Apply ClusterClass")
 				Eventually(func() error {
 					return input.BootstrapClusterProxy.CreateOrUpdate(ctx, clusterClassYAML)
@@ -357,7 +368,7 @@ func ScaleSpec(ctx context.Context, inputGetter func() ScaleSpecInput) {
 				for i := range additionalClusterClassCount {
 					additionalName := fmt.Sprintf("%s-%d", input.ClusterClassName, i+1)
 					log.Logf("Apply additional ClusterClass %s/%s", namespace.Name, additionalName)
-					additionalClassYAML := bytes.Replace(clusterClassYAML, []byte(input.ClusterClassName), []byte(additionalName), -1)
+					additionalClassYAML := bytes.ReplaceAll(clusterClassYAML, []byte(input.ClusterClassName), []byte(additionalName))
 					Eventually(func() error {
 						return input.BootstrapClusterProxy.CreateOrUpdate(ctx, additionalClassYAML)
 					}, 1*time.Minute).Should(Succeed())
@@ -370,8 +381,8 @@ func ScaleSpec(ctx context.Context, inputGetter func() ScaleSpecInput) {
 		By("Create workload clusters concurrently")
 		// Create multiple clusters concurrently from the same base cluster template.
 
-		clusterNames := make([]string, 0, clusterCount)
-		clusterNameDigits := 1 + int(math.Log10(float64(clusterCount)))
+		clusterNames = make([]string, 0, clusterCount)
+		clusterNameDigits := max(1+int(math.Log10(float64(clusterCount))), 5)
 		for i := int64(1); i <= clusterCount; i++ {
 			// This ensures we always have the right number of leading zeros in our cluster names, e.g.
 			// clusterCount=1000 will lead to cluster names like scale-0001, scale-0002, ... .
@@ -423,14 +434,16 @@ func ScaleSpec(ctx context.Context, inputGetter func() ScaleSpecInput) {
 			By("Upgrade the workload clusters concurrently")
 			// Get the upgrade function for upgrading the workload clusters.
 			upgrader := getClusterUpgradeAndWaitFn(framework.UpgradeClusterTopologyAndWaitForUpgradeInput{
-				ClusterProxy:                input.BootstrapClusterProxy,
-				KubernetesUpgradeVersion:    input.E2EConfig.MustGetVariable(KubernetesVersionUpgradeTo),
-				EtcdImageTag:                input.E2EConfig.GetVariableOrEmpty(EtcdVersionUpgradeTo),
-				DNSImageTag:                 input.E2EConfig.GetVariableOrEmpty(CoreDNSVersionUpgradeTo),
-				WaitForMachinesToBeUpgraded: input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
-				WaitForKubeProxyUpgrade:     input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
-				WaitForDNSUpgrade:           input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
-				WaitForEtcdUpgrade:          input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
+				ClusterProxy:                         input.BootstrapClusterProxy,
+				KubernetesUpgradeVersion:             input.E2EConfig.MustGetVariable(KubernetesVersionUpgradeTo),
+				EtcdImageTag:                         input.E2EConfig.GetVariableOrEmpty(EtcdVersionUpgradeTo),
+				DNSImageTag:                          input.E2EConfig.GetVariableOrEmpty(CoreDNSVersionUpgradeTo),
+				WaitForControlPlaneToBeUpgraded:      input.E2EConfig.GetIntervals(specName, "wait-control-plane-upgrade"),
+				WaitForMachineDeploymentToBeUpgraded: input.E2EConfig.GetIntervals(specName, "wait-machine-deployment-upgrade"),
+				WaitForMachinePoolToBeUpgraded:       input.E2EConfig.GetIntervals(specName, "wait-machine-pool-upgrade"),
+				WaitForKubeProxyUpgrade:              input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
+				WaitForDNSUpgrade:                    input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
+				WaitForEtcdUpgrade:                   input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
 			})
 
 			clusterNamesToUpgrade := []string{}
@@ -510,11 +523,63 @@ func ScaleSpec(ctx context.Context, inputGetter func() ScaleSpecInput) {
 	})
 
 	AfterEach(func() {
+		if input.DumpResources {
+			// Dump all Cluster API related resources from the scale namespace to artifacts.
+			Byf("Dumping resources for namespace %s", namespace.Name)
+			func() {
+				_ = recover()
+				framework.DumpAllResources(ctx, framework.DumpAllResourcesInput{
+					Lister:               input.BootstrapClusterProxy.GetClient(),
+					KubeConfigPath:       input.BootstrapClusterProxy.GetKubeconfigPath(),
+					ClusterctlConfigPath: input.ClusterctlConfigPath,
+					Namespace:            namespace.Name,
+					LogPath:              filepath.Join(input.ArtifactFolder, "clusters", input.BootstrapClusterProxy.GetName(), "resources"),
+				})
+			}()
+
+			// Dump all Cluster API related resources from clusters created outside the scale namespace to artifacts.
+			if deployClusterInSeparateNamespaces {
+				for _, clusterName := range clusterNames {
+					namespaceName := clusterName
+
+					Byf("Dumping resources for namespace %s", namespaceName)
+					func() {
+						_ = recover()
+						framework.DumpAllResources(ctx, framework.DumpAllResourcesInput{
+							Lister:               input.BootstrapClusterProxy.GetClient(),
+							KubeConfigPath:       input.BootstrapClusterProxy.GetKubeconfigPath(),
+							ClusterctlConfigPath: input.ClusterctlConfigPath,
+							Namespace:            namespaceName,
+							LogPath:              filepath.Join(input.ArtifactFolder, "clusters", input.BootstrapClusterProxy.GetName(), "resources"),
+						})
+					}()
+				}
+			}
+		}
+
 		if !input.SkipCleanup {
 			if input.ExtensionServiceNamespace != "" && input.ExtensionServiceName != "" {
 				Eventually(func() error {
-					return input.BootstrapClusterProxy.GetClient().Delete(ctx, extensionConfig(input.ExtensionConfigName, input.ExtensionServiceNamespace, input.ExtensionServiceName, true))
+					return input.BootstrapClusterProxy.GetClient().Delete(ctx, &runtimev1.ExtensionConfig{ObjectMeta: metav1.ObjectMeta{Name: input.ExtensionConfigName}})
 				}, 10*time.Second, 1*time.Second).Should(Succeed(), "Deleting ExtensionConfig failed")
+			}
+			Byf("Deleting namespace used for hosting the %q test spec", specName)
+			framework.DeleteNamespace(ctx, framework.DeleteNamespaceInput{
+				Deleter: input.BootstrapClusterProxy.GetClient(),
+				Name:    namespace.Name,
+			})
+			if deployClusterInSeparateNamespaces {
+				for _, clusterName := range clusterNames {
+					ns := &corev1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: clusterName,
+						},
+					}
+					log.Logf("Deleting namespace %s", ns.Name)
+					Eventually(func() error {
+						return client.IgnoreNotFound(input.BootstrapClusterProxy.GetClient().Delete(ctx, ns))
+					}, 10*time.Second, 1*time.Second).Should(Succeed(), "Failed to delete namespace %s", ns.Name)
+				}
 			}
 		}
 		cancelWatches()
@@ -522,7 +587,7 @@ func ScaleSpec(ctx context.Context, inputGetter func() ScaleSpecInput) {
 }
 
 func extractClusterClassAndClusterFromTemplate(rawYAML []byte) ([]byte, []byte) {
-	objs, err := yaml.ToUnstructured(rawYAML)
+	objs, err := utilyaml.ToUnstructured(rawYAML)
 	Expect(err).ToNot(HaveOccurred())
 	clusterObj := unstructured.Unstructured{}
 	clusterClassAndTemplates := []unstructured.Unstructured{}
@@ -533,9 +598,9 @@ func extractClusterClassAndClusterFromTemplate(rawYAML []byte) ([]byte, []byte) 
 			clusterClassAndTemplates = append(clusterClassAndTemplates, obj)
 		}
 	}
-	clusterYAML, err := yaml.FromUnstructured([]unstructured.Unstructured{clusterObj})
+	clusterYAML, err := utilyaml.FromUnstructured([]unstructured.Unstructured{clusterObj})
 	Expect(err).ToNot(HaveOccurred())
-	clusterClassYAML, err := yaml.FromUnstructured(clusterClassAndTemplates)
+	clusterClassYAML, err := utilyaml.FromUnstructured(clusterClassAndTemplates)
 	Expect(err).ToNot(HaveOccurred())
 	return clusterClassYAML, clusterYAML
 }
@@ -616,7 +681,7 @@ outer:
 	for _, result := range results {
 		if result.err != nil {
 			if e, ok := result.err.(types.GinkgoError); ok {
-				errs = append(errs, errors.Errorf("[clusterName: %q] Stack trace: \n %s", result.clusterName, e.CodeLocation.FullStackTrace))
+				errs = append(errs, errors.Errorf("[clusterName: %q] Error: %v Stack trace: \n %s", result.clusterName, result.err, e.CodeLocation.FullStackTrace))
 			} else {
 				errs = append(errs, errors.Errorf("[clusterName: %q] Error: %v", result.clusterName, result.err))
 			}
@@ -642,7 +707,7 @@ func getClusterCreateAndWaitFn(input clusterctl.ApplyCustomClusterTemplateAndWai
 			WaitForClusterIntervals:      input.WaitForClusterIntervals,
 			WaitForControlPlaneIntervals: input.WaitForControlPlaneIntervals,
 			WaitForMachineDeployments:    input.WaitForMachineDeployments,
-			CreateOrUpdateOpts:           input.CreateOrUpdateOpts,
+			CreateOpts:                   input.CreateOpts,
 			PreWaitForCluster:            input.PreWaitForCluster,
 			PostMachinesProvisioned:      input.PostMachinesProvisioned,
 			ControlPlaneWaiters:          input.ControlPlaneWaiters,
@@ -676,7 +741,6 @@ func createClusterWorker(ctx context.Context, clusterProxy framework.ClusterProx
 				if !open {
 					return true
 				}
-				log.Logf("Creating cluster %s", clusterName)
 
 				// This defer will catch ginkgo failures and record them.
 				// The recorded panics are then handled by the parent goroutine.
@@ -698,7 +762,10 @@ func createClusterWorker(ctx context.Context, clusterProxy framework.ClusterProx
 				// * Adjust namespace in ClusterClass YAML.
 				// * Create new namespace.
 				if deployClusterInSeparateNamespaces {
-					log.Logf("Create namespace %s", namespaceName)
+					if err := clusterProxy.GetClient().Get(ctx, client.ObjectKey{Name: namespaceName}, &corev1.Namespace{}); err == nil {
+						return false // Skipping this namespace/cluster if the namespace already exists
+					}
+					log.Logf("Creating namespace %s", namespaceName)
 					_ = framework.CreateNamespace(ctx, framework.CreateNamespaceInput{
 						Creator:             clusterProxy.GetClient(),
 						Name:                namespaceName,
@@ -720,7 +787,7 @@ func createClusterWorker(ctx context.Context, clusterProxy framework.ClusterProx
 				// * Deploy ClusterClass in new namespace.
 				if deployClusterInSeparateNamespaces && !enableCrossNamespaceClusterClass {
 					log.Logf("Apply ClusterClass in namespace %s", namespaceName)
-					clusterClassYAML := bytes.Replace(customizedClusterClassYAML, []byte(scaleClusterNamespacePlaceholder), []byte(namespaceName), -1)
+					clusterClassYAML := bytes.ReplaceAll(customizedClusterClassYAML, []byte(scaleClusterNamespacePlaceholder), []byte(namespaceName))
 					Eventually(func() error {
 						return clusterProxy.CreateOrUpdate(ctx, clusterClassYAML)
 					}, 1*time.Minute).Should(Succeed())
@@ -729,7 +796,7 @@ func createClusterWorker(ctx context.Context, clusterProxy framework.ClusterProx
 					for i := range additionalClusterClasses {
 						additionalName := fmt.Sprintf("%s-%d", clusterClassName, i+1)
 						log.Logf("Apply additional ClusterClass %s/%s", namespaceName, additionalName)
-						additionalClassYAML := bytes.Replace(clusterClassYAML, []byte(clusterClassName), []byte(additionalName), -1)
+						additionalClassYAML := bytes.ReplaceAll(clusterClassYAML, []byte(clusterClassName), []byte(additionalName))
 						Eventually(func() error {
 							return clusterProxy.CreateOrUpdate(ctx, additionalClassYAML)
 						}, 1*time.Minute).Should(Succeed())
@@ -738,16 +805,24 @@ func createClusterWorker(ctx context.Context, clusterProxy framework.ClusterProx
 
 				// Adjust namespace and name in Cluster YAML
 				clusterTemplateYAML := customizedClusterTemplateYAML
+				// Replace Cluster.metadata.namespace.
+				clusterTemplateYAML = bytes.Replace(clusterTemplateYAML, []byte(scaleClusterNamespacePlaceholder), []byte(namespaceName), 1)
 				if enableCrossNamespaceClusterClass {
-					// Set classNamespace to the defaultNamespace where the ClusterClass is located.
+					// Replace Cluster.spec.topology.classRef.namespace to the defaultNamespace where the ClusterClass is located.
 					clusterTemplateYAML = bytes.Replace(clusterTemplateYAML,
-						[]byte(fmt.Sprintf("classNamespace: %s", scaleClusterNamespacePlaceholder)),
-						[]byte(fmt.Sprintf("classNamespace: %s", defaultNamespace)), -1)
+						[]byte(fmt.Sprintf("namespace: %s", scaleClusterNamespacePlaceholder)),
+						[]byte(fmt.Sprintf("namespace: %s", defaultNamespace)), 1)
 				}
-				clusterTemplateYAML = bytes.Replace(clusterTemplateYAML, []byte(scaleClusterNamespacePlaceholder), []byte(namespaceName), -1)
-				clusterTemplateYAML = bytes.Replace(clusterTemplateYAML, []byte(scaleClusterNamePlaceholder), []byte(clusterName), -1)
+				// Replace any other occurrences of scaleClusterNamespacePlaceholder.
+				clusterTemplateYAML = bytes.ReplaceAll(clusterTemplateYAML, []byte(scaleClusterNamespacePlaceholder), []byte(namespaceName))
+				clusterTemplateYAML = bytes.ReplaceAll(clusterTemplateYAML, []byte(scaleClusterNamePlaceholder), []byte(clusterName))
+
+				if err := clusterProxy.GetClient().Get(ctx, client.ObjectKey{Namespace: namespaceName, Name: clusterName}, &clusterv1.Cluster{}); err == nil {
+					return false // Skipping this cluster if the cluster already exists
+				}
 
 				// Deploy Cluster.
+				log.Logf("Creating cluster %s", klog.KRef(namespaceName, clusterName))
 				create(ctx, namespaceName, clusterName, clusterTemplateYAML)
 				return false
 			}
@@ -833,15 +908,17 @@ func getClusterUpgradeAndWaitFn(input framework.UpgradeClusterTopologyAndWaitFor
 		// will be called multiple times and this closure will keep modifying the same `input` multiple
 		// times. It is safer to pass the values explicitly into `UpgradeClusterTopologyAndWaitForUpgradeInput`.
 		framework.UpgradeClusterTopologyAndWaitForUpgrade(ctx, framework.UpgradeClusterTopologyAndWaitForUpgradeInput{
-			ClusterProxy:                input.ClusterProxy,
-			Cluster:                     resources.cluster,
-			ControlPlane:                resources.controlPlane,
-			MachineDeployments:          resources.machineDeployments,
-			KubernetesUpgradeVersion:    input.KubernetesUpgradeVersion,
-			WaitForMachinesToBeUpgraded: input.WaitForMachinesToBeUpgraded,
-			WaitForKubeProxyUpgrade:     input.WaitForKubeProxyUpgrade,
-			WaitForDNSUpgrade:           input.WaitForDNSUpgrade,
-			WaitForEtcdUpgrade:          input.WaitForEtcdUpgrade,
+			ClusterProxy:                         input.ClusterProxy,
+			Cluster:                              resources.cluster,
+			ControlPlane:                         resources.controlPlane,
+			MachineDeployments:                   resources.machineDeployments,
+			KubernetesUpgradeVersion:             input.KubernetesUpgradeVersion,
+			WaitForControlPlaneToBeUpgraded:      input.WaitForControlPlaneToBeUpgraded,
+			WaitForMachineDeploymentToBeUpgraded: input.WaitForMachineDeploymentToBeUpgraded,
+			WaitForMachinePoolToBeUpgraded:       input.WaitForMachinePoolToBeUpgraded,
+			WaitForKubeProxyUpgrade:              input.WaitForKubeProxyUpgrade,
+			WaitForDNSUpgrade:                    input.WaitForDNSUpgrade,
+			WaitForEtcdUpgrade:                   input.WaitForEtcdUpgrade,
 			// TODO: (killianmuldoon) Checking the kube-proxy, etcd and DNS version doesn't work as we can't access the control plane endpoint for the workload cluster
 			// from the host. Need to figure out a way to route the calls to the workload Cluster correctly.
 			EtcdImageTag:       "",
@@ -938,17 +1015,22 @@ func modifyMachineDeployments(baseClusterTemplateYAML []byte, count int64) []byt
 	Expect(baseClusterTemplateYAML).NotTo(BeEmpty(), "Invalid argument. baseClusterTemplateYAML cannot be empty when calling modifyMachineDeployments")
 	Expect(count).To(BeNumerically(">=", 0), "Invalid argument. count cannot be less than 0 when calling modifyMachineDeployments")
 
-	objs, err := yaml.ToUnstructured(baseClusterTemplateYAML)
+	objs, err := utilyaml.ToUnstructured(baseClusterTemplateYAML)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(objs).To(HaveLen(1), "Unexpected number of objects found in baseClusterTemplateYAML")
 
 	scheme := runtime.NewScheme()
 	framework.TryAddDefaultSchemes(scheme)
 	cluster := &clusterv1.Cluster{}
+	// Adding v1beta1 scheme and registering the conversion function to allow auto-converting to v1beta2.
+	_ = clusterv1beta1.AddToScheme(scheme)
+	Expect(scheme.AddConversionFunc((*clusterv1beta1.Cluster)(nil), (*clusterv1.Cluster)(nil), func(a, b interface{}, _ conversion.Scope) error {
+		return clusterv1beta1.Convert_v1beta1_Cluster_To_v1beta2_Cluster(a.(*clusterv1beta1.Cluster), b.(*clusterv1.Cluster), nil)
+	})).To(Succeed())
 	Expect(scheme.Convert(&objs[0], cluster, nil)).Should(Succeed())
+
 	// Verify the Cluster Topology.
-	Expect(cluster.Spec.Topology).NotTo(BeNil(), "Should be a ClusterClass based Cluster")
-	Expect(cluster.Spec.Topology.Workers).NotTo(BeNil(), "ClusterTopology should have exactly one MachineDeployment. Cannot be empty")
+	Expect(cluster.Spec.Topology.IsDefined()).To(BeTrue(), "Should be a ClusterClass based Cluster")
 	Expect(cluster.Spec.Topology.Workers.MachineDeployments).To(HaveLen(1), "ClusterTopology should have exactly one MachineDeployment")
 
 	baseMD := cluster.Spec.Topology.Workers.MachineDeployments[0]
@@ -962,9 +1044,11 @@ func modifyMachineDeployments(baseClusterTemplateYAML []byte, count int64) []byt
 		allMDs[i-1] = *md
 	}
 	cluster.Spec.Topology.Workers.MachineDeployments = allMDs
-	u := &unstructured.Unstructured{}
-	Expect(scheme.Convert(cluster, u, nil)).To(Succeed())
-	modifiedClusterYAML, err := yaml.FromUnstructured([]unstructured.Unstructured{*u})
+	// Note: We have to set GVK here explicitly otherwise apiVersion + kind won't be set in the YAML.
+	gvk, err := apiutil.GVKForObject(cluster, scheme)
+	Expect(err).ToNot(HaveOccurred())
+	cluster.SetGroupVersionKind(gvk)
+	modifiedClusterYAML, err := yaml.Marshal(cluster)
 	Expect(err).ToNot(HaveOccurred())
 
 	return modifiedClusterYAML

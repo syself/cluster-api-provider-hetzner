@@ -51,7 +51,7 @@ Here is an example of a Packer json:
       "token": "{{user `hcloud_token`}}",
       "image": "{{user `os`}}",
       "location": "fsn1",
-      "server_type": "cx21",
+      "server_type": "cx23",
       "ssh_username": "root",
       "snapshot_name": "{{user `image-name`}}-{{user `version`}}",
       "snapshot_labels": {

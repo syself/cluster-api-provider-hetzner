@@ -245,6 +245,9 @@ func (c *realClient) ListServers(ctx context.Context, opts hcloud.ServerListOpts
 	return resp, err
 }
 
+// GetServer retrieves a server by its ID.
+// It returns both server and error as nil when the server does not exist, as hcloud-go's GetByID
+// returns nil for non-existent server without an error.
 func (c *realClient) GetServer(ctx context.Context, id int64) (*hcloud.Server, error) {
 	res, _, err := c.client.Server.GetByID(ctx, id)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
@@ -350,6 +353,9 @@ func (c *realClient) Reboot(ctx context.Context, server *hcloud.Server) (*hcloud
 func (c *realClient) GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error) {
 	action, _, err := c.client.Action.GetByID(ctx, actionID)
 	if err != nil {
+		if strings.Contains(err.Error(), errStringUnauthorized) {
+			return action, fmt.Errorf("%w: getting hcloud action failed: %w", ErrUnauthorized, err)
+		}
 		return action, fmt.Errorf("getting hcloud action failed: %w", err)
 	}
 	return action, nil

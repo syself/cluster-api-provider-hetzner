@@ -25,7 +25,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 )
 
@@ -311,31 +312,40 @@ type ControllerGeneratedStatus struct {
 	ErrorMessage string `json:"errorMessage"`
 
 	// LastUpdated indicates when the provisioning subsystem last updated the host state.
+	//
+	// Deprecated: Superseded by RebootTriggeredAt.
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
+
+	// RebootTriggeredAt is the timestamp when the reboot was initiated.
+	// +optional
+	RebootTriggeredAt *metav1.Time `json:"rebootTriggeredAt,omitempty"`
 
 	// Rebooted shows whether the server is currently being rebooted.
 	Rebooted bool `json:"rebooted,omitempty"`
 
+	// NodeBootID reflects the BootID of the corresponding Node resource in the workload-cluster.
+	// +optional
+	NodeBootID string `json:"nodeBootID,omitempty"`
+
 	// Conditions define the current service state of the HetznerBareMetalHost.
 	// +optional
-	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
 
-	// ExternalIDs contains values from external systems.
+	// v1beta2 groups all the fields that will be added or modified in HetznerBareMetalHost's status with the V1Beta2 version.
 	// +optional
-	ExternalIDs ExternalIDs `json:"externalIDs,omitzero"`
+	V1Beta2 *HetznerBareMetalHostV1Beta2Status `json:"v1beta2,omitempty"`
 }
 
-// ExternalIDs contains values from external systems.
-type ExternalIDs struct {
-	// RebootAnnotationNodeBootID reflects the BootID of the Node resource in the workload-cluster.
-	// Only set when the machine gets rebooted.
+// HetznerBareMetalHostV1Beta2Status groups all the fields that will be added or modified in HetznerBareMetalHost with the V1Beta2 version.
+type HetznerBareMetalHostV1Beta2Status struct {
+	// conditions represents the observations of a HetznerBareMetalHost's current state.
+	// Known condition types are Ready, CredentialsAvailable, RobotCredentialsAvailable, RootDeviceHintsValidated, ProvisionSucceeded, Deleting, RobotRateLimitExceeded.
 	// +optional
-	RebootAnnotationNodeBootID string `json:"rebootAnnotationNodeBootID,omitempty"`
-
-	// RebootAnnotationSince indicates when the reboot via Annotation started.
-	// +optional
-	RebootAnnotationSince metav1.Time `json:"rebootAnnotationSince,omitzero"`
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // GetIPAddress returns the IPv6 if set, otherwise the IPv4.
@@ -352,13 +362,101 @@ func (sts ControllerGeneratedStatus) HasFatalError() bool {
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalHost resource.
-func (host *HetznerBareMetalHost) GetConditions() clusterv1.Conditions {
+func (host *HetznerBareMetalHost) GetConditions() clusterv1beta1.Conditions {
 	return host.Spec.Status.Conditions
 }
 
-// SetConditions sets the underlying service state of the HetznerBareMetalHost to the predescribed clusterv1.Conditions.
-func (host *HetznerBareMetalHost) SetConditions(conditions clusterv1.Conditions) {
+// SetConditions sets the underlying service state of the HetznerBareMetalHost to the predescribed clusterv1beta1.Conditions.
+func (host *HetznerBareMetalHost) SetConditions(conditions clusterv1beta1.Conditions) {
 	host.Spec.Status.Conditions = conditions
+}
+
+// GetV1Beta2Conditions returns the list of v1beta2 conditions for a HetznerBareMetalHost API object.
+func (host *HetznerBareMetalHost) GetV1Beta2Conditions() []metav1.Condition {
+	if host.Spec.Status.V1Beta2 == nil {
+		return nil
+	}
+	return host.Spec.Status.V1Beta2.Conditions
+}
+
+// SetV1Beta2Conditions sets v1beta2 conditions for a HetznerBareMetalHost API object.
+func (host *HetznerBareMetalHost) SetV1Beta2Conditions(conditions []metav1.Condition) {
+	if host.Spec.Status.V1Beta2 == nil {
+		host.Spec.Status.V1Beta2 = &HetznerBareMetalHostV1Beta2Status{}
+	}
+	host.Spec.Status.V1Beta2.Conditions = conditions
+}
+
+// HetznerBareMetalHostV1Beta2SummaryOpts returns the v1beta2 summary options for a HetznerBareMetalHost.
+// It is the single source of truth for which conditions contribute to the Ready summary,
+// used both by the scope's Close() and by early-exit error paths that bypass the scope.
+//
+// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
+// when multiple conditions are unhealthy, the summary lists all of them in priority
+// order (highest-priority first). Credentials and provisioning problems must outrank
+// Deleting, since deletion may itself need credentials to succeed.
+//  1. RobotCredentialsAvailable - invalid Robot credentials block every Robot API call.
+//  2. RobotRateLimitExceeded    - rate-limit issues (negative polarity).
+//  3. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
+//  4. RootDeviceHintsValidated  - device hints must validate before provisioning.
+//  5. ProvisionSucceeded        - provisioning state (rescue -> image -> OS).
+//  6. RebootSucceeded           - post-provision reboot via annotation.
+//  7. NodeBootIDRetrieved       - workload-cluster Node check after provisioning.
+//  8. Deleting                  - deletion state (negative polarity).
+func HetznerBareMetalHostV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
+	return []v1beta2conditions.SummaryOption{
+		// ForConditionTypes lists every condition that contributes to Ready, in
+		// priority order. When multiple conditions are unhealthy the summary
+		// surfaces them in this order, so the most important issue is listed first.
+		v1beta2conditions.ForConditionTypes{
+			HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+			HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+			HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+			HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+			HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			HetznerBareMetalHostRebootSucceededV1Beta2Condition,
+			HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
+			HetznerBareMetalHostDeletingV1Beta2Condition,
+		},
+		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
+		// listed condition as Unknown. Several reconcile paths exit before every
+		// condition has been set (for example, before Robot credentials are
+		// checked or before the host has been provisioned), and we don't want
+		// those early exits to flip Ready to Unknown.
+		v1beta2conditions.IgnoreTypesIfMissing{
+			HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+			HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+			HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			HetznerBareMetalHostRebootSucceededV1Beta2Condition,
+			HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
+			HetznerBareMetalHostDeletingV1Beta2Condition,
+			HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+		},
+		// CustomMergeStrategy is used only to override the merge reasons, so
+		// the Ready summary uses CAPI's standard Ready reasons (Ready /
+		// NotReady / ReadyUnknown) instead of the generic merge defaults
+		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
+		v1beta2conditions.CustomMergeStrategy{
+			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
+					// conditions with negative polarity
+					HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+					HetznerBareMetalHostDeletingV1Beta2Condition,
+				)),
+				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(
+					clusterv1beta1.NotReadyV1Beta2Reason,
+					clusterv1beta1.ReadyUnknownV1Beta2Reason,
+					clusterv1beta1.ReadyV1Beta2Reason,
+				)),
+			),
+		},
+	}
 }
 
 // SSHStatus contains all status information about SSHStatus.

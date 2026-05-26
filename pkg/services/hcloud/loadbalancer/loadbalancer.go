@@ -26,8 +26,10 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -56,7 +58,7 @@ var ErrControlPlaneEndpointNotSet = errors.New("hetznercluster.spec.controlPlane
 // Reconcile implements the life cycle of HCloud load balancers.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	// delete the deprecated condition from existing cluster objects
-	conditions.Delete(s.scope.HetznerCluster, infrav1.DeprecatedLoadBalancerAttachedToNetworkCondition)
+	v1beta1conditions.Delete(s.scope.HetznerCluster, infrav1.DeprecatedLoadBalancerAttachedToNetworkCondition)
 
 	if !s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		return reconcile.Result{}, nil
@@ -89,14 +91,22 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 					// need some time until the endpoint is available.
 					err = fmt.Errorf("requeue, waiting for control-plane endpoint to be set: %w",
 						err)
-					conditions.MarkFalse(
+					v1beta1conditions.MarkFalse(
 						s.scope.HetznerCluster,
 						infrav1.LoadBalancerReadyCondition,
 						"MissingControlPlaneEndpoint",
-						clusterv1.ConditionSeverityWarning,
+						clusterv1beta1.ConditionSeverityWarning,
 						"%s",
 						err.Error(),
 					)
+
+					v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+						Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+						Status:  metav1.ConditionFalse,
+						Reason:  infrav1.HetznerClusterLoadBalancerMissingControlPlaneEndpointV1Beta2Reason,
+						Message: err.Error(),
+					})
+
 					s.scope.Info(err.Error())
 					return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 				}
@@ -109,14 +119,22 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 
 	// check whether load balancer name, algorithm or type has been changed
 	if err := s.reconcileLBProperties(ctx, lb); err != nil {
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.LoadBalancerUpdateFailedReason,
-			clusterv1.ConditionSeverityWarning,
+			clusterv1beta1.ConditionSeverityWarning,
 			"%s",
 			err.Error(),
 		)
+
+		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerClusterLoadBalancerMissingControlPlaneEndpointV1Beta2Reason,
+			Message: err.Error(),
+		})
+
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancer properties: %w", err)
 	}
 
@@ -125,18 +143,33 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	if err := s.reconcileServices(ctx, lb); err != nil {
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.LoadBalancerServiceSyncFailedReason,
-			clusterv1.ConditionSeverityWarning,
+			clusterv1beta1.ConditionSeverityWarning,
 			"%s",
 			err.Error(),
 		)
+
+		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerClusterLoadBalancerSyncingServicesFailedV1Beta2Reason,
+			Message: err.Error(),
+		})
+
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile services: %w", err)
 	}
 
-	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.LoadBalancerReadyCondition)
+	v1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav1.LoadBalancerReadyCondition)
+
+	v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+		Type:   infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: string(infrav1.HetznerClusterLoadBalancerReadyV1Beta2Reason),
+	})
+
 	return reconcile.Result{}, nil
 }
 
@@ -154,14 +187,21 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 	// attach load balancer to network
 	if s.scope.HetznerCluster.Status.Network == nil {
 		err := fmt.Errorf("no network found in object status")
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.NetworkAttachFailedReason,
-			clusterv1.ConditionSeverityWarning,
+			clusterv1beta1.ConditionSeverityWarning,
 			"%s",
 			err.Error(),
 		)
+
+		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerClusterLoadBalancerAttachingToNetworkFailedV1Beta2Reason,
+			Message: err.Error(),
+		})
 
 		// no need to return error, as once the network is added it will be added to the status which triggers
 		// another reconcile loop
@@ -183,14 +223,22 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 		err = fmt.Errorf("failed to attach load balancer to network: %w", err)
 
 		record.Warnf(s.scope.HetznerCluster, "FailedAttachLoadBalancer", err.Error())
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.NetworkAttachFailedReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			"%s",
 			err.Error(),
 		)
+
+		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerClusterLoadBalancerAttachingToNetworkFailedV1Beta2Reason,
+			Message: err.Error(),
+		})
+
 		return err
 	}
 
@@ -315,14 +363,22 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 	if err != nil {
 		err = fmt.Errorf("failed to create load balancer: %w", err)
 		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "CreateLoadBalancer")
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.LoadBalancerCreateFailedReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			"%s",
 			err.Error(),
 		)
+
+		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerClusterLoadBalancerCreationFailedV1Beta2Reason,
+			Message: err.Error(),
+		})
+
 		record.Warnf(s.scope.HetznerCluster, "FailedCreateLoadBalancer", err.Error())
 
 		return nil, err
@@ -397,14 +453,22 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateLoadBalancer")
 			err = fmt.Errorf("failed to update load balancer to remove the cluster label: %w", err)
 			record.Warnf(s.scope.HetznerCluster, "FailedUpdateLoadBalancer", err.Error())
-			conditions.MarkFalse(
+			v1beta1conditions.MarkFalse(
 				s.scope.HetznerCluster,
 				infrav1.LoadBalancerReadyCondition,
 				infrav1.LoadBalancerUpdateFailedReason,
-				clusterv1.ConditionSeverityWarning,
+				clusterv1beta1.ConditionSeverityWarning,
 				"%s",
 				err.Error(),
 			)
+
+			v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+				Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerClusterLoadBalancerUpdateFailedV1Beta2Reason,
+				Message: err.Error(),
+			})
+
 			return err
 		}
 
@@ -422,14 +486,22 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 		}
 		err = fmt.Errorf("failed to delete load balancer: %w", err)
 		record.Warnf(s.scope.HetznerCluster, "FailedLoadBalancerDelete", err.Error())
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.LoadBalancerDeleteFailedReason,
-			clusterv1.ConditionSeverityWarning,
+			clusterv1beta1.ConditionSeverityWarning,
 			"%s",
 			err.Error(),
 		)
+
+		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerClusterLoadBalancerDeletionFailedV1Beta2Reason,
+			Message: err.Error(),
+		})
+
 		return err
 	}
 
@@ -477,14 +549,22 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 	}
 
 	if len(loadBalancers) == 0 {
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.LoadBalancerFailedToOwnReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			"%s",
 			fmt.Sprintf("load balancer %q not found", name),
 		)
+
+		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason,
+			Message: fmt.Sprintf("load balancer %q not found", name),
+		})
+
 		return nil, ErrNoLoadBalancerAvailable
 	}
 
@@ -492,14 +572,22 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 
 	for label := range lb.Labels {
 		if strings.HasPrefix(label, infrav1.NameHetznerProviderOwned) {
-			conditions.MarkFalse(
+			v1beta1conditions.MarkFalse(
 				s.scope.HetznerCluster,
 				infrav1.LoadBalancerReadyCondition,
 				infrav1.LoadBalancerFailedToOwnReason,
-				clusterv1.ConditionSeverityError,
+				clusterv1beta1.ConditionSeverityError,
 				"%s",
 				fmt.Sprintf("load balancer %q already owned with label %q", name, label),
 			)
+
+			v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+				Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason,
+				Message: fmt.Sprintf("load balancer %q already owned with label %q", name, label),
+			})
+
 			return nil, ErrNoLoadBalancerAvailable
 		}
 	}
@@ -516,14 +604,22 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateLoadBalancer")
 		err = fmt.Errorf("failed to update load balancer: %w", err)
 		record.Warnf(s.scope.HetznerCluster, "FailedUpdateLoadBalancer", err.Error())
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.LoadBalancerFailedToOwnReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			"%s",
 			err.Error(),
 		)
+
+		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason,
+			Message: err.Error(),
+		})
+
 		return nil, err
 	}
 

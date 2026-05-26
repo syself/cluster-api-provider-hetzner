@@ -20,6 +20,9 @@ spec:
   hetznerSecretRef:
     name: hcloud
     key:
-      hcloudToken: token
+      # "hcloud" is used here for backward compatibility with the Syself CCM,
+      # so that the same template works with both the Syself fork and the
+      # upstream CCM. Once Syself CCM is dropped, this should be set to "token".
+      hcloudToken: hcloud
       hetznerRobotPassword: robot-password
       hetznerRobotUser: robot-user
