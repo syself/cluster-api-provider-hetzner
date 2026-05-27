@@ -1280,6 +1280,7 @@ var _ = Describe("Reconcile", func() {
 			Err:    nil,
 		})
 		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "output-of-image-url-command", nil)
+		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return("", fmt.Errorf("no output.json")).Once()
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
 			ID:            1,
 			Name:          "hcloudmachinenameWithRescueEnabled",

@@ -151,6 +151,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
+		sshMock.On("ReadOutputJSON", mock.Anything).Return("", fmt.Errorf("no output.json")).Once()
 		sshMock.On("Reboot", mock.Anything).Return(sshclient.Output{})
 
 		robot := robotmock.Client{}

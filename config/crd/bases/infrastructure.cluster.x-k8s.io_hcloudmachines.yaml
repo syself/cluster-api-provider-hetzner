@@ -105,19 +105,6 @@ spec:
                   ImageURLCommand must be set if ImageURL is set. ImageURLCommand must be empty if ImageURL is
                   empty.
                 type: string
-              imageURLCommandAPIVersion:
-                description: |-
-                  ImageURLCommandAPIVersion is the output format version of the ImageURLCommand binary.
-                  When set to "v2", CAPH reads /root/output.json after the command completes and maps each
-                  provisioning phase to a condition on the HCloudMachine (PreparationSucceeded,
-                  ImageDeploymentSucceeded, BootstrapDeliverySucceeded, HandoverSucceeded, and the aggregate
-                  NodeProvisioningSucceeded).
-
-                  Leave empty (default) to use the legacy IMAGE_URL_DONE log-based detection.
-                enum:
-                - ""
-                - v2
-                type: string
               placementGroupName:
                 description: PlacementGroupName defines the placement group of the
                   machine in HCloud API that must reference an existing placement

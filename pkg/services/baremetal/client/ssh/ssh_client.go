@@ -23,7 +23,6 @@ import (
 	"context"
 	_ "embed"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -51,13 +50,11 @@ const (
 	outputJSONMaxRetries = 10
 )
 
-// ImageURLCommandOutputV2 is the format of /root/output.json written by the v2 image-url-command binary.
-// Status is the top-level completion signal: "Succeeded" or "Failed". A missing or empty Status
-// means the file is not yet complete (binary still running or crashed before the atomic rename).
+// ImageURLCommandOutputV2 is the format of /root/output.json written by the image-url-command binary.
+// Written during execution and on completion; presence and content are optional from CAPH's perspective.
 type ImageURLCommandOutputV2 struct {
-	APIVersion string                                `json:"apiVersion"`
-	Status     string                                `json:"status"`
-	Phases     map[string]ImageURLCommandPhaseResult `json:"phases"`
+	Status string                                `json:"status"`
+	Phases map[string]ImageURLCommandPhaseResult `json:"phases"`
 }
 
 // ImageURLCommandPhaseResult holds the result of one provisioning phase.
@@ -241,11 +238,6 @@ type Client interface {
 	// StateOfImageURLCommand returns the current states of the ImageURLCommand. States can
 	// be: NotStarted, Running, Failed, FinishedSuccesfully.
 	StateOfImageURLCommand(ctx context.Context) (state ImageURLCommandState, logFile string, err error)
-
-	// StateOfImageURLCommandV2 is the v2 variant of StateOfImageURLCommand.
-	// Instead of checking IMAGE_URL_DONE in the log, it reads /root/output.json once the
-	// binary exits. Returns (FinishedSuccessfully, outputJSONContent, nil) on completion.
-	StateOfImageURLCommandV2(ctx context.Context) (state ImageURLCommandState, outputJSON string, err error)
 
 	// ReadOutputJSON reads /root/output.json from the rescue system.
 	// It retries up to outputJSONMaxRetries times when the content does not end with '}',
@@ -984,52 +976,3 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 	return "", fmt.Errorf("output.json did not end with '}' after %d retries", outputJSONMaxRetries)
 }
 
-func (c *sshClient) StateOfImageURLCommandV2(ctx context.Context) (ImageURLCommandState, string, error) {
-	out := c.runSSH(ctx, `[ -e /root/image-url-command.pid ]`)
-	pidExitCode, pidErr := out.ExitStatus()
-
-	var psExitCode int
-	var psErr error
-	if pidErr == nil && pidExitCode == 0 {
-		out = c.runSSH(ctx, `ps -p "$(cat /root/image-url-command.pid)" -o args= | grep -q image-url-command`)
-		psExitCode, psErr = out.ExitStatus()
-	}
-
-	var outputJSONContent string
-	var outputJSONErr error
-	if pidErr == nil && pidExitCode == 0 && psErr == nil && psExitCode != 0 {
-		outputJSONContent, outputJSONErr = c.ReadOutputJSON(ctx)
-	}
-
-	return stateOfImageURLCommandV2Logic(pidExitCode, pidErr, psExitCode, psErr, outputJSONContent, outputJSONErr)
-}
-
-func stateOfImageURLCommandV2Logic(
-	pidExitCode int, pidErr error,
-	psExitCode int, psErr error,
-	outputJSONContent string, outputJSONErr error,
-) (ImageURLCommandState, string, error) {
-	if pidErr != nil {
-		return ImageURLCommandStateNotStarted, "", fmt.Errorf("checking PID file: %w", pidErr)
-	}
-	if pidExitCode > 0 {
-		return ImageURLCommandStateNotStarted, "", nil
-	}
-	if psErr != nil {
-		return ImageURLCommandStateNotStarted, "", fmt.Errorf("checking if image-url-command is running: %w", psErr)
-	}
-	if psExitCode == 0 {
-		return ImageURLCommandStateRunning, "", nil
-	}
-	// Process has exited. Fail immediately if output.json is missing or incomplete —
-	// don't wait for the 7-minute timeout.
-	if outputJSONErr != nil {
-		return ImageURLCommandStateFailed, fmt.Sprintf("process exited but output.json not readable: %s", outputJSONErr), nil
-	}
-	var output ImageURLCommandOutputV2
-	_ = json.Unmarshal([]byte(outputJSONContent), &output)
-	if output.Status == "" {
-		return ImageURLCommandStateFailed, outputJSONContent, nil
-	}
-	return ImageURLCommandStateFinishedSuccessfully, outputJSONContent, nil
-}

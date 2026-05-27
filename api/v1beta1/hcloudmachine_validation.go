@@ -55,13 +55,6 @@ func validateHCloudMachineSpecUpdate(oldSpec, newSpec HCloudMachineSpec) field.E
 		)
 	}
 
-	// ImageURLCommandAPIVersion is immutable
-	if !reflect.DeepEqual(oldSpec.ImageURLCommandAPIVersion, newSpec.ImageURLCommandAPIVersion) {
-		allErrs = append(allErrs,
-			field.Forbidden(field.NewPath("spec", "imageURLCommandAPIVersion"), "field is immutable"),
-		)
-	}
-
 	// SSHKeys is immutable
 	if !reflect.DeepEqual(oldSpec.SSHKeys, newSpec.SSHKeys) {
 		allErrs = append(allErrs,
@@ -119,12 +112,6 @@ func validateHCloudMachineSpec(spec HCloudMachineSpec) field.ErrorList {
 				field.Invalid(field.NewPath("spec", "imageURLCommand"), spec.ImageURLCommand,
 					err.Error()))
 		}
-	}
-
-	if spec.ImageURLCommandAPIVersion != "" && spec.ImageURL == "" {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "imageURLCommandAPIVersion"), spec.ImageURLCommandAPIVersion,
-				"imageURLCommandAPIVersion requires imageURL to be set"))
 	}
 
 	return allErrs

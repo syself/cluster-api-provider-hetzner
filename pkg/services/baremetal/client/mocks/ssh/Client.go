@@ -1506,69 +1506,6 @@ func (_c *Client_StateOfImageURLCommand_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
-// StateOfImageURLCommandV2 provides a mock function with given fields: ctx
-func (_m *Client) StateOfImageURLCommandV2(ctx context.Context) (sshclient.ImageURLCommandState, string, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for StateOfImageURLCommandV2")
-	}
-
-	var r0 sshclient.ImageURLCommandState
-	var r1 string
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context) (sshclient.ImageURLCommandState, string, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) sshclient.ImageURLCommandState); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Get(0).(sshclient.ImageURLCommandState)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) string); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Get(1).(string)
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
-		r2 = rf(ctx)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
-// Client_StateOfImageURLCommandV2_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StateOfImageURLCommandV2'
-type Client_StateOfImageURLCommandV2_Call struct {
-	*mock.Call
-}
-
-// StateOfImageURLCommandV2 is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *Client_Expecter) StateOfImageURLCommandV2(ctx interface{}) *Client_StateOfImageURLCommandV2_Call {
-	return &Client_StateOfImageURLCommandV2_Call{Call: _e.mock.On("StateOfImageURLCommandV2", ctx)}
-}
-
-func (_c *Client_StateOfImageURLCommandV2_Call) Run(run func(ctx context.Context)) *Client_StateOfImageURLCommandV2_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *Client_StateOfImageURLCommandV2_Call) Return(state sshclient.ImageURLCommandState, outputJSON string, err error) *Client_StateOfImageURLCommandV2_Call {
-	_c.Call.Return(state, outputJSON, err)
-	return _c
-}
-
-func (_c *Client_StateOfImageURLCommandV2_Call) RunAndReturn(run func(context.Context) (sshclient.ImageURLCommandState, string, error)) *Client_StateOfImageURLCommandV2_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // UntarTGZ provides a mock function with given fields: ctx
 func (_m *Client) UntarTGZ(ctx context.Context) sshclient.Output {
 	ret := _m.Called(ctx)

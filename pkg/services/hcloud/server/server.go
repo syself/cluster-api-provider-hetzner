@@ -961,10 +961,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (wait for image-url-command): %w", err)
 	}
 
-	if hm.Spec.ImageURLCommandAPIVersion == "v2" {
-		return s.handleBootStateRunningImageCommandV2(ctx, hcloudSSHClient)
-	}
-
 	state, logFile, err := hcloudSSHClient.StateOfImageURLCommand(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("StateOfImageURLCommand failed: %w", err)
@@ -1026,6 +1022,13 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
+		if outputJSON, readErr := hcloudSSHClient.ReadOutputJSON(ctx); readErr == nil {
+			var output sshclient.ImageURLCommandOutputV2
+			if jsonErr := json.Unmarshal([]byte(outputJSON), &output); jsonErr == nil && output.Status != "" {
+				imageurlcmd.ApplyNodeProvisioningConditions(hm, output)
+			}
+		}
+
 		// The image got installed. Now reboot in the real operating system.
 		if rebootErr := hcloudSSHClient.Reboot(ctx).Err; rebootErr != nil {
 			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w", rebootErr)
@@ -1067,85 +1070,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	case sshclient.ImageURLCommandStateNotStarted:
 		return reconcile.Result{}, fmt.Errorf("image-url-command not started in BootState %q? Should not happen",
 			state)
-
-	default:
-		return reconcile.Result{}, fmt.Errorf("unknown ImageURLCommandState: %q", state)
-	}
-}
-
-// handleBootStateRunningImageCommandV2 handles the RunningImageCommand boot state for
-// imageURLCommandAPIVersion=v2. It reads /root/output.json once the binary exits and maps
-// phase results to HCloudMachine conditions.
-func (s *Service) handleBootStateRunningImageCommandV2(ctx context.Context, hcloudSSHClient sshclient.Client) (reconcile.Result, error) {
-	hm := s.scope.HCloudMachine
-
-	state, outputJSON, err := hcloudSSHClient.StateOfImageURLCommandV2(ctx)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("StateOfImageURLCommandV2 failed: %w", err)
-	}
-
-	durationOfState := time.Since(hm.Status.BootStateSince.Time)
-	// Please keep the number (7) in sync with the docstring of ImageURL.
-	if durationOfState > 7*time.Minute {
-		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
-			durationOfState.Round(time.Second).String())
-		s.scope.Error(errors.New(msg), "", "outputJSON", outputJSON)
-		if err := s.scope.SetErrorAndRemediate(ctx, msg); err != nil {
-			return reconcile.Result{}, err
-		}
-		record.Warn(hm, "ImageURLCommandFailed", outputJSON)
-		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"RunningImageCommandTimedOut", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
-		return reconcile.Result{}, nil
-	}
-
-	switch state {
-	case sshclient.ImageURLCommandStateRunning:
-		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"HCloudImageURLCommandRunning", clusterv1beta1.ConditionSeverityInfo,
-			"imageURLCommand running")
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-
-	case sshclient.ImageURLCommandStateFinishedSuccessfully:
-		var output sshclient.ImageURLCommandOutputV2
-		if err := json.Unmarshal([]byte(outputJSON), &output); err != nil {
-			return reconcile.Result{}, fmt.Errorf("parsing output.json: %w", err)
-		}
-
-		allSucceeded := imageurlcmd.ApplyNodeProvisioningConditions(hm, output)
-		if !allSucceeded {
-			msg := "ImageURLCommand provisioning failed. Deleting machine"
-			s.scope.Error(errors.New(msg), "", "outputJSON", outputJSON)
-			if err := s.scope.SetErrorAndRemediate(ctx, msg); err != nil {
-				return reconcile.Result{}, err
-			}
-			record.Warn(hm, "ImageURLCommandFailed", outputJSON)
-			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-				"ImageCommandFailed", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
-			return reconcile.Result{}, nil
-		}
-
-		if rebootErr := hcloudSSHClient.Reboot(ctx).Err; rebootErr != nil {
-			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w", rebootErr)
-		}
-		hm.SetBootState(infrav1.HCloudBootStateBootingToRealOS)
-		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"BootingToRealOS", clusterv1beta1.ConditionSeverityInfo,
-			"Operating system of node is booting")
-		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
-
-	case sshclient.ImageURLCommandStateFailed:
-		msg := "ImageURLCommand failed to read output.json. Deleting machine"
-		s.scope.Error(errors.New(msg), "", "detail", outputJSON)
-		if err := s.scope.SetErrorAndRemediate(ctx, msg); err != nil {
-			return reconcile.Result{}, err
-		}
-		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"ImageCommandFailed", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
-		return reconcile.Result{}, nil
-
-	case sshclient.ImageURLCommandStateNotStarted:
-		return reconcile.Result{}, fmt.Errorf("image-url-command not started in BootState RunningImageCommand? Should not happen")
 
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown ImageURLCommandState: %q", state)

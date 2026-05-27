@@ -1295,10 +1295,6 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshClient sshclient.Client) actionResult {
 	host := s.scope.HetznerBareMetalHost
 
-	if host.Spec.Status.InstallImage.ImageURLCommandAPIVersion == "v2" {
-		return s.actionImageInstallingImageURLCommandV2(ctx, sshClient)
-	}
-
 	state, logFile, err := sshClient.StateOfImageURLCommand(ctx)
 	if err != nil {
 		return actionError{err: fmt.Errorf("StateOfImageURLCommand failed: %w", err)}
@@ -1334,6 +1330,13 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
 		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
+
+		if outputJSON, readErr := sshClient.ReadOutputJSON(ctx); readErr == nil {
+			var output sshclient.ImageURLCommandOutputV2
+			if jsonErr := json.Unmarshal([]byte(outputJSON), &output); jsonErr == nil && output.Status != "" {
+				imageurlcmd.ApplyNodeProvisioningConditions(host, output)
+			}
+		}
 
 		// Update name in robot API
 		if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
@@ -1481,156 +1484,6 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 	}
 }
 
-func (s *Service) actionImageInstallingImageURLCommandV2(ctx context.Context, sshClient sshclient.Client) actionResult {
-	host := s.scope.HetznerBareMetalHost
-
-	state, outputJSON, err := sshClient.StateOfImageURLCommandV2(ctx)
-	if err != nil {
-		return actionError{err: fmt.Errorf("StateOfImageURLCommandV2 failed: %w", err)}
-	}
-
-	var duration time.Duration
-	if host.Spec.Status.RebootTriggeredAt != nil {
-		duration = time.Since(host.Spec.Status.RebootTriggeredAt.Time)
-	}
-
-	// Please keep the number (7) in sync with the docstring of ImageURL.
-	if duration > 7*time.Minute {
-		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
-			duration.Round(time.Second).String())
-		s.scope.Error(nil, msg, "outputJSON", outputJSON)
-		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandTimedOut", clusterv1beta1.ConditionSeverityWarning,
-			"%s", msg)
-		return s.recordActionFailure(infrav1.FatalError, msg)
-	}
-
-	switch state {
-	case sshclient.ImageURLCommandStateRunning:
-		return actionContinue{delay: 10 * time.Second}
-
-	case sshclient.ImageURLCommandStateFinishedSuccessfully:
-		var output sshclient.ImageURLCommandOutputV2
-		if err := json.Unmarshal([]byte(outputJSON), &output); err != nil {
-			return actionError{err: fmt.Errorf("parsing output.json: %w", err)}
-		}
-
-		allSucceeded := imageurlcmd.ApplyNodeProvisioningConditions(host, output)
-		if !allSucceeded {
-			msg := "ImageURLCommand provisioning failed. Deleting machine"
-			s.scope.Error(nil, msg, "outputJSON", outputJSON)
-			v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-				"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
-				"%s", msg)
-			return s.recordActionFailure(infrav1.FatalError, msg)
-		}
-
-		record.Event(host, "ImageURLCommandOutput", outputJSON)
-
-		// Update name in robot API
-		if _, err := s.scope.RobotClient.SetBMServerName(host.Spec.ServerID, s.scope.Hostname()); err != nil {
-			record.Warn(host, "SetBMServerNameFailed", err.Error())
-			s.handleRobotRateLimitExceeded(err, "SetBMServerName")
-			return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
-		}
-
-		// Reboot via SSH
-		if err := sshClient.Reboot(ctx).Err; err != nil {
-			err = fmt.Errorf("failed to reboot server (after install-image): %w", err)
-			record.Warn(host, "RebootFailed", err.Error())
-			return actionError{err: err}
-		}
-
-		host.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
-
-		msg := "machine image and cloud-init data got installed (via image-url-command v2)"
-		createSSHRebootEvent(ctx, host, msg)
-
-		host.ClearError()
-		return actionComplete{}
-
-	case sshclient.ImageURLCommandStateFailed:
-		msg := "image-url-command failed to read output.json"
-		s.scope.Error(nil, msg, "outputJSON", outputJSON)
-		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
-			"%s", msg)
-		return s.recordActionFailure(infrav1.FatalError, msg)
-
-	case sshclient.ImageURLCommandStateNotStarted:
-		// Not started yet — start it now (same logic as v1).
-		data, err := s.scope.GetRawBootstrapData(ctx)
-		if err != nil {
-			return actionError{err: fmt.Errorf("baremetal GetRawBootstrapData failed: %w", err)}
-		}
-
-		command := host.Spec.Status.InstallImage.ImageURLCommand
-		if command == "" {
-			err = errors.New("internal error: spec.status.installImage.imageURLCommand is not set")
-			s.scope.Error(err, "")
-			v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-				"ImageURLCommandMissing",
-				clusterv1beta1.ConditionSeverityError,
-				"%s", err.Error())
-			return actionStop{}
-		}
-
-		commandPath, err := utils.ResolveImageURLCommandPath(baremetalImageURLCommandDir, command)
-		if err != nil {
-			err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", command, err)
-			s.scope.Error(err, "")
-			v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-				"ImageURLCommandNotAccessible",
-				clusterv1beta1.ConditionSeverityWarning,
-				"%s", err.Error())
-			return actionStop{}
-		}
-
-		storage, err := obtainHardwareDetailsStorage(ctx, sshClient)
-		if err != nil {
-			return actionError{err: fmt.Errorf("failed to obtain hardware details storage: %w", err)}
-		}
-
-		deviceNames := getDeviceNames(host.Spec.RootDeviceHints.ListOfWWN(), storage)
-
-		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, commandPath, host.Spec.Status.InstallImage.Image.URL, data, s.scope.Hostname(), deviceNames)
-		if err != nil {
-			err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
-			s.scope.Error(err, "",
-				"ImageURLCommand", command,
-				"exitStatus", exitStatus,
-				"stdoutStderr", stdoutStderr)
-			v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-				"ImageURLCommandFailedToStart",
-				clusterv1beta1.ConditionSeverityWarning,
-				"%s", err.Error())
-			return actionError{err: err}
-		}
-
-		if exitStatus != 0 {
-			msg := "StartImageURLCommand failed with non-zero exit status. Deleting machine"
-			s.scope.Error(nil, msg,
-				"ImageURLCommand", command,
-				"exitStatus", exitStatus,
-				"stdoutStderr", stdoutStderr)
-			v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-				"StartImageURLCommandFailed",
-				clusterv1beta1.ConditionSeverityWarning,
-				"%s", msg)
-			return s.recordActionFailure(infrav1.ProvisioningError, msg)
-		}
-
-		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandStarted",
-			clusterv1beta1.ConditionSeverityInfo,
-			"imageURLCommand started")
-
-		return actionContinue{delay: 55 * time.Second}
-
-	default:
-		return actionError{err: fmt.Errorf("unknown ImageURLCommandState: %q", state)}
-	}
-}
 
 func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Context, sshClient sshclient.Client) actionResult {
 	// CheckDisk before accessing the disk
