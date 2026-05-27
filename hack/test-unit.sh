@@ -23,17 +23,17 @@ if [[ -n ${KUBEBUILDER_ASSETS:-} ]]; then
     echo "This env var gets set automatically"
     exit 1
 fi
-if ! ./hack/tools/bin/setup-envtest list | grep -q "$KUBEBUILDER_ENVTEST_KUBERNETES_VERSION"; then
-    echo "./hack/tools/bin/setup-envtest is outdated. It does not support $KUBEBUILDER_ENVTEST_KUBERNETES_VERSION."
-    echo "Remove ./hack/tools/bin/setup-envtest and call make again."
-    exit 1
-fi
-
 unset KUBEBUILDER_ASSETS
 
-KUBEBUILDER_ASSETS=$(./hack/tools/bin/setup-envtest use \
+if ! KUBEBUILDER_ASSETS=$(./hack/tools/bin/setup-envtest use \
     --bin-dir "$PWD/hack/tools/bin" -p path \
-    "$KUBEBUILDER_ENVTEST_KUBERNETES_VERSION")
+    "$KUBEBUILDER_ENVTEST_KUBERNETES_VERSION"); then
+    echo "Unable to resolve envtest assets for Kubernetes $KUBEBUILDER_ENVTEST_KUBERNETES_VERSION."
+    echo "Maybe this helps:"
+    echo "    rm -rf hack/tools/bin/setup-envtest"
+    echo "    make setup-envtest"
+    exit 1
+fi
 
 if [[ ! -e $KUBEBUILDER_ASSETS ]]; then
     echo "$KUBEBUILDER_ASSETS does not exist. Check our setup."

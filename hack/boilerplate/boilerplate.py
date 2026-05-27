@@ -55,7 +55,7 @@ args = parser.parse_args()
 
 verbose_out = sys.stderr if args.verbose else open("/dev/null", "w")
 
-default_skipped_dirs = ['Godeps', '.git', 'vendor', 'third_party', '_gopath', '_output']
+default_skipped_dirs = ['Godeps', '.git', 'vendor', 'third_party', '_gopath', '_output', '.cache']
 
 # list all the files that contain 'DO NOT EDIT', but are not generated
 default_skipped_not_generated = []
@@ -126,6 +126,10 @@ def file_content_passes(data, filename, ref, extension, generated, regexs):
         return True
 
     data, _ = replace_specials(data, extension, regexs)
+
+    if len(regexs["copyright"].findall(data)) > 1:
+        print('File %s has the boilerplate header more than once' % filename, file=verbose_out)
+        return False
 
     data = data.splitlines()
 
@@ -294,6 +298,7 @@ def get_regexs():
     regexs["shebang"] = re.compile(r"^(#!.*\n)\n*", re.MULTILINE)
     # Search for generated files
     regexs["generated"] = re.compile('DO NOT EDIT')
+    regexs["copyright"] = re.compile(r'Copyright.*The Kubernetes Authors\.')
     return regexs
 
 

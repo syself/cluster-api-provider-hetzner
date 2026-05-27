@@ -22,8 +22,10 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -92,6 +94,11 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 
 	// Assume credentials are ready for now. This can be changed while the state is handled.
 	v1beta1conditions.MarkTrue(hsm.host, infrav1.CredentialsAvailableCondition)
+	v1beta2conditions.Set(hsm.host, metav1.Condition{
+		Type:   infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Reason,
+	})
 
 	// This state was removed. We have to handle the edge-case where
 	// the controller got updated and a machine
@@ -186,6 +193,12 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 			"%s",
 			msg,
 		)
+		v1beta2conditions.Set(hsm.host, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostSSHKeysInvalidV1Beta2Reason,
+			Message: msg,
+		})
 
 		record.Warnf(hsm.host, infrav1.SSHKeyAlreadyExistsReason, msg)
 		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
@@ -224,6 +237,12 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 			"%s",
 			msg,
 		)
+		v1beta2conditions.Set(hsm.host, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostSSHKeysInvalidV1Beta2Reason,
+			Message: msg,
+		})
 		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 	}
 	return nil
