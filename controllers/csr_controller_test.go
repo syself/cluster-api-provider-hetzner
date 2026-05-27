@@ -17,10 +17,183 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
+	"strings"
 	"testing"
 
 	certificatesv1 "k8s.io/api/certificates/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/utils/ptr"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
+
+type fakeManagementCluster struct {
+	client.Client
+	namespace string
+}
+
+func (c *fakeManagementCluster) Namespace() string {
+	return c.namespace
+}
+
+func TestGuestCSRReconciler_ReconcileSkipsPausedCSR(t *testing.T) {
+	testCases := []struct {
+		name          string
+		clusterPaused bool
+		csrPaused     bool
+	}{
+		{
+			name:          "cluster is paused",
+			clusterPaused: true,
+		},
+		{
+			name:      "csr is paused",
+			csrPaused: true,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			utilruntime.Must(certificatesv1.AddToScheme(scheme))
+			utilruntime.Must(clusterv1.AddToScheme(scheme))
+
+			clusterName := "test-cluster"
+			namespace := "default"
+			cluster := &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      clusterName,
+					Namespace: namespace,
+				},
+				Spec: clusterv1.ClusterSpec{
+					Paused: ptr.To(tt.clusterPaused),
+				},
+			}
+
+			certificateSigningRequest := &certificatesv1.CertificateSigningRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-csr",
+				},
+				Spec: certificatesv1.CertificateSigningRequestSpec{
+					Username: "system:node:test-machine",
+				},
+			}
+			if tt.csrPaused {
+				certificateSigningRequest.Annotations = map[string]string{
+					clusterv1.PausedAnnotation: "",
+				}
+			}
+
+			workloadClient := fakeclient.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(certificateSigningRequest).
+				Build()
+			managementClient := fakeclient.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(cluster).
+				Build()
+
+			reconciler := &GuestCSRReconciler{
+				Client: workloadClient,
+				mCluster: &fakeManagementCluster{
+					Client:    managementClient,
+					namespace: namespace,
+				},
+				clusterName: clusterName,
+			}
+
+			result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: certificateSigningRequest.Name},
+			})
+			if err != nil {
+				t.Fatalf("Reconcile() error = %v, want nil", err)
+			}
+			if result != (reconcile.Result{}) {
+				t.Fatalf("Reconcile() result = %v, want empty result", result)
+			}
+
+			updatedCSR := &certificatesv1.CertificateSigningRequest{}
+			if err := workloadClient.Get(context.Background(), client.ObjectKeyFromObject(certificateSigningRequest), updatedCSR); err != nil {
+				t.Fatalf("failed to get CSR: %v", err)
+			}
+			if len(updatedCSR.Status.Conditions) != 0 {
+				t.Fatalf("CSR conditions = %v, want no conditions", updatedCSR.Status.Conditions)
+			}
+		})
+	}
+}
+
+func TestGuestCSRReconciler_ReconcileContinuesWhenCSRAndClusterAreNotPaused(t *testing.T) {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(certificatesv1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+
+	clusterName := "test-cluster"
+	namespace := "default"
+	cluster := &clusterv1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clusterName,
+			Namespace: namespace,
+		},
+	}
+
+	certificateSigningRequest := &certificatesv1.CertificateSigningRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-csr",
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: certificatesv1.CertificateSigningRequestSpec{
+			Username: "system:node:test-machine",
+			Request:  []byte("invalid request"),
+		},
+	}
+	hcloudMachine := &infrav1.HCloudMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-machine",
+			Namespace: namespace,
+		},
+	}
+
+	workloadClient := fakeclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(certificateSigningRequest).
+		Build()
+	managementClient := fakeclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(cluster, hcloudMachine).
+		Build()
+
+	reconciler := &GuestCSRReconciler{
+		Client: workloadClient,
+		mCluster: &fakeManagementCluster{
+			Client:    managementClient,
+			namespace: namespace,
+		},
+		clusterName: clusterName,
+	}
+
+	result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: certificateSigningRequest.Name},
+	})
+	if err == nil {
+		t.Fatal("Reconcile() error = nil, want CSR parsing error")
+	}
+	if !strings.Contains(err.Error(), "failed to decode csr request") {
+		t.Fatalf("Reconcile() error = %v, want CSR parsing error", err)
+	}
+	if result != (reconcile.Result{}) {
+		t.Fatalf("Reconcile() result = %v, want empty result", result)
+	}
+}
 
 func Test_isCSRFromNode(t *testing.T) {
 	testIsCSRFromNode := []struct {

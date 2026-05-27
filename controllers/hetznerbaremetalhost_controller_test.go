@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -28,15 +29,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
+	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hostpkg "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -46,6 +52,146 @@ import (
 const (
 	hostName = "test-host"
 )
+
+type countingRobotFactory struct {
+	calls int
+}
+
+func (f *countingRobotFactory) NewClient(robotclient.Credentials) robotclient.Client {
+	f.calls++
+	return nil
+}
+
+func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedHost(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+
+	host := helpers.BareMetalHost("paused-host", "default")
+	host.Annotations = map[string]string{
+		clusterv1.PausedAnnotation: "",
+	}
+
+	c := fakeclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(host).
+		Build()
+
+	reconciler := &HetznerBareMetalHostReconciler{
+		Client: c,
+	}
+
+	result, err := reconciler.Reconcile(ctx, reconcile.Request{
+		NamespacedName: client.ObjectKeyFromObject(host),
+	})
+	require.NoError(t, err)
+	require.Equal(t, reconcile.Result{}, result)
+
+	updatedHost := &infrav1.HetznerBareMetalHost{}
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost))
+	require.NotContains(t, updatedHost.Finalizers, infrav1.HetznerBareMetalHostFinalizer)
+}
+
+func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+
+	namespace := "default"
+	clusterName := "test-cluster"
+	hetznerClusterName := "test-hetzner-cluster"
+
+	cluster := &clusterv1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clusterName,
+			Namespace: namespace,
+		},
+		Spec: clusterv1.ClusterSpec{
+			Paused: ptr.To(true),
+			InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+				APIGroup: infrav1.GroupVersion.Group,
+				Kind:     "HetznerCluster",
+				Name:     hetznerClusterName,
+			},
+		},
+	}
+	hetznerCluster := &infrav1.HetznerCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hetznerClusterName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				clusterv1.ClusterNameLabel: clusterName,
+			},
+		},
+		Spec: helpers.GetDefaultHetznerClusterSpec(),
+	}
+	host := helpers.BareMetalHost("paused-cluster-host", namespace, helpers.WithHetznerClusterRef(hetznerClusterName))
+	host.Finalizers = []string{infrav1.HetznerBareMetalHostFinalizer}
+	host.Spec.Status.ProvisioningState = infrav1.StatePreparing
+	hetznerSecret := getDefaultHetznerSecret(namespace)
+	robotFactory := &countingRobotFactory{}
+
+	c := fakeclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&infrav1.HetznerBareMetalHost{}).
+		WithObjects(cluster, hetznerCluster, host, hetznerSecret).
+		Build()
+
+	reconciler := &HetznerBareMetalHostReconciler{
+		Client:             c,
+		APIReader:          c,
+		RobotClientFactory: robotFactory,
+	}
+
+	result, err := reconciler.Reconcile(ctx, reconcile.Request{
+		NamespacedName: client.ObjectKeyFromObject(host),
+	})
+	require.NoError(t, err)
+	require.Equal(t, reconcile.Result{}, result)
+
+	updatedHost := &infrav1.HetznerBareMetalHost{}
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost))
+	require.Contains(t, updatedHost.Finalizers, infrav1.HetznerBareMetalHostFinalizer)
+	require.Equal(t, infrav1.StatePreparing, updatedHost.Spec.Status.ProvisioningState)
+	require.Zero(t, robotFactory.calls)
+}
+
+func TestHetznerBareMetalHostReconciler_ReconcileRemovesFinalizerWhenDeletingAndHetznerClusterIsGone(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+
+	host := helpers.BareMetalHost("deleting-host", "default", helpers.WithHetznerClusterRef("deleted-hetzner-cluster"))
+	host.Finalizers = []string{infrav1.HetznerBareMetalHostFinalizer}
+	host.Spec.Status.ProvisioningState = infrav1.StateDeleting
+
+	c := fakeclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&infrav1.HetznerBareMetalHost{}).
+		WithObjects(host).
+		Build()
+
+	reconciler := &HetznerBareMetalHostReconciler{
+		Client:    c,
+		APIReader: c,
+	}
+
+	result, err := reconciler.Reconcile(ctx, reconcile.Request{
+		NamespacedName: client.ObjectKeyFromObject(host),
+	})
+	require.NoError(t, err)
+	require.Equal(t, reconcile.Result{Requeue: true}, result)
+
+	updatedHost := &infrav1.HetznerBareMetalHost{}
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost))
+	require.NotContains(t, updatedHost.Finalizers, infrav1.HetznerBareMetalHostFinalizer)
+}
 
 func verifyError(host *infrav1.HetznerBareMetalHost, errorType infrav1.ErrorType, errorMessage string) bool {
 	if host.Spec.Status.ErrorType != errorType {

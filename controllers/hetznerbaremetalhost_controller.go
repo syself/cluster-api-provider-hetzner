@@ -32,6 +32,7 @@ import (
 	"k8s.io/klog/v2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/annotations"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
@@ -109,6 +110,11 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
+	}
+
+	if annotations.HasPaused(bmHost) {
+		log.Info("HetznerBareMetalHost is marked as paused. Won't reconcile")
+		return reconcile.Result{}, nil
 	}
 
 	// ----------------------------------------------------------------
@@ -224,15 +230,16 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has no
 	// DeletionTimestamp set. But the hbmm could be in Deprovisioning.
 
+	if bmHost.Spec.Status.HetznerClusterRef == "" {
+		log.Info("bmHost.Spec.Status.HetznerClusterRef is empty. Looks like a stale cache read")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
 		Namespace: bmHost.Namespace,
 		Name:      bmHost.Spec.Status.HetznerClusterRef,
-	}
-	if bmHost.Spec.Status.HetznerClusterRef == "" {
-		log.Info("bmHost.Spec.Status.HetznerClusterRef is empty. Looks like a stale cache read")
-		return reconcile.Result{Requeue: true}, nil
 	}
 	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
@@ -247,6 +254,11 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
+
+	if annotations.IsPaused(cluster, bmHost) {
+		log.Info("HetznerBareMetalHost or linked Cluster is marked as paused. Won't reconcile")
+		return reconcile.Result{}, nil
+	}
 
 	hetznerBareMetalMachine := &infrav1.HetznerBareMetalMachine{}
 
