@@ -601,7 +601,7 @@ else
 	# api/v1beta2 is a dormant copy. Switch back to ./api/... in S1 once controllers
 	# import v1beta2 and the CRD storage version flips.
 	controller-gen \
-			paths="{./, ./api/v1beta1, ./controllers/...}" \
+			paths="{./, ./api/v1beta1, ./controllers/..., ./pkg/webhook/v1beta1}" \
 			crd:crdVersions=v1 \
 			rbac:roleName=manager-role \
 			output:crd:dir=./config/crd/bases \
