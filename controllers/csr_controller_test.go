@@ -113,6 +113,8 @@ func TestGuestCSRReconciler_ReconcileSkipsPausedCSR(t *testing.T) {
 			result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 				NamespacedName: types.NamespacedName{Name: certificateSigningRequest.Name},
 			})
+			// An empty result with no error and no conditions written on the CSR
+			// means the pause guard returned early before any signing logic ran.
 			if err != nil {
 				t.Fatalf("Reconcile() error = %v, want nil", err)
 			}

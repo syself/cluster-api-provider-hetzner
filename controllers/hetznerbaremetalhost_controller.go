@@ -255,8 +255,10 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
 
+	// Host-level pause was already handled earlier via annotations.HasPaused(bmHost),
+	// so this only catches the linked Cluster being paused.
 	if annotations.IsPaused(cluster, bmHost) {
-		log.Info("HetznerBareMetalHost or linked Cluster is marked as paused. Won't reconcile")
+		log.Info("Linked Cluster is marked as paused. Won't reconcile")
 		return reconcile.Result{}, nil
 	}
 

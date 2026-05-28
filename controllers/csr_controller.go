@@ -106,8 +106,8 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 	if err := r.mCluster.Get(ctx, clusterName, cluster); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Cluster is not available yet")
-			return reconcile.Result{}, nil
+			log.Info("Cluster is not available yet, requeueing")
+			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to get Cluster: %w", err)
 	}
