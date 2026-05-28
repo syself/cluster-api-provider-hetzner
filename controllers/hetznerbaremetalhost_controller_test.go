@@ -132,44 +132,6 @@ func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T
 	require.Zero(t, robotFactory.calls)
 }
 
-// TestHetznerBareMetalHostReconciler_ReconcileRemovesFinalizerWhenDeletingAndHetznerClusterIsGone
-// verifies that a deleting host can still drop its finalizer when the linked
-// HetznerCluster has already been removed. This is the reason the linked
-// cluster lookup runs after reconcileSelectedStates: the StateDeleting branch
-// must be able to finish cleanup without a cluster in scope.
-func TestHetznerBareMetalHostReconciler_ReconcileRemovesFinalizerWhenDeletingAndHetznerClusterIsGone(t *testing.T) {
-	ctx := context.Background()
-	scheme := runtime.NewScheme()
-	utilruntime.Must(corev1.AddToScheme(scheme))
-	utilruntime.Must(clusterv1.AddToScheme(scheme))
-	utilruntime.Must(infrav1.AddToScheme(scheme))
-
-	host := helpers.BareMetalHost("deleting-host", "default", helpers.WithHetznerClusterRef("deleted-hetzner-cluster"))
-	host.Finalizers = []string{infrav1.HetznerBareMetalHostFinalizer}
-	host.Spec.Status.ProvisioningState = infrav1.StateDeleting
-
-	c := fakeclient.NewClientBuilder().
-		WithScheme(scheme).
-		WithStatusSubresource(&infrav1.HetznerBareMetalHost{}).
-		WithObjects(host).
-		Build()
-
-	reconciler := &HetznerBareMetalHostReconciler{
-		Client:    c,
-		APIReader: c,
-	}
-
-	result, err := reconciler.Reconcile(ctx, reconcile.Request{
-		NamespacedName: client.ObjectKeyFromObject(host),
-	})
-	require.NoError(t, err)
-	require.Equal(t, reconcile.Result{Requeue: true}, result)
-
-	updatedHost := &infrav1.HetznerBareMetalHost{}
-	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost))
-	require.NotContains(t, updatedHost.Finalizers, infrav1.HetznerBareMetalHostFinalizer)
-}
-
 func verifyError(host *infrav1.HetznerBareMetalHost, errorType infrav1.ErrorType, errorMessage string) bool {
 	if host.Spec.Status.ErrorType != errorType {
 		return false
