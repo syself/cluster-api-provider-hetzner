@@ -171,8 +171,12 @@ func (dst *HetznerBareMetalRemediationTemplate) ConvertFrom(srcRaw conversion.Hu
 	return Convert_v1beta2_HetznerBareMetalRemediationTemplate_To_v1beta1_HetznerBareMetalRemediationTemplate(src, dst, nil)
 }
 
-// The generated autoConvert_... helpers below already copy all fields that exist in both versions.
-// They stop at the v1beta1 V1Beta2 field and emit:
+// conversion-gen generates public Convert_... wrappers only when **every** field can be mapped.
+// If a field has no peer in the other version, it only generates autoConvert_... helpers for the
+// matching fields and leaves the unmatched field for manual conversion. Here, that unmatched field
+// is v1beta1's V1Beta2.
+//
+// The generated helpers contain:
 //
 //	WARNING: in.V1Beta2 requires manual conversion: does not exist in peer-type
 //
