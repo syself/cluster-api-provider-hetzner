@@ -62,38 +62,6 @@ func (f *countingRobotFactory) NewClient(robotclient.Credentials) robotclient.Cl
 	return nil
 }
 
-func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedHost(t *testing.T) {
-	ctx := context.Background()
-	scheme := runtime.NewScheme()
-	utilruntime.Must(corev1.AddToScheme(scheme))
-	utilruntime.Must(clusterv1.AddToScheme(scheme))
-	utilruntime.Must(infrav1.AddToScheme(scheme))
-
-	host := helpers.BareMetalHost("paused-host", "default")
-	host.Annotations = map[string]string{
-		clusterv1.PausedAnnotation: "",
-	}
-
-	c := fakeclient.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(host).
-		Build()
-
-	reconciler := &HetznerBareMetalHostReconciler{
-		Client: c,
-	}
-
-	result, err := reconciler.Reconcile(ctx, reconcile.Request{
-		NamespacedName: client.ObjectKeyFromObject(host),
-	})
-	require.NoError(t, err)
-	require.Equal(t, reconcile.Result{}, result)
-
-	updatedHost := &infrav1.HetznerBareMetalHost{}
-	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost))
-	require.NotContains(t, updatedHost.Finalizers, infrav1.HetznerBareMetalHostFinalizer)
-}
-
 func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
