@@ -597,8 +597,11 @@ else
 	# Ensure that these old binaries are not longer used. We use
 	# these from the builder-image now.
 	rm -f ./hack/tools/bin/controller-gen ./hack/tools/bin/helm
+	# TODO(v1beta2 migration #2017): scope manifest generation to ./api/v1beta1 while
+	# api/v1beta2 is a dormant copy. Switch back to ./api/... in S1 once controllers
+	# import v1beta2 and the CRD storage version flips.
 	controller-gen \
-			paths="{./, ./api/..., ./controllers/...}" \
+			paths="{./, ./api/v1beta1, ./controllers/...}" \
 			crd:crdVersions=v1 \
 			rbac:roleName=manager-role \
 			output:crd:dir=./config/crd/bases \
