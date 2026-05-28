@@ -17,10 +17,15 @@ limitations under the License.
 package v1beta1
 
 // v1beta1 and v1beta2 have almost the same fields today. The only difference is that v1beta1
-// status types have a nested V1Beta2 sub-struct (holding the new style metav1.Conditions) which
-// v1beta2 does not. Because of that, the spec and object level ConvertTo / ConvertFrom below are
-// just pass throughs to the generated converters, and only the status converters need to be hand
-// written (see the block further down).
+// status types have a nested V1Beta2 field for the new metav1.Conditions.
+//
+// v1beta2 still keeps the old v1beta1 conditions at status.conditions. The later status-shape work
+// will move those old conditions to status.deprecated.v1beta1.conditions and promote the v1beta1
+// status.v1beta2.conditions field to v1beta2 status.conditions. This conversion plumbing keeps
+// that field move out of scope.
+//
+// Because of that, the spec and object level ConvertTo / ConvertFrom below are just pass throughs
+// to the generated converters, and only the status converters need to be hand written.
 //
 // TODO(#2017): later issues will add new fields that exist only in v1beta2. When we convert from
 // v1beta2 to v1beta1, those new fields would be lost. To keep the round trip safe, we will save
@@ -166,16 +171,17 @@ func (dst *HetznerBareMetalRemediationTemplate) ConvertFrom(srcRaw conversion.Hu
 	return Convert_v1beta2_HetznerBareMetalRemediationTemplate_To_v1beta1_HetznerBareMetalRemediationTemplate(src, dst, nil)
 }
 
-// The Status conversion functions below are written by hand because the v1beta1 status types
-// have a V1Beta2 sub-struct that does not exist in v1beta2. conversion-gen cannot generate the
-// public Convert_... functions when the source has a field with no match in the destination, so
-// we write them here. For now we simply drop the V1Beta2 sub-struct on the way to v1beta2,
-// because v1beta2 does not yet have a place to hold the new style conditions it carries.
+// The generated autoConvert_... helpers below already copy all fields that exist in both versions.
+// They stop at the v1beta1 V1Beta2 field and emit:
 //
-// TODO(#2017): later, per-resource issues will add the new style metav1.Conditions directly at
-// the top level of each v1beta2 status type. Once that lands, these functions should copy the
-// conditions from the v1beta1 V1Beta2 sub-struct into the new v1beta2 top level field instead of
-// dropping them.
+//	WARNING: in.V1Beta2 requires manual conversion: does not exist in peer-type
+//
+// That warning is expected in this PR. v1beta2 still uses status.conditions for the old v1beta1
+// clusterv1.Conditions, so copying V1Beta2.Conditions there would mix two condition formats. The
+// per-resource status migration will add the correct destination fields:
+// status.conditions for metav1.Conditions and status.deprecated.v1beta1.conditions for the old
+// clusterv1.Conditions. Until then, the safest conversion is to copy the shared fields and leave
+// the staged v1beta1 V1Beta2 field behind.
 
 // Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_ControllerGeneratedStatus converts
 // the v1beta1 ControllerGeneratedStatus to v1beta2, dropping the V1Beta2 field.
