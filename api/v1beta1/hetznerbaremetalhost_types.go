@@ -376,7 +376,13 @@ func (host *HetznerBareMetalHost) GetV1Beta2Conditions() []metav1.Condition {
 	if host.Spec.Status.V1Beta2 == nil {
 		return nil
 	}
-	return host.Spec.Status.V1Beta2.Conditions
+	// Return a deep copy so callers cannot modify the stored slice in-place via a shared
+	// backing array. SetV1Beta2Conditions relies on reading the pre-modification stored
+	// values to detect when only ObservedGeneration changed; that check only works if
+	// the stored slice was not already mutated before SetV1Beta2Conditions runs.
+	out := make([]metav1.Condition, len(host.Spec.Status.V1Beta2.Conditions))
+	copy(out, host.Spec.Status.V1Beta2.Conditions)
+	return out
 }
 
 // SetV1Beta2Conditions sets v1beta2 conditions for a HetznerBareMetalHost API object.
