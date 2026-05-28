@@ -381,6 +381,30 @@ func (host *HetznerBareMetalHost) GetV1Beta2Conditions() []metav1.Condition {
 
 // SetV1Beta2Conditions sets v1beta2 conditions for a HetznerBareMetalHost API object.
 func (host *HetznerBareMetalHost) SetV1Beta2Conditions(conditions []metav1.Condition) {
+	// HetznerBareMetalHost stores its conditions inside Spec (not in a status subresource).
+	// The CAPI conditions library always sets ObservedGeneration = metadata.generation when
+	// writing a condition. Because the conditions are part of the spec, writing them bumps
+	// metadata.generation, which makes ObservedGeneration stale on the very next reconcile,
+	// which triggers another write, which bumps generation again, this is a loop that
+	// increments metadata.generation on every reconcile loop.
+	//
+	// To break the loop: if a condition's Status, Reason, and Message are unchanged from
+	// what is already stored, keep the existing ObservedGeneration instead of overwriting it
+	// with the current (higher) generation. ObservedGeneration will still advance whenever
+	// the condition itself actually changes.
+	existing := host.GetV1Beta2Conditions()
+	existingByType := make(map[string]metav1.Condition, len(existing))
+	for _, c := range existing {
+		existingByType[c.Type] = c
+	}
+	for i := range conditions {
+		if ex, ok := existingByType[conditions[i].Type]; ok &&
+			conditions[i].Status == ex.Status &&
+			conditions[i].Reason == ex.Reason &&
+			conditions[i].Message == ex.Message {
+			conditions[i].ObservedGeneration = ex.ObservedGeneration
+		}
+	}
 	if host.Spec.Status.V1Beta2 == nil {
 		host.Spec.Status.V1Beta2 = &HetznerBareMetalHostV1Beta2Status{}
 	}
