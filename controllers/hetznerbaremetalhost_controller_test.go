@@ -62,6 +62,10 @@ func (f *countingRobotFactory) NewClient(robotclient.Credentials) robotclient.Cl
 	return nil
 }
 
+// TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster verifies that
+// the reconciler returns early when the linked Cluster has Spec.Paused = true.
+// The Robot client factory counts NewClient calls and the test asserts the
+// count stays at zero, proving the pause guard fired before any host work ran.
 func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
@@ -128,6 +132,11 @@ func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T
 	require.Zero(t, robotFactory.calls)
 }
 
+// TestHetznerBareMetalHostReconciler_ReconcileRemovesFinalizerWhenDeletingAndHetznerClusterIsGone
+// verifies that a deleting host can still drop its finalizer when the linked
+// HetznerCluster has already been removed. This is the reason the linked
+// cluster lookup runs after reconcileSelectedStates: the StateDeleting branch
+// must be able to finish cleanup without a cluster in scope.
 func TestHetznerBareMetalHostReconciler_ReconcileRemovesFinalizerWhenDeletingAndHetznerClusterIsGone(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()

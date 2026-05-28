@@ -227,7 +227,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	if bmHost.Spec.Status.HetznerClusterRef == "" {
 		log.Info("bmHost.Spec.Status.HetznerClusterRef is empty. Looks like a stale cache read")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	hetznerCluster := &infrav1.HetznerCluster{}

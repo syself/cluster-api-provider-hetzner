@@ -44,6 +44,10 @@ func (c *fakeManagementCluster) Namespace() string {
 	return c.namespace
 }
 
+// TestGuestCSRReconciler_ReconcileSkipsPausedCSR verifies that the reconciler
+// returns early when either the linked Cluster or the CSR itself is paused.
+// The early return is confirmed by checking that no conditions were written
+// on the CSR (the signing logic never ran).
 func TestGuestCSRReconciler_ReconcileSkipsPausedCSR(t *testing.T) {
 	testCases := []struct {
 		name          string
@@ -113,8 +117,6 @@ func TestGuestCSRReconciler_ReconcileSkipsPausedCSR(t *testing.T) {
 			result, err := reconciler.Reconcile(context.Background(), reconcile.Request{
 				NamespacedName: types.NamespacedName{Name: certificateSigningRequest.Name},
 			})
-			// An empty result with no error and no conditions written on the CSR
-			// means the pause guard returned early before any signing logic ran.
 			if err != nil {
 				t.Fatalf("Reconcile() error = %v, want nil", err)
 			}
@@ -133,6 +135,11 @@ func TestGuestCSRReconciler_ReconcileSkipsPausedCSR(t *testing.T) {
 	}
 }
 
+// TestGuestCSRReconciler_ReconcileContinuesWhenCSRAndClusterAreNotPaused
+// verifies that the pause guard does not short-circuit when neither the
+// Cluster nor the CSR is paused. The CSR carries an invalid Request payload,
+// so reconcile is expected to fail later with a CSR parsing error. Reaching
+// that error proves the pause guard let reconcile proceed.
 func TestGuestCSRReconciler_ReconcileContinuesWhenCSRAndClusterAreNotPaused(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(certificatesv1.AddToScheme(scheme))
