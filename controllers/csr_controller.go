@@ -36,7 +36,6 @@ import (
 	"k8s.io/klog/v2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -95,25 +94,6 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 
 	// skip CSR from non-nodes
 	if !isCSRFromNode(certificateSigningRequest) {
-		return reconcile.Result{}, nil
-	}
-
-	// Fetch the Cluster from the management cluster.
-	cluster := &clusterv1.Cluster{}
-	clusterName := types.NamespacedName{
-		Namespace: r.mCluster.Namespace(),
-		Name:      r.clusterName,
-	}
-	if err := r.mCluster.Get(ctx, clusterName, cluster); err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Info("Cluster is not available yet, requeueing")
-			return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
-		}
-		return reconcile.Result{}, fmt.Errorf("failed to get Cluster: %w", err)
-	}
-
-	if annotations.IsPaused(cluster, certificateSigningRequest) {
-		log.Info("CertificateSigningRequest or linked Cluster is marked as paused. Won't reconcile")
 		return reconcile.Result{}, nil
 	}
 
