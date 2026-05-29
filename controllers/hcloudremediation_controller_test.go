@@ -30,6 +30,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -257,7 +258,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					return fmt.Errorf("hcloudMachine.Status.BootState is not HCloudBootStateOperatingSystemRunning, but: %q", hcloudMachine.Status.BootState)
 				}
 				return nil
-			}).NotTo(HaveOccurred())
+			}, timeout).NotTo(HaveOccurred())
 
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
@@ -291,7 +292,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 						hcloudMachine.Status.BootState)
 				}
 				return nil
-			}).NotTo(HaveOccurred())
+			}, timeout).NotTo(HaveOccurred())
 			hcloudRemediation.Status.RetryCount = hcloudRemediation.Spec.Strategy.RetryLimit
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
@@ -366,6 +367,25 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					infrav1.RemediationSkippedCondition,
 					infrav1.IrrecoverableServerCreateFailureReason,
 				)
+			}, timeout).Should(BeTrue())
+
+			By("checking v1beta2 RemediationSkipped and Ready conditions are set")
+			expectedSkippedMsg := "Remediation skipped: HCloudMachine has an irrecoverable server creation error. Delete the Machine to trigger a new creation attempt. Error: server type cax31 not available in location fsn1: resource_unavailable"
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, hcloudRemediationkey, hcloudRemediation); err != nil {
+					return false
+				}
+				skipped := v1beta2conditions.Get(hcloudRemediation, infrav1.HCloudRemediationSkippedV1Beta2Condition)
+				if skipped == nil ||
+					skipped.Status != metav1.ConditionTrue ||
+					skipped.Reason != infrav1.HCloudRemediationIrrecoverableServerCreateFailureV1Beta2Reason ||
+					skipped.Message != expectedSkippedMsg {
+					return false
+				}
+				ready := v1beta2conditions.Get(hcloudRemediation, clusterv1beta1.ReadyV1Beta2Condition)
+				return ready != nil &&
+					ready.Status == metav1.ConditionFalse &&
+					ready.Reason == clusterv1beta1.NotReadyV1Beta2Reason
 			}, timeout).Should(BeTrue())
 		})
 

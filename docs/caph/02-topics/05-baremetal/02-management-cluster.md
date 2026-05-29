@@ -49,7 +49,7 @@ Required Variables:
 Optional Variables:
   - CLUSTER_NAME                 (defaults to my-cluster)
   - CONTROL_PLANE_MACHINE_COUNT  (defaults to 3)
-  - KUBERNETES_VERSION           (defaults to v1.34.7)
+  - KUBERNETES_VERSION           (defaults to v1.36.0)
   - WORKER_MACHINE_COUNT         (defaults to 3)
 ```
 
@@ -74,9 +74,9 @@ clusterctl init --infrastructure hetzner
 Fetching providers
 Installing cert-manager Version="v1.14.2"
 Waiting for cert-manager to be available...
-Installing Provider="cluster-api" Version="v1.11.8" TargetNamespace="capi-system"
-Installing Provider="bootstrap-kubeadm" Version="v1.11.8" TargetNamespace="capi-kubeadm-bootstrap-system"
-Installing Provider="control-plane-kubeadm" Version="v1.11.8" TargetNamespace="capi-kubeadm-control-plane-system"
+Installing Provider="cluster-api" Version="v1.13.1" TargetNamespace="capi-system"
+Installing Provider="bootstrap-kubeadm" Version="v1.13.1" TargetNamespace="capi-kubeadm-bootstrap-system"
+Installing Provider="control-plane-kubeadm" Version="v1.13.1" TargetNamespace="capi-kubeadm-control-plane-system"
 Installing Provider="infrastructure-hetzner" Version="v1.0.7" TargetNamespace="caph-system"
 
 Your management cluster has been initialized successfully!

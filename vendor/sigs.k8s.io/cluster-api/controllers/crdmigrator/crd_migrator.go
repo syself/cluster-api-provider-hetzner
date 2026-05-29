@@ -47,6 +47,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/cache"
 	"sigs.k8s.io/cluster-api/util/contract"
+	capicontrollerutil "sigs.k8s.io/cluster-api/util/controller"
 	"sigs.k8s.io/cluster-api/util/predicates"
 )
 
@@ -121,7 +122,7 @@ func (r *CRDMigrator) SetupWithManager(ctx context.Context, mgr ctrl.Manager, co
 	}
 
 	predicateLog := ctrl.LoggerFrom(ctx).WithValues("controller", "crdmigrator")
-	err := ctrl.NewControllerManagedBy(mgr).
+	err := capicontrollerutil.NewControllerManagedBy(mgr, predicateLog).
 		For(&apiextensionsv1.CustomResourceDefinition{},
 			// This controller uses a PartialObjectMetadata watch/informer to avoid an informer for CRDs
 			// to reduce memory usage.
@@ -410,9 +411,9 @@ func (r *CRDMigrator) reconcileStorageVersionMigration(ctx context.Context, crd 
 		log.V(4).Info("Migrating to new storage version", gvk.Kind, klog.KObj(u))
 		var err error
 		if migrationConfig.UseStatusForStorageVersionMigration {
-			err = r.Client.Status().Patch(ctx, u, client.Apply, client.FieldOwner("crdmigrator"))
+			err = r.Client.Status().Apply(ctx, client.ApplyConfigurationFromUnstructured(u), client.FieldOwner("crdmigrator"))
 		} else {
-			err = r.Client.Patch(ctx, u, client.Apply, client.FieldOwner("crdmigrator"))
+			err = r.Client.Apply(ctx, client.ApplyConfigurationFromUnstructured(u), client.FieldOwner("crdmigrator"))
 		}
 		// If we got a NotFound error, the object no longer exists so no need to update it.
 		// If we got a Conflict error, another client wrote the object already so no need to update it.

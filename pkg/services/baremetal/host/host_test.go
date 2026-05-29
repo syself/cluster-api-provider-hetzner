@@ -1902,7 +1902,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			shouldHaveRebootAnnotation:      true,
 			rebooted:                        true,
 			storedBootID:                    "old-boot-id", // Phase 2: differs from fakeBootID the node reports
-			expectedActionResult:            actionComplete{},
+			expectedActionResult:            actionFinished{},
 			expectRebootAnnotation:          false,
 			expectRebootInStatus:            false,
 			expectRebootTriggeredAtInStatus: false,
@@ -1912,7 +1912,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			shouldHaveRebootAnnotation:      false,
 			rebooted:                        false,
 			storedBootID:                    fakeBootID,
-			expectedActionResult:            actionComplete{},
+			expectedActionResult:            actionFinished{},
 			expectRebootAnnotation:          false,
 			expectRebootInStatus:            false,
 			expectRebootTriggeredAtInStatus: false,
@@ -2005,7 +2005,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 
 		// Call actionProvisioned
 		actResult := service.actionProvisioned(ctx)
-		Expect(actResult).Should(BeAssignableToTypeOf(actionComplete{}))
+		Expect(actResult).Should(BeAssignableToTypeOf(actionFinished{}))
 
 		// Condition should be fine
 		c := v1beta1conditions.Get(host, infrav1.RebootSucceededCondition)

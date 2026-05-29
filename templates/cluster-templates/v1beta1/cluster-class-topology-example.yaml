@@ -14,7 +14,6 @@ spec:
     classRef:
       name: quick-start
     controlPlane:
-      metadata: {}
       replicas: 3
     variables:
       # All Variables:
@@ -54,7 +53,7 @@ spec:
       #   value: ubuntu-24.04
       - name: hcloudControlPlanePlacementGroupName
         value: control-plane
-    version: v1.34.7
+    version: v1.36.0
     workers:
       machineDeployments:
         - class: hcloud-worker

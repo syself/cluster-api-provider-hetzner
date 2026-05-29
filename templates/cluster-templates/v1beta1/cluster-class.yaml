@@ -477,7 +477,7 @@ spec:
         preKubeadmCommands:
           - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
           - export CONTAINERD=1.7.26
-          - export KUBERNETES_VERSION=1.34.7
+          - export KUBERNETES_VERSION=1.36.0
           - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
           - localectl set-locale LANG=en_US.UTF-8
           - localectl set-locale LANGUAGE=en_US.UTF-8
@@ -581,7 +581,7 @@ spec:
       preKubeadmCommands:
         - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
         - export CONTAINERD=1.7.26
-        - export KUBERNETES_VERSION=1.34.7
+        - export KUBERNETES_VERSION=1.36.0
         - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
@@ -742,7 +742,7 @@ spec:
       preKubeadmCommands:
         - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
         - export CONTAINERD=1.7.26
-        - export KUBERNETES_VERSION=1.34.7
+        - export KUBERNETES_VERSION=1.36.0
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
         - apt-get update -y
