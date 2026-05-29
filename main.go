@@ -48,6 +48,7 @@ import (
 
 	// +kubebuilder:scaffold:imports
 	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrastructurev1beta2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/controllers"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
@@ -73,6 +74,7 @@ func init() {
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	utilruntime.Must(bootstrapv1.AddToScheme(scheme))
 	utilruntime.Must(infrastructurev1beta1.AddToScheme(scheme))
+	utilruntime.Must(infrastructurev1beta2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
