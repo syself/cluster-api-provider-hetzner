@@ -19,6 +19,7 @@ package v1beta2
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 const (
@@ -54,18 +55,22 @@ type HetznerClusterSpec struct {
 	// ControlPlaneRegion consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
 	// have a very low latency we could assume in some use cases that a region is behaving like a zone.
 	// https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
+	// +listType=set
 	ControlPlaneRegions []Region `json:"controlPlaneRegions"`
 
 	// SSHKeys are cluster wide. Valid values are a valid SSH key name.
 	SSHKeys HetznerSSHKeys `json:"sshKeys"`
+
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
-	ControlPlaneEndpoint *clusterv1beta1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
+	ControlPlaneEndpoint APIEndpoint `json:"controlPlaneEndpoint,omitempty,omitzero"`
 
 	// ControlPlaneLoadBalancer is an optional configuration for customizing control plane behavior.
 	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
 
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	HCloudPlacementGroups []HCloudPlacementGroupSpec `json:"hcloudPlacementGroups,omitempty"`
 
 	// HetznerSecretRef is a reference to a token to be used when reconciling this cluster.
@@ -81,31 +86,102 @@ type HetznerClusterSpec struct {
 	SkipCreatingHetznerSecretInWorkloadCluster bool `json:"skipCreatingHetznerSecretInWorkloadCluster,omitempty"`
 }
 
+// APIEndpoint represents a reachable Kubernetes API endpoint.
+// +kubebuilder:validation:MinProperties=1
+type APIEndpoint struct {
+	// Host is the hostname on which the API server is serving.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=512
+	Host string `json:"host,omitempty"`
+
+	// Port is the port on which the API server is serving.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port int32 `json:"port,omitempty"`
+}
+
 // HetznerClusterStatus defines the observed state of HetznerCluster.
 type HetznerClusterStatus struct {
-	// +kubebuilder:default=false
-	Ready bool `json:"ready"`
+	// conditions represents the observations of a HetznerCluster's current state.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// initialization provides observations of the HetznerCluster initialization process.
+	// NOTE: Fields in this struct are part of the Cluster API contract and are used to orchestrate initial Cluster provisioning.
+	// +optional
+	Initialization HetznerClusterInitializationStatus `json:"initialization,omitempty,omitzero"`
 
 	// +optional
 	Network *NetworkStatus `json:"networkStatus,omitempty"`
 
 	ControlPlaneLoadBalancer *LoadBalancerStatus `json:"controlPlaneLoadBalancer,omitempty"`
 	// +optional
-	HCloudPlacementGroups []HCloudPlacementGroupStatus  `json:"hcloudPlacementGroups,omitempty"`
-	FailureDomains        clusterv1beta1.FailureDomains `json:"failureDomains,omitempty"`
-	Conditions            clusterv1beta1.Conditions     `json:"conditions,omitempty"`
+	// +listType=map
+	// +listMapKey=name
+	HCloudPlacementGroups []HCloudPlacementGroupStatus `json:"hcloudPlacementGroups,omitempty"`
+
+	// failureDomains is a slice of failure domain objects synced from the infrastructure provider.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=100
+	FailureDomains []clusterv1.FailureDomain `json:"failureDomains,omitempty"`
+
+	// deprecated groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
+	// +optional
+	Deprecated *HetznerClusterDeprecatedStatus `json:"deprecated,omitempty"`
+}
+
+// HetznerClusterInitializationStatus provides observations of the HetznerCluster initialization process.
+// +kubebuilder:validation:MinProperties=1
+type HetznerClusterInitializationStatus struct {
+	// provisioned is true when the infrastructure provider reports that the HetznerCluster's infrastructure is fully provisioned.
+	// NOTE: this field is part of the Cluster API contract, and it is used to orchestrate initial Cluster provisioning.
+	// The value of this field is never updated after provisioning is completed.
+	// +optional
+	Provisioned *bool `json:"provisioned,omitempty"`
+}
+
+// HetznerClusterDeprecatedStatus groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
+// See https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more context.
+type HetznerClusterDeprecatedStatus struct {
+	// v1beta1 groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
+	// +optional
+	V1Beta1 *HetznerClusterV1Beta1DeprecatedStatus `json:"v1beta1,omitempty"`
+}
+
+// HetznerClusterV1Beta1DeprecatedStatus groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
+// See https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more context.
+type HetznerClusterV1Beta1DeprecatedStatus struct {
+	// conditions defines current service state of the HetznerCluster.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
+	Conditions []clusterv1beta1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=hetznerclusters,scope=Namespaced,categories=cluster-api,shortName=hccl
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this HetznerCluster belongs"
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Cluster infrastructure is ready for Nodes"
+// TODO(#2017): the Ready column reads a v1beta2 Ready condition that the v1beta1 controller does not
+// emit yet, so it renders blank until the HetznerCluster controller is switched to v1beta2 (tracked under #2017).
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status",description="Cluster infrastructure is ready for Nodes"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of HetznerCluster"
 // +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".spec.controlPlaneEndpoint",description="API Endpoint",priority=1
-// +kubebuilder:printcolumn:name="Regions",type="string",JSONPath=".spec.controlPlaneRegions",description="Control plane regions"
-// +kubebuilder:printcolumn:name="Network enabled",type="boolean",JSONPath=".spec.hcloudNetwork.enabled",description="Indicates if private network is enabled."
-// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
-// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message"
+// +kubebuilder:printcolumn:name="Regions",type="string",JSONPath=".spec.controlPlaneRegions",description="Control plane regions",priority=1
+// +kubebuilder:printcolumn:name="Network enabled",type="boolean",JSONPath=".spec.hcloudNetwork.enabled",description="Indicates if private network is enabled.",priority=1
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason",priority=1
+// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message",priority=1
 // +k8s:defaulter-gen=true
 
 // HetznerCluster is the Schema for the hetznercluster API.
@@ -126,14 +202,22 @@ type HetznerClusterList struct {
 	Items           []HetznerCluster `json:"items"`
 }
 
-// GetConditions returns the observations of the operational state of the HetznerCluster resource.
-func (r *HetznerCluster) GetConditions() clusterv1beta1.Conditions {
+// GetConditions returns the set of v1beta2 conditions for the HetznerCluster object.
+func (r *HetznerCluster) GetConditions() []metav1.Condition {
 	return r.Status.Conditions
 }
 
-// SetConditions sets the underlying service state of the HetznerCluster to the predescribed clusterv1beta1.Conditions.
-func (r *HetznerCluster) SetConditions(conditions clusterv1beta1.Conditions) {
+// SetConditions sets the v1beta2 conditions for the HetznerCluster object.
+func (r *HetznerCluster) SetConditions(conditions []metav1.Condition) {
 	r.Status.Conditions = conditions
+}
+
+// GetV1Beta1Conditions returns the deprecated v1beta1 conditions of the HetznerCluster object.
+func (r *HetznerCluster) GetV1Beta1Conditions() clusterv1beta1.Conditions {
+	if r.Status.Deprecated == nil || r.Status.Deprecated.V1Beta1 == nil {
+		return nil
+	}
+	return clusterv1beta1.Conditions(r.Status.Deprecated.V1Beta1.Conditions)
 }
 
 // ClusterTagKey generates the key for resources associated with a cluster.

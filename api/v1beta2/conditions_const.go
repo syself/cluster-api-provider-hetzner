@@ -72,7 +72,7 @@ const (
 	SSHPrivateKeyAvailableCondition clusterv1beta1.ConditionType = "SSHPrivateKeyAvailable"
 	// SSHPrivateKeyNotFoundReason indicates that the ssh private key could not be found.
 	SSHPrivateKeyNotFoundReason = "SSHPrivateKeyNotFound"
-	// SSHPrivateKeySecretRefNotConfiguredReason indicates that HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty.
+	// SSHPrivateKeySecretRefNotConfiguredReason indicates that HetznerCluster.Spec.SSHKeys.RescueSecretRef.Name is empty.
 	SSHPrivateKeySecretRefNotConfiguredReason = "SSHPrivateKeySecretRefNotConfigured" //nolint:gosec
 	// SSHPrivateKeySecretNotFoundReason indicates that the referenced secret does not exist.
 	SSHPrivateKeySecretNotFoundReason = "SSHPrivateKeySecretNotFound" //nolint:gosec
@@ -294,4 +294,104 @@ const (
 	GetNodeInWorkloadClusterFailedReason = "GetNodeInWorkloadClusterFailed"
 	// BootIDEmptyReason indicates that an empty boot ID is present on the node object.
 	BootIDEmptyReason = "BootIDEmpty"
+)
+
+// v1beta2 conditions.
+
+// common conditions used across resource types.
+
+const (
+	// HCloudRateLimitExceededV1Beta2Condition reports on whether the HCloud API rate limit has been exceeded.
+	HCloudRateLimitExceededV1Beta2Condition = "HCloudRateLimitExceeded"
+	// HCloudRateLimitExceededV1Beta2Reason indicates that the HCloud API rate limit has been exceeded.
+	HCloudRateLimitExceededV1Beta2Reason = "Exceeded"
+)
+
+const (
+	// HCloudTokenAvailableV1Beta2Condition reports on whether the HCloud Token is available.
+	HCloudTokenAvailableV1Beta2Condition = "HCloudTokenAvailable"
+	// HCloudTokenAvailableV1Beta2Reason indicates that the HCloudToken is available.
+	HCloudTokenAvailableV1Beta2Reason = clusterv1beta1.AvailableV1Beta2Reason
+	// HCloudTokenInvalidV1Beta2Reason indicates that the HCloudToken is invalid.
+	HCloudTokenInvalidV1Beta2Reason = "Invalid"
+	// HCloudTokenSecretUnreachableV1Beta2Reason indicates that secret containing the HCloudToken is unreachable.
+	HCloudTokenSecretUnreachableV1Beta2Reason = "SecretUnreachable" // #nosec
+)
+
+// HetznerCluster's v1beta2 conditions.
+
+const (
+	// HetznerClusterNetworkReadyV1Beta2Condition reports on whether the network is ready.
+	HetznerClusterNetworkReadyV1Beta2Condition = "NetworkReady"
+	// HetznerClusterNetworkReadyV1Beta2Reason indicates that the network is ready.
+	HetznerClusterNetworkReadyV1Beta2Reason = clusterv1beta1.ReadyV1Beta2Reason
+	// HetznerClusterNetworkReconcilingFailedV1Beta2Reason indicates that reconciling the network failed.
+	HetznerClusterNetworkReconcilingFailedV1Beta2Reason = "ReconcilingFailed"
+)
+
+const (
+	// HetznerClusterLoadBalancerReadyV1Beta2Condition reports on whether a control plane load balancer was successfully reconciled.
+	HetznerClusterLoadBalancerReadyV1Beta2Condition = "LoadBalancerReady"
+	// HetznerClusterLoadBalancerReadyV1Beta2Reason indicates that a control plane load balancer is ready.
+	HetznerClusterLoadBalancerReadyV1Beta2Reason = clusterv1beta1.ReadyV1Beta2Reason
+	// HetznerClusterLoadBalancerCreationFailedV1Beta2Reason indicates that load balancer creation failed.
+	HetznerClusterLoadBalancerCreationFailedV1Beta2Reason = "CreationFailed"
+	// HetznerClusterLoadBalancerMissingControlPlaneEndpointV1Beta2Reason indicates that the control plane endpoint is not set.
+	HetznerClusterLoadBalancerMissingControlPlaneEndpointV1Beta2Reason = "MissingControlPlaneEndpoint"
+	// HetznerClusterLoadBalancerSyncingServicesFailedV1Beta2Reason indicates that an error occurred while syncing services of the load balancer.
+	HetznerClusterLoadBalancerSyncingServicesFailedV1Beta2Reason = "SyncingServicesFailed"
+	// HetznerClusterLoadBalancerAttachingToNetworkFailedV1Beta2Reason indicates that the server could not be attached to network.
+	HetznerClusterLoadBalancerAttachingToNetworkFailedV1Beta2Reason = "AttachingToNetworkFailed"
+	// HetznerClusterLoadBalancerOwningFailedV1Beta2Reason indicates no owned label could be set on a load balancer.
+	HetznerClusterLoadBalancerOwningFailedV1Beta2Reason = "OwningFailed"
+	// HetznerClusterLoadBalancerUpdateFailedV1Beta2Reason indicates that an error occurred during load balancer update.
+	HetznerClusterLoadBalancerUpdateFailedV1Beta2Reason = "UpdateFailed"
+	// HetznerClusterLoadBalancerDeletionFailedV1Beta2Reason indicates that an error occurred during load balancer delete.
+	HetznerClusterLoadBalancerDeletionFailedV1Beta2Reason = "DeletionFailed"
+)
+
+const (
+	// HetznerClusterPlacementGroupsSyncedV1Beta2Condition reports on whether the placement groups are successfully synced.
+	HetznerClusterPlacementGroupsSyncedV1Beta2Condition = "PlacementGroupsSynced"
+	// HetznerClusterPlacementGroupsSyncingFailedV1Beta2Reason indicates that syncing the placement groups failed.
+	HetznerClusterPlacementGroupsSyncingFailedV1Beta2Reason = "SyncingFailed"
+	// HetznerClusterPlacementGroupsSyncedV1Beta2Reason indicates that placement groups are synced successfully.
+	HetznerClusterPlacementGroupsSyncedV1Beta2Reason = "Synced"
+)
+
+const (
+	// HetznerClusterControlPlaneEndpointSetV1Beta2Condition reports on whether the control plane endpoint is set.
+	HetznerClusterControlPlaneEndpointSetV1Beta2Condition = "ControlPlaneEndpointSet"
+	// HetznerClusterControlPlaneEndpointSetV1Beta2Reason indicates that the control plane endpoint is set.
+	HetznerClusterControlPlaneEndpointSetV1Beta2Reason = "Set"
+	// HetznerClusterControlPlaneEndpointNotSetV1Beta2Reason indicates that the control plane endpoint is not set.
+	HetznerClusterControlPlaneEndpointNotSetV1Beta2Reason = "NotSet"
+)
+
+const (
+	// HetznerClusterTargetClusterReadyV1Beta2Condition reports on whether the kubeconfig in the target cluster is ready.
+	HetznerClusterTargetClusterReadyV1Beta2Condition = "TargetClusterReady"
+	// HetznerClusterTargetClusterReadyV1Beta2Reason indicates that the kubeconfig in the target cluster is ready.
+	HetznerClusterTargetClusterReadyV1Beta2Reason = clusterv1beta1.ReadyV1Beta2Reason
+	// HetznerClusterTargetClusterCreationFailedV1Beta2Reason indicates that the target cluster could not be created.
+	HetznerClusterTargetClusterCreationFailedV1Beta2Reason = "CreationFailed"
+)
+
+const (
+	// HetznerClusterTargetClusterSecretReadyV1Beta2Condition reports on whether the hetzner secret in the target cluster is ready.
+	HetznerClusterTargetClusterSecretReadyV1Beta2Condition = "TargetClusterSecretReady"
+	// HetznerClusterTargetClusterSecretReadyV1Beta2Reason indicates that the hetzner secret in the target cluster is ready.
+	HetznerClusterTargetClusterSecretReadyV1Beta2Reason = clusterv1beta1.ReadyV1Beta2Reason
+	// HetznerClusterTargetClusterControlPlaneNotReadyV1Beta2Reason indicates that the target cluster's control plane is not ready yet.
+	HetznerClusterTargetClusterControlPlaneNotReadyV1Beta2Reason = "ControlPlaneNotReady"
+	// HetznerClusterTargetClusterSyncingSecretFailedV1Beta2Reason indicates that the secret could not be synced.
+	HetznerClusterTargetClusterSyncingSecretFailedV1Beta2Reason = "SyncingSecretFailed"
+)
+
+const (
+	// HetznerClusterDeletingV1Beta2Condition surfaces details about ongoing deletion of the HetznerCluster.
+	HetznerClusterDeletingV1Beta2Condition = clusterv1beta1.DeletingV1Beta2Condition
+
+	// HetznerClusterDeletingV1Beta2Reason surfaces when the HetznerCluster is being deleted.
+	HetznerClusterDeletingV1Beta2Reason = clusterv1beta1.DeletingV1Beta2Reason
 )
