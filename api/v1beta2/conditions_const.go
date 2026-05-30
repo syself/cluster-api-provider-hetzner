@@ -295,3 +295,36 @@ const (
 	// BootIDEmptyReason indicates that an empty boot ID is present on the node object.
 	BootIDEmptyReason = "BootIDEmpty"
 )
+
+// v1beta2 conditions.
+
+// common conditions used across resource types.
+
+const (
+	// HCloudRateLimitExceededV1Beta2Condition reports on whether the HCloud API rate limit has been exceeded.
+	HCloudRateLimitExceededV1Beta2Condition = "HCloudRateLimitExceeded"
+	// HCloudRateLimitExceededV1Beta2Reason indicates that the HCloud API rate limit has been exceeded.
+	HCloudRateLimitExceededV1Beta2Reason = "Exceeded"
+)
+
+const (
+	// HCloudTokenAvailableV1Beta2Condition reports on whether the HCloud Token is available.
+	HCloudTokenAvailableV1Beta2Condition = "HCloudTokenAvailable"
+	// HCloudTokenAvailableV1Beta2Reason indicates that the HCloudToken is available.
+	HCloudTokenAvailableV1Beta2Reason = clusterv1beta1.AvailableV1Beta2Reason
+	// HCloudTokenInvalidV1Beta2Reason indicates that the HCloudToken is invalid.
+	HCloudTokenInvalidV1Beta2Reason = "Invalid"
+	// HCloudTokenSecretUnreachableV1Beta2Reason indicates that secret containing the HCloudToken is unreachable.
+	HCloudTokenSecretUnreachableV1Beta2Reason = "SecretUnreachable" // #nosec
+)
+
+// HCloudRemediation's v1beta2 conditions.
+
+const (
+	// HCloudRemediationSkippedV1Beta2Condition reports that remediation was skipped because
+	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
+	HCloudRemediationSkippedV1Beta2Condition = "RemediationSkipped"
+	// HCloudRemediationIrrecoverableServerCreateFailureV1Beta2Reason indicates remediation was skipped because
+	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
+	HCloudRemediationIrrecoverableServerCreateFailureV1Beta2Reason = "IrrecoverableServerCreateFailure"
+)

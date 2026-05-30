@@ -17,11 +17,15 @@ limitations under the License.
 package v1beta1
 
 import (
+	"math"
 	"testing"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/utils/ptr"
 	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	"sigs.k8s.io/randfill"
@@ -74,15 +78,109 @@ func fuzzyConversionTestFunc(scheme *runtime.Scheme, hub conversion.Hub, spoke c
 	})
 }
 
-// spokeV1Beta2StatusFuzzFuncs returns custom randfill functions for v1beta1 status types that
-// embed a V1Beta2 sub struct (the current home for the new style metav1.Conditions in v1beta1 resources).
-// Our hand written status converters in conversion.go drop this sub struct on the way to v1beta2,
-// because v1beta2 does not **yet** have a destination for it. If we let the default fuzzer set
-// V1Beta2 to random non nil content, the spoke-hub-spoke round trip would fail every time.
-// These overrides fill the rest of the status normally and force V1Beta2 to nil, so the fuzz
-// test only exercises the lossless parts of the conversion. Once we add a top level
-// conditions field and a Deprecated.V1Beta1.Conditions wrapper on v1beta2, the converters become
-// lossless and these overrides can be removed.
+// TestRemediationRetryToPointer verifies the v1beta1 int to v1beta2 *int32 counter
+// conversion, including the compatibility rule that v1beta1 zero maps to nil.
+func TestRemediationRetryToPointer(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      int
+		want    *int32
+		wantErr bool
+	}{
+		{
+			name: "zero maps to nil",
+			in:   0,
+			want: nil,
+		},
+		{
+			name: "positive value",
+			in:   3,
+			want: ptr.To[int32](3),
+		},
+		{
+			name:    "value above int32 range fails",
+			in:      int(math.MaxInt32) + 1,
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := remediationRetryToPointer(tc.in)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tc.want == nil {
+				if got != nil {
+					t.Fatalf("expected nil, got %d", *got)
+				}
+				return
+			}
+			if got == nil || *got != *tc.want {
+				t.Fatalf("expected %d, got %v", *tc.want, got)
+			}
+		})
+	}
+}
+
+// TestRemediationDurationToSeconds verifies the v1beta1 duration to v1beta2 seconds
+// conversion, including the explicit sub-second ceiling and int32 range check.
+func TestRemediationDurationToSeconds(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      time.Duration
+		want    int32
+		wantErr bool
+	}{
+		{
+			name: "zero stays zero",
+			in:   0,
+			want: 0,
+		},
+		{
+			name: "positive sub-second value ceils to one",
+			in:   500 * time.Millisecond,
+			want: 1,
+		},
+		{
+			name: "whole seconds stay unchanged",
+			in:   45 * time.Second,
+			want: 45,
+		},
+		{
+			name:    "value above int32 seconds range fails",
+			in:      time.Duration(math.MaxInt32+1) * time.Second,
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := remediationDurationToSeconds(metav1.Duration{Duration: tc.in})
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("expected %d, got %d", tc.want, got)
+			}
+		})
+	}
+}
+
+// spokeV1Beta2StatusFuzzFuncs normalizes fields that do not round-trip byte-for-byte because the
+// two API versions represent empty, staged or reshaped data differently.
 func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(in *ControllerGeneratedStatus, c randfill.Continue) {
@@ -101,13 +199,75 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			c.FillNoCustom(in)
 			in.V1Beta2 = nil
 		},
-		func(in *HCloudRemediationStatus, c randfill.Continue) {
-			c.FillNoCustom(in)
-			in.V1Beta2 = nil
-		},
 		func(in *HetznerBareMetalMachineStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			in.V1Beta2 = nil
 		},
+		// HCloudRemediation v1beta1 status: keep retryCount in the v1beta2 int32 range,
+		// collapse zero lastRemediated and empty condition slices to nil, and drop the V1Beta2
+		// wrapper unless it carries conditions.
+		func(in *HCloudRemediationStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.RetryCount = int(int32(in.RetryCount)) //nolint:gosec // keep fuzz input in the int32 range accepted by conversion
+
+			if in.LastRemediated != nil && in.LastRemediated.IsZero() {
+				in.LastRemediated = nil
+			}
+			if len(in.Conditions) == 0 {
+				in.Conditions = nil
+			}
+			if in.V1Beta2 != nil && len(in.V1Beta2.Conditions) == 0 {
+				in.V1Beta2 = nil
+			}
+		},
+		// RemediationStrategy v1beta1: keep retryLimit in the v1beta2 int32 range and
+		// quantize durations to the whole-second representation used by v1beta2.
+		func(in *RemediationStrategy, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.RetryLimit = int(int32(in.RetryLimit)) //nolint:gosec // keep fuzz input in the int32 range accepted by conversion
+			in.Timeout = quantizeRemediationDuration(in.Timeout)
+			in.Cooldown = quantizeRemediationDuration(in.Cooldown)
+		},
+		// HCloudRemediation v1beta2 status: nil and zero retryCount both down-convert
+		// to the v1beta1 zero value, and empty condition wrappers collapse to nil.
+		func(in *infrav1.HCloudRemediationStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.RetryCount != nil && *in.RetryCount == 0 {
+				in.RetryCount = nil
+			}
+			if len(in.Conditions) == 0 {
+				in.Conditions = nil
+			}
+			if in.Deprecated != nil && (in.Deprecated.V1Beta1 == nil || len(in.Deprecated.V1Beta1.Conditions) == 0) {
+				in.Deprecated = nil
+			}
+		},
+		// RemediationStrategy v1beta2: nil and zero retryLimit both down-convert to
+		// the v1beta1 zero value, so normalize the hub side before comparing.
+		func(in *infrav1.RemediationStrategy, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.RetryLimit != nil && *in.RetryLimit == 0 {
+				in.RetryLimit = nil
+			}
+		},
 	}
+}
+
+// quantizeRemediationDuration rounds a duration to whole seconds within the int32 range accepted
+// by the v1beta2 *int32 seconds fields, so the fuzz round trip stays exact.
+func quantizeRemediationDuration(d *metav1.Duration) *metav1.Duration {
+	if d == nil {
+		return nil
+	}
+	seconds := int64(d.Duration / time.Second)
+	if seconds == 0 && d.Duration > 0 {
+		seconds = 1
+	}
+	if seconds < 0 {
+		seconds = 0
+	}
+	if seconds > math.MaxInt32 {
+		seconds = math.MaxInt32
+	}
+	return &metav1.Duration{Duration: time.Duration(seconds) * time.Second}
 }
