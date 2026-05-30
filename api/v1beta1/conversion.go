@@ -16,24 +16,17 @@ limitations under the License.
 
 package v1beta1
 
-// v1beta1 and v1beta2 have almost the same fields today. The only difference is that v1beta1
-// status types have a nested V1Beta2 field for the new metav1.Conditions.
-//
-// v1beta2 still keeps the old v1beta1 conditions at status.conditions. The later status-shape work
-// will move those old conditions to status.deprecated.v1beta1.conditions and promote the v1beta1
-// status.v1beta2.conditions field to v1beta2 status.conditions. This conversion plumbing keeps
-// that field move out of scope.
-//
-// Because of that, the spec and object level ConvertTo / ConvertFrom below are just pass throughs
-// to the generated converters, and only the status converters need to be hand written.
-//
-// TODO(#2017): later issues will add new fields that exist only in v1beta2. When we convert from
-// v1beta2 to v1beta1, those new fields would be lost. To keep the round trip safe, we will save
-// them as an annotation on the v1beta1 object using utilconversion.MarshalData, and restore them
-// when converting back to v1beta2.
+// This file contains v1beta1 <-> v1beta2 conversion hooks.
+// Generated converters handle fields that still map directly between versions.
+// Hand-written converters handle fields whose API shape changed.
 
 import (
+	"maps"
+
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/utils/ptr"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
@@ -126,13 +119,64 @@ func (dst *HetznerBareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 // ConvertTo converts this HetznerBareMetalMachine to the Hub version (v1beta2).
 func (src *HetznerBareMetalMachine) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*infrav1.HetznerBareMetalMachine)
-	return Convert_v1beta1_HetznerBareMetalMachine_To_v1beta2_HetznerBareMetalMachine(src, dst, nil)
+	if err := Convert_v1beta1_HetznerBareMetalMachine_To_v1beta2_HetznerBareMetalMachine(src, dst, nil); err != nil {
+		return err
+	}
+
+	// Recover hub-only data stored by a previous down-conversion so the round trip is lossless.
+	restored := &infrav1.HetznerBareMetalMachine{}
+	ok, err := utilconversion.UnmarshalData(src, restored)
+	if err != nil {
+		return err
+	}
+
+	// status.ready (bool) maps to status.initialization.provisioned (*bool). The CAPI helper only
+	// produces *false when the value was intentionally *false before (restored); otherwise a false
+	// ready becomes nil, matching the one-time provisioning signal semantics.
+	clusterv1.Convert_bool_To_Pointer_bool(src.Status.Ready, ok, restored.Status.Initialization.Provisioned, &dst.Status.Initialization.Provisioned)
+
+	// status.failureReason and status.failureMessage have no home in the v1beta2 InfraMachine shape.
+	// Stash the v1beta1 values in the conversion data annotation on the hub so the matching ConvertFrom
+	// can restore them and the round trip stays lossless. Note the annotation holds different content
+	// depending on the object it lives on: the hub object stored on a v1beta1 object (written by
+	// ConvertFrom), and these dropped v1beta1 fields stored on a v1beta2 object (written here).
+	if src.Status.FailureReason != nil || src.Status.FailureMessage != nil {
+		failure := &HetznerBareMetalMachine{
+			Status: HetznerBareMetalMachineStatus{
+				FailureReason:  src.Status.FailureReason,
+				FailureMessage: src.Status.FailureMessage,
+			},
+		}
+		// dst currently shares src's annotations map (out.ObjectMeta = in.ObjectMeta), so clone it
+		// first; otherwise MarshalData would write the annotation back onto src too.
+		dst.SetAnnotations(maps.Clone(dst.GetAnnotations()))
+		if err := utilconversion.MarshalData(failure, dst); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ConvertFrom converts the Hub version (v1beta2) to this HetznerBareMetalMachine.
 func (dst *HetznerBareMetalMachine) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*infrav1.HetznerBareMetalMachine)
-	return Convert_v1beta2_HetznerBareMetalMachine_To_v1beta1_HetznerBareMetalMachine(src, dst, nil)
+	if err := Convert_v1beta2_HetznerBareMetalMachine_To_v1beta1_HetznerBareMetalMachine(src, dst, nil); err != nil {
+		return err
+	}
+
+	// Restore status.failureReason and status.failureMessage that a previous ConvertTo stashed in the
+	// conversion data annotation (they have no v1beta2 home), keeping the round trip lossless.
+	failure := &HetznerBareMetalMachine{}
+	if ok, err := utilconversion.UnmarshalData(src, failure); err != nil {
+		return err
+	} else if ok {
+		dst.Status.FailureReason = failure.Status.FailureReason
+		dst.Status.FailureMessage = failure.Status.FailureMessage
+	}
+
+	// Preserve the hub object so the next up-conversion can restore hub-only intent (see ConvertTo).
+	return utilconversion.MarshalData(src, dst)
 }
 
 // ConvertTo converts this HetznerBareMetalMachineTemplate to the Hub version (v1beta2).
@@ -171,21 +215,9 @@ func (dst *HetznerBareMetalRemediationTemplate) ConvertFrom(srcRaw conversion.Hu
 	return Convert_v1beta2_HetznerBareMetalRemediationTemplate_To_v1beta1_HetznerBareMetalRemediationTemplate(src, dst, nil)
 }
 
-// conversion-gen generates public Convert_... wrappers only when **every** field can be mapped.
+// Note: conversion-gen generates public Convert_... wrappers only when **every** field can be mapped.
 // If a field has no peer in the other version, it only generates autoConvert_... helpers for the
-// matching fields and leaves the unmatched field for manual conversion. Here, that unmatched field
-// is v1beta1's V1Beta2.
-//
-// The generated helpers contain:
-//
-//	WARNING: in.V1Beta2 requires manual conversion: does not exist in peer-type
-//
-// That warning is expected in this PR. v1beta2 still uses status.conditions for the old v1beta1
-// clusterv1.Conditions, so copying V1Beta2.Conditions there would mix two condition formats. The
-// per-resource status migration will add the correct destination fields:
-// status.conditions for metav1.Conditions and status.deprecated.v1beta1.conditions for the old
-// clusterv1.Conditions. Until then, the safest conversion is to copy the shared fields and leave
-// the staged v1beta1 V1Beta2 field behind.
+// matching fields and leaves the unmatched field for manual conversion.
 
 // Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_ControllerGeneratedStatus converts
 // the v1beta1 ControllerGeneratedStatus to v1beta2, dropping the V1Beta2 field.
@@ -211,10 +243,85 @@ func Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus(
 	return autoConvert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus(in, out, s)
 }
 
-// Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMachineStatus converts
-// the v1beta1 HetznerBareMetalMachineStatus to v1beta2, dropping the V1Beta2 field.
-func Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMachineStatus(in *HetznerBareMetalMachineStatus, out *infrav1.HetznerBareMetalMachineStatus, s apiconversion.Scope) error {
-	return autoConvert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMachineStatus(in, out, s)
+// Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMachineStatus converts the
+// v1beta1 HetznerBareMetalMachineStatus to v1beta2. The v1beta1 status.conditions (old
+// clusterv1beta1.Conditions) and the v1beta2 status.conditions ([]metav1.Condition) share a field name
+// but not a type and do not correspond, so HetznerBareMetalMachineStatus is excluded from conversion-gen
+// (+k8s:conversion-gen=false) and converted fully by hand here:
+//   - status.v1beta2.conditions is promoted to status.conditions.
+//   - status.conditions is demoted to status.deprecated.v1beta1.conditions.
+//   - status.lastUpdated and status.lastRemediatedAt move from pointer to value.
+//   - status.failureReason and status.failureMessage are dropped here (no v1beta2 home) and stashed in
+//     the conversion data annotation at the object level (HetznerBareMetalMachine.ConvertTo).
+//   - status.ready maps to status.initialization.provisioned at the object level
+//     (HetznerBareMetalMachine.ConvertTo), because that lossy bool -> *bool mapping needs the restored hub data.
+func Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMachineStatus(in *HetznerBareMetalMachineStatus, out *infrav1.HetznerBareMetalMachineStatus, _ apiconversion.Scope) error {
+	// Promote the staged v1beta2 conditions to the v1beta2 status.conditions.
+	if in.V1Beta2 != nil {
+		out.Conditions = in.V1Beta2.Conditions
+	}
+
+	// Demote the old v1beta1 conditions to status.deprecated.v1beta1.conditions.
+	if len(in.Conditions) > 0 {
+		out.Deprecated = &infrav1.HetznerBareMetalMachineDeprecatedStatus{
+			V1Beta1: &infrav1.HetznerBareMetalMachineV1Beta1DeprecatedStatus{
+				Conditions: in.Conditions,
+			},
+		}
+	}
+
+	out.Addresses = in.Addresses
+	out.Phase = in.Phase
+
+	// lastUpdated and lastRemediatedAt move from a pointer to a value; a nil pointer maps to the zero time.
+	if in.LastUpdated != nil {
+		out.LastUpdated = *in.LastUpdated
+	}
+	if in.LastRemediatedAt != nil {
+		out.LastRemediatedAt = *in.LastRemediatedAt
+	}
+
+	return nil
+}
+
+// Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMachineStatus converts the
+// v1beta2 HetznerBareMetalMachineStatus back to v1beta1. It is the inverse of the function above:
+//   - status.conditions is demoted to the staged status.v1beta2.conditions.
+//   - status.deprecated.v1beta1.conditions is promoted back to status.conditions.
+//   - status.lastUpdated and status.lastRemediatedAt move from value to pointer (zero time -> nil).
+//   - status.initialization.provisioned maps back to status.ready.
+//   - status.failureReason and status.failureMessage are restored from the conversion data annotation
+//     at the object level (HetznerBareMetalMachine.ConvertFrom); they have no v1beta2 source field.
+func Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMachineStatus(in *infrav1.HetznerBareMetalMachineStatus, out *HetznerBareMetalMachineStatus, _ apiconversion.Scope) error {
+	// Demote the v1beta2 conditions back to the staged v1beta1 status.v1beta2.conditions.
+	if len(in.Conditions) > 0 {
+		out.V1Beta2 = &HetznerBareMetalMachineV1Beta2Status{
+			Conditions: in.Conditions,
+		}
+	}
+
+	// Promote the deprecated v1beta1 conditions back to the old status.conditions.
+	if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil {
+		out.Conditions = in.Deprecated.V1Beta1.Conditions
+	}
+
+	out.Addresses = in.Addresses
+	out.Phase = in.Phase
+
+	// lastUpdated and lastRemediatedAt move from a value to a pointer; the zero time maps to a nil pointer.
+	if !in.LastUpdated.IsZero() {
+		lastUpdated := in.LastUpdated
+		out.LastUpdated = &lastUpdated
+	}
+	if !in.LastRemediatedAt.IsZero() {
+		lastRemediatedAt := in.LastRemediatedAt
+		out.LastRemediatedAt = &lastRemediatedAt
+	}
+
+	// status.initialization.provisioned maps back to status.ready during the compatibility window.
+	out.Ready = ptr.Deref(in.Initialization.Provisioned, false)
+
+	return nil
 }
 
 // Convert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus converts the v1beta1

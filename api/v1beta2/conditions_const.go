@@ -295,3 +295,43 @@ const (
 	// BootIDEmptyReason indicates that an empty boot ID is present on the node object.
 	BootIDEmptyReason = "BootIDEmpty"
 )
+
+// HetznerBareMetalMachine's v1beta2 conditions.
+const (
+	// HetznerBareMetalMachineHostAssociatedV1Beta2Condition is true when the host is associated.
+	HetznerBareMetalMachineHostAssociatedV1Beta2Condition = "HostAssociated"
+
+	// HetznerBareMetalMachineHostAssociatedV1Beta2Reason surfaces when the host is associated.
+	HetznerBareMetalMachineHostAssociatedV1Beta2Reason = "Associated"
+
+	// HetznerBareMetalMachineNoAvailableHostV1Beta2Reason surfaces when no available host is found.
+	HetznerBareMetalMachineNoAvailableHostV1Beta2Reason = "NoAvailableHost"
+
+	// HetznerBareMetalMachineHostAssociationFailedV1Beta2Reason surfaces when host association failed.
+	HetznerBareMetalMachineHostAssociationFailedV1Beta2Reason = "AssociationFailed"
+
+	// HetznerBareMetalMachineWaitingForBootstrapDataV1Beta2Reason surfaces when waiting for bootstrap data.
+	HetznerBareMetalMachineWaitingForBootstrapDataV1Beta2Reason = clusterv1beta1.WaitingForBootstrapDataV1Beta2Reason
+)
+
+const (
+	// HetznerBareMetalMachineDeletingV1Beta2Condition surfaces details about ongoing deletion of the HetznerBareMetalMachine.
+	HetznerBareMetalMachineDeletingV1Beta2Condition = clusterv1beta1.DeletingV1Beta2Condition
+
+	// HetznerBareMetalMachineDeletingV1Beta2Reason surfaces when the HetznerBareMetalMachine is being deleted.
+	HetznerBareMetalMachineDeletingV1Beta2Reason = clusterv1beta1.DeletingV1Beta2Reason
+)
+
+const (
+	// HetznerBareMetalMachineHostReadyV1Beta2Condition is true when the associated host is ready.
+	HetznerBareMetalMachineHostReadyV1Beta2Condition = "HostReady"
+
+	// HetznerBareMetalMachineHostReadyV1Beta2Reason surfaces when the host is ready.
+	HetznerBareMetalMachineHostReadyV1Beta2Reason = clusterv1beta1.ReadyV1Beta2Reason
+
+	// HetznerBareMetalMachineNotFoundV1Beta2Reason surfaces when the host is not found.
+	HetznerBareMetalMachineNotFoundV1Beta2Reason = "NotFound"
+
+	// HetznerBareMetalMachineHostNotReadyV1Beta2Reason surfaces when the host is not ready.
+	HetznerBareMetalMachineHostNotReadyV1Beta2Reason = "NotReady"
+)
