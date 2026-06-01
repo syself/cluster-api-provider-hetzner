@@ -2489,7 +2489,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		Type:    infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
 		Status:  metav1.ConditionFalse,
 		Reason:  infrav1.HetznerBareMetalHostRebootingV1Beta2Reason,
-		Message: "Waiting for node to be rebooted",
+		Message: "Waiting for the node to be rebooted",
 	})
 
 	return actionContinue{delay: 10 * time.Second}
