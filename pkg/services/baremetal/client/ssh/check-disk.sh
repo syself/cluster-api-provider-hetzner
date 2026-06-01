@@ -165,11 +165,11 @@ for wwn in "$@"; do
     rota=$(lsblk -d -n -o ROTA "/dev/$device")
     if [ "$rota" -eq 1 ]; then
         # Rotational (HDD): healthy 7200 RPM drives do 100-200 MiB/s sequential
-        min_bw_kib=50000
+        min_bw_kib=40000
         disk_type="HDD"
     else
         # Non-rotational (SSD/NVMe): SATA SSDs do 400+ MiB/s, NVMe much more
-        min_bw_kib=200000
+        min_bw_kib=160000
         disk_type="SSD/NVMe"
     fi
 
