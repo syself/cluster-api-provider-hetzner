@@ -350,8 +350,13 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 				in.V1Beta2 = nil
 			}
 		},
-		// HetznerCluster v1beta1 spec: a non-nil pointer to a zero controlPlaneEndpoint would
-		// down-convert from the v1beta2 value type to nil, so collapse it to nil up front.
+		// HetznerCluster v1beta1 spec: the fuzzer can produce a pointer to an empty controlPlaneEndpoint
+		// (&{}). v1beta2 stores this field as a value type with omitzero, so &{} converts up to the zero
+		// value and back down to nil, which would fail the round trip. Collapse it to nil up front.
+		//
+		// This is safe because &{} and nil mean the same thing here: no endpoint is set. The controller
+		// only ever writes a real endpoint (host and port) or leaves it unset, never &{}, and the v1beta2
+		// type uses omitzero with MinProperties=1, so an empty endpoint is already treated as unset.
 		func(in *HetznerClusterSpec, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.ControlPlaneEndpoint != nil && in.ControlPlaneEndpoint.Host == "" && in.ControlPlaneEndpoint.Port == 0 {

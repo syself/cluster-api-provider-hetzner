@@ -120,6 +120,7 @@ type HetznerClusterStatus struct {
 	Network *NetworkStatus `json:"networkStatus,omitempty"`
 
 	ControlPlaneLoadBalancer *LoadBalancerStatus `json:"controlPlaneLoadBalancer,omitempty"`
+
 	// +optional
 	// +listType=map
 	// +listMapKey=name

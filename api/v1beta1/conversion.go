@@ -321,6 +321,9 @@ func Convert_v1beta2_HetznerClusterStatus_To_v1beta1_HetznerClusterStatus(in *in
 	return nil
 }
 
+// convertFailureDomainsToV1Beta2 converts the v1beta1 FailureDomains map into the v1beta2
+// FailureDomain slice. Entries are sorted by name so the output is deterministic (the v1beta2 field
+// is a +listType=map keyed by name), and each ControlPlane bool is wrapped into a *bool.
 func convertFailureDomainsToV1Beta2(in clusterv1beta1.FailureDomains) []clusterv1.FailureDomain {
 	if in == nil {
 		return nil
@@ -345,6 +348,8 @@ func convertFailureDomainsToV1Beta2(in clusterv1beta1.FailureDomains) []clusterv
 	return out
 }
 
+// convertFailureDomainsToV1Beta1 converts the v1beta2 FailureDomain slice back into the v1beta1
+// FailureDomains map, dereferencing each ControlPlane *bool (a nil pointer becomes false).
 func convertFailureDomainsToV1Beta1(in []clusterv1.FailureDomain) clusterv1beta1.FailureDomains {
 	if in == nil {
 		return nil
