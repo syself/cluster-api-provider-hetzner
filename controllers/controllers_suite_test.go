@@ -97,7 +97,15 @@ func NewControllerResetter(
 	hcloudRemediationReconciler *HCloudRemediationReconciler,
 	hetznerBareMetalRemediationReconciler *HetznerBareMetalRemediationReconciler,
 ) *ControllerResetter {
+	// Create the stable SSH factory once and wire it into the reconcilers that need it.
+	// ResetAndInitNamespace will call SetClients on every test reset without touching
+	// the factory pointer itself, so in-flight goroutines always read through a valid factory.
+	f := &mocks.SSHFactory{}
+	hcloudMachineReconciler.SSHClientFactory = f
+	hetznerBareMetalHostReconciler.SSHClientFactory = f
+
 	return &ControllerResetter{
+		baremetalSSHClientFactory:             f,
 		HetznerClusterReconciler:              hetznerClusterReconciler,
 		HCloudMachineReconciler:               hcloudMachineReconciler,
 		HCloudMachineTemplateReconciler:       hcloudMachineTemplateReconciler,
@@ -139,16 +147,8 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	// factory.NewClient() and receive either the old clients (already configured) or
 	// these new ones — but never an uninitialised mock, so no unexpected-call panic.
 	configureRescueSSHClient(rescueSSHClient)
-
-	// The factory is wired into the reconcilers once and kept stable for the lifetime of
-	// the suite. Only the clients inside it are swapped per test via SetClients.
-	if r.baremetalSSHClientFactory == nil {
-		r.baremetalSSHClientFactory = mocks.NewSSHFactory(rescueSSHClient,
-			osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
-	} else {
-		r.baremetalSSHClientFactory.SetClients(rescueSSHClient,
-			osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
-	}
+	r.baremetalSSHClientFactory.SetClients(rescueSSHClient,
+		osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
 
 	// Reset clients used by the test code
 	testEnv.BaremetalSSHClientFactory = r.baremetalSSHClientFactory
@@ -165,14 +165,12 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	r.HetznerClusterReconciler.Namespace = namespace
 
 	r.HCloudMachineReconciler.HCloudClientFactory = hcloudClientFactory
-	r.HCloudMachineReconciler.SSHClientFactory = r.baremetalSSHClientFactory
 	r.HCloudMachineReconciler.Namespace = namespace
 
 	r.HCloudMachineTemplateReconciler.HCloudClientFactory = hcloudClientFactory
 	r.HCloudMachineTemplateReconciler.Namespace = namespace
 
 	r.HetznerBareMetalHostReconciler.RobotClientFactory = robotClientFactory
-	r.HetznerBareMetalHostReconciler.SSHClientFactory = r.baremetalSSHClientFactory
 	r.HetznerBareMetalHostReconciler.Namespace = namespace
 	r.HetznerBareMetalHostReconciler.WorkloadClusterClientFactory = newFakeWorkloadClusterClientFactory()
 
