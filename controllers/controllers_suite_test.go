@@ -162,6 +162,8 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	// the new factory as soon as it is set below. Without expectations already in
 	// place, those goroutines trigger an unexpected-call panic that Ginkgo attributes
 	// to the next test's BeforeEach, causing flaky failures.
+	// configureRescueSSHClient uses .Maybe() on every call, so these expectations exist
+	// purely to prevent panics from stale goroutines, not to assert behavior.
 	configureRescueSSHClient(rescueSSHClient)
 
 	r.HetznerBareMetalHostReconciler.RobotClientFactory = robotClientFactory

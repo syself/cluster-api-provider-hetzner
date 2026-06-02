@@ -63,7 +63,6 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		capiMachineKey                 client.ObjectKey
 
 		robotClient                  *robotmock.Client
-		rescueSSHClient              *sshmock.Client
 		osSSHClientAfterInstallImage *sshmock.Client
 		osSSHClientAfterCloudInit    *sshmock.Client
 	)
@@ -81,7 +80,6 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		// On() expectations are registered, causing an unexpected-call failure that gets
 		// attributed to this BeforeEach via Ginkgo's global test state.
 		robotClient = testEnv.RobotClient
-		rescueSSHClient = testEnv.RescueSSHClient
 		osSSHClientAfterInstallImage = testEnv.OSSSHClientAfterInstallImage
 		osSSHClientAfterCloudInit = testEnv.OSSSHClientAfterCloudInit
 
@@ -103,8 +101,6 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		robotClient.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
 		robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
 		robotClient.On("SetBMServerName", mock.Anything, mock.Anything).Return(nil, nil)
-
-		configureRescueSSHClient(rescueSSHClient)
 
 		osSSHClientAfterInstallImage.On("Reboot", mock.Anything).Return(sshclient.Output{})
 		osSSHClientAfterInstallImage.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})

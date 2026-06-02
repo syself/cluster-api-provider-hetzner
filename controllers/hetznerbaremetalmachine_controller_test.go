@@ -75,9 +75,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 		key client.ObjectKey
 
-		robotClient     *robotmock.Client
-		rescueSSHClient *sshmock.Client
-		osSSHClient     *sshmock.Client
+		robotClient *robotmock.Client
+		osSSHClient *sshmock.Client
 	)
 
 	BeforeEach(func() {
@@ -145,7 +144,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 
 		robotClient = testEnv.RobotClient
-		rescueSSHClient = testEnv.RescueSSHClient
 		osSSHClient = testEnv.OSSSHClientAfterInstallImage
 
 		robotClient.On("GetBMServer", mock.Anything).Return(&models.Server{
@@ -166,8 +164,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		robotClient.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
 		robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
 		robotClient.On("SetBMServerName", mock.Anything, mock.Anything).Return(nil, nil)
-
-		configureRescueSSHClient(rescueSSHClient)
 
 		osSSHClient.On("Reboot", mock.Anything).Return(sshclient.Output{})
 		osSSHClient.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
