@@ -281,16 +281,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*HetznerBareMetalHost)(nil), (*v1beta2.HetznerBareMetalHost)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(a.(*HetznerBareMetalHost), b.(*v1beta2.HetznerBareMetalHost), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.HetznerBareMetalHost)(nil), (*HetznerBareMetalHost)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(a.(*v1beta2.HetznerBareMetalHost), b.(*HetznerBareMetalHost), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*HetznerBareMetalHostList)(nil), (*v1beta2.HetznerBareMetalHostList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_HetznerBareMetalHostList_To_v1beta2_HetznerBareMetalHostList(a.(*HetznerBareMetalHostList), b.(*v1beta2.HetznerBareMetalHostList), scope)
 	}); err != nil {
@@ -298,16 +288,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1beta2.HetznerBareMetalHostList)(nil), (*HetznerBareMetalHostList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta2_HetznerBareMetalHostList_To_v1beta1_HetznerBareMetalHostList(a.(*v1beta2.HetznerBareMetalHostList), b.(*HetznerBareMetalHostList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*HetznerBareMetalHostSpec)(nil), (*v1beta2.HetznerBareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(a.(*HetznerBareMetalHostSpec), b.(*v1beta2.HetznerBareMetalHostSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.HetznerBareMetalHostSpec)(nil), (*HetznerBareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(a.(*v1beta2.HetznerBareMetalHostSpec), b.(*HetznerBareMetalHostSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -831,6 +811,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.ObjectReference)(nil), (*v1beta2.HetznerBareMetalHostConsumerReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference(a.(*v1.ObjectReference), b.(*v1beta2.HetznerBareMetalHostConsumerReference), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*ControllerGeneratedStatus)(nil), (*v1beta2.ControllerGeneratedStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_ControllerGeneratedStatus(a.(*ControllerGeneratedStatus), b.(*v1beta2.ControllerGeneratedStatus), scope)
 	}); err != nil {
@@ -851,6 +836,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*HetznerBareMetalHostSpec)(nil), (*v1beta2.HetznerBareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(a.(*HetznerBareMetalHostSpec), b.(*v1beta2.HetznerBareMetalHostSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*HetznerBareMetalHost)(nil), (*v1beta2.HetznerBareMetalHost)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(a.(*HetznerBareMetalHost), b.(*v1beta2.HetznerBareMetalHost), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*HetznerBareMetalMachineStatus)(nil), (*v1beta2.HetznerBareMetalMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMachineStatus(a.(*HetznerBareMetalMachineStatus), b.(*v1beta2.HetznerBareMetalMachineStatus), scope)
 	}); err != nil {
@@ -858,6 +853,21 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*HetznerClusterStatus)(nil), (*v1beta2.HetznerClusterStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus(a.(*HetznerClusterStatus), b.(*v1beta2.HetznerClusterStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.HetznerBareMetalHostConsumerReference)(nil), (*v1.ObjectReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference(a.(*v1beta2.HetznerBareMetalHostConsumerReference), b.(*v1.ObjectReference), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.HetznerBareMetalHostSpec)(nil), (*HetznerBareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(a.(*v1beta2.HetznerBareMetalHostSpec), b.(*HetznerBareMetalHostSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.HetznerBareMetalHost)(nil), (*HetznerBareMetalHost)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(a.(*v1beta2.HetznerBareMetalHost), b.(*HetznerBareMetalHost), scope)
 	}); err != nil {
 		return err
 	}
@@ -1663,11 +1673,6 @@ func autoConvert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in
 	return nil
 }
 
-// Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost is an autogenerated conversion function.
-func Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in *HetznerBareMetalHost, out *v1beta2.HetznerBareMetalHost, s conversion.Scope) error {
-	return autoConvert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in, out, s)
-}
-
 func autoConvert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in *v1beta2.HetznerBareMetalHost, out *HetznerBareMetalHost, s conversion.Scope) error {
 	out.ObjectMeta = in.ObjectMeta
 	if err := Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(&in.Spec, &out.Spec, s); err != nil {
@@ -1677,11 +1682,6 @@ func autoConvert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in
 		return err
 	}
 	return nil
-}
-
-// Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost is an autogenerated conversion function.
-func Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in *v1beta2.HetznerBareMetalHost, out *HetznerBareMetalHost, s conversion.Scope) error {
-	return autoConvert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in, out, s)
 }
 
 func autoConvert_v1beta1_HetznerBareMetalHostList_To_v1beta2_HetznerBareMetalHostList(in *HetznerBareMetalHostList, out *v1beta2.HetznerBareMetalHostList, s conversion.Scope) error {
@@ -1729,7 +1729,15 @@ func Convert_v1beta2_HetznerBareMetalHostList_To_v1beta1_HetznerBareMetalHostLis
 func autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in *HetznerBareMetalHostSpec, out *v1beta2.HetznerBareMetalHostSpec, s conversion.Scope) error {
 	out.ServerID = in.ServerID
 	out.RootDeviceHints = (*v1beta2.RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
-	out.ConsumerRef = (*v1.ObjectReference)(unsafe.Pointer(in.ConsumerRef))
+	if in.ConsumerRef != nil {
+		in, out := &in.ConsumerRef, &out.ConsumerRef
+		*out = new(v1beta2.HetznerBareMetalHostConsumerReference)
+		if err := Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.ConsumerRef = nil
+	}
 	out.MaintenanceMode = (*bool)(unsafe.Pointer(in.MaintenanceMode))
 	out.Description = in.Description
 	if err := Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_ControllerGeneratedStatus(&in.Status, &out.Status, s); err != nil {
@@ -1738,26 +1746,24 @@ func autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHos
 	return nil
 }
 
-// Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec is an autogenerated conversion function.
-func Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in *HetznerBareMetalHostSpec, out *v1beta2.HetznerBareMetalHostSpec, s conversion.Scope) error {
-	return autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in, out, s)
-}
-
 func autoConvert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in *v1beta2.HetznerBareMetalHostSpec, out *HetznerBareMetalHostSpec, s conversion.Scope) error {
 	out.ServerID = in.ServerID
 	out.RootDeviceHints = (*RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
-	out.ConsumerRef = (*v1.ObjectReference)(unsafe.Pointer(in.ConsumerRef))
+	if in.ConsumerRef != nil {
+		in, out := &in.ConsumerRef, &out.ConsumerRef
+		*out = new(v1.ObjectReference)
+		if err := Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.ConsumerRef = nil
+	}
 	out.MaintenanceMode = (*bool)(unsafe.Pointer(in.MaintenanceMode))
 	out.Description = in.Description
 	if err := Convert_v1beta2_ControllerGeneratedStatus_To_v1beta1_ControllerGeneratedStatus(&in.Status, &out.Status, s); err != nil {
 		return err
 	}
 	return nil
-}
-
-// Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec is an autogenerated conversion function.
-func Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in *v1beta2.HetznerBareMetalHostSpec, out *HetznerBareMetalHostSpec, s conversion.Scope) error {
-	return autoConvert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in, out, s)
 }
 
 func autoConvert_v1beta1_HetznerBareMetalHostStatus_To_v1beta2_HetznerBareMetalHostStatus(in *HetznerBareMetalHostStatus, out *v1beta2.HetznerBareMetalHostStatus, s conversion.Scope) error {

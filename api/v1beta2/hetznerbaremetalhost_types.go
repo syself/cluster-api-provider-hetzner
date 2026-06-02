@@ -218,6 +218,31 @@ type RebootAnnotationArguments struct {
 	Type RebootType `json:"type"`
 }
 
+// HetznerBareMetalHostConsumerReference is a reference to the HetznerBareMetalMachine
+// that is using a HetznerBareMetalHost.
+type HetznerBareMetalHostConsumerReference struct {
+	// Kind is the kind of the resource being referenced.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$`
+	Kind string `json:"kind,omitempty"`
+
+	// Name is the name of the resource being referenced.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	Name string `json:"name,omitempty"`
+
+	// APIGroup is the group of the resource being referenced.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	APIGroup string `json:"apiGroup,omitempty"`
+}
+
 // HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
 type HetznerBareMetalHostSpec struct {
 	// ServerID defines the ID of the server provided by Hetzner.
@@ -232,7 +257,7 @@ type HetznerBareMetalHostSpec struct {
 	// ConsumerRef is a reference to the HetznerBareMetalMachine
 	// that is using this host. When it is not empty, the host is considered "in use".
 	// +optional
-	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
+	ConsumerRef *HetznerBareMetalHostConsumerReference `json:"consumerRef,omitempty"`
 
 	// MaintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
 	// will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
