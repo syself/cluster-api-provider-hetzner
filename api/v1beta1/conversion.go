@@ -21,9 +21,12 @@ package v1beta1
 // Hand-written converters handle fields whose API shape changed.
 
 import (
+	"fmt"
 	"sort"
 
+	corev1 "k8s.io/api/core/v1"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -189,6 +192,75 @@ func (dst *HetznerBareMetalRemediationTemplate) ConvertFrom(srcRaw conversion.Hu
 // Note: conversion-gen generates public Convert_... wrappers only when **every** field can be mapped.
 // If a field has no peer in the other version, it only generates autoConvert_... helpers for the
 // matching fields and leaves the unmatched field for manual conversion.
+
+// ConsumerRef changed shape between v1beta1 and v1beta2. v1beta1 keeps the historical
+// ObjectReference shape, while v1beta2 only persists the identity the host needs: kind, name, and
+// API group. Namespace is not stored in the v1beta2 field because the consuming machine lives in
+// the same namespace as the host.
+//
+// The type-level conversion functions below keep conversion-gen working for the spec field. The
+// object-level v1beta2 to v1beta1 converter then restores ConsumerRef.Namespace from the enclosing
+// host object for old clients.
+
+// Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost converts a v1beta1
+// HetznerBareMetalHost to v1beta2, including the v1beta2 ConsumerRef shape.
+func Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in *HetznerBareMetalHost, out *infrav1.HetznerBareMetalHost, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in, out, s)
+}
+
+// Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost converts a v1beta2
+// HetznerBareMetalHost to v1beta1 and restores ConsumerRef.Namespace from the host namespace.
+func Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in *infrav1.HetznerBareMetalHost, out *HetznerBareMetalHost, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in, out, s); err != nil {
+		return err
+	}
+	if out.Spec.ConsumerRef != nil {
+		// v1beta2 does not carry ConsumerRef.Namespace, so restore the old ObjectReference shape
+		// from the containing host object.
+		out.Spec.ConsumerRef.Namespace = in.Namespace
+	}
+	return nil
+}
+
+// Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec converts the
+// v1beta1 ObjectReference ConsumerRef to the smaller v1beta2 local reference.
+func Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in *HetznerBareMetalHostSpec, out *infrav1.HetznerBareMetalHostSpec, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in, out, s)
+}
+
+// Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec converts the
+// v1beta2 ConsumerRef shape back to the v1beta1 ObjectReference shape without namespace.
+func Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in *infrav1.HetznerBareMetalHostSpec, out *HetznerBareMetalHostSpec, s apiconversion.Scope) error {
+	return autoConvert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in, out, s)
+}
+
+// Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference converts the
+// v1beta1 ObjectReference shape to the smaller v1beta2 ConsumerRef shape.
+func Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference(in *corev1.ObjectReference, out *infrav1.HetznerBareMetalHostConsumerReference, _ apiconversion.Scope) error {
+	apiGroup := ""
+	if in.APIVersion != "" {
+		gv, err := schema.ParseGroupVersion(in.APIVersion)
+		if err != nil {
+			return fmt.Errorf("failed to convert consumerRef: failed to parse apiVersion %q: %w", in.APIVersion, err)
+		}
+		apiGroup = gv.Group
+	}
+
+	// Persist only the fields that make up the v1beta2 host ownership state.
+	out.Kind = in.Kind
+	out.Name = in.Name
+	out.APIGroup = apiGroup
+	return nil
+}
+
+// Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference converts the
+// v1beta2 ConsumerRef shape back to an ObjectReference without namespace.
+func Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference(in *infrav1.HetznerBareMetalHostConsumerReference, out *corev1.ObjectReference, _ apiconversion.Scope) error {
+	out.APIVersion = schema.GroupVersion{Group: in.APIGroup, Version: GroupVersion.Version}.String()
+	out.Kind = in.Kind
+	out.Name = in.Name
+	return nil
+}
 
 // Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_ControllerGeneratedStatus converts
 // the v1beta1 ControllerGeneratedStatus to v1beta2, dropping the V1Beta2 field.
