@@ -248,6 +248,8 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
 		robotClient.On("SetBMServerName", mock.Anything, mock.Anything).Return(nil, nil)
 
+		configureRescueSSHClient(rescueSSHClient)
+
 		osSSHClientAfterInstallImage.On("Reboot", mock.Anything).Return(sshclient.Output{})
 		osSSHClientAfterInstallImage.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
 		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
@@ -694,7 +696,8 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		key client.ObjectKey
 
-		robotClient *robotmock.Client
+		robotClient     *robotmock.Client
+		rescueSSHClient *sshmock.Client
 	)
 
 	BeforeEach(func() {
@@ -787,6 +790,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 
 		robotClient = testEnv.RobotClient
+		rescueSSHClient = testEnv.RescueSSHClient
 
 		robotClient.On("GetBMServer", mock.Anything).Return(&models.Server{
 			ServerNumber: 1,
@@ -804,6 +808,8 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		robotClient.On("SetBootRescue", mock.Anything, mock.Anything).Return(&models.Rescue{Active: true}, nil)
 		robotClient.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
 		robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
+
+		configureRescueSSHClient(rescueSSHClient)
 	})
 
 	AfterEach(func() {
