@@ -2483,13 +2483,13 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	v1beta1conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 		"WaitingForNodeToBeRebooted",
 		clusterv1beta1.ConditionSeverityInfo,
-		"Waiting for BootID of Node in workload cluster to change",
+		"Waiting for the node to be rebooted",
 	)
 	v1beta2conditions.Set(host, metav1.Condition{
 		Type:    infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
 		Status:  metav1.ConditionFalse,
 		Reason:  infrav1.HetznerBareMetalHostRebootingV1Beta2Reason,
-		Message: "Waiting for BootID of Node in workload cluster to change",
+		Message: "Waiting for the node to be rebooted",
 	})
 
 	return actionContinue{delay: 10 * time.Second}
