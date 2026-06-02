@@ -97,6 +97,7 @@ install_smartmontools() {
     fi
 }
 
+# fio is a disk I/O benchmarking tool used to test disk performance
 install_fio() {
     if [[ -f /etc/os-release ]]; then
         # shellcheck disable=SC1091
