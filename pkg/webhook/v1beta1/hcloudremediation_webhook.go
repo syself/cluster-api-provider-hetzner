@@ -21,43 +21,45 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
-type hcloudRemediationWebhook struct{}
+// HCloudRemediationWebhook implements admission webhooks for HCloudRemediation.
+type HCloudRemediationWebhook struct{}
 
 // SetupWebhookWithManager initializes webhook manager for HCloudRemediation.
-func (r *HCloudRemediation) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	w := new(hcloudRemediationWebhook)
-	return ctrl.NewWebhookManagedBy(mgr, r).
-		WithValidator(w).
-		WithDefaulter(w).
+func (webhook *HCloudRemediationWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HCloudRemediation{}).
+		WithValidator(webhook).
+		WithDefaulter(webhook).
 		Complete()
 }
 
 //+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudremediation,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudremediations,verbs=create;update,versions=v1beta1,name=mutation.hcloudremediation.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Defaulter[*HCloudRemediation] = &hcloudRemediationWebhook{}
+var _ admission.Defaulter[*infrav1.HCloudRemediation] = &HCloudRemediationWebhook{}
 
-// Default implements admission.Defaulter[*HCloudRemediation] so a webhook will be registered for the type.
-func (*hcloudRemediationWebhook) Default(context.Context, *HCloudRemediation) error {
+// Default implements admission.Defaulter so a webhook will be registered for HCloudRemediation.
+func (*HCloudRemediationWebhook) Default(context.Context, *infrav1.HCloudRemediation) error {
 	return nil
 }
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudremediation,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudremediations,verbs=create;update,versions=v1beta1,name=validation.hcloudremediation.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Validator[*HCloudRemediation] = &hcloudRemediationWebhook{}
+var _ admission.Validator[*infrav1.HCloudRemediation] = &HCloudRemediationWebhook{}
 
-// ValidateCreate implements admission.Validator[*HCloudRemediation] so a webhook will be registered for the type.
-func (*hcloudRemediationWebhook) ValidateCreate(context.Context, *HCloudRemediation) (admission.Warnings, error) {
+// ValidateCreate implements admission.Validator so a webhook will be registered for HCloudRemediation.
+func (*HCloudRemediationWebhook) ValidateCreate(context.Context, *infrav1.HCloudRemediation) (admission.Warnings, error) {
 	return nil, nil
 }
 
-// ValidateUpdate implements admission.Validator[*HCloudRemediation] so a webhook will be registered for the type.
-func (*hcloudRemediationWebhook) ValidateUpdate(_ context.Context, _, _ *HCloudRemediation) (admission.Warnings, error) {
+// ValidateUpdate implements admission.Validator so a webhook will be registered for HCloudRemediation.
+func (*HCloudRemediationWebhook) ValidateUpdate(_ context.Context, _, _ *infrav1.HCloudRemediation) (admission.Warnings, error) {
 	return nil, nil
 }
 
-// ValidateDelete implements admission.Validator[*HCloudRemediation] so a webhook will be registered for the type.
-func (*hcloudRemediationWebhook) ValidateDelete(context.Context, *HCloudRemediation) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator so a webhook will be registered for HCloudRemediation.
+func (*HCloudRemediationWebhook) ValidateDelete(context.Context, *infrav1.HCloudRemediation) (admission.Warnings, error) {
 	return nil, nil
 }

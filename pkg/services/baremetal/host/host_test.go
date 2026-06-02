@@ -1969,7 +1969,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
 		c := v1beta1conditions.Get(host, infrav1.RebootSucceededCondition)
-		Expect(c.Message).To(ContainSubstring("Waiting for BootID of Node in workload cluster to change"))
+		Expect(c.Message).To(ContainSubstring("Waiting for the node to be rebooted"))
 	})
 
 	It("test reboot annotation for NoSSHAfterInstallImage=true, finished with healthy Condition", func() {

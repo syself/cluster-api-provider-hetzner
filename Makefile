@@ -94,6 +94,11 @@ kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
 $(KUSTOMIZE): # Build kustomize from tools folder.
 	go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.0
 
+CONVERSION_GEN := $(abspath $(TOOLS_BIN_DIR)/conversion-gen)
+conversion-gen: $(CONVERSION_GEN) ## Build a local copy of conversion-gen.
+$(CONVERSION_GEN): # Build conversion-gen from tools folder.
+	go install k8s.io/code-generator/cmd/conversion-gen@v0.35.4
+
 TILT := $(abspath $(TOOLS_BIN_DIR)/tilt)
 tilt: $(TILT) ## Build a local copy of tilt
 $(TILT):
@@ -598,7 +603,7 @@ else
 	# these from the builder-image now.
 	rm -f ./hack/tools/bin/controller-gen ./hack/tools/bin/helm
 	controller-gen \
-			paths="{./, ./api/..., ./controllers/...}" \
+			paths="{./, ./api/..., ./controllers/..., ./pkg/webhook/v1beta1}" \
 			crd:crdVersions=v1 \
 			rbac:roleName=manager-role \
 			output:crd:dir=./config/crd/bases \
@@ -618,7 +623,13 @@ else
 		paths="./api/..."
 endif
 
-generate-api-ci: generate-manifests generate-go-deepcopy
+generate-go-conversions: $(CONVERSION_GEN) ## Generate code containing conversion functions between API versions.
+	$(CONVERSION_GEN) \
+		--output-file=zz_generated.conversion.go \
+		--go-header-file=./hack/boilerplate/boilerplate.generatego.txt \
+		./api/v1beta1
+
+generate-api-ci: generate-manifests generate-go-deepcopy generate-go-conversions
 	@if ! (git diff --exit-code ); then \
 		echo "\nChanges found in generated files"; \
 		exit 1; \
@@ -753,7 +764,7 @@ else
 endif
 
 .PHONY: generate
-generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules generate-mocks ## Generate Files
+generate: generate-manifests generate-go-deepcopy generate-go-conversions generate-boilerplate generate-modules generate-mocks ## Generate Files
 
 ALL_VERIFY_CHECKS = boilerplate shellcheck starlark manifests capi-version
 .PHONY: verify

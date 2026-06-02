@@ -24,44 +24,46 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
-// hetznerBareMetalHostWebhook implements validating and defaulting webhook for HetznerBareMetalHost.
+// HetznerBareMetalHostWebhook implements validating and defaulting webhook for HetznerBareMetalHost.
 // +k8s:deepcopy-gen=false
-type hetznerBareMetalHostWebhook struct {
-	c client.Client
+type HetznerBareMetalHostWebhook struct {
+	Client client.Client
 }
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalHost.
-func (host *HetznerBareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	w := new(hetznerBareMetalHostWebhook)
-	w.c = mgr.GetClient()
-
-	return ctrl.NewWebhookManagedBy(mgr, host).
-		WithValidator(w).
-		WithDefaulter(w).
+func (webhook *HetznerBareMetalHostWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	if webhook.Client == nil {
+		webhook.Client = mgr.GetClient()
+	}
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HetznerBareMetalHost{}).
+		WithValidator(webhook).
+		WithDefaulter(webhook).
 		Complete()
 }
 
 //+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=create;update,versions=v1beta1,name=mutation.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Defaulter[*HetznerBareMetalHost] = &hetznerBareMetalHostWebhook{}
+var _ admission.Defaulter[*infrav1.HetznerBareMetalHost] = &HetznerBareMetalHostWebhook{}
 
-// Default implements admission.Defaulter[*HetznerBareMetalHost] so a webhook will be registered for the type.
-func (*hetznerBareMetalHostWebhook) Default(context.Context, *HetznerBareMetalHost) error {
+// Default implements admission.Defaulter so a webhook will be registered for HetznerBareMetalHost.
+func (*HetznerBareMetalHostWebhook) Default(context.Context, *infrav1.HetznerBareMetalHost) error {
 	return nil
 }
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Validator[*HetznerBareMetalHost] = &hetznerBareMetalHostWebhook{}
+var _ admission.Validator[*infrav1.HetznerBareMetalHost] = &HetznerBareMetalHostWebhook{}
 
-// ValidateCreate implements admission.Validator[*HetznerBareMetalHost] so a webhook will be registered for the type.
-func (hw *hetznerBareMetalHostWebhook) ValidateCreate(ctx context.Context, host *HetznerBareMetalHost) (admission.Warnings, error) {
+// ValidateCreate implements admission.Validator so a webhook will be registered for HetznerBareMetalHost.
+func (webhook *HetznerBareMetalHostWebhook) ValidateCreate(ctx context.Context, host *infrav1.HetznerBareMetalHost) (admission.Warnings, error) {
 	var allErrs field.ErrorList
 
-	hetznerBareMetalHostList := &HetznerBareMetalHostList{}
-	if err := hw.c.List(ctx, hetznerBareMetalHostList, &client.ListOptions{}); err != nil {
+	hetznerBareMetalHostList := &infrav1.HetznerBareMetalHostList{}
+	if err := webhook.Client.List(ctx, hetznerBareMetalHostList, &client.ListOptions{}); err != nil {
 		return admission.Warnings{fmt.Sprintf("could not verify that the host has a unique serverID: %s", err.Error())}, nil
 	}
 
@@ -76,8 +78,8 @@ func (hw *hetznerBareMetalHostWebhook) ValidateCreate(ctx context.Context, host 
 	return nil, aggregateObjErrors(hetznerBareMetalHostList.GroupVersionKind().GroupKind(), host.Name, allErrs)
 }
 
-// ValidateUpdate implements admission.Validator[*HetznerBareMetalHost] so a webhook will be registered for the type.
-func (*hetznerBareMetalHostWebhook) ValidateUpdate(_ context.Context, oldHost, newHost *HetznerBareMetalHost) (admission.Warnings, error) {
+// ValidateUpdate implements admission.Validator so a webhook will be registered for HetznerBareMetalHost.
+func (*HetznerBareMetalHostWebhook) ValidateUpdate(_ context.Context, oldHost, newHost *infrav1.HetznerBareMetalHost) (admission.Warnings, error) {
 	var allErrs field.ErrorList
 
 	if newHost.Spec.ServerID != oldHost.Spec.ServerID {
@@ -89,7 +91,7 @@ func (*hetznerBareMetalHostWebhook) ValidateUpdate(_ context.Context, oldHost, n
 	return nil, aggregateObjErrors(newHost.GroupVersionKind().GroupKind(), newHost.Name, allErrs)
 }
 
-// ValidateDelete implements admission.Validator[*HetznerBareMetalHost] so a webhook will be registered for the type.
-func (*hetznerBareMetalHostWebhook) ValidateDelete(context.Context, *HetznerBareMetalHost) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator so a webhook will be registered for HetznerBareMetalHost.
+func (*HetznerBareMetalHostWebhook) ValidateDelete(context.Context, *infrav1.HetznerBareMetalHost) (admission.Warnings, error) {
 	return nil, nil
 }

@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+// Package v1beta2 contains admission webhook implementations for the infrastructure v1beta2 API group.
+package v1beta2
 
 import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

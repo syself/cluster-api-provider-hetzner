@@ -59,6 +59,7 @@ import (
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
+	webhookv1beta1 "github.com/syself/cluster-api-provider-hetzner/pkg/webhook/v1beta1"
 )
 
 func init() {
@@ -180,37 +181,37 @@ func NewTestEnvironment() *TestEnvironment {
 
 	record.InitFromRecorder(mgr.GetEventRecorderFor("hetzner-controller"))
 
-	if err := (&infrav1.HetznerCluster{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta1.HetznerClusterWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerCluster: %s", err)
 	}
-	if err := (&infrav1.HetznerClusterTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta1.HetznerClusterTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerClusterTemplate: %s", err)
 	}
-	if err := (&infrav1.HCloudMachine{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta1.HCloudMachineWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HCloudMachine: %s", err)
 	}
-	if err := (&infrav1.HCloudMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta1.HCloudMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HCloudMachineTemplate: %s", err)
 	}
-	if err := (&infrav1.HetznerBareMetalMachine{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta1.HetznerBareMetalMachineWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalMachine: %s", err)
 	}
-	if err := (&infrav1.HetznerBareMetalMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta1.HetznerBareMetalMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalMachineTemplate: %s", err)
 	}
-	if err := (&infrav1.HetznerBareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta1.HetznerBareMetalHostWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalHost: %s", err)
 	}
-	if err := (&infrav1.HetznerBareMetalRemediation{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta1.HetznerBareMetalRemediationWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalRemediation: %s", err)
 	}
-	if err := (&infrav1.HetznerBareMetalRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta1.HetznerBareMetalRemediationTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalRemediationTemplate: %s", err)
 	}
-	if err := (&infrav1.HCloudRemediation{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta1.HCloudRemediationWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HCloudRemediation: %s", err)
 	}
-	if err := (&infrav1.HCloudRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta1.HCloudRemediationTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HCloudRemediationTemplate: %s", err)
 	}
 

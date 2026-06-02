@@ -22,10 +22,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
-func validateHCloudMachineSpecUpdate(oldSpec, newSpec HCloudMachineSpec) field.ErrorList {
+func validateHCloudMachineSpecUpdate(oldSpec, newSpec infrav1.HCloudMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	// Type is immutable
 	if !reflect.DeepEqual(oldSpec.Type, newSpec.Type) {
@@ -74,7 +75,7 @@ func validateHCloudMachineSpecUpdate(oldSpec, newSpec HCloudMachineSpec) field.E
 	return allErrs
 }
 
-func validateHCloudMachineSpec(spec HCloudMachineSpec) field.ErrorList {
+func validateHCloudMachineSpec(spec infrav1.HCloudMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	if spec.ImageName != "" && spec.ImageURL != "" {
 		allErrs = append(allErrs,
