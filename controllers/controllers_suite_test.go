@@ -142,11 +142,6 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 
 	robotClientFactory := mocks.NewRobotFactory(robotClient)
 
-	// Configure expectations before swapping the clients into the factory.
-	// Any reconcile goroutine from a previous test that is still in-flight will call
-	// factory.NewClient() and receive either the old clients (already configured) or
-	// these new ones — but never an uninitialised mock, so no unexpected-call panic.
-	configureRescueSSHClient(rescueSSHClient)
 	r.baremetalSSHClientFactory.SetClients(rescueSSHClient,
 		osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
 
