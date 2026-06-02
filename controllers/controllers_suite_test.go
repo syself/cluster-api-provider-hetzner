@@ -78,6 +78,7 @@ func TestControllers(t *testing.T) {
 
 type ControllerResetter struct {
 	debug                                 bool
+	baremetalSSHClientFactory             *mocks.SSHFactory
 	HetznerClusterReconciler              *HetznerClusterReconciler
 	HCloudMachineReconciler               *HCloudMachineReconciler
 	HCloudMachineTemplateReconciler       *HCloudMachineTemplateReconciler
@@ -132,12 +133,25 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	hcloudClientFactory := fakehcloudclient.NewHCloudClientFactory()
 
 	robotClientFactory := mocks.NewRobotFactory(robotClient)
-	baremetalSSHClientFactory := mocks.NewSSHFactory(rescueSSHClient,
-		osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
+
+	// Configure expectations before swapping the clients into the factory.
+	// Any reconcile goroutine from a previous test that is still in-flight will call
+	// factory.NewClient() and receive either the old clients (already configured) or
+	// these new ones — but never an uninitialised mock, so no unexpected-call panic.
+	configureRescueSSHClient(rescueSSHClient)
+
+	// The factory is wired into the reconcilers once and kept stable for the lifetime of
+	// the suite. Only the clients inside it are swapped per test via SetClients.
+	if r.baremetalSSHClientFactory == nil {
+		r.baremetalSSHClientFactory = mocks.NewSSHFactory(rescueSSHClient,
+			osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
+	} else {
+		r.baremetalSSHClientFactory.SetClients(rescueSSHClient,
+			osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
+	}
 
 	// Reset clients used by the test code
-	testEnv.BaremetalSSHClientFactory = mocks.NewSSHFactory(rescueSSHClient,
-		osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
+	testEnv.BaremetalSSHClientFactory = r.baremetalSSHClientFactory
 	testEnv.HCloudSSHClientFactory = mockedsshclient.NewSSHFactory(hcloudSSHClient)
 	testEnv.RescueSSHClient = rescueSSHClient
 	testEnv.OSSSHClientAfterInstallImage = osSSHClientAfterInstallImage
@@ -151,23 +165,14 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	r.HetznerClusterReconciler.Namespace = namespace
 
 	r.HCloudMachineReconciler.HCloudClientFactory = hcloudClientFactory
-	r.HCloudMachineReconciler.SSHClientFactory = baremetalSSHClientFactory
+	r.HCloudMachineReconciler.SSHClientFactory = r.baremetalSSHClientFactory
 	r.HCloudMachineReconciler.Namespace = namespace
 
 	r.HCloudMachineTemplateReconciler.HCloudClientFactory = hcloudClientFactory
 	r.HCloudMachineTemplateReconciler.Namespace = namespace
 
-	// Register base SSH expectations before wiring the factory into the reconciler.
-	// Any reconcile goroutine from a previous test that is still in-flight may read
-	// the new factory as soon as it is set below. Without expectations already in
-	// place, those goroutines trigger an unexpected-call panic that Ginkgo attributes
-	// to the next test's BeforeEach, causing flaky failures.
-	// configureRescueSSHClient uses .Maybe() on every call, so these expectations exist
-	// purely to prevent panics from stale goroutines, not to assert behavior.
-	configureRescueSSHClient(rescueSSHClient)
-
 	r.HetznerBareMetalHostReconciler.RobotClientFactory = robotClientFactory
-	r.HetznerBareMetalHostReconciler.SSHClientFactory = baremetalSSHClientFactory
+	r.HetznerBareMetalHostReconciler.SSHClientFactory = r.baremetalSSHClientFactory
 	r.HetznerBareMetalHostReconciler.Namespace = namespace
 	r.HetznerBareMetalHostReconciler.WorkloadClusterClientFactory = newFakeWorkloadClusterClientFactory()
 

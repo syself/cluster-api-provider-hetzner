@@ -1003,80 +1003,76 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 	})
 })
 
-// configureRescueSSHClient primes sshClient with default return values for all rescue SSH
-// methods. Every expectation uses .Maybe() so tests that never exercise these calls do not
-// fail AssertExpectations, and in-flight reconcile goroutines from prior tests cannot trigger
-// an unexpected-call panic when they reach the freshly wired factory.
 func configureRescueSSHClient(sshClient *sshmock.Client) {
 	sshClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
 		StdOut: "rescue",
 		StdErr: "",
 		Err:    nil,
-	}).Maybe()
+	})
 	sshClient.On("GetHardwareDetailsRAM", mock.Anything).Return(sshclient.Output{
 		StdOut: "100000",
 		StdErr: "",
 		Err:    nil,
-	}).Maybe()
+	})
 	sshClient.On("GetHardwareDetailsStorage", mock.Anything).Return(sshclient.Output{
 		StdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
 NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
 NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
 		StdErr: "",
 		Err:    nil,
-	}).Maybe()
+	})
 	sshClient.On("GetHardwareDetailsNics", mock.Anything).Return(sshclient.Output{
 		StdOut: `name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ip="23.88.6.239/26" speedMbps="1000"
 name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ip="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
 		StdErr: "",
 		Err:    nil,
-	}).Maybe()
+	})
 	sshClient.On("GetHardwareDetailsCPUArch", mock.Anything).Return(sshclient.Output{
 		StdOut: "myarch",
 		StdErr: "",
 		Err:    nil,
-	}).Maybe()
+	})
 	sshClient.On("GetHardwareDetailsCPUModel", mock.Anything).Return(sshclient.Output{
 		StdOut: "mymodel",
 		StdErr: "",
 		Err:    nil,
-	}).Maybe()
+	})
 	sshClient.On("GetHardwareDetailsCPUClockGigahertz", mock.Anything).Return(sshclient.Output{
 		StdOut: "42654",
 		StdErr: "",
 		Err:    nil,
-	}).Maybe()
+	})
 	sshClient.On("GetHardwareDetailsCPUFlags", mock.Anything).Return(sshclient.Output{
 		StdOut: "flag1 flag2 flag3",
 		StdErr: "",
 		Err:    nil,
-	}).Maybe()
+	})
 	sshClient.On("GetHardwareDetailsCPUThreads", mock.Anything).Return(sshclient.Output{
 		StdOut: "123",
 		StdErr: "",
 		Err:    nil,
-	}).Maybe()
+	})
 	sshClient.On("GetHardwareDetailsCPUCores", mock.Anything).Return(sshclient.Output{
 		StdOut: "12",
 		StdErr: "",
 		Err:    nil,
-	}).Maybe()
+	})
 	sshClient.On("GetHardwareDetailsDebug", mock.Anything).Return(sshclient.Output{
 		StdOut: "Dummy output",
 		StdErr: "",
 		Err:    nil,
-	}).Maybe()
-	sshClient.On("DownloadImage", mock.Anything, mock.Anything).Return(sshclient.Output{}).Maybe()
-	sshClient.On("CreateAutoSetup", mock.Anything).Return(sshclient.Output{}).Maybe()
-	sshClient.On("UntarTGZ", mock.Anything).Return(sshclient.Output{}).Maybe()
-	sshClient.On("CreatePostInstallScript", mock.Anything).Return(sshclient.Output{}).Maybe()
-	sshClient.On("ExecuteInstallImage", mock.Anything).Return(sshclient.Output{StdOut: hostpkg.PostInstallScriptFinished}).Maybe()
-	sshClient.On("Reboot", mock.Anything).Return(sshclient.Output{}).Maybe()
-	sshClient.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"}).Maybe()
-	sshClient.On("DetectLinuxOnAnotherDisk", mock.Anything).Return(sshclient.Output{}).Maybe()
-	sshClient.On("ExecutePreProvisionCommand", mock.Anything, mock.Anything).Return(0, "", nil).Maybe()
-	sshClient.On("GetInstallImageState", mock.Anything).Return(sshclient.InstallImageStateFinished, nil).Maybe()
-	sshClient.On("GetResultOfInstallImage", mock.Anything).Return(hostpkg.PostInstallScriptFinished, nil).Maybe()
+	})
+	sshClient.On("DownloadImage", mock.Anything, mock.Anything).Return(sshclient.Output{})
+	sshClient.On("CreateAutoSetup", mock.Anything).Return(sshclient.Output{})
+	sshClient.On("UntarTGZ", mock.Anything).Return(sshclient.Output{})
+	sshClient.On("CreatePostInstallScript", mock.Anything).Return(sshclient.Output{})
+	sshClient.On("ExecuteInstallImage", mock.Anything).Return(sshclient.Output{StdOut: hostpkg.PostInstallScriptFinished})
+	sshClient.On("Reboot", mock.Anything).Return(sshclient.Output{})
+	sshClient.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+	sshClient.On("DetectLinuxOnAnotherDisk", mock.Anything).Return(sshclient.Output{})
+	sshClient.On("ExecutePreProvisionCommand", mock.Anything, mock.Anything).Return(0, "", nil)
+	sshClient.On("GetInstallImageState", mock.Anything).Return(sshclient.InstallImageStateFinished, nil)
+	sshClient.On("GetResultOfInstallImage", mock.Anything).Return(hostpkg.PostInstallScriptFinished, nil)
 }
 
 func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
