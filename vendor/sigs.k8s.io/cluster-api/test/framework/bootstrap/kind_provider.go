@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
@@ -177,7 +178,21 @@ func (k *KindClusterProvider) createKindCluster() {
 		kind.CreateWithRetain(true))
 
 	provider := kind.NewProvider(kind.ProviderWithLogger(cmd.NewLogger()))
-	err := provider.Create(k.name, kindCreateOptions...)
+	const maxAttempts = 3
+	var err error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		err = provider.Create(k.name, kindCreateOptions...)
+		if err == nil {
+			break
+		}
+		log.Logf("Kind cluster %q creation attempt %d/%d failed: %v", k.name, attempt, maxAttempts, err)
+		if attempt < maxAttempts {
+			if deleteErr := provider.Delete(k.name, k.kubeconfigPath); deleteErr != nil {
+				log.Logf("Failed to delete kind cluster %q after failed creation attempt: %v", k.name, deleteErr)
+			}
+			time.Sleep(time.Duration(attempt) * 15 * time.Second)
+		}
+	}
 	if err != nil {
 		// if requested, dump kind logs
 		if k.logFolder != "" {
