@@ -313,7 +313,7 @@ func pullKindNodeImageWithRetry(ctx context.Context) {
 	const maxAttempts = 3
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		out, err := exec.CommandContext(ctx, "docker", "pull", image).CombinedOutput()
+		out, err := exec.CommandContext(ctx, "docker", "pull", image).CombinedOutput() //nolint:gosec
 		if err == nil {
 			return
 		}
