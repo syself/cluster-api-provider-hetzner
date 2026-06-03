@@ -65,7 +65,7 @@ func (dst *HetznerCluster) ConvertFrom(srcRaw conversion.Hub) error {
 		return err
 	}
 
-	// Preserve the hub object so the next up-conversion can restore hub-only intent (see ConvertTo).
+	// Preserve the hub object in a data annotation so the next up-conversion can restore hub-only intent (see ConvertTo).
 	return utilconversion.MarshalData(src, dst)
 }
 

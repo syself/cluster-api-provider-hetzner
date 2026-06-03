@@ -425,6 +425,27 @@ func TestHetznerClusterRoundTripPreservesFalseProvisionedIntent(t *testing.T) {
 	}
 }
 
+// TestHetznerClusterConvertToNilProvisionedForFalseReadyWithoutAnnotation verifies the
+// storage-migration path: a v1beta1 HetznerCluster with status.ready=false and no stored hub
+// annotation converts to status.initialization.provisioned=nil, since a false ready without a
+// restored hub cannot be distinguished from "never provisioned".
+func TestHetznerClusterConvertToNilProvisionedForFalseReadyWithoutAnnotation(t *testing.T) {
+	src := &HetznerCluster{
+		Status: HetznerClusterStatus{
+			Ready: false,
+		},
+	}
+
+	dst := &infrav1.HetznerCluster{}
+	if err := src.ConvertTo(dst); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+
+	if dst.Status.Initialization.Provisioned != nil {
+		t.Fatalf("status.initialization.provisioned = %v, want nil", dst.Status.Initialization.Provisioned)
+	}
+}
+
 func normalizeV1Beta2FailureDomains(in []clusterv1.FailureDomain) []clusterv1.FailureDomain {
 	if in == nil {
 		return nil
