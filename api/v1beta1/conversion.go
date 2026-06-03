@@ -313,7 +313,7 @@ func Convert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus(in *He
 	if len(in.Conditions) > 0 {
 		out.Deprecated = &infrav1.HetznerClusterDeprecatedStatus{
 			V1Beta1: &infrav1.HetznerClusterV1Beta1DeprecatedStatus{
-				Conditions: in.Conditions,
+				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
 			},
 		}
 	}
@@ -361,7 +361,7 @@ func Convert_v1beta2_HetznerClusterStatus_To_v1beta1_HetznerClusterStatus(in *in
 
 	// Promote the deprecated v1beta1 conditions back to the old status.conditions.
 	if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil {
-		out.Conditions = in.Deprecated.V1Beta1.Conditions
+		out.Conditions = convertDeprecatedConditionsToV1Beta1(in.Deprecated.V1Beta1.Conditions)
 	}
 
 	if in.Network != nil {
@@ -434,6 +434,53 @@ func convertFailureDomainsToV1Beta1(in []clusterv1.FailureDomain) clusterv1beta1
 		out[failureDomain.Name] = clusterv1beta1.FailureDomainSpec{
 			ControlPlane: ptr.Deref(failureDomain.ControlPlane, false),
 			Attributes:   failureDomain.Attributes,
+		}
+	}
+
+	return out
+}
+
+// convertDeprecatedConditionsToV1Beta2 converts the old core/v1beta1 conditions (carried by the
+// v1beta1 status) into the structurally identical core/v1beta2 deprecated conditions stored under
+// status.deprecated.v1beta1.conditions on the v1beta2 object. The two Condition types are
+// field-for-field identical; only the package-local Type and Severity typedefs need a cast.
+func convertDeprecatedConditionsToV1Beta2(in clusterv1beta1.Conditions) clusterv1.Conditions {
+	if in == nil {
+		return nil
+	}
+
+	out := make(clusterv1.Conditions, len(in))
+	for i := range in {
+		out[i] = clusterv1.Condition{
+			Type:               clusterv1.ConditionType(in[i].Type),
+			Status:             in[i].Status,
+			Severity:           clusterv1.ConditionSeverity(in[i].Severity),
+			LastTransitionTime: in[i].LastTransitionTime,
+			Reason:             in[i].Reason,
+			Message:            in[i].Message,
+		}
+	}
+
+	return out
+}
+
+// convertDeprecatedConditionsToV1Beta1 is the inverse of convertDeprecatedConditionsToV1Beta2:
+// it converts the core/v1beta2 deprecated conditions back into the core/v1beta1 conditions that the
+// v1beta1 status.conditions field uses.
+func convertDeprecatedConditionsToV1Beta1(in clusterv1.Conditions) clusterv1beta1.Conditions {
+	if in == nil {
+		return nil
+	}
+
+	out := make(clusterv1beta1.Conditions, len(in))
+	for i := range in {
+		out[i] = clusterv1beta1.Condition{
+			Type:               clusterv1beta1.ConditionType(in[i].Type),
+			Status:             in[i].Status,
+			Severity:           clusterv1beta1.ConditionSeverity(in[i].Severity),
+			LastTransitionTime: in[i].LastTransitionTime,
+			Reason:             in[i].Reason,
+			Message:            in[i].Message,
 		}
 	}
 

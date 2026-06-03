@@ -16,14 +16,11 @@ limitations under the License.
 
 package v1beta2
 
-import (
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-)
+import clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 
 const (
 	// LoadBalancerReadyV1Beta1Condition reports on whether a control plane load balancer was successfully reconciled.
-	LoadBalancerReadyV1Beta1Condition clusterv1beta1.ConditionType = "LoadBalancerReady"
+	LoadBalancerReadyV1Beta1Condition clusterv1.ConditionType = "LoadBalancerReady"
 	// LoadBalancerCreateFailedV1Beta1Reason used when an error occurs during load balancer create.
 	LoadBalancerCreateFailedV1Beta1Reason = "LoadBalancerCreateFailed"
 	// LoadBalancerUpdateFailedV1Beta1Reason used when an error occurs during load balancer update.
@@ -38,7 +35,7 @@ const (
 
 const (
 	// ServerCreateSucceededV1Beta1Condition reports on current status of the instance. Ready indicates the instance is in a Running state.
-	ServerCreateSucceededV1Beta1Condition clusterv1beta1.ConditionType = "ServerCreateSucceeded"
+	ServerCreateSucceededV1Beta1Condition clusterv1.ConditionType = "ServerCreateSucceeded"
 	// InstanceHasNonExistingPlacementGroupV1Beta1Reason instance has a placement group name that does not exist.
 	InstanceHasNonExistingPlacementGroupV1Beta1Reason = "InstanceHasNonExistingPlacementGroup"
 	// SSHKeyNotFoundV1Beta1Reason indicates that ssh key could not be found.
@@ -58,21 +55,21 @@ const (
 const (
 	// ServerProvisionedV1Beta1Condition reports on whether the HCloud server has completed
 	// boot-time provisioning (rescue boot, image install, OS startup).
-	ServerProvisionedV1Beta1Condition clusterv1beta1.ConditionType = "ServerProvisioned"
+	ServerProvisionedV1Beta1Condition clusterv1.ConditionType = "ServerProvisioned"
 	// ServerOffV1Beta1Reason instance is off.
 	ServerOffV1Beta1Reason = "ServerOff"
 )
 
 const (
 	// ServerAvailableV1Beta1Condition indicates the instance is in a Running state.
-	ServerAvailableV1Beta1Condition clusterv1beta1.ConditionType = "ServerAvailable"
+	ServerAvailableV1Beta1Condition clusterv1.ConditionType = "ServerAvailable"
 	// ServerTerminatingV1Beta1Reason instance is in a terminated state.
 	ServerTerminatingV1Beta1Reason = "InstanceTerminated"
 )
 
 const (
 	// SSHPrivateKeyAvailableV1Beta1Condition indicates that the SSH private key is available which is used to SSH into a server.
-	SSHPrivateKeyAvailableV1Beta1Condition clusterv1beta1.ConditionType = "SSHPrivateKeyAvailable"
+	SSHPrivateKeyAvailableV1Beta1Condition clusterv1.ConditionType = "SSHPrivateKeyAvailable"
 	// SSHPrivateKeyNotFoundV1Beta1Reason indicates that the ssh private key could not be found.
 	SSHPrivateKeyNotFoundV1Beta1Reason = "SSHPrivateKeyNotFound"
 	// SSHPrivateKeySecretRefNotConfiguredV1Beta1Reason indicates that HetznerCluster.Spec.SSHKeys.RescueSecretRef.Name is empty.
@@ -92,28 +89,28 @@ const (
 
 const (
 	// BootstrapReadyV1Beta1Condition  indicates that bootstrap is ready.
-	BootstrapReadyV1Beta1Condition clusterv1beta1.ConditionType = "BootstrapReady"
+	BootstrapReadyV1Beta1Condition clusterv1.ConditionType = "BootstrapReady"
 	// BootstrapNotReadyV1Beta1Reason bootstrap not ready yet.
 	BootstrapNotReadyV1Beta1Reason = "BootstrapNotReady"
 )
 
 const (
 	// NetworkReadyV1Beta1Condition reports on whether the network is ready.
-	NetworkReadyV1Beta1Condition clusterv1beta1.ConditionType = "NetworkReady"
+	NetworkReadyV1Beta1Condition clusterv1.ConditionType = "NetworkReady"
 	// NetworkReconcileFailedV1Beta1Reason indicates that reconciling the network failed.
 	NetworkReconcileFailedV1Beta1Reason = "NetworkReconcileFailed"
 )
 
 const (
 	// PlacementGroupsSyncedV1Beta1Condition reports on whether the placement groups are successfully synced.
-	PlacementGroupsSyncedV1Beta1Condition clusterv1beta1.ConditionType = "PlacementGroupsSynced"
+	PlacementGroupsSyncedV1Beta1Condition clusterv1.ConditionType = "PlacementGroupsSynced"
 	// PlacementGroupsSyncFailedV1Beta1Reason indicates that syncing the placement groups failed.
 	PlacementGroupsSyncFailedV1Beta1Reason = "PlacementGroupsSyncFailed"
 )
 
 const (
 	// HCloudTokenAvailableV1Beta1Condition reports on whether the HCloud Token is available.
-	HCloudTokenAvailableV1Beta1Condition clusterv1beta1.ConditionType = "HCloudTokenAvailable"
+	HCloudTokenAvailableV1Beta1Condition clusterv1.ConditionType = "HCloudTokenAvailable"
 	// HetznerSecretUnreachableV1Beta1Reason indicates that Hetzner secret is unreachable.
 	HetznerSecretUnreachableV1Beta1Reason = "HetznerSecretUnreachable" // #nosec
 	// HCloudCredentialsInvalidV1Beta1Reason indicates that credentials for HCloud are invalid.
@@ -122,9 +119,9 @@ const (
 
 const (
 	// HostReadyV1Beta1Condition reports on whether the HetznerBareMetalHost is ready or not. The hbmm
-	// reconciler reads the clusterv1beta1.ReadyCondition condition from the host (if the host exists),
+	// reconciler reads the Ready condition from the host (if the host exists),
 	// and mirrors the Reason and Message on the HostReadyV1Beta1Condition of the hbmm.
-	HostReadyV1Beta1Condition clusterv1beta1.ConditionType = "HostReady"
+	HostReadyV1Beta1Condition clusterv1.ConditionType = "HostReady"
 
 	// HostNotFoundV1Beta1Reason indicates that the HetznerBaremetalHost associated with the HetznerBaremetalMachine
 	// was not found.
@@ -133,7 +130,7 @@ const (
 
 const (
 	// RootDeviceHintsValidatedV1Beta1Condition reports on whether the root device hints could be validated.
-	RootDeviceHintsValidatedV1Beta1Condition clusterv1beta1.ConditionType = "RootDeviceHintsValidated"
+	RootDeviceHintsValidatedV1Beta1Condition clusterv1.ConditionType = "RootDeviceHintsValidated"
 	// ValidationFailedV1Beta1Reason indicates that the specified root device hints could not be successfully validated.
 	ValidationFailedV1Beta1Reason = "ValidationFailed"
 	// StorageDeviceNotFoundV1Beta1Reason indicates that the storage device specified in the root device hints could not be found.
@@ -142,7 +139,7 @@ const (
 
 const (
 	// TargetClusterReadyV1Beta1Condition reports on whether the kubeconfig in the target cluster is ready.
-	TargetClusterReadyV1Beta1Condition clusterv1beta1.ConditionType = "TargetClusterReady"
+	TargetClusterReadyV1Beta1Condition clusterv1.ConditionType = "TargetClusterReady"
 	// KubeConfigNotFoundV1Beta1Reason indicates that the Kubeconfig could not be found.
 	KubeConfigNotFoundV1Beta1Reason = "KubeConfigNotFound"
 	// KubeAPIServerNotRespondingV1Beta1Reason indicates that the api server cannot be reached.
@@ -157,7 +154,7 @@ const (
 
 const (
 	// TargetClusterSecretReadyV1Beta1Condition reports on whether the hetzner secret in the target cluster is ready.
-	TargetClusterSecretReadyV1Beta1Condition clusterv1beta1.ConditionType = "TargetClusterSecretReady"
+	TargetClusterSecretReadyV1Beta1Condition clusterv1.ConditionType = "TargetClusterSecretReady"
 	// TargetSecretSyncFailedV1Beta1Reason indicates that the target secret could not be synced.
 	TargetSecretSyncFailedV1Beta1Reason = "TargetSecretSyncFailed"
 	// ControlPlaneEndpointNotSetV1Beta1Reason indicates that the control plane endpoint is not set.
@@ -166,14 +163,14 @@ const (
 
 const (
 	// HetznerAPIReachableV1Beta1Condition reports whether the Hetzner APIs are reachable.
-	HetznerAPIReachableV1Beta1Condition clusterv1beta1.ConditionType = "HetznerAPIReachable"
+	HetznerAPIReachableV1Beta1Condition clusterv1.ConditionType = "HetznerAPIReachable"
 	// RateLimitExceededV1Beta1Reason indicates that a rate limit has been exceeded.
 	RateLimitExceededV1Beta1Reason = "RateLimitExceeded"
 )
 
 const (
 	// CredentialsAvailableV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
-	CredentialsAvailableV1Beta1Condition clusterv1beta1.ConditionType = "CredentialsAvailable"
+	CredentialsAvailableV1Beta1Condition clusterv1.ConditionType = "CredentialsAvailable"
 	// SSHCredentialsInSecretInvalidV1Beta1Reason indicates that ssh credentials are invalid.
 	SSHCredentialsInSecretInvalidV1Beta1Reason = "SSHCredentialsInSecretInvalid" // #nosec
 	// SSHKeyAlreadyExistsV1Beta1Reason indicates that the ssh key which is specified in the host spec exists already under a different name in Hetzner robot.
@@ -186,14 +183,14 @@ const (
 
 const (
 	// RobotCredentialsAvailableV1Beta1Condition indicates that the robot credentials are available and valid.
-	RobotCredentialsAvailableV1Beta1Condition clusterv1beta1.ConditionType = "RobotCredentialsAvailable"
+	RobotCredentialsAvailableV1Beta1Condition clusterv1.ConditionType = "RobotCredentialsAvailable"
 	// RobotCredentialsInvalidV1Beta1Reason indicates that credentials for Robot are invalid.
 	RobotCredentialsInvalidV1Beta1Reason = "RobotCredentialsInvalid" // #nosec
 )
 
 const (
 	// ProvisionSucceededV1Beta1Condition indicates that a host has been provisioned.
-	ProvisionSucceededV1Beta1Condition clusterv1beta1.ConditionType = "ProvisionSucceeded"
+	ProvisionSucceededV1Beta1Condition clusterv1.ConditionType = "ProvisionSucceeded"
 	// StillProvisioningV1Beta1Reason indicates that the server is still provisioning.
 	StillProvisioningV1Beta1Reason = "StillProvisioning"
 	// SSHConnectionRefusedV1Beta1Reason indicates that the server cannot be reached via SSH.
@@ -226,7 +223,7 @@ const (
 
 const (
 	// HostAssociateSucceededV1Beta1Condition indicates that a host has been associated.
-	HostAssociateSucceededV1Beta1Condition clusterv1beta1.ConditionType = "HostAssociateSucceeded"
+	HostAssociateSucceededV1Beta1Condition clusterv1.ConditionType = "HostAssociateSucceeded"
 	// NoAvailableHostV1Beta1Reason indicates that there is no available host.
 	NoAvailableHostV1Beta1Reason = "NoAvailableHost"
 	// HostAssociateFailedV1Beta1Reason indicates that asssociating a host failed.
@@ -242,42 +239,42 @@ const (
 
 const (
 	// DeprecatedHostProvisionSucceededV1Beta1Condition indicates that a host has been provisioned.
-	DeprecatedHostProvisionSucceededV1Beta1Condition clusterv1beta1.ConditionType = "HostProvisionSucceeded"
+	DeprecatedHostProvisionSucceededV1Beta1Condition clusterv1.ConditionType = "HostProvisionSucceeded"
 
 	// DeprecatedInstanceReadyV1Beta1Condition reports on current status of the instance. Ready indicates the instance is in a Running state.
-	DeprecatedInstanceReadyV1Beta1Condition clusterv1beta1.ConditionType = "InstanceReady"
+	DeprecatedInstanceReadyV1Beta1Condition clusterv1.ConditionType = "InstanceReady"
 
 	// DeprecatedInstanceBootstrapReadyV1Beta1Condition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
-	DeprecatedInstanceBootstrapReadyV1Beta1Condition clusterv1beta1.ConditionType = "InstanceBootstrapReady"
+	DeprecatedInstanceBootstrapReadyV1Beta1Condition clusterv1.ConditionType = "InstanceBootstrapReady"
 
 	// DeprecatedHetznerClusterTargetClusterReadyV1Beta1Condition reports on whether the kubeconfig in the target cluster is ready.
-	DeprecatedHetznerClusterTargetClusterReadyV1Beta1Condition clusterv1beta1.ConditionType = "HetznerClusterTargetClusterReady"
+	DeprecatedHetznerClusterTargetClusterReadyV1Beta1Condition clusterv1.ConditionType = "HetznerClusterTargetClusterReady"
 
 	// DeprecatedNetworkAttachedV1Beta1Condition reports on whether there is a network attached to the cluster.
-	DeprecatedNetworkAttachedV1Beta1Condition clusterv1beta1.ConditionType = "NetworkAttached"
+	DeprecatedNetworkAttachedV1Beta1Condition clusterv1.ConditionType = "NetworkAttached"
 
 	// DeprecatedLoadBalancerAttachedToNetworkV1Beta1Condition reports on whether the load balancer is attached to a network.
-	DeprecatedLoadBalancerAttachedToNetworkV1Beta1Condition clusterv1beta1.ConditionType = "LoadBalancerAttachedToNetwork"
+	DeprecatedLoadBalancerAttachedToNetworkV1Beta1Condition clusterv1.ConditionType = "LoadBalancerAttachedToNetwork"
 
 	// DeprecatedHetznerBareMetalHostReadyV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedHetznerBareMetalHostReadyV1Beta1Condition clusterv1beta1.ConditionType = "HetznerBareMetalHostReady"
+	DeprecatedHetznerBareMetalHostReadyV1Beta1Condition clusterv1.ConditionType = "HetznerBareMetalHostReady"
 
 	// DeprecatedAssociateBMHV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedAssociateBMHV1Beta1Condition clusterv1beta1.ConditionType = "AssociateBMHCondition"
+	DeprecatedAssociateBMHV1Beta1Condition clusterv1.ConditionType = "AssociateBMHCondition"
 
 	// DeprecatedRateLimitExceededV1Beta1Condition reports whether the rate limit has been reached.
-	DeprecatedRateLimitExceededV1Beta1Condition clusterv1beta1.ConditionType = "RateLimitExceeded"
+	DeprecatedRateLimitExceededV1Beta1Condition clusterv1.ConditionType = "RateLimitExceeded"
 )
 
 const (
 	// RebootSucceededV1Beta1Condition indicates that the machine got rebooted successfully.
-	RebootSucceededV1Beta1Condition clusterv1beta1.ConditionType = "RebootSucceeded"
+	RebootSucceededV1Beta1Condition clusterv1.ConditionType = "RebootSucceeded"
 )
 
 const (
 	// RemediationSkippedV1Beta1Condition reports that remediation was skipped because
 	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
-	RemediationSkippedV1Beta1Condition clusterv1beta1.ConditionType = "RemediationSkipped"
+	RemediationSkippedV1Beta1Condition clusterv1.ConditionType = "RemediationSkipped"
 	// IrrecoverableServerCreateFailureV1Beta1Reason indicates remediation was skipped because
 	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
 	IrrecoverableServerCreateFailureV1Beta1Reason = "IrrecoverableServerCreateFailure"
@@ -290,7 +287,7 @@ const (
 
 const (
 	// NodeBootIDRetrievedV1Beta1Condition reports whether the boot ID of the node was retrieved.
-	NodeBootIDRetrievedV1Beta1Condition clusterv1beta1.ConditionType = "NodeBootIDRetrieved"
+	NodeBootIDRetrievedV1Beta1Condition clusterv1.ConditionType = "NodeBootIDRetrieved"
 	// GetWorkloadClusterClientFailedV1Beta1Reason indicates failure in initializing the workload cluster client.
 	GetWorkloadClusterClientFailedV1Beta1Reason = "GetWorkloadClusterClientFailed"
 	// GetNodeInWorkloadClusterFailedV1Beta1Reason indicates failure in fetching the node object from the workload cluster.

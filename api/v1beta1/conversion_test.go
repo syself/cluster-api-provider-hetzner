@@ -240,6 +240,17 @@ func TestHetznerClusterConvertToPromoteV1Beta2Shape(t *testing.T) {
 			Message:            "ready",
 		},
 	}
+	// The v1beta1 status.conditions (core/v1beta1) are demoted to status.deprecated.v1beta1.conditions,
+	// which the v1beta2 object stores as the structurally identical core/v1beta2 copy.
+	wantDeprecatedConditions := clusterv1.Conditions{
+		{
+			Type:               "LegacyReady",
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyReady",
+			Message:            "legacy condition",
+		},
+	}
 
 	src := &HetznerCluster{
 		Spec: HetznerClusterSpec{
@@ -276,7 +287,7 @@ func TestHetznerClusterConvertToPromoteV1Beta2Shape(t *testing.T) {
 	if !reflect.DeepEqual(dst.Status.Conditions, v1beta2Conditions) {
 		t.Fatalf("v1beta2 status.conditions mismatch:\n got: %#v\nwant: %#v", dst.Status.Conditions, v1beta2Conditions)
 	}
-	if !reflect.DeepEqual(dst.GetV1Beta1Conditions(), legacyConditions) {
+	if !reflect.DeepEqual(dst.GetV1Beta1Conditions(), wantDeprecatedConditions) {
 		t.Fatalf("deprecated v1beta1 conditions were not preserved: %#v", dst.Status.Deprecated)
 	}
 	if dst.Status.Initialization.Provisioned == nil || !*dst.Status.Initialization.Provisioned {
@@ -309,6 +320,17 @@ func TestHetznerClusterConvertToPromoteV1Beta2Shape(t *testing.T) {
 // HetznerCluster back to v1beta1 demotes v1beta2-only fields into the compatibility
 // locations used by the v1beta1 API.
 func TestHetznerClusterConvertFromDemoteV1Beta2Shape(t *testing.T) {
+	// deprecatedConditions are stored on the v1beta2 object as the core/v1beta2 copy; after demotion
+	// they become the structurally identical core/v1beta1 conditions on the v1beta1 status.conditions.
+	deprecatedConditions := clusterv1.Conditions{
+		{
+			Type:               "LegacyReady",
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyNotReady",
+			Message:            "legacy condition",
+		},
+	}
 	legacyConditions := clusterv1beta1.Conditions{
 		{
 			Type:               clusterv1beta1.ConditionType("LegacyReady"),
@@ -353,7 +375,7 @@ func TestHetznerClusterConvertFromDemoteV1Beta2Shape(t *testing.T) {
 			},
 			Deprecated: &infrav1.HetznerClusterDeprecatedStatus{
 				V1Beta1: &infrav1.HetznerClusterV1Beta1DeprecatedStatus{
-					Conditions: legacyConditions,
+					Conditions: deprecatedConditions,
 				},
 			},
 		},

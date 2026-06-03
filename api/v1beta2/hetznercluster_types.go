@@ -18,7 +18,6 @@ package v1beta2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
@@ -167,7 +166,7 @@ type HetznerClusterV1Beta1DeprecatedStatus struct {
 	// +listMapKey=type
 	//
 	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-	Conditions []clusterv1beta1.Condition `json:"conditions,omitempty"`
+	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -214,11 +213,22 @@ func (r *HetznerCluster) SetConditions(conditions []metav1.Condition) {
 }
 
 // GetV1Beta1Conditions returns the deprecated v1beta1 conditions of the HetznerCluster object.
-func (r *HetznerCluster) GetV1Beta1Conditions() clusterv1beta1.Conditions {
+func (r *HetznerCluster) GetV1Beta1Conditions() clusterv1.Conditions {
 	if r.Status.Deprecated == nil || r.Status.Deprecated.V1Beta1 == nil {
 		return nil
 	}
-	return clusterv1beta1.Conditions(r.Status.Deprecated.V1Beta1.Conditions)
+	return r.Status.Deprecated.V1Beta1.Conditions
+}
+
+// SetV1Beta1Conditions sets the deprecated v1beta1 conditions on the HetznerCluster object.
+func (r *HetznerCluster) SetV1Beta1Conditions(conditions clusterv1.Conditions) {
+	if r.Status.Deprecated == nil {
+		r.Status.Deprecated = &HetznerClusterDeprecatedStatus{}
+	}
+	if r.Status.Deprecated.V1Beta1 == nil {
+		r.Status.Deprecated.V1Beta1 = &HetznerClusterV1Beta1DeprecatedStatus{}
+	}
+	r.Status.Deprecated.V1Beta1.Conditions = conditions
 }
 
 // ClusterTagKey generates the key for resources associated with a cluster.
