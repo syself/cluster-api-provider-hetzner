@@ -313,13 +313,12 @@ func pullKindNodeImageWithRetry(ctx context.Context) {
 	const maxAttempts = 3
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		cmd := exec.CommandContext(ctx, "docker", "pull", image)
-		if out, err := cmd.CombinedOutput(); err == nil {
+		out, err := exec.CommandContext(ctx, "docker", "pull", image).CombinedOutput()
+		if err == nil {
 			return
-		} else {
-			lastErr = err
-			GinkgoLogr.Info("docker pull failed", "image", image, "attempt", attempt, "maxAttempts", maxAttempts, "output", string(out))
 		}
+		lastErr = err
+		GinkgoLogr.Info("docker pull failed", "image", image, "attempt", attempt, "maxAttempts", maxAttempts, "output", string(out))
 		if attempt < maxAttempts {
 			time.Sleep(time.Duration(attempt) * 15 * time.Second)
 		}
