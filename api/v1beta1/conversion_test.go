@@ -226,6 +226,11 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			c.FillNoCustom(in)
 			in.RetryLimit = int(int32(in.RetryLimit)) //nolint:gosec // keep fuzz input in the int32 range accepted by conversion
 			in.Timeout = quantizeRemediationDuration(in.Timeout)
+			// Timeout is required, and v1beta2 stores it as a non-pointer int32, so a nil
+			// timeout down-converts to the zero value. Normalize it here so the round trip matches.
+			if in.Timeout == nil {
+				in.Timeout = &metav1.Duration{}
+			}
 			in.Cooldown = quantizeRemediationDuration(in.Cooldown)
 		},
 		// HCloudRemediation v1beta2 status: nil and zero retryCount both down-convert

@@ -1848,11 +1848,6 @@ func (in *RemediationStrategy) DeepCopyInto(out *RemediationStrategy) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.TimeoutSeconds != nil {
-		in, out := &in.TimeoutSeconds, &out.TimeoutSeconds
-		*out = new(int32)
-		**out = **in
-	}
 	if in.CooldownSeconds != nil {
 		in, out := &in.CooldownSeconds, &out.CooldownSeconds
 		*out = new(int32)

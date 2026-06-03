@@ -268,7 +268,7 @@ func Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(in *Reme
 		if err != nil {
 			return err
 		}
-		out.TimeoutSeconds = ptr.To(timeoutSeconds)
+		out.TimeoutSeconds = timeoutSeconds
 	}
 	if in.Cooldown != nil {
 		cooldownSeconds, err := remediationDurationToSeconds(*in.Cooldown)
@@ -285,9 +285,7 @@ func Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(in *Reme
 func Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(in *infrav1.RemediationStrategy, out *RemediationStrategy, _ apiconversion.Scope) error {
 	out.Type = RemediationType(in.Type)
 	out.RetryLimit = remediationRetryFromPointer(in.RetryLimit)
-	if in.TimeoutSeconds != nil {
-		out.Timeout = &metav1.Duration{Duration: time.Duration(*in.TimeoutSeconds) * time.Second}
-	}
+	out.Timeout = &metav1.Duration{Duration: time.Duration(in.TimeoutSeconds) * time.Second}
 	if in.CooldownSeconds != nil {
 		out.Cooldown = &metav1.Duration{Duration: time.Duration(*in.CooldownSeconds) * time.Second}
 	}

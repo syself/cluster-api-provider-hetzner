@@ -255,14 +255,16 @@ spec:
       jsonPath: .status.phase
       name: Phase
       type: string
-    - description: Ready status of the remediation
-      jsonPath: .status.conditions[?(@.type=='Ready')].status
-      name: Ready
-      type: string
     - description: Time duration since creation of the remediation
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.conditions[?(@.type=='Ready')].reason
+      name: Reason
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].message
+      name: Message
+      type: string
     - description: Timeout for the remediation
       jsonPath: .spec.strategy.timeoutSeconds
       name: Timeout
@@ -283,14 +285,6 @@ spec:
         the node
       jsonPath: .spec.strategy.retryLimit
       name: Retry limit
-      priority: 1
-      type: string
-    - jsonPath: .status.conditions[?(@.type=='Ready')].reason
-      name: Reason
-      priority: 1
-      type: string
-    - jsonPath: .status.conditions[?(@.type=='Ready')].message
-      name: Message
       priority: 1
       type: string
     name: v1beta2
@@ -327,9 +321,8 @@ spec:
                       CooldownSeconds is the minimum time, in seconds, between successive
                       remediations of the same machine. If a new remediation starts within this
                       window of the previous successful one, the reboot is skipped and the
-                      machine is deleted. Set to 0 to disable the guard, which is why the field
-                      stays a pointer: an explicit 0 must be distinguishable from an absent field
-                      that defaults to 30m.
+                      machine is deleted. An explicit 0 disables the guard and is distinct from an
+                      absent value, which defaults to 1800 (30m).
                     format: int32
                     minimum: 0
                     type: integer
@@ -340,9 +333,8 @@ spec:
                     minimum: 0
                     type: integer
                   timeoutSeconds:
-                    description: |-
-                      TimeoutSeconds sets the timeout, in seconds, between remediation retries.
-                      It is required, matching the v1beta1 required timeout.
+                    description: TimeoutSeconds sets the timeout, in seconds, between
+                      remediation retries.
                     format: int32
                     minimum: 0
                     type: integer

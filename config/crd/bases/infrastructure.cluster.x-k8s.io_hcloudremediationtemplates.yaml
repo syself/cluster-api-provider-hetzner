@@ -316,9 +316,8 @@ spec:
                               CooldownSeconds is the minimum time, in seconds, between successive
                               remediations of the same machine. If a new remediation starts within this
                               window of the previous successful one, the reboot is skipped and the
-                              machine is deleted. Set to 0 to disable the guard, which is why the field
-                              stays a pointer: an explicit 0 must be distinguishable from an absent field
-                              that defaults to 30m.
+                              machine is deleted. An explicit 0 disables the guard and is distinct from an
+                              absent value, which defaults to 1800 (30m).
                             format: int32
                             minimum: 0
                             type: integer
@@ -329,9 +328,8 @@ spec:
                             minimum: 0
                             type: integer
                           timeoutSeconds:
-                            description: |-
-                              TimeoutSeconds sets the timeout, in seconds, between remediation retries.
-                              It is required, matching the v1beta1 required timeout.
+                            description: TimeoutSeconds sets the timeout, in seconds,
+                              between remediation retries.
                             format: int32
                             minimum: 0
                             type: integer
