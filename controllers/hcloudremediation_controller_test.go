@@ -182,6 +182,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 		}
 
 		hcloudRemediationkey = client.ObjectKey{Namespace: testNs.Name, Name: "hcloud-remediation"}
+
+		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {

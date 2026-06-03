@@ -316,6 +316,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 
 		key = client.ObjectKey{Namespace: testNs.Name, Name: hcloudMachineName}
+
+		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {
@@ -806,6 +808,8 @@ var _ = Describe("Hetzner secret", func() {
 		}
 		Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
 		key = client.ObjectKey{Namespace: testNs.Name, Name: hcloudMachine.Name}
+
+		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {
@@ -931,6 +935,8 @@ var _ = Describe("HCloudMachine validation", func() {
 				Type:      "cpx32",
 			},
 		}
+
+		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {

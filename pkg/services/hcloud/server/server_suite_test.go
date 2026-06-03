@@ -217,6 +217,8 @@ var _ helpers.Resetter = &Resetter{}
 
 var hcloudImageURLCommandTempDir string
 
+func (r *Resetter) CommitMockSetup() {}
+
 func (r *Resetter) ResetAndInitNamespace(_ string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
 	rescueSSHClient := &sshmock.Client{}
 	// Register Testify helpers so failed expectations are reported against this test instance.

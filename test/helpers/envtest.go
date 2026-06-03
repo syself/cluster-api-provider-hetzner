@@ -119,6 +119,12 @@ type Resetter interface {
 	//
 	// t: g.GinkgoT()
 	ResetAndInitNamespace(namespace string, testEnv *TestEnvironment, t g.FullGinkgoTInterface)
+
+	// CommitMockSetup is called at the end of each BeforeEach, after all mock On()
+	// expectations have been registered. Implementations call SetClients with the
+	// now-configured mocks and release any reconcile gate lock acquired in
+	// ResetAndInitNamespace. It must be idempotent (safe to call multiple times).
+	CommitMockSetup()
 }
 
 // TestEnvironment encapsulates a Kubernetes local test environment.
@@ -275,6 +281,15 @@ func (t *TestEnvironment) Cleanup(ctx context.Context, objs ...client.Object) er
 	return kerrors.NewAggregate(errs)
 }
 
+// CommitMockSetup completes the mock setup started by ResetAndInitNamespace.
+// Call this in BeforeEach after all mock On() expectations have been registered.
+// It is safe to call multiple times; subsequent calls are no-ops.
+func (t *TestEnvironment) CommitMockSetup() {
+	if t.Resetter != nil {
+		t.Resetter.CommitMockSetup()
+	}
+}
+
 // ResetAndCreateNamespace creates a namespace.
 func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateName string) (*corev1.Namespace, error) {
 	ns := &corev1.Namespace{
@@ -291,6 +306,9 @@ func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateN
 
 	if t.Resetter != nil {
 		t.Resetter.ResetAndInitNamespace(ns.Name, t, g.GinkgoT())
+		// Safety net: if BeforeEach panics before CommitMockSetup is called, release
+		// the reconcile gate at spec cleanup time to prevent a suite-wide deadlock.
+		g.DeferCleanup(t.CommitMockSetup)
 	}
 
 	return ns, nil

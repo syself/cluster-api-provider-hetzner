@@ -179,6 +179,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			Err:    nil,
 		})
 		osSSHClient.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+
+		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {
@@ -1058,6 +1060,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Eventually(func() error {
 					return testEnv.Client.Get(ctx, key, hbmmt)
 				}, timeout, time.Second).Should(BeNil())
+
+				testEnv.CommitMockSetup()
 			})
 
 			AfterEach(func() {

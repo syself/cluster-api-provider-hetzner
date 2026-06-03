@@ -225,6 +225,8 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+
+		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {

@@ -47,6 +47,8 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 
 		key = client.ObjectKey{Namespace: testNs.Name, Name: "hcloud-machine-template"}
+
+		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {
@@ -361,6 +363,8 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				Eventually(func() error {
 					return testEnv.Client.Get(ctx, key, hcloudMachineTemplate)
 				}, timeout, interval).Should(BeNil())
+
+				testEnv.CommitMockSetup()
 			})
 			AfterEach(func() {
 				Expect(testEnv.Cleanup(ctx, testNs, hcloudMachineTemplate)).To(Succeed())

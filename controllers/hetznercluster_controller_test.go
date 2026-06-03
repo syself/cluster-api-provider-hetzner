@@ -625,6 +625,8 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 
 			key = client.ObjectKey{Namespace: namespace, Name: hetznerClusterName}
+
+			testEnv.CommitMockSetup()
 		})
 
 		AfterEach(func() {
@@ -1370,6 +1372,8 @@ var _ = Describe("Hetzner secret", func() {
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
 		key = client.ObjectKey{Namespace: hetznerCluster.Namespace, Name: hetznerCluster.Name}
+
+		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {
@@ -1432,6 +1436,8 @@ var _ = Describe("HetznerCluster validation", func() {
 		var err error
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 		Expect(err).NotTo(HaveOccurred())
+
+		testEnv.CommitMockSetup()
 	})
 	AfterEach(func() {
 		Expect(testEnv.Cleanup(ctx, testNs, hetznerCluster)).To(Succeed())
