@@ -43,7 +43,8 @@ func (src *HetznerCluster) ConvertTo(dstRaw conversion.Hub) error {
 		return err
 	}
 
-	// Recover hub-only data stored by a previous down-conversion so the round trip is lossless.
+	// Read back the v1beta2 object that ConvertFrom stored in the annotation, so the values v1beta1
+	// cannot represent can be restored below. This keeps the round trip lossless.
 	restored := &infrav1.HetznerCluster{}
 	ok, err := utilconversion.UnmarshalData(src, restored)
 	if err != nil {
@@ -65,7 +66,8 @@ func (dst *HetznerCluster) ConvertFrom(srcRaw conversion.Hub) error {
 		return err
 	}
 
-	// Preserve the hub object in a data annotation so the next up-conversion can restore hub-only intent (see ConvertTo).
+	// Preserve the whole hub (v1beta2) object in a data annotation. ConvertTo reads it back to restore
+	// values v1beta1 cannot represent, like provisioned nil vs false, keeping the round trip lossless.
 	return utilconversion.MarshalData(src, dst)
 }
 
