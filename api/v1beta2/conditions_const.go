@@ -16,7 +16,10 @@ limitations under the License.
 
 package v1beta2
 
-import clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+import (
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+)
 
 const (
 	// LoadBalancerReadyV1Beta1Condition reports on whether a control plane load balancer was successfully reconciled.
@@ -311,7 +314,7 @@ const (
 	// HCloudTokenAvailableCondition reports on whether the HCloud Token is available.
 	HCloudTokenAvailableCondition = "HCloudTokenAvailable"
 	// HCloudTokenAvailableReason indicates that the HCloudToken is available.
-	HCloudTokenAvailableReason = clusterv1beta1.AvailableV1Beta2Reason
+	HCloudTokenAvailableReason = clusterv1.AvailableReason
 	// HCloudTokenInvalidReason indicates that the HCloudToken is invalid.
 	HCloudTokenInvalidReason = "Invalid"
 	// HCloudTokenSecretUnreachableReason indicates that secret containing the HCloudToken is unreachable.
@@ -324,7 +327,7 @@ const (
 	// HetznerClusterNetworkReadyCondition reports on whether the network is ready.
 	HetznerClusterNetworkReadyCondition = "NetworkReady"
 	// HetznerClusterNetworkReadyReason indicates that the network is ready.
-	HetznerClusterNetworkReadyReason = clusterv1beta1.ReadyV1Beta2Reason
+	HetznerClusterNetworkReadyReason = clusterv1.ReadyReason
 	// HetznerClusterNetworkReconcilingFailedReason indicates that reconciling the network failed.
 	HetznerClusterNetworkReconcilingFailedReason = "ReconcilingFailed"
 )
@@ -333,7 +336,7 @@ const (
 	// HetznerClusterLoadBalancerReadyCondition reports on whether a control plane load balancer was successfully reconciled.
 	HetznerClusterLoadBalancerReadyCondition = "LoadBalancerReady"
 	// HetznerClusterLoadBalancerReadyReason indicates that a control plane load balancer is ready.
-	HetznerClusterLoadBalancerReadyReason = clusterv1beta1.ReadyV1Beta2Reason
+	HetznerClusterLoadBalancerReadyReason = clusterv1.ReadyReason
 	// HetznerClusterLoadBalancerCreationFailedReason indicates that load balancer creation failed.
 	HetznerClusterLoadBalancerCreationFailedReason = "CreationFailed"
 	// HetznerClusterLoadBalancerMissingControlPlaneEndpointReason indicates that the control plane endpoint is not set.
@@ -372,7 +375,7 @@ const (
 	// HetznerClusterTargetClusterReadyCondition reports on whether the kubeconfig in the target cluster is ready.
 	HetznerClusterTargetClusterReadyCondition = "TargetClusterReady"
 	// HetznerClusterTargetClusterReadyReason indicates that the kubeconfig in the target cluster is ready.
-	HetznerClusterTargetClusterReadyReason = clusterv1beta1.ReadyV1Beta2Reason
+	HetznerClusterTargetClusterReadyReason = clusterv1.ReadyReason
 	// HetznerClusterTargetClusterCreationFailedReason indicates that the target cluster could not be created.
 	HetznerClusterTargetClusterCreationFailedReason = "CreationFailed"
 )
@@ -381,7 +384,7 @@ const (
 	// HetznerClusterTargetClusterSecretReadyCondition reports on whether the hetzner secret in the target cluster is ready.
 	HetznerClusterTargetClusterSecretReadyCondition = "TargetClusterSecretReady"
 	// HetznerClusterTargetClusterSecretReadyReason indicates that the hetzner secret in the target cluster is ready.
-	HetznerClusterTargetClusterSecretReadyReason = clusterv1beta1.ReadyV1Beta2Reason
+	HetznerClusterTargetClusterSecretReadyReason = clusterv1.ReadyReason
 	// HetznerClusterTargetClusterControlPlaneNotReadyReason indicates that the target cluster's control plane is not ready yet.
 	HetznerClusterTargetClusterControlPlaneNotReadyReason = "ControlPlaneNotReady"
 	// HetznerClusterTargetClusterSyncingSecretFailedReason indicates that the secret could not be synced.
@@ -390,8 +393,8 @@ const (
 
 const (
 	// HetznerClusterDeletingCondition surfaces details about ongoing deletion of the HetznerCluster.
-	HetznerClusterDeletingCondition = clusterv1beta1.DeletingV1Beta2Condition
+	HetznerClusterDeletingCondition = clusterv1.DeletingCondition
 
 	// HetznerClusterDeletingReason surfaces when the HetznerCluster is being deleted.
-	HetznerClusterDeletingReason = clusterv1beta1.DeletingV1Beta2Reason
+	HetznerClusterDeletingReason = clusterv1.DeletingReason
 )
