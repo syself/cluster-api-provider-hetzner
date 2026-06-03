@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -305,47 +306,37 @@ func createClusterctlLocalRepository(ctx context.Context, config *clusterctl.E2E
 	return clusterctlConfig
 }
 
-// kindClusterErr is a sentinel type used to intercept gomega failures during kind cluster creation retries
-// without recording them in Ginkgo's suite state.
-type kindClusterErr struct{ msg string }
+// pullKindNodeImageWithRetry pulls the kind node image before cluster creation to handle transient
+// Docker Hub failures without aborting the whole suite.
+func pullKindNodeImageWithRetry(ctx context.Context) {
+	image := fmt.Sprintf("%s:%s", bootstrap.DefaultNodeImageRepository, bootstrap.DefaultNodeImageVersion)
+	const maxAttempts = 3
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		cmd := exec.CommandContext(ctx, "docker", "pull", image)
+		if out, err := cmd.CombinedOutput(); err == nil {
+			return
+		} else {
+			lastErr = err
+			GinkgoLogr.Info("docker pull failed", "image", image, "attempt", attempt, "maxAttempts", maxAttempts, "output", string(out))
+		}
+		if attempt < maxAttempts {
+			time.Sleep(time.Duration(attempt) * 15 * time.Second)
+		}
+	}
+	Expect(lastErr).ToNot(HaveOccurred(), "Failed to pull kind node image %s after %d attempts", image, maxAttempts)
+}
 
 func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme, useExistingCluster bool) (bootstrap.ClusterProvider, framework.ClusterProxy) {
 	var clusterProvider bootstrap.ClusterProvider
 	kubeconfigPath := ""
 	if !useExistingCluster {
-		const maxAttempts = 3
-		for attempt := 1; attempt <= maxAttempts; attempt++ {
-			var failed *kindClusterErr
-			func() {
-				// Replace the fail handler so a transient failure doesn't get recorded by Ginkgo.
-				// The real Fail handler is restored before this closure returns.
-				RegisterFailHandler(func(msg string, _ ...int) { panic(&kindClusterErr{msg: msg}) })
-				defer RegisterFailHandler(Fail)
-				defer func() {
-					if r := recover(); r != nil {
-						if e, ok := r.(*kindClusterErr); ok {
-							failed = e
-						} else {
-							panic(r)
-						}
-					}
-				}()
-				clusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
-					Name:               config.ManagementClusterName,
-					RequiresDockerSock: config.HasDockerProvider(),
-					Images:             config.Images,
-				})
-			}()
-			if failed == nil {
-				break
-			}
-			GinkgoLogr.Info("Kind bootstrap cluster creation failed", "attempt", attempt, "maxAttempts", maxAttempts, "error", failed.msg)
-			if attempt < maxAttempts {
-				time.Sleep(time.Duration(attempt) * 15 * time.Second)
-			} else {
-				Fail(failed.msg)
-			}
-		}
+		pullKindNodeImageWithRetry(ctx)
+		clusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
+			Name:               config.ManagementClusterName,
+			RequiresDockerSock: config.HasDockerProvider(),
+			Images:             config.Images,
+		})
 		Expect(clusterProvider).ToNot(BeNil(), "Failed to create a bootstrap cluster")
 
 		kubeconfigPath = clusterProvider.GetKubeconfigPath()
