@@ -305,15 +305,47 @@ func createClusterctlLocalRepository(ctx context.Context, config *clusterctl.E2E
 	return clusterctlConfig
 }
 
+// kindClusterErr is a sentinel type used to intercept gomega failures during kind cluster creation retries
+// without recording them in Ginkgo's suite state.
+type kindClusterErr struct{ msg string }
+
 func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme, useExistingCluster bool) (bootstrap.ClusterProvider, framework.ClusterProxy) {
 	var clusterProvider bootstrap.ClusterProvider
 	kubeconfigPath := ""
 	if !useExistingCluster {
-		clusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
-			Name:               config.ManagementClusterName,
-			RequiresDockerSock: config.HasDockerProvider(),
-			Images:             config.Images,
-		})
+		const maxAttempts = 3
+		for attempt := 1; attempt <= maxAttempts; attempt++ {
+			var failed *kindClusterErr
+			func() {
+				// Replace the fail handler so a transient failure doesn't get recorded by Ginkgo.
+				// The real Fail handler is restored before this closure returns.
+				RegisterFailHandler(func(msg string, _ ...int) { panic(&kindClusterErr{msg: msg}) })
+				defer RegisterFailHandler(Fail)
+				defer func() {
+					if r := recover(); r != nil {
+						if e, ok := r.(*kindClusterErr); ok {
+							failed = e
+						} else {
+							panic(r)
+						}
+					}
+				}()
+				clusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
+					Name:               config.ManagementClusterName,
+					RequiresDockerSock: config.HasDockerProvider(),
+					Images:             config.Images,
+				})
+			}()
+			if failed == nil {
+				break
+			}
+			GinkgoLogr.Info("Kind bootstrap cluster creation failed", "attempt", attempt, "maxAttempts", maxAttempts, "error", failed.msg)
+			if attempt < maxAttempts {
+				time.Sleep(time.Duration(attempt) * 15 * time.Second)
+			} else {
+				Fail(failed.msg)
+			}
+		}
 		Expect(clusterProvider).ToNot(BeNil(), "Failed to create a bootstrap cluster")
 
 		kubeconfigPath = clusterProvider.GetKubeconfigPath()
