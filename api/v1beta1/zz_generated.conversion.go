@@ -32,6 +32,7 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	selection "k8s.io/apimachinery/pkg/selection"
 	corev1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	corev1beta2 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 func init() {
@@ -281,16 +282,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*HetznerBareMetalHost)(nil), (*v1beta2.HetznerBareMetalHost)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(a.(*HetznerBareMetalHost), b.(*v1beta2.HetznerBareMetalHost), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.HetznerBareMetalHost)(nil), (*HetznerBareMetalHost)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(a.(*v1beta2.HetznerBareMetalHost), b.(*HetznerBareMetalHost), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*HetznerBareMetalHostList)(nil), (*v1beta2.HetznerBareMetalHostList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_HetznerBareMetalHostList_To_v1beta2_HetznerBareMetalHostList(a.(*HetznerBareMetalHostList), b.(*v1beta2.HetznerBareMetalHostList), scope)
 	}); err != nil {
@@ -298,16 +289,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1beta2.HetznerBareMetalHostList)(nil), (*HetznerBareMetalHostList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta2_HetznerBareMetalHostList_To_v1beta1_HetznerBareMetalHostList(a.(*v1beta2.HetznerBareMetalHostList), b.(*HetznerBareMetalHostList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*HetznerBareMetalHostSpec)(nil), (*v1beta2.HetznerBareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(a.(*HetznerBareMetalHostSpec), b.(*v1beta2.HetznerBareMetalHostSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.HetznerBareMetalHostSpec)(nil), (*HetznerBareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(a.(*v1beta2.HetznerBareMetalHostSpec), b.(*HetznerBareMetalHostSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -501,21 +482,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*HetznerClusterSpec)(nil), (*v1beta2.HetznerClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(a.(*HetznerClusterSpec), b.(*v1beta2.HetznerClusterSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.HetznerClusterSpec)(nil), (*HetznerClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(a.(*v1beta2.HetznerClusterSpec), b.(*HetznerClusterSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.HetznerClusterStatus)(nil), (*HetznerClusterStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_HetznerClusterStatus_To_v1beta1_HetznerClusterStatus(a.(*v1beta2.HetznerClusterStatus), b.(*HetznerClusterStatus), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*HetznerClusterTemplate)(nil), (*v1beta2.HetznerClusterTemplate)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_HetznerClusterTemplate_To_v1beta2_HetznerClusterTemplate(a.(*HetznerClusterTemplate), b.(*v1beta2.HetznerClusterTemplate), scope)
 	}); err != nil {
@@ -553,16 +519,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1beta2.HetznerClusterTemplateSpec)(nil), (*HetznerClusterTemplateSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta2_HetznerClusterTemplateSpec_To_v1beta1_HetznerClusterTemplateSpec(a.(*v1beta2.HetznerClusterTemplateSpec), b.(*HetznerClusterTemplateSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*HetznerSSHKeys)(nil), (*v1beta2.HetznerSSHKeys)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(a.(*HetznerSSHKeys), b.(*v1beta2.HetznerSSHKeys), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.HetznerSSHKeys)(nil), (*HetznerSSHKeys)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(a.(*v1beta2.HetznerSSHKeys), b.(*HetznerSSHKeys), scope)
 	}); err != nil {
 		return err
 	}
@@ -826,6 +782,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1.ObjectReference)(nil), (*v1beta2.HetznerBareMetalHostConsumerReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference(a.(*v1.ObjectReference), b.(*v1beta2.HetznerBareMetalHostConsumerReference), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*ControllerGeneratedStatus)(nil), (*v1beta2.ControllerGeneratedStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_ControllerGeneratedStatus(a.(*ControllerGeneratedStatus), b.(*v1beta2.ControllerGeneratedStatus), scope)
 	}); err != nil {
@@ -846,8 +807,23 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*HetznerBareMetalHostSpec)(nil), (*v1beta2.HetznerBareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(a.(*HetznerBareMetalHostSpec), b.(*v1beta2.HetznerBareMetalHostSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*HetznerBareMetalHost)(nil), (*v1beta2.HetznerBareMetalHost)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(a.(*HetznerBareMetalHost), b.(*v1beta2.HetznerBareMetalHost), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*HetznerBareMetalMachineStatus)(nil), (*v1beta2.HetznerBareMetalMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMachineStatus(a.(*HetznerBareMetalMachineStatus), b.(*v1beta2.HetznerBareMetalMachineStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*HetznerClusterSpec)(nil), (*v1beta2.HetznerClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(a.(*HetznerClusterSpec), b.(*v1beta2.HetznerClusterSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -856,8 +832,53 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*HetznerSSHKeys)(nil), (*v1beta2.HetznerSSHKeys)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(a.(*HetznerSSHKeys), b.(*v1beta2.HetznerSSHKeys), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*corev1beta1.ObjectMeta)(nil), (*corev1beta2.ObjectMeta)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_ObjectMeta_To_v1beta2_ObjectMeta(a.(*corev1beta1.ObjectMeta), b.(*corev1beta2.ObjectMeta), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.HetznerBareMetalHostConsumerReference)(nil), (*v1.ObjectReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference(a.(*v1beta2.HetznerBareMetalHostConsumerReference), b.(*v1.ObjectReference), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.HetznerBareMetalHostSpec)(nil), (*HetznerBareMetalHostSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(a.(*v1beta2.HetznerBareMetalHostSpec), b.(*HetznerBareMetalHostSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.HetznerBareMetalHost)(nil), (*HetznerBareMetalHost)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(a.(*v1beta2.HetznerBareMetalHost), b.(*HetznerBareMetalHost), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*v1beta2.HetznerBareMetalMachineStatus)(nil), (*HetznerBareMetalMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMachineStatus(a.(*v1beta2.HetznerBareMetalMachineStatus), b.(*HetznerBareMetalMachineStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.HetznerClusterSpec)(nil), (*HetznerClusterSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(a.(*v1beta2.HetznerClusterSpec), b.(*HetznerClusterSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.HetznerClusterStatus)(nil), (*HetznerClusterStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_HetznerClusterStatus_To_v1beta1_HetznerClusterStatus(a.(*v1beta2.HetznerClusterStatus), b.(*HetznerClusterStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.HetznerSSHKeys)(nil), (*HetznerSSHKeys)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(a.(*v1beta2.HetznerSSHKeys), b.(*HetznerSSHKeys), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*corev1beta2.ObjectMeta)(nil), (*corev1beta1.ObjectMeta)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_ObjectMeta_To_v1beta1_ObjectMeta(a.(*corev1beta2.ObjectMeta), b.(*corev1beta1.ObjectMeta), scope)
 	}); err != nil {
 		return err
 	}
@@ -1663,11 +1684,6 @@ func autoConvert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in
 	return nil
 }
 
-// Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost is an autogenerated conversion function.
-func Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in *HetznerBareMetalHost, out *v1beta2.HetznerBareMetalHost, s conversion.Scope) error {
-	return autoConvert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in, out, s)
-}
-
 func autoConvert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in *v1beta2.HetznerBareMetalHost, out *HetznerBareMetalHost, s conversion.Scope) error {
 	out.ObjectMeta = in.ObjectMeta
 	if err := Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(&in.Spec, &out.Spec, s); err != nil {
@@ -1677,11 +1693,6 @@ func autoConvert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in
 		return err
 	}
 	return nil
-}
-
-// Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost is an autogenerated conversion function.
-func Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in *v1beta2.HetznerBareMetalHost, out *HetznerBareMetalHost, s conversion.Scope) error {
-	return autoConvert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in, out, s)
 }
 
 func autoConvert_v1beta1_HetznerBareMetalHostList_To_v1beta2_HetznerBareMetalHostList(in *HetznerBareMetalHostList, out *v1beta2.HetznerBareMetalHostList, s conversion.Scope) error {
@@ -1729,7 +1740,15 @@ func Convert_v1beta2_HetznerBareMetalHostList_To_v1beta1_HetznerBareMetalHostLis
 func autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in *HetznerBareMetalHostSpec, out *v1beta2.HetznerBareMetalHostSpec, s conversion.Scope) error {
 	out.ServerID = in.ServerID
 	out.RootDeviceHints = (*v1beta2.RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
-	out.ConsumerRef = (*v1.ObjectReference)(unsafe.Pointer(in.ConsumerRef))
+	if in.ConsumerRef != nil {
+		in, out := &in.ConsumerRef, &out.ConsumerRef
+		*out = new(v1beta2.HetznerBareMetalHostConsumerReference)
+		if err := Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.ConsumerRef = nil
+	}
 	out.MaintenanceMode = (*bool)(unsafe.Pointer(in.MaintenanceMode))
 	out.Description = in.Description
 	if err := Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_ControllerGeneratedStatus(&in.Status, &out.Status, s); err != nil {
@@ -1738,26 +1757,24 @@ func autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHos
 	return nil
 }
 
-// Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec is an autogenerated conversion function.
-func Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in *HetznerBareMetalHostSpec, out *v1beta2.HetznerBareMetalHostSpec, s conversion.Scope) error {
-	return autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in, out, s)
-}
-
 func autoConvert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in *v1beta2.HetznerBareMetalHostSpec, out *HetznerBareMetalHostSpec, s conversion.Scope) error {
 	out.ServerID = in.ServerID
 	out.RootDeviceHints = (*RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
-	out.ConsumerRef = (*v1.ObjectReference)(unsafe.Pointer(in.ConsumerRef))
+	if in.ConsumerRef != nil {
+		in, out := &in.ConsumerRef, &out.ConsumerRef
+		*out = new(v1.ObjectReference)
+		if err := Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.ConsumerRef = nil
+	}
 	out.MaintenanceMode = (*bool)(unsafe.Pointer(in.MaintenanceMode))
 	out.Description = in.Description
 	if err := Convert_v1beta2_ControllerGeneratedStatus_To_v1beta1_ControllerGeneratedStatus(&in.Status, &out.Status, s); err != nil {
 		return err
 	}
 	return nil
-}
-
-// Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec is an autogenerated conversion function.
-func Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in *v1beta2.HetznerBareMetalHostSpec, out *HetznerBareMetalHostSpec, s conversion.Scope) error {
-	return autoConvert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in, out, s)
 }
 
 func autoConvert_v1beta1_HetznerBareMetalHostStatus_To_v1beta2_HetznerBareMetalHostStatus(in *HetznerBareMetalHostStatus, out *v1beta2.HetznerBareMetalHostStatus, s conversion.Scope) error {
@@ -2292,7 +2309,7 @@ func autoConvert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in *He
 	if err := Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(&in.SSHKeys, &out.SSHKeys, s); err != nil {
 		return err
 	}
-	out.ControlPlaneEndpoint = (*corev1beta1.APIEndpoint)(unsafe.Pointer(in.ControlPlaneEndpoint))
+	// WARNING: in.ControlPlaneEndpoint requires manual conversion: inconvertible types (*sigs.k8s.io/cluster-api/api/core/v1beta1.APIEndpoint vs github.com/syself/cluster-api-provider-hetzner/api/v1beta2.APIEndpoint)
 	if err := Convert_v1beta1_LoadBalancerSpec_To_v1beta2_LoadBalancerSpec(&in.ControlPlaneLoadBalancer, &out.ControlPlaneLoadBalancer, s); err != nil {
 		return err
 	}
@@ -2304,11 +2321,6 @@ func autoConvert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in *He
 	return nil
 }
 
-// Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec is an autogenerated conversion function.
-func Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in *HetznerClusterSpec, out *v1beta2.HetznerClusterSpec, s conversion.Scope) error {
-	return autoConvert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in, out, s)
-}
-
 func autoConvert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in *v1beta2.HetznerClusterSpec, out *HetznerClusterSpec, s conversion.Scope) error {
 	if err := Convert_v1beta2_HCloudNetworkSpec_To_v1beta1_HCloudNetworkSpec(&in.HCloudNetwork, &out.HCloudNetwork, s); err != nil {
 		return err
@@ -2317,7 +2329,7 @@ func autoConvert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in *v1
 	if err := Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(&in.SSHKeys, &out.SSHKeys, s); err != nil {
 		return err
 	}
-	out.ControlPlaneEndpoint = (*corev1beta1.APIEndpoint)(unsafe.Pointer(in.ControlPlaneEndpoint))
+	// WARNING: in.ControlPlaneEndpoint requires manual conversion: inconvertible types (github.com/syself/cluster-api-provider-hetzner/api/v1beta2.APIEndpoint vs *sigs.k8s.io/cluster-api/api/core/v1beta1.APIEndpoint)
 	if err := Convert_v1beta2_LoadBalancerSpec_To_v1beta1_LoadBalancerSpec(&in.ControlPlaneLoadBalancer, &out.ControlPlaneLoadBalancer, s); err != nil {
 		return err
 	}
@@ -2327,37 +2339,6 @@ func autoConvert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in *v1
 	}
 	out.SkipCreatingHetznerSecretInWorkloadCluster = in.SkipCreatingHetznerSecretInWorkloadCluster
 	return nil
-}
-
-// Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec is an autogenerated conversion function.
-func Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in *v1beta2.HetznerClusterSpec, out *HetznerClusterSpec, s conversion.Scope) error {
-	return autoConvert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in, out, s)
-}
-
-func autoConvert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus(in *HetznerClusterStatus, out *v1beta2.HetznerClusterStatus, s conversion.Scope) error {
-	out.Ready = in.Ready
-	out.Network = (*v1beta2.NetworkStatus)(unsafe.Pointer(in.Network))
-	out.ControlPlaneLoadBalancer = (*v1beta2.LoadBalancerStatus)(unsafe.Pointer(in.ControlPlaneLoadBalancer))
-	out.HCloudPlacementGroups = *(*[]v1beta2.HCloudPlacementGroupStatus)(unsafe.Pointer(&in.HCloudPlacementGroups))
-	out.FailureDomains = *(*corev1beta1.FailureDomains)(unsafe.Pointer(&in.FailureDomains))
-	out.Conditions = *(*corev1beta1.Conditions)(unsafe.Pointer(&in.Conditions))
-	// WARNING: in.V1Beta2 requires manual conversion: does not exist in peer-type
-	return nil
-}
-
-func autoConvert_v1beta2_HetznerClusterStatus_To_v1beta1_HetznerClusterStatus(in *v1beta2.HetznerClusterStatus, out *HetznerClusterStatus, s conversion.Scope) error {
-	out.Ready = in.Ready
-	out.Network = (*NetworkStatus)(unsafe.Pointer(in.Network))
-	out.ControlPlaneLoadBalancer = (*LoadBalancerStatus)(unsafe.Pointer(in.ControlPlaneLoadBalancer))
-	out.HCloudPlacementGroups = *(*[]HCloudPlacementGroupStatus)(unsafe.Pointer(&in.HCloudPlacementGroups))
-	out.FailureDomains = *(*corev1beta1.FailureDomains)(unsafe.Pointer(&in.FailureDomains))
-	out.Conditions = *(*corev1beta1.Conditions)(unsafe.Pointer(&in.Conditions))
-	return nil
-}
-
-// Convert_v1beta2_HetznerClusterStatus_To_v1beta1_HetznerClusterStatus is an autogenerated conversion function.
-func Convert_v1beta2_HetznerClusterStatus_To_v1beta1_HetznerClusterStatus(in *v1beta2.HetznerClusterStatus, out *HetznerClusterStatus, s conversion.Scope) error {
-	return autoConvert_v1beta2_HetznerClusterStatus_To_v1beta1_HetznerClusterStatus(in, out, s)
 }
 
 func autoConvert_v1beta1_HetznerClusterTemplate_To_v1beta2_HetznerClusterTemplate(in *HetznerClusterTemplate, out *v1beta2.HetznerClusterTemplate, s conversion.Scope) error {
@@ -2388,7 +2369,17 @@ func Convert_v1beta2_HetznerClusterTemplate_To_v1beta1_HetznerClusterTemplate(in
 
 func autoConvert_v1beta1_HetznerClusterTemplateList_To_v1beta2_HetznerClusterTemplateList(in *HetznerClusterTemplateList, out *v1beta2.HetznerClusterTemplateList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]v1beta2.HetznerClusterTemplate)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]v1beta2.HetznerClusterTemplate, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_HetznerClusterTemplate_To_v1beta2_HetznerClusterTemplate(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -2399,7 +2390,17 @@ func Convert_v1beta1_HetznerClusterTemplateList_To_v1beta2_HetznerClusterTemplat
 
 func autoConvert_v1beta2_HetznerClusterTemplateList_To_v1beta1_HetznerClusterTemplateList(in *v1beta2.HetznerClusterTemplateList, out *HetznerClusterTemplateList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]HetznerClusterTemplate)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]HetznerClusterTemplate, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta2_HetznerClusterTemplate_To_v1beta1_HetznerClusterTemplate(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -2409,7 +2410,9 @@ func Convert_v1beta2_HetznerClusterTemplateList_To_v1beta1_HetznerClusterTemplat
 }
 
 func autoConvert_v1beta1_HetznerClusterTemplateResource_To_v1beta2_HetznerClusterTemplateResource(in *HetznerClusterTemplateResource, out *v1beta2.HetznerClusterTemplateResource, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1beta1_ObjectMeta_To_v1beta2_ObjectMeta(&in.ObjectMeta, &out.ObjectMeta, s); err != nil {
+		return err
+	}
 	if err := Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(&in.Spec, &out.Spec, s); err != nil {
 		return err
 	}
@@ -2422,7 +2425,9 @@ func Convert_v1beta1_HetznerClusterTemplateResource_To_v1beta2_HetznerClusterTem
 }
 
 func autoConvert_v1beta2_HetznerClusterTemplateResource_To_v1beta1_HetznerClusterTemplateResource(in *v1beta2.HetznerClusterTemplateResource, out *HetznerClusterTemplateResource, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1beta2_ObjectMeta_To_v1beta1_ObjectMeta(&in.ObjectMeta, &out.ObjectMeta, s); err != nil {
+		return err
+	}
 	if err := Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(&in.Spec, &out.Spec, s); err != nil {
 		return err
 	}
@@ -2460,28 +2465,14 @@ func Convert_v1beta2_HetznerClusterTemplateSpec_To_v1beta1_HetznerClusterTemplat
 
 func autoConvert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(in *HetznerSSHKeys, out *v1beta2.HetznerSSHKeys, s conversion.Scope) error {
 	out.HCloud = *(*[]v1beta2.SSHKey)(unsafe.Pointer(&in.HCloud))
-	if err := Convert_v1beta1_SSHSecretRef_To_v1beta2_SSHSecretRef(&in.RobotRescueSecretRef, &out.RobotRescueSecretRef, s); err != nil {
-		return err
-	}
+	// WARNING: in.RobotRescueSecretRef requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys is an autogenerated conversion function.
-func Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(in *HetznerSSHKeys, out *v1beta2.HetznerSSHKeys, s conversion.Scope) error {
-	return autoConvert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(in, out, s)
 }
 
 func autoConvert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(in *v1beta2.HetznerSSHKeys, out *HetznerSSHKeys, s conversion.Scope) error {
 	out.HCloud = *(*[]SSHKey)(unsafe.Pointer(&in.HCloud))
-	if err := Convert_v1beta2_SSHSecretRef_To_v1beta1_SSHSecretRef(&in.RobotRescueSecretRef, &out.RobotRescueSecretRef, s); err != nil {
-		return err
-	}
+	// WARNING: in.RescueSecretRef requires manual conversion: does not exist in peer-type
 	return nil
-}
-
-// Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys is an autogenerated conversion function.
-func Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(in *v1beta2.HetznerSSHKeys, out *HetznerSSHKeys, s conversion.Scope) error {
-	return autoConvert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(in, out, s)
 }
 
 func autoConvert_v1beta1_HetznerSecretKeyRef_To_v1beta2_HetznerSecretKeyRef(in *HetznerSecretKeyRef, out *v1beta2.HetznerSecretKeyRef, s conversion.Scope) error {
