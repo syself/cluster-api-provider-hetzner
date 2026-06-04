@@ -77,7 +77,7 @@ func TestControllers(t *testing.T) {
 }
 
 type ControllerResetter struct {
-	debug                                 bool
+	debug bool
 	// reconcileGate serializes mock-client setup against in-flight reconciles.
 	// ResetAndInitNamespace holds the write lock while swapping clients;
 	// HetznerBareMetalHostReconciler and HCloudMachineReconciler hold the read
