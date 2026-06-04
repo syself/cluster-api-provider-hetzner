@@ -241,7 +241,7 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 
 	// It could be both: A hcloud machine or a bm-machine without ConstantHostname.
 
-	// Try to find matching HCloudMachine object
+	// Try to find matching HCloudMachine object.
 	var hcloudMachine infrav1.HCloudMachine
 
 	hcloudMachineName := types.NamespacedName{
