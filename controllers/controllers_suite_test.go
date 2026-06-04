@@ -78,7 +78,11 @@ func TestControllers(t *testing.T) {
 
 type ControllerResetter struct {
 	debug                                 bool
-	gate                                  sync.RWMutex
+	// reconcileGate serializes mock-client setup against in-flight reconciles.
+	// ResetAndInitNamespace holds the write lock while swapping clients;
+	// HetznerBareMetalHostReconciler and HCloudMachineReconciler hold the read
+	// lock during each Reconcile call via their ReconcileGate pointer.
+	reconcileGate                         sync.RWMutex
 	baremetalSSHClientFactory             *mocks.SSHFactory
 	HetznerClusterReconciler              *HetznerClusterReconciler
 	HCloudMachineReconciler               *HCloudMachineReconciler
@@ -119,8 +123,8 @@ func NewControllerResetter(
 
 	// Wire the reconcile gate so that mock setup (write lock) is serialized with
 	// in-flight reconciles (read lock) for the two reconcilers that call mocked clients.
-	hetznerBareMetalHostReconciler.ReconcileGate = &r.gate
-	hcloudMachineReconciler.ReconcileGate = &r.gate
+	hetznerBareMetalHostReconciler.ReconcileGate = &r.reconcileGate
+	hcloudMachineReconciler.ReconcileGate = &r.reconcileGate
 
 	return r
 }
@@ -134,7 +138,7 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	// the read lock) finish, so no reconcile from the previous test is running when we
 	// swap the mock clients. The returned func releases it once all On() expectations
 	// have been registered by the caller's BeforeEach (via defer).
-	r.gate.Lock()
+	r.reconcileGate.Lock()
 
 	rescueSSHClient := &sshmock.Client{}
 	// Register Testify helpers so failed expectations are reported against this test instance.
@@ -196,7 +200,7 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	return func() {
 		once.Do(func() {
 			r.baremetalSSHClientFactory.SetClients(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
-			r.gate.Unlock()
+			r.reconcileGate.Unlock()
 		})
 	}
 }
