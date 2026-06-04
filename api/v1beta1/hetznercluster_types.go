@@ -83,6 +83,12 @@ type HetznerClusterSpec struct {
 }
 
 // HetznerClusterStatus defines the observed state of HetznerCluster.
+//
+// The v1beta2 HetznerClusterStatus has its final API shape (status.conditions as []metav1.Condition,
+// status.initialization, status.deprecated.v1beta1.conditions), which does not map field-for-field
+// onto this v1beta1 status. conversion-gen cannot express that mapping, so it is skipped here and the
+// conversion is hand written in conversion.go.
+// +k8s:conversion-gen=false
 type HetznerClusterStatus struct {
 	// +kubebuilder:default=false
 	Ready bool `json:"ready"`
