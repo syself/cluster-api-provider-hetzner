@@ -120,7 +120,7 @@ spec:
           path: /etc/systemd/system/containerd.service
           permissions: "0744"
       preKubeadmCommands:
-        - set -euxo pipefail
+        - set -eux
         - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
         - export CONTAINERD=2.3.1 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
         - export RUNC=1.2.5
