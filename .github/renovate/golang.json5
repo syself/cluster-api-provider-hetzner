@@ -31,13 +31,13 @@
     {
       description: "Disable update k8s packages",
       matchManagers: ["gomod"],
-      matchDepNames: ["k8s.io/api", "k8s.io/apimachinery", "k8s.io/apiserver", "k8s.io/client-go", "k8s.io/kubectl", "k8s.io/code-generator"],
+      matchPackagePrefixes: ["k8s.io/"],
       enabled: false,
     },
     {
-      description: "Disable update cluster-api",
+      description: "Disable update cluster-api and kind",
       matchManagers: ["gomod"],
-      matchDepNames: ["sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test"],
+      matchDepNames: ["sigs.k8s.io/cluster-api", "sigs.k8s.io/cluster-api/test", "sigs.k8s.io/kind"],
       enabled: false,
     },
   ],
