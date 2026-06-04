@@ -16,30 +16,24 @@ limitations under the License.
 
 package v1beta1
 
-// v1beta1 and v1beta2 have almost the same fields today. The only difference is that v1beta1
-// status types have a nested V1Beta2 field for the new metav1.Conditions.
-//
-// v1beta2 still keeps the old v1beta1 conditions at status.conditions. The later status-shape work
-// will move those old conditions to status.deprecated.v1beta1.conditions and promote the v1beta1
-// status.v1beta2.conditions field to v1beta2 status.conditions. This conversion plumbing keeps
-// that field move out of scope.
-//
-// Because of that, the spec and object level ConvertTo / ConvertFrom below are just pass throughs
-// to the generated converters, and only the status converters need to be hand written.
-//
-// TODO(#2017): later issues will add new fields that exist only in v1beta2. When we convert from
-// v1beta2 to v1beta1, those new fields would be lost. To keep the round trip safe, we will save
-// them as an annotation on the v1beta1 object using utilconversion.MarshalData, and restore them
-// when converting back to v1beta2.
+// This file contains v1beta1 <-> v1beta2 conversion hooks.
+// Generated converters handle fields that still map directly between versions.
+// Hand-written converters handle fields whose API shape changed.
 
 import (
 	"fmt"
 	"math"
+	"sort"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
@@ -48,13 +42,36 @@ import (
 // ConvertTo converts this HetznerCluster to the Hub version (v1beta2).
 func (src *HetznerCluster) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*infrav1.HetznerCluster)
-	return Convert_v1beta1_HetznerCluster_To_v1beta2_HetznerCluster(src, dst, nil)
+	if err := Convert_v1beta1_HetznerCluster_To_v1beta2_HetznerCluster(src, dst, nil); err != nil {
+		return err
+	}
+
+	// Read back the v1beta2 object that ConvertFrom stored in the annotation, so the values v1beta1
+	// cannot represent can be restored below. This keeps the round trip lossless.
+	restored := &infrav1.HetznerCluster{}
+	ok, err := utilconversion.UnmarshalData(src, restored)
+	if err != nil {
+		return err
+	}
+
+	// status.ready (bool) maps to status.initialization.provisioned (*bool). The CAPI helper only
+	// produces *false when the value was intentionally *false before (restored); otherwise a false
+	// ready becomes nil, matching the one-time provisioning signal semantics.
+	clusterv1.Convert_bool_To_Pointer_bool(src.Status.Ready, ok, restored.Status.Initialization.Provisioned, &dst.Status.Initialization.Provisioned)
+
+	return nil
 }
 
 // ConvertFrom converts the Hub version (v1beta2) to this HetznerCluster.
 func (dst *HetznerCluster) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*infrav1.HetznerCluster)
-	return Convert_v1beta2_HetznerCluster_To_v1beta1_HetznerCluster(src, dst, nil)
+	if err := Convert_v1beta2_HetznerCluster_To_v1beta1_HetznerCluster(src, dst, nil); err != nil {
+		return err
+	}
+
+	// Preserve the whole hub (v1beta2) object in a data annotation. ConvertTo reads it back to restore
+	// values v1beta1 cannot represent, like provisioned nil vs false, keeping the round trip lossless.
+	return utilconversion.MarshalData(src, dst)
 }
 
 // ConvertTo converts this HetznerClusterTemplate to the Hub version (v1beta2).
@@ -177,21 +194,78 @@ func (dst *HetznerBareMetalRemediationTemplate) ConvertFrom(srcRaw conversion.Hu
 	return Convert_v1beta2_HetznerBareMetalRemediationTemplate_To_v1beta1_HetznerBareMetalRemediationTemplate(src, dst, nil)
 }
 
-// conversion-gen generates public Convert_... wrappers only when **every** field can be mapped.
+// Note: conversion-gen generates public Convert_... wrappers only when **every** field can be mapped.
 // If a field has no peer in the other version, it only generates autoConvert_... helpers for the
-// matching fields and leaves the unmatched field for manual conversion. Here, that unmatched field
-// is v1beta1's V1Beta2.
+// matching fields and leaves the unmatched field for manual conversion.
+
+// ConsumerRef changed shape between v1beta1 and v1beta2. v1beta1 keeps the historical
+// ObjectReference shape, while v1beta2 only persists the identity the host needs: kind, name, and
+// API group. Namespace is not stored in the v1beta2 field because the consuming machine lives in
+// the same namespace as the host.
 //
-// The generated helpers contain:
-//
-//	WARNING: in.V1Beta2 requires manual conversion: does not exist in peer-type
-//
-// That warning is expected in this PR. v1beta2 still uses status.conditions for the old v1beta1
-// clusterv1.Conditions, so copying V1Beta2.Conditions there would mix two condition formats. The
-// per-resource status migration will add the correct destination fields:
-// status.conditions for metav1.Conditions and status.deprecated.v1beta1.conditions for the old
-// clusterv1.Conditions. Until then, the safest conversion is to copy the shared fields and leave
-// the staged v1beta1 V1Beta2 field behind.
+// The type-level conversion functions below keep conversion-gen working for the spec field. The
+// object-level v1beta2 to v1beta1 converter then restores ConsumerRef.Namespace from the enclosing
+// host object for old clients.
+
+// Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost converts a v1beta1
+// HetznerBareMetalHost to v1beta2, including the v1beta2 ConsumerRef shape.
+func Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in *HetznerBareMetalHost, out *infrav1.HetznerBareMetalHost, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in, out, s)
+}
+
+// Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost converts a v1beta2
+// HetznerBareMetalHost to v1beta1 and restores ConsumerRef.Namespace from the host namespace.
+func Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in *infrav1.HetznerBareMetalHost, out *HetznerBareMetalHost, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in, out, s); err != nil {
+		return err
+	}
+	if out.Spec.ConsumerRef != nil {
+		// v1beta2 does not carry ConsumerRef.Namespace, so restore the old ObjectReference shape
+		// from the containing host object.
+		out.Spec.ConsumerRef.Namespace = in.Namespace
+	}
+	return nil
+}
+
+// Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec converts the
+// v1beta1 ObjectReference ConsumerRef to the smaller v1beta2 local reference.
+func Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in *HetznerBareMetalHostSpec, out *infrav1.HetznerBareMetalHostSpec, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in, out, s)
+}
+
+// Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec converts the
+// v1beta2 ConsumerRef shape back to the v1beta1 ObjectReference shape without namespace.
+func Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in *infrav1.HetznerBareMetalHostSpec, out *HetznerBareMetalHostSpec, s apiconversion.Scope) error {
+	return autoConvert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in, out, s)
+}
+
+// Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference converts the
+// v1beta1 ObjectReference shape to the smaller v1beta2 ConsumerRef shape.
+func Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference(in *corev1.ObjectReference, out *infrav1.HetznerBareMetalHostConsumerReference, _ apiconversion.Scope) error {
+	apiGroup := ""
+	if in.APIVersion != "" {
+		gv, err := schema.ParseGroupVersion(in.APIVersion)
+		if err != nil {
+			return fmt.Errorf("failed to convert consumerRef: failed to parse apiVersion %q: %w", in.APIVersion, err)
+		}
+		apiGroup = gv.Group
+	}
+
+	// Persist only the fields that make up the v1beta2 host ownership state.
+	out.Kind = in.Kind
+	out.Name = in.Name
+	out.APIGroup = apiGroup
+	return nil
+}
+
+// Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference converts the
+// v1beta2 ConsumerRef shape back to an ObjectReference without namespace.
+func Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference(in *infrav1.HetznerBareMetalHostConsumerReference, out *corev1.ObjectReference, _ apiconversion.Scope) error {
+	out.APIVersion = schema.GroupVersion{Group: in.APIGroup, Version: GroupVersion.Version}.String()
+	out.Kind = in.Kind
+	out.Name = in.Name
+	return nil
+}
 
 // Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_ControllerGeneratedStatus converts
 // the v1beta1 ControllerGeneratedStatus to v1beta2, dropping the V1Beta2 field.
@@ -343,7 +417,259 @@ func Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMa
 }
 
 // Convert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus converts the v1beta1
-// HetznerClusterStatus to v1beta2, dropping the V1Beta2 field.
+// HetznerClusterStatus to v1beta2. The v1beta1 status.conditions (old clusterv1beta1.Conditions)
+// and the v1beta2 status.conditions ([]metav1.Condition) share a field name but not a type and do
+// not correspond, so HetznerClusterStatus is excluded from conversion-gen (+k8s:conversion-gen=false)
+// and converted fully by hand here:
+//   - status.v1beta2.conditions is promoted to status.conditions.
+//   - status.conditions is demoted to status.deprecated.v1beta1.conditions.
+//   - status.ready maps to status.initialization.provisioned at the object level
+//     (HetznerCluster.ConvertTo), because that lossy bool -> *bool mapping needs the restored hub data.
 func Convert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus(in *HetznerClusterStatus, out *infrav1.HetznerClusterStatus, s apiconversion.Scope) error {
-	return autoConvert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus(in, out, s)
+	// Promote the staged v1beta2 conditions to the v1beta2 status.conditions.
+	if in.V1Beta2 != nil {
+		out.Conditions = in.V1Beta2.Conditions
+	}
+
+	// Demote the old v1beta1 conditions to status.deprecated.v1beta1.conditions.
+	if len(in.Conditions) > 0 {
+		out.Deprecated = &infrav1.HetznerClusterDeprecatedStatus{
+			V1Beta1: &infrav1.HetznerClusterV1Beta1DeprecatedStatus{
+				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
+			},
+		}
+	}
+
+	if in.Network != nil {
+		out.Network = &infrav1.NetworkStatus{}
+		if err := Convert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus(in.Network, out.Network, s); err != nil {
+			return err
+		}
+	}
+
+	if in.ControlPlaneLoadBalancer != nil {
+		out.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{}
+		if err := Convert_v1beta1_LoadBalancerStatus_To_v1beta2_LoadBalancerStatus(in.ControlPlaneLoadBalancer, out.ControlPlaneLoadBalancer, s); err != nil {
+			return err
+		}
+	}
+
+	if in.HCloudPlacementGroups != nil {
+		out.HCloudPlacementGroups = make([]infrav1.HCloudPlacementGroupStatus, len(in.HCloudPlacementGroups))
+		for i := range in.HCloudPlacementGroups {
+			if err := Convert_v1beta1_HCloudPlacementGroupStatus_To_v1beta2_HCloudPlacementGroupStatus(&in.HCloudPlacementGroups[i], &out.HCloudPlacementGroups[i], s); err != nil {
+				return err
+			}
+		}
+	}
+
+	out.FailureDomains = convertFailureDomainsToV1Beta2(in.FailureDomains)
+
+	return nil
+}
+
+// Convert_v1beta2_HetznerClusterStatus_To_v1beta1_HetznerClusterStatus converts the v1beta2
+// HetznerClusterStatus back to v1beta1. It is the inverse of the function above:
+//   - status.conditions is demoted to the staged status.v1beta2.conditions.
+//   - status.deprecated.v1beta1.conditions is promoted back to status.conditions.
+//   - status.initialization.provisioned maps back to status.ready.
+func Convert_v1beta2_HetznerClusterStatus_To_v1beta1_HetznerClusterStatus(in *infrav1.HetznerClusterStatus, out *HetznerClusterStatus, s apiconversion.Scope) error {
+	// Demote the v1beta2 conditions back to the staged v1beta1 status.v1beta2.conditions.
+	if len(in.Conditions) > 0 {
+		out.V1Beta2 = &HetznerClusterV1Beta2Status{
+			Conditions: in.Conditions,
+		}
+	}
+
+	// Promote the deprecated v1beta1 conditions back to the old status.conditions.
+	if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil {
+		out.Conditions = convertDeprecatedConditionsToV1Beta1(in.Deprecated.V1Beta1.Conditions)
+	}
+
+	if in.Network != nil {
+		out.Network = &NetworkStatus{}
+		if err := Convert_v1beta2_NetworkStatus_To_v1beta1_NetworkStatus(in.Network, out.Network, s); err != nil {
+			return err
+		}
+	}
+
+	if in.ControlPlaneLoadBalancer != nil {
+		out.ControlPlaneLoadBalancer = &LoadBalancerStatus{}
+		if err := Convert_v1beta2_LoadBalancerStatus_To_v1beta1_LoadBalancerStatus(in.ControlPlaneLoadBalancer, out.ControlPlaneLoadBalancer, s); err != nil {
+			return err
+		}
+	}
+
+	if in.HCloudPlacementGroups != nil {
+		out.HCloudPlacementGroups = make([]HCloudPlacementGroupStatus, len(in.HCloudPlacementGroups))
+		for i := range in.HCloudPlacementGroups {
+			if err := Convert_v1beta2_HCloudPlacementGroupStatus_To_v1beta1_HCloudPlacementGroupStatus(&in.HCloudPlacementGroups[i], &out.HCloudPlacementGroups[i], s); err != nil {
+				return err
+			}
+		}
+	}
+
+	out.FailureDomains = convertFailureDomainsToV1Beta1(in.FailureDomains)
+
+	// status.initialization.provisioned maps back to status.ready during the compatibility window.
+	out.Ready = ptr.Deref(in.Initialization.Provisioned, false)
+
+	return nil
+}
+
+// convertFailureDomainsToV1Beta2 converts the v1beta1 FailureDomains map into the v1beta2
+// FailureDomain slice. Entries are sorted by name so the output is deterministic (the v1beta2 field
+// is a +listType=map keyed by name), and each ControlPlane bool is wrapped into a *bool.
+func convertFailureDomainsToV1Beta2(in clusterv1beta1.FailureDomains) []clusterv1.FailureDomain {
+	if in == nil {
+		return nil
+	}
+
+	names := make([]string, 0, len(in))
+	for name := range in {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	out := make([]clusterv1.FailureDomain, 0, len(in))
+	for _, name := range names {
+		failureDomain := in[name]
+		out = append(out, clusterv1.FailureDomain{
+			Name:         name,
+			ControlPlane: ptr.To(failureDomain.ControlPlane),
+			Attributes:   failureDomain.Attributes,
+		})
+	}
+
+	return out
+}
+
+// convertFailureDomainsToV1Beta1 converts the v1beta2 FailureDomain slice back into the v1beta1
+// FailureDomains map, dereferencing each ControlPlane *bool (a nil pointer becomes false).
+func convertFailureDomainsToV1Beta1(in []clusterv1.FailureDomain) clusterv1beta1.FailureDomains {
+	if in == nil {
+		return nil
+	}
+
+	out := make(clusterv1beta1.FailureDomains, len(in))
+	for _, failureDomain := range in {
+		out[failureDomain.Name] = clusterv1beta1.FailureDomainSpec{
+			ControlPlane: ptr.Deref(failureDomain.ControlPlane, false),
+			Attributes:   failureDomain.Attributes,
+		}
+	}
+
+	return out
+}
+
+// convertDeprecatedConditionsToV1Beta2 converts the old core/v1beta1 conditions (carried by the
+// v1beta1 status) into the structurally identical core/v1beta2 deprecated conditions stored under
+// status.deprecated.v1beta1.conditions on the v1beta2 object. The two Condition types are
+// field-for-field identical; only the package-local Type and Severity typedefs need a cast.
+func convertDeprecatedConditionsToV1Beta2(in clusterv1beta1.Conditions) clusterv1.Conditions {
+	if in == nil {
+		return nil
+	}
+
+	out := make(clusterv1.Conditions, len(in))
+	for i := range in {
+		out[i] = clusterv1.Condition{
+			Type:               clusterv1.ConditionType(in[i].Type),
+			Status:             in[i].Status,
+			Severity:           clusterv1.ConditionSeverity(in[i].Severity),
+			LastTransitionTime: in[i].LastTransitionTime,
+			Reason:             in[i].Reason,
+			Message:            in[i].Message,
+		}
+	}
+
+	return out
+}
+
+// convertDeprecatedConditionsToV1Beta1 is the inverse of convertDeprecatedConditionsToV1Beta2:
+// it converts the core/v1beta2 deprecated conditions back into the core/v1beta1 conditions that the
+// v1beta1 status.conditions field uses.
+func convertDeprecatedConditionsToV1Beta1(in clusterv1.Conditions) clusterv1beta1.Conditions {
+	if in == nil {
+		return nil
+	}
+
+	out := make(clusterv1beta1.Conditions, len(in))
+	for i := range in {
+		out[i] = clusterv1beta1.Condition{
+			Type:               clusterv1beta1.ConditionType(in[i].Type),
+			Status:             in[i].Status,
+			Severity:           clusterv1beta1.ConditionSeverity(in[i].Severity),
+			LastTransitionTime: in[i].LastTransitionTime,
+			Reason:             in[i].Reason,
+			Message:            in[i].Message,
+		}
+	}
+
+	return out
+}
+
+func Convert_v1beta1_ObjectMeta_To_v1beta2_ObjectMeta(in *clusterv1beta1.ObjectMeta, out *clusterv1.ObjectMeta, _ apiconversion.Scope) error {
+	out.Labels = in.Labels
+	out.Annotations = in.Annotations
+	return nil
+}
+
+func Convert_v1beta2_ObjectMeta_To_v1beta1_ObjectMeta(in *clusterv1.ObjectMeta, out *clusterv1beta1.ObjectMeta, _ apiconversion.Scope) error {
+	out.Labels = in.Labels
+	out.Annotations = in.Annotations
+	return nil
+}
+
+// Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec converts the v1beta1
+// HetznerClusterSpec to v1beta2, mapping the pointer controlPlaneEndpoint to the v1beta2 value type.
+func Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in *HetznerClusterSpec, out *infrav1.HetznerClusterSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in, out, s); err != nil {
+		return err
+	}
+
+	if in.ControlPlaneEndpoint != nil {
+		out.ControlPlaneEndpoint = infrav1.APIEndpoint{
+			Host: in.ControlPlaneEndpoint.Host,
+			Port: in.ControlPlaneEndpoint.Port,
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec converts the v1beta2
+// HetznerClusterSpec back to v1beta1, mapping the value controlPlaneEndpoint to the pointer type.
+// A zero endpoint maps to a nil pointer.
+func Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in *infrav1.HetznerClusterSpec, out *HetznerClusterSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in, out, s); err != nil {
+		return err
+	}
+
+	if in.ControlPlaneEndpoint != (infrav1.APIEndpoint{}) {
+		out.ControlPlaneEndpoint = &clusterv1beta1.APIEndpoint{
+			Host: in.ControlPlaneEndpoint.Host,
+			Port: in.ControlPlaneEndpoint.Port,
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys converts the v1beta1 HetznerSSHKeys to
+// v1beta2, mapping the renamed robotRescueSecretRef field to rescueSecretRef.
+func Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(in *HetznerSSHKeys, out *infrav1.HetznerSSHKeys, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(in, out, s); err != nil {
+		return err
+	}
+	return Convert_v1beta1_SSHSecretRef_To_v1beta2_SSHSecretRef(&in.RobotRescueSecretRef, &out.RescueSecretRef, s)
+}
+
+// Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys converts the v1beta2 HetznerSSHKeys back
+// to v1beta1, mapping the renamed rescueSecretRef field back to robotRescueSecretRef.
+func Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(in *infrav1.HetznerSSHKeys, out *HetznerSSHKeys, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(in, out, s); err != nil {
+		return err
+	}
+	return Convert_v1beta2_SSHSecretRef_To_v1beta1_SSHSecretRef(&in.RescueSecretRef, &out.RobotRescueSecretRef, s)
 }

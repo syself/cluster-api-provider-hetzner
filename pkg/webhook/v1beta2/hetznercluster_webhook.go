@@ -105,8 +105,7 @@ func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav2.Hetzn
 	// Check whether controlPlaneEndpoint is specified if allow empty is not set or false
 
 	if !allowEmptyControlPlaneAddress && !r.Spec.ControlPlaneLoadBalancer.Enabled {
-		if r.Spec.ControlPlaneEndpoint == nil ||
-			r.Spec.ControlPlaneEndpoint.Host == "" ||
+		if r.Spec.ControlPlaneEndpoint.Host == "" ||
 			r.Spec.ControlPlaneEndpoint.Port == 0 {
 			allErrs = append(allErrs,
 				field.Invalid(

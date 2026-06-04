@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/exp/slices"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -28,9 +30,135 @@ type Arguments struct {
 	WhileRegex        *regexp.Regexp
 	ProgrammStartTime time.Time
 	Name              string
-	RetryCount        int16
-	RetryForEver      bool
-	Timeout           time.Duration
+	// NamespacePatterns is the raw input from -n. Each entry may be an exact
+	// namespace name or a glob pattern (*, ?, [...]).
+	NamespacePatterns []string
+	// Namespaces is the resolved list after matching patterns against the
+	// cluster's namespaces. Populated by RunAndGetCounter.
+	Namespaces []string
+	// ExcludeNamespacePatterns is the raw input from --exclude-namespace.
+	// Each entry may be an exact namespace name or a glob pattern. Matched
+	// per-object at filter time; non-matching entries are not an error.
+	ExcludeNamespacePatterns []string
+	RetryCount               int16
+	RetryForEver             bool
+	Timeout                  time.Duration
+	forbiddenResourcesPrinted bool
+}
+
+// matchAnyPattern reports whether name matches any of the given glob patterns.
+func matchAnyPattern(name string, patterns []string) bool {
+	for _, p := range patterns {
+		if ok, err := path.Match(p, name); err == nil && ok {
+			return true
+		}
+	}
+	return false
+}
+
+// validatePatterns returns an error if any pattern has invalid glob syntax.
+func validatePatterns(patterns []string) error {
+	for _, p := range patterns {
+		if _, err := path.Match(p, ""); err != nil {
+			return fmt.Errorf("invalid namespace pattern %q: %w", p, err)
+		}
+	}
+	return nil
+}
+
+// namespaceSet returns a lookup set of resolved namespaces. Empty when no
+// namespace filter is in effect.
+func (a *Arguments) namespaceSet() map[string]struct{} {
+	if len(a.Namespaces) == 0 {
+		return nil
+	}
+	m := make(map[string]struct{}, len(a.Namespaces))
+	for _, ns := range a.Namespaces {
+		m[ns] = struct{}{}
+	}
+	return m
+}
+
+// namespaceFilterActive reports whether the user requested a namespace filter
+// (regardless of whether the patterns have been resolved yet).
+func (a *Arguments) namespaceFilterActive() bool {
+	return len(a.NamespacePatterns) > 0
+}
+
+func patternHasGlob(p string) bool {
+	return strings.ContainsAny(p, "*?[")
+}
+
+// resolveNamespacePatterns expands the user-supplied patterns into concrete
+// namespace names. Patterns without glob characters are kept as-is. Patterns
+// with glob characters are matched against the namespaces that exist in the
+// cluster. Returns an error if no namespace matches.
+func resolveNamespacePatterns(ctx context.Context, clientset *kubernetes.Clientset, patterns []string) ([]string, error) {
+	if len(patterns) == 0 {
+		return nil, nil
+	}
+
+	hasGlob := false
+	for _, p := range patterns {
+		if patternHasGlob(p) {
+			hasGlob = true
+			break
+		}
+	}
+
+	seen := map[string]struct{}{}
+	var resolved []string
+
+	if !hasGlob {
+		// Trust the user-supplied names. Verifying existence here would
+		// require cluster-scoped get/list permission on namespaces, which
+		// namespace-scoped service accounts don't have.
+		for _, p := range patterns {
+			if _, ok := seen[p]; ok {
+				continue
+			}
+			seen[p] = struct{}{}
+			resolved = append(resolved, p)
+		}
+		return resolved, nil
+	}
+
+	nsList, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		if apierrors.IsForbidden(err) {
+			return nil, fmt.Errorf("cannot expand glob patterns %v: listing namespaces is not allowed for this user; use exact namespace names instead", patterns)
+		}
+		return nil, fmt.Errorf("error listing namespaces: %w", err)
+	}
+	for _, p := range patterns {
+		if !patternHasGlob(p) {
+			if _, ok := seen[p]; !ok {
+				seen[p] = struct{}{}
+				resolved = append(resolved, p)
+			}
+			continue
+		}
+		for i := range nsList.Items {
+			name := nsList.Items[i].Name
+			ok, err := path.Match(p, name)
+			if err != nil {
+				return nil, fmt.Errorf("invalid namespace pattern %q: %w", p, err)
+			}
+			if !ok {
+				continue
+			}
+			if _, dup := seen[name]; dup {
+				continue
+			}
+			seen[name] = struct{}{}
+			resolved = append(resolved, name)
+		}
+	}
+	if len(resolved) == 0 {
+		return nil, fmt.Errorf("no namespace matches patterns %v", patterns)
+	}
+	slices.Sort(resolved)
+	return resolved, nil
 }
 
 var resourcesToSkip = []string{
@@ -52,6 +180,7 @@ type Counter struct {
 	StartTime            time.Time
 	WhileRegexDidMatch   bool
 	Lines                []string
+	ForbiddenResources   []string
 }
 
 func (c *Counter) add(o handleResourceTypeOutput) {
@@ -59,6 +188,9 @@ func (c *Counter) add(o handleResourceTypeOutput) {
 	c.CheckedConditions += o.checkedConditions
 	c.CheckedResourceTypes += o.checkedResourceTypes
 	c.Lines = append(c.Lines, o.lines...)
+	if o.forbiddenResource != "" {
+		c.ForbiddenResources = append(c.ForbiddenResources, o.forbiddenResource)
+	}
 	if o.whileRegexDidMatch {
 		c.WhileRegexDidMatch = true
 	}
@@ -179,12 +311,35 @@ func RunCheckAllConditions(ctx context.Context, config *restclient.Config, args 
 	for _, line := range counter.Lines {
 		fmt.Println(line)
 	}
+	if len(counter.ForbiddenResources) > 0 && !args.forbiddenResourcesPrinted {
+		seen := map[string]struct{}{}
+		uniq := make([]string, 0, len(counter.ForbiddenResources))
+		for _, r := range counter.ForbiddenResources {
+			if _, ok := seen[r]; ok {
+				continue
+			}
+			seen[r] = struct{}{}
+			uniq = append(uniq, r)
+		}
+		slices.Sort(uniq)
+		fmt.Printf("Skipped %d forbidden resource types: %s\n", len(uniq), strings.Join(uniq, ", "))
+		args.forbiddenResourcesPrinted = true
+	}
 	name := args.Name
 	if name != "" {
 		name = " (" + name + ")"
 	}
-	fmt.Printf("Checked %d conditions of %d resources of %d types. Duration: %s%s\n",
-		counter.CheckedConditions, counter.CheckedResources, counter.CheckedResourceTypes, time.Since(counter.StartTime).Round(time.Millisecond), name)
+	scope := " in all namespaces"
+	switch len(args.Namespaces) {
+	case 0:
+		// no filter
+	case 1:
+		scope = fmt.Sprintf(" in namespace %s", args.Namespaces[0])
+	default:
+		scope = fmt.Sprintf(" in namespaces %s", strings.Join(args.Namespaces, ","))
+	}
+	fmt.Printf("Checked %d conditions of %d resources of %d types%s. Duration: %s%s\n",
+		counter.CheckedConditions, counter.CheckedResources, counter.CheckedResourceTypes, scope, time.Since(counter.StartTime).Round(time.Millisecond), name)
 
 	if args.WhileRegex == nil {
 		// "all" command
@@ -202,6 +357,20 @@ func RunAndGetCounter(ctx context.Context, config *restclient.Config, args *Argu
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return counter, fmt.Errorf("error creating clientset: %w", err)
+	}
+
+	if err := validatePatterns(args.ExcludeNamespacePatterns); err != nil {
+		return counter, err
+	}
+	if args.namespaceFilterActive() {
+		// Resolve once per run; subsequent retries reuse the resolved list.
+		if len(args.Namespaces) == 0 {
+			resolved, err := resolveNamespacePatterns(ctx, clientset, args.NamespacePatterns)
+			if err != nil {
+				return counter, err
+			}
+			args.Namespaces = resolved
+		}
 	}
 
 	dynClient, err := dynamic.NewForConfig(config)
@@ -258,6 +427,10 @@ func createJobs(serverResources []*metav1.APIResourceList, jobs chan handleResou
 			continue
 		}
 		for i := range resourceList.APIResources {
+			namespaced := resourceList.APIResources[i].Namespaced
+			if args.namespaceFilterActive() && !namespaced {
+				continue
+			}
 			jobs <- handleResourceTypeInput{
 				args:      args,
 				dynClient: dynClient,
@@ -266,6 +439,7 @@ func createJobs(serverResources []*metav1.APIResourceList, jobs chan handleResou
 					Version:  groupVersion.Version,
 					Resource: resourceList.APIResources[i].Name,
 				},
+				namespaced: namespaced,
 			}
 		}
 	}
@@ -292,7 +466,24 @@ func containsSlash(s string) bool {
 func printResources(args *Arguments, list *unstructured.UnstructuredList, gvr schema.GroupVersionResource,
 	counter *handleResourceTypeOutput, workerID int32,
 ) (lines []string, again bool) {
+	// When the user supplied multiple include namespaces (or globs), we list
+	// resources cluster-wide and drop the ones not in the resolved set. A
+	// single include is already filtered server-side. Excludes always apply
+	// here for namespaced lists (cluster-scoped resources have no namespace).
+	var nsInclude map[string]struct{}
+	if len(args.Namespaces) > 1 {
+		nsInclude = args.namespaceSet()
+	}
 	for _, obj := range list.Items {
+		ns := obj.GetNamespace()
+		if nsInclude != nil {
+			if _, ok := nsInclude[ns]; !ok {
+				continue
+			}
+		}
+		if ns != "" && matchAnyPattern(ns, args.ExcludeNamespacePatterns) {
+			continue
+		}
 		counter.checkedResources++
 		var conditions []interface{}
 		var err error
@@ -446,6 +637,7 @@ func conditionToSkip(ct string) bool {
 		"LoadBalancerAttachedToNetwork",
 		"NetworkAttached",
 		"PodReadyToStartContainers", // completed pods have "False".
+		"RefVersionsUpToDate",       // happens during api version transition.
 	}
 	return slices.Contains(toSkip, ct)
 }
@@ -466,9 +658,11 @@ var conditionTypesOfResourceWithPositiveMeaning = map[string][]string{
 	},
 	"hetznerbaremetalhosts": {
 		"RootDeviceHintsValidated",
+		"NodeBootIDRetrieved",
 	},
-	"clusters": { // postgresql.cnpg.io/v1
-		"ContinuousArchiving",
+	"clusters": {
+		"ContinuousArchiving",   // postgresql.cnpg.io/v1
+		"RemoteConnectionProbe", // capi
 	},
 	"clusteraddons": {
 		"ClusterAddonConfigValidated",
@@ -482,6 +676,9 @@ var conditionTypesOfResourceWithPositiveMeaning = map[string][]string{
 		"MountPropagation",    // Longhorn
 		"RequiredPackages",    // Longhorn
 		"KernelModulesLoaded", // Longhorn
+	},
+	"machines": {
+		"NodeKubeadmLabelsAndTaintsSet",
 	},
 	"autopilotclusters": {
 		"ClusterRunning",
@@ -501,6 +698,32 @@ var conditionTypesOfResourceWithNegativeMeaning = map[string][]string{
 	},
 	"horizontalpodautoscalers": {
 		"ScalingLimited",
+	},
+	"clusters": {
+		"RollingOut", // capi
+		"ScalingDown",
+		"ScalingUp",
+		"Remediating",
+	},
+	"kubeadmcontrolplanes": {
+		"RollingOut",
+		"ScalingDown",
+		"ScalingUp",
+		"Remediating",
+	},
+	"machinedeployments": {
+		"RollingOut",
+		"ScalingDown",
+		"ScalingUp",
+		"Remediating",
+	},
+	"machinesets": {
+		"ScalingDown",
+		"ScalingUp",
+		"Remediating",
+	},
+	"machines": {
+		"Updating",
 	},
 }
 
@@ -527,6 +750,9 @@ var conditionLinesToIgnoreRegexs = []*regexp.Regexp{
 	regexp.MustCompile(`volumes TooManySnapshots=False`),
 	regexp.MustCompile(`volumes Scheduled=True`),
 	regexp.MustCompile(`volumes Restore=False`),
+
+	// perconaxtradbclusters
+	regexp.MustCompile(`perconaxtradbclusters tls=enabled`),
 }
 
 func conditionTypeHasPositiveMeaning(resource string, ct string) bool {
@@ -564,6 +790,11 @@ func conditionTypeHasPositiveMeaning(resource string, ct string) bool {
 		"UpToDate",
 		"Valid",
 		"SuccessCriteriaMet",
+		"RunningDesiredVersion", // elasticsearches
+		"ready",                 // perconaservermongodbs
+		"sharding",              // perconaservermongodbs
+		"NoWarnings",            // rabbitmqclusters
+		"ReconcileSuccess",      // rabbitmqclusters
 	} {
 		if strings.HasSuffix(ct, suffix) {
 			return true
@@ -602,7 +833,7 @@ func conditionTypeHasNegativeMeaning(resource string, ct string) bool {
 	}
 
 	for _, suffix := range []string{
-		"Unavailable", "Pressure", "Dangling", "Unhealthy",
+		"Unavailable", "Pressure", "Dangling", "Unhealthy", "Paused", "Deleting", "Failed",
 	} {
 		if strings.HasSuffix(ct, suffix) {
 			return true
@@ -616,10 +847,11 @@ func conditionTypeHasNegativeMeaning(resource string, ct string) bool {
 }
 
 type handleResourceTypeInput struct {
-	args      *Arguments
-	dynClient *dynamic.DynamicClient
-	gvr       schema.GroupVersionResource
-	workerID  int32
+	args       *Arguments
+	dynClient  *dynamic.DynamicClient
+	gvr        schema.GroupVersionResource
+	workerID   int32
+	namespaced bool
 }
 
 type handleResourceTypeOutput struct {
@@ -628,6 +860,9 @@ type handleResourceTypeOutput struct {
 	checkedConditions    int32
 	whileRegexDidMatch   bool
 	lines                []string
+	// forbiddenResource is the resource name when listing was rejected with a
+	// 403 Forbidden. Aggregated by the caller into a single summary line.
+	forbiddenResource string
 }
 
 func handleResourceType(ctx context.Context, input handleResourceTypeInput) handleResourceTypeOutput {
@@ -645,15 +880,40 @@ func handleResourceType(ctx context.Context, input handleResourceTypeInput) hand
 		return output
 	}
 
-	output.checkedResourceTypes++
+	if args.namespaceFilterActive() && !input.namespaced {
+		return output
+	}
 
-	list, err := dynClient.Resource(gvr).List(ctx, metav1.ListOptions{})
+	namespaceable := dynClient.Resource(gvr)
+	var resourceInterface dynamic.ResourceInterface
+	if input.namespaced {
+		// One namespace and no excludes: filter on the server. Otherwise list
+		// cluster-wide and apply include/exclude filters in printResources.
+		canServerSideFilter := len(args.Namespaces) == 1 && len(args.ExcludeNamespacePatterns) == 0
+		if canServerSideFilter {
+			resourceInterface = namespaceable.Namespace(args.Namespaces[0])
+		} else if len(args.Namespaces) == 1 && matchAnyPattern(args.Namespaces[0], args.ExcludeNamespacePatterns) {
+			// Single included namespace is itself excluded — nothing to do.
+			return output
+		} else {
+			resourceInterface = namespaceable.Namespace(metav1.NamespaceAll)
+		}
+	} else {
+		resourceInterface = namespaceable
+	}
+
+	list, err := resourceInterface.List(ctx, metav1.ListOptions{})
 	if err != nil {
+		if apierrors.IsForbidden(err) {
+			output.forbiddenResource = name
+			return output
+		}
 		fmt.Printf("..Error listing %s: %v. group %q version %q resource %q\n", name, err,
 			gvr.Group, gvr.Version, gvr.Resource)
 		return output
 	}
 
+	output.checkedResourceTypes++
 	lines, again := printResources(args, list, gvr, &output, input.workerID)
 	output.whileRegexDidMatch = again
 	output.lines = lines
