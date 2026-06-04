@@ -235,6 +235,11 @@ func TestRemediationRetryToPointer(t *testing.T) {
 			want: nil,
 		},
 		{
+			name: "negative value maps to nil",
+			in:   -1,
+			want: nil,
+		},
+		{
 			name: "positive value",
 			in:   3,
 			want: ptr.To[int32](3),
@@ -283,6 +288,11 @@ func TestRemediationDurationToSeconds(t *testing.T) {
 		{
 			name: "zero stays zero",
 			in:   0,
+			want: 0,
+		},
+		{
+			name: "negative value clamps to zero",
+			in:   -1 * time.Second,
 			want: 0,
 		},
 		{
@@ -618,12 +628,15 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			c.FillNoCustom(in)
 			in.V1Beta2 = nil
 		},
-		// HCloudRemediation v1beta1 status: keep retryCount in the v1beta2 int32 range,
+		// HCloudRemediation v1beta1 status: keep retryCount in the non-negative v1beta2 int32 range,
 		// collapse zero lastRemediated and empty condition slices to nil, and drop the V1Beta2
 		// wrapper unless it carries conditions.
 		func(in *HCloudRemediationStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			in.RetryCount = int(int32(in.RetryCount)) //nolint:gosec // keep fuzz input in the int32 range accepted by conversion
+			if in.RetryCount < 0 {
+				in.RetryCount = 0
+			}
 
 			if in.LastRemediated != nil && in.LastRemediated.IsZero() {
 				in.LastRemediated = nil
@@ -646,11 +659,14 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 				in.V1Beta2 = nil
 			}
 		},
-		// RemediationStrategy v1beta1: keep retryLimit in the v1beta2 int32 range and
-		// quantize durations to the whole-second representation used by v1beta2.
+		// RemediationStrategy v1beta1: keep retryLimit in the non-negative v1beta2 int32 range and
+		// quantize durations to the non-negative whole-second representation used by v1beta2.
 		func(in *RemediationStrategy, c randfill.Continue) {
 			c.FillNoCustom(in)
 			in.RetryLimit = int(int32(in.RetryLimit)) //nolint:gosec // keep fuzz input in the int32 range accepted by conversion
+			if in.RetryLimit < 0 {
+				in.RetryLimit = 0
+			}
 			in.Timeout = quantizeRemediationDuration(in.Timeout)
 			// Timeout is required, and v1beta2 stores it as a non-pointer int32, so a nil
 			// timeout down-converts to the zero value. Normalize it here so the round trip matches.
@@ -659,11 +675,11 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 			in.Cooldown = quantizeRemediationDuration(in.Cooldown)
 		},
-		// HCloudRemediation v1beta2 status: nil and zero retryCount both down-convert
+		// HCloudRemediation v1beta2 status: nil and non-positive retryCount both down-convert
 		// to the v1beta1 zero value, and empty condition wrappers collapse to nil.
 		func(in *infrav1.HCloudRemediationStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
-			if in.RetryCount != nil && *in.RetryCount == 0 {
+			if in.RetryCount != nil && *in.RetryCount <= 0 {
 				in.RetryCount = nil
 			}
 			if len(in.Conditions) == 0 {
@@ -673,12 +689,18 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 				in.Deprecated = nil
 			}
 		},
-		// RemediationStrategy v1beta2: nil and zero retryLimit both down-convert to
-		// the v1beta1 zero value, so normalize the hub side before comparing.
+		// RemediationStrategy v1beta2: nil and non-positive retryLimit both down-convert to
+		// the v1beta1 zero value, and negative second counters clamp to zero.
 		func(in *infrav1.RemediationStrategy, c randfill.Continue) {
 			c.FillNoCustom(in)
-			if in.RetryLimit != nil && *in.RetryLimit == 0 {
+			if in.RetryLimit != nil && *in.RetryLimit <= 0 {
 				in.RetryLimit = nil
+			}
+			if in.TimeoutSeconds < 0 {
+				in.TimeoutSeconds = 0
+			}
+			if in.CooldownSeconds != nil && *in.CooldownSeconds < 0 {
+				in.CooldownSeconds = ptr.To(int32(0))
 			}
 		},
 		// HetznerCluster v1beta1 spec: the fuzzer can produce a pointer to an empty controlPlaneEndpoint
@@ -734,8 +756,8 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 	}
 }
 
-// quantizeRemediationDuration rounds a duration to whole seconds within the int32 range accepted
-// by the v1beta2 *int32 seconds fields, so the fuzz round trip stays exact.
+// quantizeRemediationDuration rounds a duration to non-negative whole seconds within the int32 range
+// accepted by the v1beta2 *int32 seconds fields, so the fuzz round trip stays exact.
 func quantizeRemediationDuration(d *metav1.Duration) *metav1.Duration {
 	if d == nil {
 		return nil

@@ -430,12 +430,15 @@ spec:
                           is dropped.
                         properties:
                           conditions:
-                            description: conditions defines the current service state
-                              of the HCloudRemediation using the deprecated v1beta1
-                              condition type.
+                            description: |-
+                              conditions defines current service state of the HCloudRemediation.
+
+                              Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
                             items:
-                              description: Condition defines an observation of a Cluster
-                                API resource operational state.
+                              description: |-
+                                Condition defines an observation of a Cluster API resource operational state.
+
+                                Deprecated: This type is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
                               properties:
                                 lastTransitionTime:
                                   description: |-
@@ -484,12 +487,15 @@ spec:
                               - type
                               type: object
                             type: array
+                            x-kubernetes-list-map-keys:
+                            - type
+                            x-kubernetes-list-type: map
                         type: object
                     type: object
                   lastRemediated:
                     description: |-
                       LastRemediated identifies when the host was last remediated.
-                      A zero value serializes as null and is treated as absent.
+                      A zero value is treated as absent.
                     format: date-time
                     type: string
                   phase:
@@ -499,10 +505,8 @@ spec:
                     type: string
                   retryCount:
                     description: |-
-                      RetryCount can be used as a counter during the remediation.
-                      Field can hold number of reboots etc.
-                      A nil value means the count has not been computed yet, which a zero value
-                      cannot express.
+                      RetryCount records how many times the remediation controller has tried to
+                      remediate the node, for example the number of reboots.
                     format: int32
                     type: integer
                 type: object

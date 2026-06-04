@@ -285,18 +285,10 @@ func Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplat
 	return autoConvert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus(in, out, s)
 }
 
-// HCloudRemediation and the shared RemediationStrategy reshape their fields in v1beta2, so
-// their conversions are hand-written here (the v1beta1 types are tagged +k8s:conversion-gen=false).
-//
-// Status conditions move home: the staged v1beta1 status.v1beta2.conditions become the v1beta2
-// status.conditions, and the old v1beta1 status.conditions become status.deprecated.v1beta1.conditions.
-// Counters move from int to *int32 (0 maps to nil), lastRemediated moves from a pointer to a value,
-// and the RemediationStrategy durations move to whole-second *int32 counters.
-
-// remediationRetryToPointer maps a v1beta1 int counter to the v1beta2 *int32 form. A zero value
-// (the v1beta1 "unset" representation) maps to nil so the v1beta2 "not yet computed" state is preserved.
+// remediationRetryToPointer maps a v1beta1 int counter to the v1beta2 *int32 form. v1beta1 stores an
+// unset counter as 0, while v1beta2 stores it as a nil pointer, so non-positive values map to nil.
 func remediationRetryToPointer(in int) (*int32, error) {
-	if in == 0 {
+	if in <= 0 {
 		return nil, nil
 	}
 	if in > math.MaxInt32 || in < math.MinInt32 {
@@ -313,23 +305,27 @@ func remediationRetryFromPointer(in *int32) int {
 	return int(*in)
 }
 
-// remediationDurationToSeconds converts a duration to whole seconds for the v1beta2 form. A nonzero
-// value below one second ceils to 1 so a small cooldown never collapses to 0 (which would disable
-// the guard); an explicit 0 stays 0.
+// remediationDurationToSeconds converts a duration to whole seconds for the v1beta2 form. Negative
+// values clamp to 0 to satisfy the v1beta2 schema, and a positive value below one second ceils to 1
+// so a small configured duration never collapses to 0.
 func remediationDurationToSeconds(in metav1.Duration) (int32, error) {
+	if in.Duration < 0 {
+		return 0, nil
+	}
 	seconds := in.Duration / time.Second
 	if seconds == 0 && in.Duration > 0 {
 		return 1, nil
 	}
-	if seconds > math.MaxInt32 || seconds < math.MinInt32 {
+	if seconds > math.MaxInt32 {
 		return 0, fmt.Errorf("remediation duration %s is outside the int32 seconds range", in.Duration)
 	}
 	return int32(seconds), nil //nolint:gosec // checked against the int32 range above
 }
 
 // Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy converts a v1beta1
-// RemediationStrategy to v1beta2, moving the durations to whole-second counters and the retry
-// limit to a pointer. It is shared with HetznerBareMetalRemediation.
+// RemediationStrategy to v1beta2. It is hand-written (the type is tagged +k8s:conversion-gen=false)
+// because v1beta2 stores the timeout and cooldown as whole-second *int32 counters and the retry limit
+// as a *int32. It is shared with HetznerBareMetalRemediation.
 func Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(in *RemediationStrategy, out *infrav1.RemediationStrategy, _ apiconversion.Scope) error {
 	var err error
 	out.Type = infrav1.RemediationType(in.Type)
@@ -366,9 +362,11 @@ func Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(in *infr
 	return nil
 }
 
-// Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus promotes the staged
-// v1beta2 conditions to status.conditions, demotes the old conditions to
-// status.deprecated.v1beta1.conditions, and reshapes the counters and lastRemediated.
+// Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus is hand-written (the type
+// is tagged +k8s:conversion-gen=false) because the conditions and counters change shape between
+// versions. It promotes the staged status.v1beta2.conditions to status.conditions, demotes the old
+// status.conditions to status.deprecated.v1beta1.conditions, and maps retryCount and lastRemediated to
+// their v1beta2 forms.
 func Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus(in *HCloudRemediationStatus, out *infrav1.HCloudRemediationStatus, _ apiconversion.Scope) error {
 	var err error
 	out.Phase = in.Phase
@@ -385,7 +383,7 @@ func Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus(
 	if len(in.Conditions) > 0 {
 		out.Deprecated = &infrav1.HCloudRemediationDeprecatedStatus{
 			V1Beta1: &infrav1.HCloudRemediationV1Beta1DeprecatedStatus{
-				Conditions: in.Conditions,
+				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
 			},
 		}
 	}
@@ -405,7 +403,7 @@ func Convert_v1beta2_HCloudRemediationStatus_To_v1beta1_HCloudRemediationStatus(
 		out.V1Beta2 = &HCloudRemediationV1Beta2Status{Conditions: in.Conditions}
 	}
 	if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil {
-		out.Conditions = in.Deprecated.V1Beta1.Conditions
+		out.Conditions = convertDeprecatedConditionsToV1Beta1(in.Deprecated.V1Beta1.Conditions)
 	}
 	return nil
 }

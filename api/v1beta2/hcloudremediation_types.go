@@ -18,7 +18,7 @@ package v1beta2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 // HCloudRemediationSpec defines the desired state of HCloudRemediation.
@@ -34,17 +34,15 @@ type HCloudRemediationStatus struct {
 	// +optional
 	Phase string `json:"phase,omitempty"`
 
-	// RetryCount can be used as a counter during the remediation.
-	// Field can hold number of reboots etc.
-	// A nil value means the count has not been computed yet, which a zero value
-	// cannot express.
+	// RetryCount records how many times the remediation controller has tried to
+	// remediate the node, for example the number of reboots.
 	// +optional
 	RetryCount *int32 `json:"retryCount,omitempty"`
 
 	// LastRemediated identifies when the host was last remediated.
-	// A zero value serializes as null and is treated as absent.
+	// A zero value is treated as absent.
 	// +optional
-	LastRemediated metav1.Time `json:"lastRemediated,omitempty"`
+	LastRemediated metav1.Time `json:"lastRemediated,omitempty,omitzero"`
 
 	// conditions represents the observations of a HCloudRemediation's current state.
 	// Known condition types are Ready, HCloudTokenAvailable and HCloudRateLimitExceeded.
@@ -68,9 +66,14 @@ type HCloudRemediationDeprecatedStatus struct {
 
 // HCloudRemediationV1Beta1DeprecatedStatus groups all the status fields that are deprecated and will be removed when support for v1beta1 is dropped.
 type HCloudRemediationV1Beta1DeprecatedStatus struct {
-	// conditions defines the current service state of the HCloudRemediation using the deprecated v1beta1 condition type.
+	// conditions defines current service state of the HCloudRemediation.
+	//
 	// +optional
-	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
+	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -108,7 +111,7 @@ func (r *HCloudRemediation) SetConditions(conditions []metav1.Condition) {
 }
 
 // GetV1Beta1Conditions returns the deprecated v1beta1 conditions of the HCloudRemediation object.
-func (r *HCloudRemediation) GetV1Beta1Conditions() clusterv1beta1.Conditions {
+func (r *HCloudRemediation) GetV1Beta1Conditions() clusterv1.Conditions {
 	if r.Status.Deprecated == nil || r.Status.Deprecated.V1Beta1 == nil {
 		return nil
 	}
@@ -116,7 +119,13 @@ func (r *HCloudRemediation) GetV1Beta1Conditions() clusterv1beta1.Conditions {
 }
 
 // SetV1Beta1Conditions sets the deprecated v1beta1 conditions of the HCloudRemediation object.
-func (r *HCloudRemediation) SetV1Beta1Conditions(conditions []clusterv1beta1.Condition) {
+func (r *HCloudRemediation) SetV1Beta1Conditions(conditions clusterv1.Conditions) {
+	if r.Status.Deprecated == nil {
+		r.Status.Deprecated = &HCloudRemediationDeprecatedStatus{}
+	}
+	if r.Status.Deprecated.V1Beta1 == nil {
+		r.Status.Deprecated.V1Beta1 = &HCloudRemediationV1Beta1DeprecatedStatus{}
+	}
 	r.Status.Deprecated.V1Beta1.Conditions = conditions
 }
 
