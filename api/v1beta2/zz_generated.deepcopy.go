@@ -961,7 +961,7 @@ func (in *HetznerBareMetalMachineStatus) DeepCopyInto(out *HetznerBareMetalMachi
 	in.Initialization.DeepCopyInto(&out.Initialization)
 	if in.Addresses != nil {
 		in, out := &in.Addresses, &out.Addresses
-		*out = make([]v1beta1.MachineAddress, len(*in))
+		*out = make([]corev1beta2.MachineAddress, len(*in))
 		copy(*out, *in)
 	}
 	in.LastUpdated.DeepCopyInto(&out.LastUpdated)
@@ -1078,10 +1078,20 @@ func (in *HetznerBareMetalMachineV1Beta1DeprecatedStatus) DeepCopyInto(out *Hetz
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]v1beta1.Condition, len(*in))
+		*out = make([]corev1beta2.Condition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.FailureReason != nil {
+		in, out := &in.FailureReason, &out.FailureReason
+		*out = new(string)
+		**out = **in
+	}
+	if in.FailureMessage != nil {
+		in, out := &in.FailureMessage, &out.FailureMessage
+		*out = new(string)
+		**out = **in
 	}
 }
 

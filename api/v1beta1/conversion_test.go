@@ -243,11 +243,18 @@ func TestHetznerBareMetalMachineConvertToPromoteV1Beta2Shape(t *testing.T) {
 	}
 	lastUpdated := metav1.Unix(3, 0)
 	lastRemediatedAt := metav1.Unix(4, 0)
+	legacyAddresses := []clusterv1beta1.MachineAddress{
+		{Type: clusterv1beta1.MachineInternalIP, Address: "10.0.0.2"},
+	}
+	wantAddresses := []clusterv1.MachineAddress{
+		{Type: clusterv1.MachineInternalIP, Address: "10.0.0.2"},
+	}
 
 	src := &HetznerBareMetalMachine{
 		Status: HetznerBareMetalMachineStatus{
 			Ready:            true,
 			Conditions:       legacyConditions,
+			Addresses:        legacyAddresses,
 			LastUpdated:      &lastUpdated,
 			LastRemediatedAt: &lastRemediatedAt,
 			V1Beta2: &HetznerBareMetalMachineV1Beta2Status{
@@ -264,11 +271,25 @@ func TestHetznerBareMetalMachineConvertToPromoteV1Beta2Shape(t *testing.T) {
 	if !reflect.DeepEqual(dst.Status.Conditions, v1beta2Conditions) {
 		t.Fatalf("v1beta2 status.conditions mismatch:\n got: %#v\nwant: %#v", dst.Status.Conditions, v1beta2Conditions)
 	}
-	if !reflect.DeepEqual(dst.GetV1Beta1Conditions(), legacyConditions) {
+	// The v1beta1 status.conditions (core/v1beta1) are demoted to status.deprecated.v1beta1.conditions,
+	// which the v1beta2 object stores as the structurally identical core/v1beta2 copy.
+	wantDeprecatedConditions := clusterv1.Conditions{
+		{
+			Type:               "LegacyReady",
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyReady",
+			Message:            "legacy condition",
+		},
+	}
+	if !reflect.DeepEqual(dst.GetV1Beta1Conditions(), wantDeprecatedConditions) {
 		t.Fatalf("deprecated v1beta1 conditions were not preserved: %#v", dst.Status.Deprecated)
 	}
 	if dst.Status.Initialization.Provisioned == nil || !*dst.Status.Initialization.Provisioned {
 		t.Fatalf("status.initialization.provisioned = %v, want true", dst.Status.Initialization.Provisioned)
+	}
+	if !reflect.DeepEqual(dst.Status.Addresses, wantAddresses) {
+		t.Fatalf("addresses mismatch:\n got: %#v\nwant: %#v", dst.Status.Addresses, wantAddresses)
 	}
 	if !dst.Status.LastUpdated.Equal(&lastUpdated) {
 		t.Fatalf("lastUpdated mismatch: got %v, want %v", dst.Status.LastUpdated, lastUpdated)
@@ -302,10 +323,29 @@ func TestHetznerBareMetalMachineConvertFromDemoteV1Beta2Shape(t *testing.T) {
 	}
 	lastUpdated := metav1.Unix(3, 0)
 	lastRemediatedAt := metav1.Unix(4, 0)
+	v1beta2Addresses := []clusterv1.MachineAddress{
+		{Type: clusterv1.MachineExternalIP, Address: "192.0.2.1"},
+	}
+	wantAddresses := []clusterv1beta1.MachineAddress{
+		{Type: clusterv1beta1.MachineExternalIP, Address: "192.0.2.1"},
+	}
+
+	// deprecatedConditions are stored on the v1beta2 object as the core/v1beta2 copy; after demotion
+	// they become the structurally identical core/v1beta1 conditions on the v1beta1 status.conditions.
+	deprecatedConditions := clusterv1.Conditions{
+		{
+			Type:               "LegacyReady",
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyNotReady",
+			Message:            "legacy condition",
+		},
+	}
 
 	src := &infrav1.HetznerBareMetalMachine{
 		Status: infrav1.HetznerBareMetalMachineStatus{
 			Conditions: v1beta2Conditions,
+			Addresses:  v1beta2Addresses,
 			Initialization: infrav1.HetznerBareMetalMachineInitializationStatus{
 				Provisioned: ptr.To(true),
 			},
@@ -313,7 +353,7 @@ func TestHetznerBareMetalMachineConvertFromDemoteV1Beta2Shape(t *testing.T) {
 			LastRemediatedAt: lastRemediatedAt,
 			Deprecated: &infrav1.HetznerBareMetalMachineDeprecatedStatus{
 				V1Beta1: &infrav1.HetznerBareMetalMachineV1Beta1DeprecatedStatus{
-					Conditions: legacyConditions,
+					Conditions: deprecatedConditions,
 				},
 			},
 		},
@@ -332,6 +372,9 @@ func TestHetznerBareMetalMachineConvertFromDemoteV1Beta2Shape(t *testing.T) {
 	}
 	if !dst.Status.Ready {
 		t.Fatal("status.ready = false, want true")
+	}
+	if !reflect.DeepEqual(dst.Status.Addresses, wantAddresses) {
+		t.Fatalf("addresses mismatch:\n got: %#v\nwant: %#v", dst.Status.Addresses, wantAddresses)
 	}
 	if dst.Status.LastUpdated == nil || !dst.Status.LastUpdated.Equal(&lastUpdated) {
 		t.Fatalf("lastUpdated mismatch: %#v", dst.Status.LastUpdated)
@@ -369,8 +412,8 @@ func TestHetznerBareMetalMachineRoundTripPreservesFalseProvisionedIntent(t *test
 }
 
 // TestHetznerBareMetalMachineRoundTripPreservesFailureFields verifies that status.failureReason and
-// status.failureMessage, which are dropped from the v1beta2 type, survive a v1beta1 -> v1beta2 ->
-// v1beta1 round trip via the conversion data annotation.
+// status.failureMessage move to status.deprecated.v1beta1 on the v1beta2 type and survive a
+// v1beta1 -> v1beta2 -> v1beta1 round trip.
 func TestHetznerBareMetalMachineRoundTripPreservesFailureFields(t *testing.T) {
 	src := &HetznerBareMetalMachine{
 		Status: HetznerBareMetalMachineStatus{
@@ -382,6 +425,17 @@ func TestHetznerBareMetalMachineRoundTripPreservesFailureFields(t *testing.T) {
 	hub := &infrav1.HetznerBareMetalMachine{}
 	if err := src.ConvertTo(hub); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+
+	// The fields live under status.deprecated.v1beta1 on the v1beta2 type.
+	if hub.Status.Deprecated == nil || hub.Status.Deprecated.V1Beta1 == nil {
+		t.Fatalf("status.deprecated.v1beta1 was not set: %#v", hub.Status.Deprecated)
+	}
+	if hub.Status.Deprecated.V1Beta1.FailureReason == nil || *hub.Status.Deprecated.V1Beta1.FailureReason != "boom" {
+		t.Fatalf("deprecated failureReason = %v, want boom", hub.Status.Deprecated.V1Beta1.FailureReason)
+	}
+	if hub.Status.Deprecated.V1Beta1.FailureMessage == nil || *hub.Status.Deprecated.V1Beta1.FailureMessage != "it broke" {
+		t.Fatalf("deprecated failureMessage = %v, want it broke", hub.Status.Deprecated.V1Beta1.FailureMessage)
 	}
 
 	dst := &HetznerBareMetalMachine{}
@@ -696,9 +750,8 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		// HetznerBareMetalMachine v1beta1 status: collapse empty condition slices to nil, drop the
 		// V1Beta2 wrapper unless it carries conditions, and collapse a non-nil pointer to the zero time
-		// to nil so the round trip matches. failureReason/failureMessage are NOT normalized here: they
-		// are dropped from the v1beta2 type but stashed in the conversion data annotation, so the round
-		// trip preserves them losslessly.
+		// to nil so the round trip matches. failureReason/failureMessage need no normalization: they
+		// move to status.deprecated.v1beta1 on the hub and back, so the round trip preserves them.
 		func(in *HetznerBareMetalMachineStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if len(in.Conditions) == 0 {
@@ -715,15 +768,25 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 		},
 		// HetznerBareMetalMachine v1beta2 status (hub side): conditions and the deprecated wrapper have
-		// an empty-vs-nil ambiguity, so normalize them to make the round trip match. provisioned is left
-		// as-is: ConvertTo/ConvertFrom preserve it losslessly via the MarshalData annotation, so nil,
-		// *true and *false all survive.
+		// an empty-vs-nil ambiguity, so normalize them to make the round trip match. The deprecated
+		// wrapper also carries failureReason/failureMessage, so keep it when any of those is set and
+		// drop it only when it holds nothing. provisioned is left as-is: ConvertTo/ConvertFrom preserve
+		// it losslessly via the MarshalData annotation, so nil, *true and *false all survive.
 		func(in *infrav1.HetznerBareMetalMachineStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if len(in.Conditions) == 0 {
 				in.Conditions = nil
 			}
-			if in.Deprecated == nil || in.Deprecated.V1Beta1 == nil || len(in.Deprecated.V1Beta1.Conditions) == 0 {
+			if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil {
+				if len(in.Deprecated.V1Beta1.Conditions) == 0 {
+					in.Deprecated.V1Beta1.Conditions = nil
+				}
+				if in.Deprecated.V1Beta1.Conditions == nil &&
+					in.Deprecated.V1Beta1.FailureReason == nil &&
+					in.Deprecated.V1Beta1.FailureMessage == nil {
+					in.Deprecated = nil
+				}
+			} else {
 				in.Deprecated = nil
 			}
 		},

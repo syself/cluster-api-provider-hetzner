@@ -558,9 +558,8 @@ spec:
     name: v1beta2
     schema:
       openAPIV3Schema:
-        description: |-
-          HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
-          emit yet, so it renders blank until the HetznerBareMetalMachine controller is switched to v1beta2 (tracked under #2017).
+        description: HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines
+          API.
         properties:
           apiVersion:
             description: |-
@@ -951,8 +950,10 @@ spec:
 
                           Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
                         items:
-                          description: Condition defines an observation of a Cluster
-                            API resource operational state.
+                          description: |-
+                            Condition defines an observation of a Cluster API resource operational state.
+
+                            Deprecated: This type is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
                           properties:
                             lastTransitionTime:
                               description: |-
@@ -1004,6 +1005,18 @@ spec:
                         x-kubernetes-list-map-keys:
                         - type
                         x-kubernetes-list-type: map
+                      failureMessage:
+                        description: |-
+                          failureMessage will be set in the event that there is a terminal problem.
+
+                          Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
+                        type: string
+                      failureReason:
+                        description: |-
+                          failureReason will be set in the event that there is a terminal problem.
+
+                          Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
+                        type: string
                     type: object
                 type: object
               initialization:
