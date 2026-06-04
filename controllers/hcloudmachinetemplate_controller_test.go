@@ -40,15 +40,15 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerSecret = getDefaultHetznerSecret(testNs.Name)
 		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 
 		key = client.ObjectKey{Namespace: testNs.Name, Name: "hcloud-machine-template"}
-
-		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {
@@ -340,7 +340,9 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 			)
 			BeforeEach(func() {
 				var err error
-				testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+				var finish func()
+				testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+				defer finish()
 				Expect(err).NotTo(HaveOccurred())
 
 				hcloudMachineTemplate = &infrav1.HCloudMachineTemplate{
@@ -363,8 +365,6 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				Eventually(func() error {
 					return testEnv.Client.Get(ctx, key, hcloudMachineTemplate)
 				}, timeout, interval).Should(BeNil())
-
-				testEnv.CommitMockSetup()
 			})
 			AfterEach(func() {
 				Expect(testEnv.Cleanup(ctx, testNs, hcloudMachineTemplate)).To(Succeed())

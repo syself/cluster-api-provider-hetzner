@@ -82,7 +82,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalmachine-reconciler")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalmachine-reconciler")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		machineName = utils.GenerateName(nil, "machine")
@@ -179,8 +181,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			Err:    nil,
 		})
 		osSSHClient.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
-
-		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {
@@ -1037,7 +1037,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			)
 			BeforeEach(func() {
 				var err error
-				testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+				var finish func()
+				testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+				defer finish()
 				Expect(err).NotTo(HaveOccurred())
 
 				hbmmt = &infrav1.HetznerBareMetalMachineTemplate{
@@ -1060,8 +1062,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Eventually(func() error {
 					return testEnv.Client.Get(ctx, key, hbmmt)
 				}, timeout, time.Second).Should(BeNil())
-
-				testEnv.CommitMockSetup()
 			})
 
 			AfterEach(func() {

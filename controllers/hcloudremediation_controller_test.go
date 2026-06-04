@@ -62,7 +62,9 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerSecret = getDefaultHetznerSecret(testNs.Name)
@@ -182,8 +184,6 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 		}
 
 		hcloudRemediationkey = client.ObjectKey{Namespace: testNs.Name, Name: "hcloud-remediation"}
-
-		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {

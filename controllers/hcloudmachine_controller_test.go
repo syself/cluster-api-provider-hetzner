@@ -247,7 +247,9 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-reconciler")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-reconciler")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 		hcloudClient = testEnv.HCloudClientFactory.NewClient("fake-token")
 
@@ -316,8 +318,6 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 
 		key = client.ObjectKey{Namespace: testNs.Name, Name: hcloudMachineName}
-
-		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {
@@ -719,7 +719,9 @@ var _ = Describe("Hetzner secret", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -808,8 +810,6 @@ var _ = Describe("Hetzner secret", func() {
 		}
 		Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
 		key = client.ObjectKey{Namespace: testNs.Name, Name: hcloudMachine.Name}
-
-		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {
@@ -922,7 +922,9 @@ var _ = Describe("HCloudMachine validation", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hcloudMachine = &infrav1.HCloudMachine{
@@ -935,8 +937,6 @@ var _ = Describe("HCloudMachine validation", func() {
 				Type:      "cpx32",
 			},
 		}
-
-		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {

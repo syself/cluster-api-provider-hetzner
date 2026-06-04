@@ -171,7 +171,9 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalhost-reconciler")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalhost-reconciler")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -271,8 +273,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
-
-		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {
@@ -704,7 +704,9 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalmachine-reconciler")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalmachine-reconciler")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -812,8 +814,6 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
 
 		configureRescueSSHClient(rescueSSHClient)
-
-		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {

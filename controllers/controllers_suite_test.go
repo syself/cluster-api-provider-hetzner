@@ -79,10 +79,6 @@ func TestControllers(t *testing.T) {
 type ControllerResetter struct {
 	debug                                 bool
 	gate                                  sync.RWMutex
-	gateLocked                            bool
-	pendingRescueSSHClient                *sshmock.Client
-	pendingOSSSHClientAfterInstallImage   *sshmock.Client
-	pendingOSSSHClientAfterCloudInit      *sshmock.Client
 	baremetalSSHClientFactory             *mocks.SSHFactory
 	HetznerClusterReconciler              *HetznerClusterReconciler
 	HCloudMachineReconciler               *HCloudMachineReconciler
@@ -133,13 +129,12 @@ var _ helpers.Resetter = &ControllerResetter{}
 
 // ResetAndInitNamespace implements Resetter.ResetAndInitNamespace(). Documentation is on the
 // interface.
-func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
+func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) func() {
 	// Acquire the write lock. This blocks until all in-flight Reconcile calls (which hold
 	// the read lock) finish, so no reconcile from the previous test is running when we
-	// swap the mock clients. The lock is released by CommitMockSetup(), which is called
-	// at the end of each BeforeEach after On() expectations have been registered.
+	// swap the mock clients. The returned func releases it once all On() expectations
+	// have been registered by the caller's BeforeEach (via defer).
 	r.gate.Lock()
-	r.gateLocked = true
 
 	rescueSSHClient := &sshmock.Client{}
 	// Register Testify helpers so failed expectations are reported against this test instance.
@@ -160,12 +155,6 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	hcloudClientFactory := fakehcloudclient.NewHCloudClientFactory()
 
 	robotClientFactory := mocks.NewRobotFactory(robotClient)
-
-	// Store the new clients so CommitMockSetup can hand them to SetClients once
-	// all On() expectations have been registered by the test's BeforeEach.
-	r.pendingRescueSSHClient = rescueSSHClient
-	r.pendingOSSSHClientAfterInstallImage = osSSHClientAfterInstallImage
-	r.pendingOSSSHClientAfterCloudInit = osSSHClientAfterCloudInit
 
 	// Reset clients used by the test code
 	testEnv.BaremetalSSHClientFactory = r.baremetalSSHClientFactory
@@ -202,22 +191,14 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	if r.debug {
 		testEnv.GetLogger().Info("Starting test: ===> ===> ===> ===> ===> ===> ===> " + t.Name())
 	}
-}
 
-// CommitMockSetup implements Resetter.CommitMockSetup. It calls SetClients with the
-// mocks that were created in ResetAndInitNamespace (now fully configured via On() calls)
-// and releases the write lock so reconciles can resume.
-func (r *ControllerResetter) CommitMockSetup() {
-	if !r.gateLocked {
-		return
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			r.baremetalSSHClientFactory.SetClients(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
+			r.gate.Unlock()
+		})
 	}
-	r.gateLocked = false
-	r.baremetalSSHClientFactory.SetClients(
-		r.pendingRescueSSHClient,
-		r.pendingOSSSHClientAfterInstallImage,
-		r.pendingOSSSHClientAfterCloudInit,
-	)
-	r.gate.Unlock()
 }
 
 type fakeWorkloadClusterClientFactory struct {

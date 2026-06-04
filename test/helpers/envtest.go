@@ -118,13 +118,12 @@ type Resetter interface {
 	// testEnv: the TestEnvironment which should be resetted.
 	//
 	// t: g.GinkgoT()
-	ResetAndInitNamespace(namespace string, testEnv *TestEnvironment, t g.FullGinkgoTInterface)
-
-	// CommitMockSetup is called at the end of each BeforeEach, after all mock On()
-	// expectations have been registered. Implementations call SetClients with the
-	// now-configured mocks and release any reconcile gate lock acquired in
-	// ResetAndInitNamespace. It must be idempotent (safe to call multiple times).
-	CommitMockSetup()
+	//
+	// The returned func must be deferred by the caller immediately after
+	// ResetAndCreateNamespace returns. It calls SetClients with the fully
+	// configured mocks and releases the reconcile gate, and is safe to call
+	// multiple times (subsequent calls are no-ops).
+	ResetAndInitNamespace(namespace string, testEnv *TestEnvironment, t g.FullGinkgoTInterface) func()
 }
 
 // TestEnvironment encapsulates a Kubernetes local test environment.
@@ -281,17 +280,16 @@ func (t *TestEnvironment) Cleanup(ctx context.Context, objs ...client.Object) er
 	return kerrors.NewAggregate(errs)
 }
 
-// CommitMockSetup completes the mock setup started by ResetAndInitNamespace.
-// Call this in BeforeEach after all mock On() expectations have been registered.
-// It is safe to call multiple times; subsequent calls are no-ops.
-func (t *TestEnvironment) CommitMockSetup() {
-	if t.Resetter != nil {
-		t.Resetter.CommitMockSetup()
-	}
-}
-
 // ResetAndCreateNamespace creates a namespace.
-func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateName string) (*corev1.Namespace, error) {
+//
+// The second return value is a finish func that the caller must defer immediately:
+//
+//	testNs, finish, err := testEnv.ResetAndCreateNamespace(ctx, "my-reconciler")
+//	defer finish()
+//
+// Deferring finish() ensures that mock clients are activated (SetClients) and
+// the reconcile gate is released even if BeforeEach panics mid-setup.
+func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateName string) (*corev1.Namespace, func(), error) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-", generateName),
@@ -301,17 +299,15 @@ func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateN
 		},
 	}
 	if err := t.Create(ctx, ns); err != nil {
-		return nil, err
+		return nil, func() {}, err
 	}
 
+	finish := func() {}
 	if t.Resetter != nil {
-		t.Resetter.ResetAndInitNamespace(ns.Name, t, g.GinkgoT())
-		// Safety net: if BeforeEach panics before CommitMockSetup is called, release
-		// the reconcile gate at spec cleanup time to prevent a suite-wide deadlock.
-		g.DeferCleanup(t.CommitMockSetup)
+		finish = t.Resetter.ResetAndInitNamespace(ns.Name, t, g.GinkgoT())
 	}
 
-	return ns, nil
+	return ns, finish, nil
 }
 
 // CreateKubeconfigSecret generates a kubeconfig secret in a given capi cluster.

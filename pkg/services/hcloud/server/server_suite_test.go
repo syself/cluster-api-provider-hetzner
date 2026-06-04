@@ -217,9 +217,7 @@ var _ helpers.Resetter = &Resetter{}
 
 var hcloudImageURLCommandTempDir string
 
-func (r *Resetter) CommitMockSetup() {}
-
-func (r *Resetter) ResetAndInitNamespace(_ string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
+func (r *Resetter) ResetAndInitNamespace(_ string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) func() {
 	rescueSSHClient := &sshmock.Client{}
 	// Register Testify helpers so failed expectations are reported against this test instance.
 
@@ -229,6 +227,7 @@ func (r *Resetter) ResetAndInitNamespace(_ string, testEnv *helpers.TestEnvironm
 	testEnv.HCloudSSHClient = &sshmock.Client{}
 	testEnv.HCloudSSHClient.Test(t)
 	testEnv.HCloudSSHClientFactory = mockedsshclient.NewSSHFactory(testEnv.HCloudSSHClient)
+	return func() {}
 }
 
 var _ = BeforeSuite(func() {

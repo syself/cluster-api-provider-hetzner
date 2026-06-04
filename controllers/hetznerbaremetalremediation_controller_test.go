@@ -70,7 +70,9 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		machineName = utils.GenerateName(nil, "machine")
@@ -225,8 +227,6 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
-
-		testEnv.CommitMockSetup()
 	})
 
 	AfterEach(func() {

@@ -843,7 +843,9 @@ var _ = Describe("Reconcile", func() {
 
 	BeforeEach(func() {
 		hcloudClient = mocks.NewClient(GinkgoT())
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "server-reconcile")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "server-reconcile")
+		defer finish()
 		Expect(err).To(BeNil())
 
 		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
