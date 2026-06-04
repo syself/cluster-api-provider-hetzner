@@ -1,6 +1,17 @@
 {
   packageRules: [
     {
+      description: "Update k8s.io packages together (they must all stay at the same version)",
+      groupName: "k8s.io packages",
+      groupSlug: "k8s-io-packages",
+      matchManagers: ["gomod"],
+      matchPackagePrefixes: ["k8s.io/"],
+      commitMessageTopic: "k8s.io packages group",
+      separateMajorMinor: false,
+      separateMultipleMajor: false,
+      separateMinorPatch: false,
+    },
+    {
       description: "Update Builder Image",
       groupName: "Builder Image",
       groupSlug: "caph-builder-image",
