@@ -18,6 +18,8 @@ package v1beta1
 
 import (
 	"encoding/json"
+	"reflect"
+	"sort"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -26,6 +28,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	"sigs.k8s.io/randfill"
@@ -213,22 +218,288 @@ func fuzzyConversionTestFunc(scheme *runtime.Scheme, hub conversion.Hub, spoke c
 	})
 }
 
-// spokeV1Beta2StatusFuzzFuncs returns custom randfill functions for v1beta1 status types that
-// embed a V1Beta2 sub struct (the current home for the new style metav1.Conditions in v1beta1 resources).
-// Our hand written status converters in conversion.go drop this sub struct on the way to v1beta2,
-// because v1beta2 does not **yet** have a destination for it. If we let the default fuzzer set
-// V1Beta2 to random non nil content, the spoke-hub-spoke round trip would fail every time.
-// These overrides fill the rest of the status normally and force V1Beta2 to nil, so the fuzz
-// test only exercises the lossless parts of the conversion. Once we add a top level
-// conditions field and a Deprecated.V1Beta1.Conditions wrapper on v1beta2, the converters become
-// lossless and these overrides can be removed.
+// TestHetznerClusterConvertToPromoteV1Beta2Shape verifies that converting a v1beta1
+// HetznerCluster to v1beta2 promotes the staged v1beta2 fields and maps renamed or
+// reshaped contract fields into the final v1beta2 API shape.
+func TestHetznerClusterConvertToPromoteV1Beta2Shape(t *testing.T) {
+	legacyConditions := clusterv1beta1.Conditions{
+		{
+			Type:               clusterv1beta1.ConditionType("LegacyReady"),
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyReady",
+			Message:            "legacy condition",
+		},
+	}
+	v1beta2Conditions := []metav1.Condition{
+		{
+			Type:               clusterv1beta1.ReadyV1Beta2Condition,
+			Status:             metav1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(2, 0),
+			Reason:             clusterv1beta1.ReadyV1Beta2Reason,
+			Message:            "ready",
+		},
+	}
+	// The v1beta1 status.conditions (core/v1beta1) are demoted to status.deprecated.v1beta1.conditions,
+	// which the v1beta2 object stores as the structurally identical core/v1beta2 copy.
+	wantDeprecatedConditions := clusterv1.Conditions{
+		{
+			Type:               "LegacyReady",
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyReady",
+			Message:            "legacy condition",
+		},
+	}
+
+	src := &HetznerCluster{
+		Spec: HetznerClusterSpec{
+			ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{Host: "1.2.3.4", Port: 6443},
+			SSHKeys: HetznerSSHKeys{
+				RobotRescueSecretRef: SSHSecretRef{
+					Name: "rescue-ssh",
+					Key: SSHSecretKeyRef{
+						Name:       "name",
+						PublicKey:  "public",
+						PrivateKey: "private",
+					},
+				},
+			},
+		},
+		Status: HetznerClusterStatus{
+			Ready:      true,
+			Conditions: legacyConditions,
+			FailureDomains: clusterv1beta1.FailureDomains{
+				"nbg1": {ControlPlane: false},
+				"fsn1": {ControlPlane: true, Attributes: map[string]string{"zone": "eu-central"}},
+			},
+			V1Beta2: &HetznerClusterV1Beta2Status{
+				Conditions: v1beta2Conditions,
+			},
+		},
+	}
+
+	dst := &infrav1.HetznerCluster{}
+	if err := src.ConvertTo(dst); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+
+	if !reflect.DeepEqual(dst.Status.Conditions, v1beta2Conditions) {
+		t.Fatalf("v1beta2 status.conditions mismatch:\n got: %#v\nwant: %#v", dst.Status.Conditions, v1beta2Conditions)
+	}
+	if !reflect.DeepEqual(dst.GetV1Beta1Conditions(), wantDeprecatedConditions) {
+		t.Fatalf("deprecated v1beta1 conditions were not preserved: %#v", dst.Status.Deprecated)
+	}
+	if dst.Status.Initialization.Provisioned == nil || !*dst.Status.Initialization.Provisioned {
+		t.Fatalf("status.initialization.provisioned = %v, want true", dst.Status.Initialization.Provisioned)
+	}
+	if dst.Spec.ControlPlaneEndpoint.Host != "1.2.3.4" || dst.Spec.ControlPlaneEndpoint.Port != 6443 {
+		t.Fatalf("controlPlaneEndpoint mismatch: %#v", dst.Spec.ControlPlaneEndpoint)
+	}
+	if !reflect.DeepEqual(dst.Spec.SSHKeys.RescueSecretRef, infrav1.SSHSecretRef{
+		Name: "rescue-ssh",
+		Key: infrav1.SSHSecretKeyRef{
+			Name:       "name",
+			PublicKey:  "public",
+			PrivateKey: "private",
+		},
+	}) {
+		t.Fatalf("rescueSecretRef mismatch: %#v", dst.Spec.SSHKeys.RescueSecretRef)
+	}
+
+	expectedFailureDomains := []clusterv1.FailureDomain{
+		{Name: "fsn1", ControlPlane: ptr.To(true), Attributes: map[string]string{"zone": "eu-central"}},
+		{Name: "nbg1", ControlPlane: ptr.To(false)},
+	}
+	if !reflect.DeepEqual(dst.Status.FailureDomains, expectedFailureDomains) {
+		t.Fatalf("failureDomains mismatch:\n got: %#v\nwant: %#v", dst.Status.FailureDomains, expectedFailureDomains)
+	}
+}
+
+// TestHetznerClusterConvertFromDemoteV1Beta2Shape verifies that converting a v1beta2
+// HetznerCluster back to v1beta1 demotes v1beta2-only fields into the compatibility
+// locations used by the v1beta1 API.
+func TestHetznerClusterConvertFromDemoteV1Beta2Shape(t *testing.T) {
+	// deprecatedConditions are stored on the v1beta2 object as the core/v1beta2 copy; after demotion
+	// they become the structurally identical core/v1beta1 conditions on the v1beta1 status.conditions.
+	deprecatedConditions := clusterv1.Conditions{
+		{
+			Type:               "LegacyReady",
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyNotReady",
+			Message:            "legacy condition",
+		},
+	}
+	legacyConditions := clusterv1beta1.Conditions{
+		{
+			Type:               clusterv1beta1.ConditionType("LegacyReady"),
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyNotReady",
+			Message:            "legacy condition",
+		},
+	}
+	v1beta2Conditions := []metav1.Condition{
+		{
+			Type:               clusterv1beta1.ReadyV1Beta2Condition,
+			Status:             metav1.ConditionFalse,
+			LastTransitionTime: metav1.Unix(2, 0),
+			Reason:             clusterv1beta1.NotReadyV1Beta2Reason,
+			Message:            "not ready",
+		},
+	}
+
+	src := &infrav1.HetznerCluster{
+		Spec: infrav1.HetznerClusterSpec{
+			ControlPlaneEndpoint: infrav1.APIEndpoint{Host: "5.6.7.8", Port: 8443},
+			SSHKeys: infrav1.HetznerSSHKeys{
+				RescueSecretRef: infrav1.SSHSecretRef{
+					Name: "rescue-ssh",
+					Key: infrav1.SSHSecretKeyRef{
+						Name:       "name",
+						PublicKey:  "public",
+						PrivateKey: "private",
+					},
+				},
+			},
+		},
+		Status: infrav1.HetznerClusterStatus{
+			Conditions: v1beta2Conditions,
+			Initialization: infrav1.HetznerClusterInitializationStatus{
+				Provisioned: ptr.To(true),
+			},
+			FailureDomains: []clusterv1.FailureDomain{
+				{Name: "nbg1", ControlPlane: nil},
+				{Name: "fsn1", ControlPlane: ptr.To(true), Attributes: map[string]string{"zone": "eu-central"}},
+			},
+			Deprecated: &infrav1.HetznerClusterDeprecatedStatus{
+				V1Beta1: &infrav1.HetznerClusterV1Beta1DeprecatedStatus{
+					Conditions: deprecatedConditions,
+				},
+			},
+		},
+	}
+
+	dst := &HetznerCluster{}
+	if err := dst.ConvertFrom(src); err != nil {
+		t.Fatalf("failed to convert from v1beta2: %v", err)
+	}
+
+	if dst.Status.V1Beta2 == nil || !reflect.DeepEqual(dst.Status.V1Beta2.Conditions, v1beta2Conditions) {
+		t.Fatalf("v1beta2 conditions were not staged on v1beta1: %#v", dst.Status.V1Beta2)
+	}
+	if !reflect.DeepEqual(dst.Status.Conditions, legacyConditions) {
+		t.Fatalf("legacy conditions mismatch:\n got: %#v\nwant: %#v", dst.Status.Conditions, legacyConditions)
+	}
+	if !dst.Status.Ready {
+		t.Fatal("status.ready = false, want true")
+	}
+	if dst.Spec.ControlPlaneEndpoint == nil ||
+		dst.Spec.ControlPlaneEndpoint.Host != "5.6.7.8" ||
+		dst.Spec.ControlPlaneEndpoint.Port != 8443 {
+		t.Fatalf("controlPlaneEndpoint mismatch: %#v", dst.Spec.ControlPlaneEndpoint)
+	}
+	if !reflect.DeepEqual(dst.Spec.SSHKeys.RobotRescueSecretRef, SSHSecretRef{
+		Name: "rescue-ssh",
+		Key: SSHSecretKeyRef{
+			Name:       "name",
+			PublicKey:  "public",
+			PrivateKey: "private",
+		},
+	}) {
+		t.Fatalf("robotRescueSecretRef mismatch: %#v", dst.Spec.SSHKeys.RobotRescueSecretRef)
+	}
+
+	expectedFailureDomains := clusterv1beta1.FailureDomains{
+		"fsn1": {ControlPlane: true, Attributes: map[string]string{"zone": "eu-central"}},
+		"nbg1": {ControlPlane: false},
+	}
+	if !reflect.DeepEqual(dst.Status.FailureDomains, expectedFailureDomains) {
+		t.Fatalf("failureDomains mismatch:\n got: %#v\nwant: %#v", dst.Status.FailureDomains, expectedFailureDomains)
+	}
+}
+
+// TestHetznerClusterRoundTripPreservesFalseProvisionedIntent verifies that the lossy
+// status.ready to status.initialization.provisioned conversion preserves an explicit
+// false provisioned value through the stored hub annotation.
+func TestHetznerClusterRoundTripPreservesFalseProvisionedIntent(t *testing.T) {
+	src := &infrav1.HetznerCluster{
+		Status: infrav1.HetznerClusterStatus{
+			Initialization: infrav1.HetznerClusterInitializationStatus{
+				Provisioned: ptr.To(false),
+			},
+		},
+	}
+
+	spoke := &HetznerCluster{}
+	if err := spoke.ConvertFrom(src); err != nil {
+		t.Fatalf("failed to convert from v1beta2: %v", err)
+	}
+
+	restored := &infrav1.HetznerCluster{}
+	if err := spoke.ConvertTo(restored); err != nil {
+		t.Fatalf("failed to convert back to v1beta2: %v", err)
+	}
+
+	if restored.Status.Initialization.Provisioned == nil || *restored.Status.Initialization.Provisioned {
+		t.Fatalf("status.initialization.provisioned = %v, want false", restored.Status.Initialization.Provisioned)
+	}
+}
+
+// TestHetznerClusterConvertToNilProvisionedForFalseReadyWithoutAnnotation verifies the
+// storage-migration path: a v1beta1 HetznerCluster with status.ready=false and no stored hub
+// annotation converts to status.initialization.provisioned=nil, since a false ready without a
+// restored hub cannot be distinguished from "never provisioned".
+func TestHetznerClusterConvertToNilProvisionedForFalseReadyWithoutAnnotation(t *testing.T) {
+	src := &HetznerCluster{
+		Status: HetznerClusterStatus{
+			Ready: false,
+		},
+	}
+
+	dst := &infrav1.HetznerCluster{}
+	if err := src.ConvertTo(dst); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+
+	if dst.Status.Initialization.Provisioned != nil {
+		t.Fatalf("status.initialization.provisioned = %v, want nil", dst.Status.Initialization.Provisioned)
+	}
+}
+
+func normalizeV1Beta2FailureDomains(in []clusterv1.FailureDomain) []clusterv1.FailureDomain {
+	if in == nil {
+		return nil
+	}
+
+	failureDomainsByName := make(map[string]clusterv1.FailureDomain, len(in))
+	for _, failureDomain := range in {
+		if failureDomain.ControlPlane == nil {
+			failureDomain.ControlPlane = ptr.To(false)
+		}
+		failureDomainsByName[failureDomain.Name] = failureDomain
+	}
+
+	names := make([]string, 0, len(failureDomainsByName))
+	for name := range failureDomainsByName {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	out := make([]clusterv1.FailureDomain, 0, len(failureDomainsByName))
+	for _, name := range names {
+		out = append(out, failureDomainsByName[name])
+	}
+
+	return out
+}
+
+// spokeV1Beta2StatusFuzzFuncs normalizes fields that do not round-trip byte-for-byte because the
+// two API versions represent empty or staged data differently.
 func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
 		func(in *ControllerGeneratedStatus, c randfill.Continue) {
-			c.FillNoCustom(in)
-			in.V1Beta2 = nil
-		},
-		func(in *HetznerClusterStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			in.V1Beta2 = nil
 		},
@@ -247,6 +518,44 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		func(in *HetznerBareMetalMachineStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			in.V1Beta2 = nil
+		},
+		// HetznerCluster v1beta1 status: collapse empty condition slices to nil, and drop the V1Beta2
+		// wrapper unless it carries conditions, so the bare v1beta2 status.conditions round trips.
+		func(in *HetznerClusterStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if len(in.Conditions) == 0 {
+				in.Conditions = nil
+			}
+			if in.V1Beta2 != nil && len(in.V1Beta2.Conditions) == 0 {
+				in.V1Beta2 = nil
+			}
+		},
+		// HetznerCluster v1beta1 spec: the fuzzer can produce a pointer to an empty controlPlaneEndpoint
+		// (&{}). v1beta2 stores this field as a value type with omitzero, so &{} converts up to the zero
+		// value and back down to nil, which would fail the round trip. Collapse it to nil up front.
+		//
+		// This is safe because &{} and nil mean the same thing here: no endpoint is set. The controller
+		// only ever writes a real endpoint (host and port) or leaves it unset, never &{}, and the v1beta2
+		// type uses omitzero with MinProperties=1, so an empty endpoint is already treated as unset.
+		func(in *HetznerClusterSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.ControlPlaneEndpoint != nil && in.ControlPlaneEndpoint.Host == "" && in.ControlPlaneEndpoint.Port == 0 {
+				in.ControlPlaneEndpoint = nil
+			}
+		},
+		// HetznerCluster v1beta2 status (hub side): conditions, deprecated and failureDomains have an
+		// empty-vs-nil (or ordering) ambiguity, so normalize them to make the round trip match.
+		// provisioned is left as-is: ConvertTo/ConvertFrom preserve it losslessly via the MarshalData
+		// annotation, so nil, *true and *false all survive.
+		func(in *infrav1.HetznerClusterStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if len(in.Conditions) == 0 {
+				in.Conditions = nil
+			}
+			if in.Deprecated == nil || in.Deprecated.V1Beta1 == nil || len(in.Deprecated.V1Beta1.Conditions) == 0 {
+				in.Deprecated = nil
+			}
+			in.FailureDomains = normalizeV1Beta2FailureDomains(in.FailureDomains)
 		},
 		func(in *HetznerBareMetalHost, c randfill.Continue) {
 			c.FillNoCustom(in)

@@ -61,9 +61,12 @@ func (algorithmType *LoadBalancerAlgorithmType) HCloudAlgorithmType() hcloud.Loa
 type HetznerSSHKeys struct {
 	// Hcloud defines the SSH keys used for hcloud.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	HCloud []SSHKey `json:"hcloud,omitempty"`
-	// RobotRescueSecretRef defines the reference to the secret where the SSH key for the rescue system is stored.
-	RobotRescueSecretRef SSHSecretRef `json:"robotRescueSecretRef,omitempty"`
+	// RescueSecretRef defines the reference to the secret where the SSH key for the rescue system is stored.
+	// +optional
+	RescueSecretRef SSHSecretRef `json:"rescueSecretRef,omitempty"`
 }
 
 // SSHKey defines the SSHKey for HCloud.
@@ -93,10 +96,14 @@ type HCloudPlacementGroupSpec struct {
 
 // HCloudPlacementGroupStatus returns the status of a Placementgroup.
 type HCloudPlacementGroupStatus struct {
-	ID     int64   `json:"id,omitempty"`
+	ID int64 `json:"id,omitempty"`
+	// +optional
+	// +listType=set
 	Server []int64 `json:"servers,omitempty"`
-	Name   string  `json:"name,omitempty"`
-	Type   string  `json:"type,omitempty"`
+	// Name is the placement group name. It is required because status.hcloudPlacementGroups is a
+	// list-map keyed on name, and a list-map key must be a required (or defaulted) property.
+	Name string `json:"name"`
+	Type string `json:"type,omitempty"`
 }
 
 // HetznerSecretRef defines all the names of the secret and the relevant keys needed to access Hetzner API.
@@ -209,6 +216,7 @@ type LoadBalancerSpec struct {
 
 	// ExtraServices defines how traffic will be routed from the load balancer to your target server.
 	// +optional
+	// +listType=atomic
 	ExtraServices []LoadBalancerServiceSpec `json:"extraServices,omitempty"`
 
 	// Region contains the name of the HCloud location where the load balancer is running.
@@ -234,12 +242,14 @@ type LoadBalancerServiceSpec struct {
 
 // LoadBalancerStatus defines the observed state of the control plane load balancer.
 type LoadBalancerStatus struct {
-	ID         int64                `json:"id,omitempty"`
-	IPv4       string               `json:"ipv4,omitempty"`
-	IPv6       string               `json:"ipv6,omitempty"`
-	InternalIP string               `json:"internalIP,omitempty"`
-	Target     []LoadBalancerTarget `json:"targets,omitempty"`
-	Protected  bool                 `json:"protected,omitempty"`
+	ID         int64  `json:"id,omitempty"`
+	IPv4       string `json:"ipv4,omitempty"`
+	IPv6       string `json:"ipv6,omitempty"`
+	InternalIP string `json:"internalIP,omitempty"`
+	// +optional
+	// +listType=atomic
+	Target    []LoadBalancerTarget `json:"targets,omitempty"`
+	Protected bool                 `json:"protected,omitempty"`
 }
 
 // LoadBalancerTarget defines the target of a load balancer.
@@ -275,9 +285,11 @@ type HCloudNetworkSpec struct {
 
 // NetworkStatus defines the observed state of the HCloud Private Network.
 type NetworkStatus struct {
-	ID              int64             `json:"id,omitempty"`
-	Labels          map[string]string `json:"-"`
-	AttachedServers []int64           `json:"attachedServers,omitempty"`
+	ID     int64             `json:"id,omitempty"`
+	Labels map[string]string `json:"-"`
+	// +optional
+	// +listType=set
+	AttachedServers []int64 `json:"attachedServers,omitempty"`
 }
 
 // Region is a Hetzner Location.
