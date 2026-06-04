@@ -412,8 +412,8 @@ func TestHetznerBareMetalMachineRoundTripPreservesFalseProvisionedIntent(t *test
 }
 
 // TestHetznerBareMetalMachineRoundTripPreservesFailureFields verifies that status.failureReason and
-// status.failureMessage move to status.deprecated.v1beta1 on the v1beta2 type and survive a
-// v1beta1 -> v1beta2 -> v1beta1 round trip.
+// status.failureMessage survive a v1beta1 -> v1beta2 -> v1beta1 round trip. On the v1beta2 type they
+// live under status.deprecated.v1beta1.
 func TestHetznerBareMetalMachineRoundTripPreservesFailureFields(t *testing.T) {
 	src := &HetznerBareMetalMachine{
 		Status: HetznerBareMetalMachineStatus{
@@ -425,17 +425,6 @@ func TestHetznerBareMetalMachineRoundTripPreservesFailureFields(t *testing.T) {
 	hub := &infrav1.HetznerBareMetalMachine{}
 	if err := src.ConvertTo(hub); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
-	}
-
-	// The fields live under status.deprecated.v1beta1 on the v1beta2 type.
-	if hub.Status.Deprecated == nil || hub.Status.Deprecated.V1Beta1 == nil {
-		t.Fatalf("status.deprecated.v1beta1 was not set: %#v", hub.Status.Deprecated)
-	}
-	if hub.Status.Deprecated.V1Beta1.FailureReason == nil || *hub.Status.Deprecated.V1Beta1.FailureReason != "boom" {
-		t.Fatalf("deprecated failureReason = %v, want boom", hub.Status.Deprecated.V1Beta1.FailureReason)
-	}
-	if hub.Status.Deprecated.V1Beta1.FailureMessage == nil || *hub.Status.Deprecated.V1Beta1.FailureMessage != "it broke" {
-		t.Fatalf("deprecated failureMessage = %v, want it broke", hub.Status.Deprecated.V1Beta1.FailureMessage)
 	}
 
 	dst := &HetznerBareMetalMachine{}

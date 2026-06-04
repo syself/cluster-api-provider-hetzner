@@ -331,12 +331,10 @@ func Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMa
 	if len(in.Conditions) > 0 || in.FailureReason != nil || in.FailureMessage != nil {
 		out.Deprecated = &infrav1.HetznerBareMetalMachineDeprecatedStatus{
 			V1Beta1: &infrav1.HetznerBareMetalMachineV1Beta1DeprecatedStatus{
+				Conditions:     convertDeprecatedConditionsToV1Beta2(in.Conditions),
 				FailureReason:  in.FailureReason,
 				FailureMessage: in.FailureMessage,
 			},
-		}
-		if len(in.Conditions) > 0 {
-			out.Deprecated.V1Beta1.Conditions = convertDeprecatedConditionsToV1Beta2(in.Conditions)
 		}
 	}
 
