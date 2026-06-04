@@ -2577,9 +2577,13 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 	// Permanent errors are those ones that do not get solved with de- or re-provisioning.
 	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType != infrav1.PermanentError {
 		s.scope.HetznerBareMetalHost.ClearError()
-		v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
-		v1beta2conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition)
 	}
+
+	// Always clear the ProvisionSucceeded condition during deprovisioning to avoid a misleading
+	// StillProvisioning condition with an empty state when a permanent error occur.
+	// The permanent error details remain in status.ErrorMessage.
+	v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
+	v1beta2conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition)
 	return actionComplete{} // next: None
 }
 
