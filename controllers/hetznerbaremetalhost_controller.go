@@ -609,6 +609,7 @@ func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost
 	bmHost.Spec.Status.ErrorType = ""
 	bmHost.Spec.Status.ErrorMessage = ""
 	bmHost.Spec.Status.ErrorCount = 0
+	v1beta2conditions.Delete(bmHost, infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition)
 	record.Eventf(bmHost, "PermanentErrorWasRemoved", "The permanent error was removed, because the annotation %q was removed",
 		infrav1.PermanentErrorAnnotation)
 	return true
