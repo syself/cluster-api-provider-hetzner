@@ -47,7 +47,7 @@ import (
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/imageurlcmd"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/imageurlcommand"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -1023,9 +1023,9 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		if outputJSON, readErr := hcloudSSHClient.ReadOutputJSON(ctx); readErr == nil {
-			var output sshclient.ImageURLCommandOutputV2
+			var output imageurlcommand.OutputV2
 			if jsonErr := json.Unmarshal([]byte(outputJSON), &output); jsonErr == nil && output.Status != "" {
-				imageurlcmd.ApplyNodeProvisioningConditions(hm, output)
+				imageurlcommand.ApplyNodeProvisioningConditions(hm, output)
 			}
 		}
 

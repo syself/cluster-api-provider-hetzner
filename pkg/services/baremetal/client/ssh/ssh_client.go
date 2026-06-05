@@ -50,27 +50,6 @@ const (
 	outputJSONMaxRetries = 10
 )
 
-// ImageURLCommandOutputV2 is the format of /root/output.json written by the image-url-command binary.
-// Written during execution and on completion; presence and content are optional from CAPH's perspective.
-type ImageURLCommandOutputV2 struct {
-	Status string                                `json:"status"`
-	Phases map[string]ImageURLCommandPhaseResult `json:"phases"`
-}
-
-// ImageURLCommandPhaseResult holds the result of one provisioning phase.
-type ImageURLCommandPhaseResult struct {
-	Status     string                      `json:"status"`
-	FailedStep string                      `json:"failedStep,omitempty"`
-	Steps      []ImageURLCommandStepResult `json:"steps"`
-}
-
-// ImageURLCommandStepResult holds the result of one step within a phase.
-type ImageURLCommandStepResult struct {
-	Name    string `json:"name"`
-	Status  string `json:"status"`
-	Message string `json:"message"`
-}
-
 //go:embed detect-linux-on-another-disk.sh
 var detectLinuxOnAnotherDiskShellScript string
 
@@ -975,4 +954,3 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 	}
 	return "", fmt.Errorf("output.json did not end with '}' after %d retries", outputJSONMaxRetries)
 }
-

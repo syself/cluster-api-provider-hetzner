@@ -48,7 +48,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/imageurlcmd"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/imageurlcommand"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -1332,9 +1332,9 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
 
 		if outputJSON, readErr := sshClient.ReadOutputJSON(ctx); readErr == nil {
-			var output sshclient.ImageURLCommandOutputV2
+			var output imageurlcommand.OutputV2
 			if jsonErr := json.Unmarshal([]byte(outputJSON), &output); jsonErr == nil && output.Status != "" {
-				imageurlcmd.ApplyNodeProvisioningConditions(host, output)
+				imageurlcommand.ApplyNodeProvisioningConditions(host, output)
 			}
 		}
 
@@ -1483,7 +1483,6 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		return actionError{err: fmt.Errorf("unknown ImageURLCommandState: %q", state)}
 	}
 }
-
 
 func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Context, sshClient sshclient.Client) actionResult {
 	// CheckDisk before accessing the disk
