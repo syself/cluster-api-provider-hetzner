@@ -1325,6 +1325,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
+		if outputJSON, readErr := sshClient.ReadOutputJSON(ctx); readErr == nil {
+			var output imageurlcommand.OutputV2
+			if jsonErr := json.Unmarshal([]byte(outputJSON), &output); jsonErr == nil && output.Status != "" {
+				imageurlcommand.ApplyNodeProvisioningConditions(host, output)
+			}
+		}
 		return actionContinue{delay: 10 * time.Second}
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
@@ -1336,6 +1342,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			if jsonErr := json.Unmarshal([]byte(outputJSON), &output); jsonErr == nil && output.Status != "" {
 				imageurlcommand.ApplyNodeProvisioningConditions(host, output)
 			}
+			record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
+			s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 		}
 
 		// Update name in robot API
@@ -1365,6 +1373,10 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", logFile)
 		msg := "image-url-command failed"
 		s.scope.Error(nil, msg, "logFile", logFile)
+		if outputJSON, readErr := sshClient.ReadOutputJSON(ctx); readErr == nil {
+			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
+			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+		}
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)

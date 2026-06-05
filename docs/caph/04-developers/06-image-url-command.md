@@ -80,8 +80,8 @@ provisioning.
 
 ## output.json (optional)
 
-The command may write `/root/output.json` at any point during execution. CAPH reads it on
-completion to set detailed phase conditions on the machine. If the file does not exist, provisioning
+The command may write `/root/output.json` at any point during execution. CAPH reads it
+continuously to set detailed phase conditions on the machine. If the file does not exist, provisioning
 still succeeds based on `IMAGE_URL_DONE` alone.
 
 ```json
@@ -117,6 +117,8 @@ still succeeds based on `IMAGE_URL_DONE` alone.
   }
 }
 ```
+
+When the command finishes (success or failure), CAPH emits a Kubernetes event with reason `ImageURLCommandOutputJSON` containing the full JSON content. If the command failed, the event type is `Warning`; otherwise it is `Normal`. The content is also written to the controller log at key `outputJSON`.
 
 When present, CAPH maps each phase to a condition on the machine (HCloudMachine or HetznerBareMetalHost):
 

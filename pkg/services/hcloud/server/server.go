@@ -1019,6 +1019,12 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			Reason:  infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason,
 			Message: "imageURLCommand running",
 		})
+		if outputJSON, readErr := hcloudSSHClient.ReadOutputJSON(ctx); readErr == nil {
+			var output imageurlcommand.OutputV2
+			if jsonErr := json.Unmarshal([]byte(outputJSON), &output); jsonErr == nil && output.Status != "" {
+				imageurlcommand.ApplyNodeProvisioningConditions(hm, output)
+			}
+		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
@@ -1027,6 +1033,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			if jsonErr := json.Unmarshal([]byte(outputJSON), &output); jsonErr == nil && output.Status != "" {
 				imageurlcommand.ApplyNodeProvisioningConditions(hm, output)
 			}
+			record.Event(hm, "ImageURLCommandOutputJSON", outputJSON)
+			s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 		}
 
 		// The image got installed. Now reboot in the real operating system.
@@ -1049,6 +1057,10 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	case sshclient.ImageURLCommandStateFailed:
+		if outputJSON, readErr := hcloudSSHClient.ReadOutputJSON(ctx); readErr == nil {
+			record.Warn(hm, "ImageURLCommandOutputJSON", outputJSON)
+			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+		}
 		msg := "ImageURLCommand failed. Deleting machine"
 		err = errors.New(msg)
 		s.scope.Error(err, "", "logFile", logFile)
