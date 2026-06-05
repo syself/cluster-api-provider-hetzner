@@ -18,6 +18,8 @@ limitations under the License.
 package imageurlcommand
 
 import (
+	"encoding/json"
+
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 
@@ -26,20 +28,25 @@ import (
 
 // ApplyNodeProvisioningConditions sets NodeProvisioningSucceededCondition based on
 // the top-level status field of the image-url-command output.json.
-// Returns true if the command succeeded.
-func ApplyNodeProvisioningConditions(obj v1beta1conditions.Setter, output OutputV2) bool {
+func ApplyNodeProvisioningConditions(obj v1beta1conditions.Setter, output OutputV2) {
 	switch output.Status {
 	case "Succeeded":
 		v1beta1conditions.MarkTrue(obj, infrav1.NodeProvisioningSucceededCondition)
-		return true
 	case "Failed":
 		v1beta1conditions.MarkFalse(obj, infrav1.NodeProvisioningSucceededCondition,
 			infrav1.NodeProvisioningFailedReason, clusterv1beta1.ConditionSeverityError,
 			"%s", output.Message)
-		return false
 	default:
 		v1beta1conditions.MarkUnknown(obj, infrav1.NodeProvisioningSucceededCondition,
 			infrav1.NodeProvisioningInProgressReason, "provisioning in progress")
-		return false
+	}
+}
+
+// ParseAndApply unmarshals content into OutputV2 and updates conditions on obj.
+// It is a no-op if content is empty, not valid JSON, or has no status field.
+func ParseAndApply(obj v1beta1conditions.Setter, content string) {
+	var output OutputV2
+	if err := json.Unmarshal([]byte(content), &output); err == nil && output.Status != "" {
+		ApplyNodeProvisioningConditions(obj, output)
 	}
 }

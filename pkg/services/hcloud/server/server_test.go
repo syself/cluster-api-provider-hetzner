@@ -1280,7 +1280,7 @@ var _ = Describe("Reconcile", func() {
 			Err:    nil,
 		})
 		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "output-of-image-url-command", nil)
-		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return("", fmt.Errorf("no output.json")).Once()
+		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return(`{"status":"Succeeded"}`, nil).Once()
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
 			ID:            1,
 			Name:          "hcloudmachinenameWithRescueEnabled",
@@ -1290,6 +1290,7 @@ var _ = Describe("Reconcile", func() {
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
+		Expect(v1beta1conditions.IsTrue(service.scope.HCloudMachine, infrav1.NodeProvisioningSucceededCondition)).To(BeTrue())
 
 		By("ensuring the bootstate has transitioned to BootingToRealOS")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))

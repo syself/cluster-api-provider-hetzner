@@ -951,6 +951,7 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 		if strings.HasSuffix(content, "}") {
 			return content, nil
 		}
+		time.Sleep(50 * time.Millisecond)
 	}
-	return "", fmt.Errorf("output.json did not end with '}' after %d retries", outputJSONMaxRetries)
+	return "", fmt.Errorf("output.json did not end with '}' after %d attempts", outputJSONMaxRetries)
 }

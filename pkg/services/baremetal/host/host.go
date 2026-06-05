@@ -1326,10 +1326,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
 		if outputJSON, readErr := sshClient.ReadOutputJSON(ctx); readErr == nil {
-			var output imageurlcommand.OutputV2
-			if jsonErr := json.Unmarshal([]byte(outputJSON), &output); jsonErr == nil && output.Status != "" {
-				imageurlcommand.ApplyNodeProvisioningConditions(host, output)
-			}
+			imageurlcommand.ParseAndApply(host, outputJSON)
 		}
 		return actionContinue{delay: 10 * time.Second}
 
@@ -1338,10 +1335,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
 
 		if outputJSON, readErr := sshClient.ReadOutputJSON(ctx); readErr == nil {
-			var output imageurlcommand.OutputV2
-			if jsonErr := json.Unmarshal([]byte(outputJSON), &output); jsonErr == nil && output.Status != "" {
-				imageurlcommand.ApplyNodeProvisioningConditions(host, output)
-			}
+			imageurlcommand.ParseAndApply(host, outputJSON)
 			record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 		}

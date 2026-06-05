@@ -19,7 +19,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -1020,19 +1019,13 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			Message: "imageURLCommand running",
 		})
 		if outputJSON, readErr := hcloudSSHClient.ReadOutputJSON(ctx); readErr == nil {
-			var output imageurlcommand.OutputV2
-			if jsonErr := json.Unmarshal([]byte(outputJSON), &output); jsonErr == nil && output.Status != "" {
-				imageurlcommand.ApplyNodeProvisioningConditions(hm, output)
-			}
+			imageurlcommand.ParseAndApply(hm, outputJSON)
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		if outputJSON, readErr := hcloudSSHClient.ReadOutputJSON(ctx); readErr == nil {
-			var output imageurlcommand.OutputV2
-			if jsonErr := json.Unmarshal([]byte(outputJSON), &output); jsonErr == nil && output.Status != "" {
-				imageurlcommand.ApplyNodeProvisioningConditions(hm, output)
-			}
+			imageurlcommand.ParseAndApply(hm, outputJSON)
 			record.Event(hm, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 		}

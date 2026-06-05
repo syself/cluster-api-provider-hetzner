@@ -120,17 +120,7 @@ still succeeds based on `IMAGE_URL_DONE` alone.
 
 When the command finishes (success or failure), CAPH emits a Kubernetes event with reason `ImageURLCommandOutputJSON` containing the full JSON content. If the command failed, the event type is `Warning`; otherwise it is `Normal`. The content is also written to the controller log at key `outputJSON`.
 
-When present, CAPH maps each phase to a condition on the machine (HCloudMachine or HetznerBareMetalHost):
-
-| Condition | Phase |
-|-----------|-------|
-| `PreparationSucceeded` | Preparation — disks partitioned, filesystems mounted, required binaries verified |
-| `ImageDeploymentSucceeded` | ImageDeployment — OCI tarball pulled, checksum/signature verified, image written to disk |
-| `BootstrapDeliverySucceeded` | BootstrapDelivery — cloud-init/CAPI bootstrap data written into the deployed image |
-| `HandoverSucceeded` | Handover — reboot initiated; binary completed, controller takes over |
-| `NodeProvisioningSucceeded` | Aggregate of all four phases above |
-
-Each condition uses the reason `Succeeded`, `Failed`, or `NotStarted`.
+When present, CAPH sets the `NodeProvisioningSucceeded` condition on the machine (HCloudMachine or HetznerBareMetalHost) based on the top-level `status` field.
 
 ## Measured durations for hcloud
 
