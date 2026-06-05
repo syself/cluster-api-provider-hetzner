@@ -34,6 +34,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -1117,6 +1118,16 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 				ErrorType:    infrav1.PermanentError,
 				ErrorCount:   1,
 				ErrorMessage: "my err",
+				V1Beta2: &infrav1.HetznerBareMetalHostV1Beta2Status{
+					Conditions: []metav1.Condition{
+						{
+							Type:    infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition,
+							Status:  metav1.ConditionFalse,
+							Reason:  infrav1.HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason,
+							Message: "my err",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -1126,6 +1137,8 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 	require.Empty(t, bmHost.Spec.Status.ErrorCount)
 	require.Empty(t, bmHost.Spec.Status.ErrorMessage)
 	require.Equal(t, map[string]string{"other-annotation": "some value"}, bmHost.Annotations)
+
+	require.Nil(t, v1beta2conditions.Get(&bmHost, infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition))
 
 	// Other Error without annotation --> Error should not get removed
 	bmHost = infrav1.HetznerBareMetalHost{

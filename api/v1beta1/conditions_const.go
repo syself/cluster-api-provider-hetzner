@@ -698,3 +698,12 @@ const (
 	// HetznerBareMetalHostRobotRateLimitExceededV1Beta2Reason indicates the Robot API rate limit has been exceeded.
 	HetznerBareMetalHostRobotRateLimitExceededV1Beta2Reason = "Exceeded"
 )
+
+const (
+	// HetznerBareMetalHostActionCompletedV1Beta2Condition reports that the host is currently in a non-terminal
+	// or failure state during an action such as provisioning or post-provisioning operations.
+	// This condition is only present when there is a failure or a stuck state that requires user-visible reporting.
+	HetznerBareMetalHostActionCompletedV1Beta2Condition = "ActionCompleted"
+	// HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason represents a fatal, non-recoverable error that persists on the host.
+	HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason = "PermanentError"
+)

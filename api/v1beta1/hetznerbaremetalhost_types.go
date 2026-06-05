@@ -440,6 +440,7 @@ func HetznerBareMetalHostV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption 
 		// surfaces them in this order, so the most important issue is listed first.
 		v1beta2conditions.ForConditionTypes{
 			HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+			HetznerBareMetalHostActionCompletedV1Beta2Condition,
 			HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
 			HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
 			HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
@@ -454,6 +455,7 @@ func HetznerBareMetalHostV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption 
 		// checked or before the host has been provisioned), and we don't want
 		// those early exits to flip Ready to Unknown.
 		v1beta2conditions.IgnoreTypesIfMissing{
+			HetznerBareMetalHostActionCompletedV1Beta2Condition,
 			HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
 			HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
 			HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
@@ -723,12 +725,21 @@ func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string)
 	host.Spec.Status.ErrorType = errType
 	host.Spec.Status.ErrorMessage = errMessage
 	if errType == PermanentError {
+		// set the permanent error annotation.
 		if host.Annotations == nil {
 			host.Annotations = make(map[string]string, 1)
 		}
 		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
 		record.Warnf(host, "PermanentErrorSet", "Remove annotation %q, if you want the controller to use the hbmh again.",
 			PermanentErrorAnnotation)
+
+		// set the ActionCompleted condition to false with reason PermanentError.
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:    HetznerBareMetalHostActionCompletedV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason,
+			Message: errMessage,
+		})
 	}
 }
 
