@@ -2492,13 +2492,13 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	v1beta1conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 		"WaitingForNodeToBeRebooted",
 		clusterv1beta1.ConditionSeverityInfo,
-		"Waiting for BootID of Node in workload cluster to change",
+		"Waiting for the node to be rebooted",
 	)
 	v1beta2conditions.Set(host, metav1.Condition{
 		Type:    infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
 		Status:  metav1.ConditionFalse,
 		Reason:  infrav1.HetznerBareMetalHostRebootingV1Beta2Reason,
-		Message: "Waiting for BootID of Node in workload cluster to change",
+		Message: "Waiting for the node to be rebooted",
 	})
 
 	return actionContinue{delay: 10 * time.Second}
@@ -2586,9 +2586,13 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 	// Permanent errors are those ones that do not get solved with de- or re-provisioning.
 	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType != infrav1.PermanentError {
 		s.scope.HetznerBareMetalHost.ClearError()
-		v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
-		v1beta2conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition)
 	}
+
+	// Always clear the ProvisionSucceeded condition during deprovisioning to avoid a misleading
+	// StillProvisioning condition with an empty state when a permanent error occur.
+	// The permanent error details remain in status.ErrorMessage.
+	v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
+	v1beta2conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition)
 	return actionComplete{} // next: None
 }
 
