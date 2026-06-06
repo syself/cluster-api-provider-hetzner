@@ -411,6 +411,27 @@ func TestHetznerBareMetalMachineRoundTripPreservesFalseProvisionedIntent(t *test
 	}
 }
 
+// TestHetznerBareMetalMachineConvertToNilProvisionedForFalseReadyWithoutAnnotation verifies that a
+// v1beta1 HetznerBareMetalMachine with status.ready=false and no conversion data annotation converts
+// to status.initialization.provisioned=nil (not *false): a bare false ready is not a deliberate
+// provisioning signal, so the value is treated as unknown.
+func TestHetznerBareMetalMachineConvertToNilProvisionedForFalseReadyWithoutAnnotation(t *testing.T) {
+	src := &HetznerBareMetalMachine{
+		Status: HetznerBareMetalMachineStatus{
+			Ready: false,
+		},
+	}
+
+	dst := &infrav1.HetznerBareMetalMachine{}
+	if err := src.ConvertTo(dst); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+
+	if dst.Status.Initialization.Provisioned != nil {
+		t.Fatalf("status.initialization.provisioned = %v, want nil", dst.Status.Initialization.Provisioned)
+	}
+}
+
 // TestHetznerBareMetalMachineRoundTripPreservesFailureFields verifies that status.failureReason and
 // status.failureMessage survive a v1beta1 -> v1beta2 -> v1beta1 round trip. On the v1beta2 type they
 // live under status.deprecated.v1beta1.

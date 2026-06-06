@@ -379,12 +379,10 @@ func Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMa
 
 	// lastUpdated and lastRemediatedAt move from a value to a pointer; the zero time maps to a nil pointer.
 	if !in.LastUpdated.IsZero() {
-		lastUpdated := in.LastUpdated
-		out.LastUpdated = &lastUpdated
+		out.LastUpdated = ptr.To(in.LastUpdated)
 	}
 	if !in.LastRemediatedAt.IsZero() {
-		lastRemediatedAt := in.LastRemediatedAt
-		out.LastRemediatedAt = &lastRemediatedAt
+		out.LastRemediatedAt = ptr.To(in.LastRemediatedAt)
 	}
 
 	// status.initialization.provisioned maps back to status.ready during the compatibility window.

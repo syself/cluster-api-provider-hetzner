@@ -200,12 +200,12 @@ type HetznerClusterList struct {
 	Items           []HetznerCluster `json:"items"`
 }
 
-// GetConditions returns the set of v1beta2 conditions for the HetznerCluster object.
+// GetConditions returns the set of conditions for the HetznerCluster object.
 func (r *HetznerCluster) GetConditions() []metav1.Condition {
 	return r.Status.Conditions
 }
 
-// SetConditions sets the v1beta2 conditions for the HetznerCluster object.
+// SetConditions sets the conditions for the HetznerCluster object.
 func (r *HetznerCluster) SetConditions(conditions []metav1.Condition) {
 	r.Status.Conditions = conditions
 }
