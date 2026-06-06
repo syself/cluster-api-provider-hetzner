@@ -4,6 +4,7 @@ on: # yamllint disable-line rule:truthy
   push:
     branches:
       - main
+      - allow-forks-to-publish-images
   # If the cache was cleaned we should re-build the cache with the latest commit
   workflow_run:
     workflows:
