@@ -37,6 +37,7 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
@@ -47,6 +48,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
@@ -206,6 +208,7 @@ var _ scope.WorkloadClusterClientFactory = &fakeWorkloadClusterClientFactory{}
 
 var _ = BeforeSuite(func() {
 	utilruntime.Must(infrav1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(infrav2.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
 
 	testEnv = helpers.NewTestEnvironment()
@@ -470,6 +473,18 @@ func isPresentAndFalseWithReasonV2(key types.NamespacedName, obj client.Object, 
 	return c != nil && c.Status == corev1.ConditionFalse && c.Reason == reason
 }
 
+func isPresentAndTrueV2(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType) bool {
+	if err := testEnv.Get(ctx, key, obj); err != nil {
+		return false
+	}
+	getter, ok := obj.(deprecatedv1beta1conditions.Getter)
+	if !ok {
+		return false
+	}
+	c := deprecatedv1beta1conditions.Get(getter, condition)
+	return c != nil && c.Status == corev1.ConditionTrue
+}
+
 func isPresentAndTrue(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType) bool {
 	err := testEnv.Get(ctx, key, getter)
 	if err != nil {
@@ -486,6 +501,11 @@ func isPresentAndTrue(key types.NamespacedName, getter v1beta1conditions.Getter,
 func isV1Beta2ConditionWithStatusAndReason(key types.NamespacedName, getter client.Object, condition string, status metav1.ConditionStatus, reason string) bool {
 	if err := testEnv.Get(ctx, key, getter); err != nil {
 		return false
+	}
+
+	if nativeGetter, ok := getter.(conditions.Getter); ok {
+		objectCondition := conditions.Get(nativeGetter, condition)
+		return objectCondition != nil && objectCondition.Status == status && objectCondition.Reason == reason
 	}
 
 	v1beta2Getter, ok := getter.(v1beta2conditions.Getter)
@@ -508,6 +528,10 @@ func isPresentAndFalseWithReasonV1Beta2(key types.NamespacedName, getter client.
 func isAbsentV1Beta2(key types.NamespacedName, getter client.Object, condition string) bool {
 	if err := testEnv.Get(ctx, key, getter); err != nil {
 		return false
+	}
+
+	if nativeGetter, ok := getter.(conditions.Getter); ok {
+		return conditions.Get(nativeGetter, condition) == nil
 	}
 
 	v1beta2Getter, ok := getter.(v1beta2conditions.Getter)

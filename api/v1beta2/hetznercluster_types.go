@@ -19,6 +19,7 @@ package v1beta2
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 )
 
 const (
@@ -229,6 +230,59 @@ func (r *HetznerCluster) SetV1Beta1Conditions(conditions clusterv1.Conditions) {
 		r.Status.Deprecated.V1Beta1 = &HetznerClusterV1Beta1DeprecatedStatus{}
 	}
 	r.Status.Deprecated.V1Beta1.Conditions = conditions
+}
+
+// HetznerClusterSummaryOpts returns the v1beta2 summary options for a HetznerCluster.
+// It is the single source of truth for which conditions contribute to the Ready summary,
+// used both by ClusterScope.Close() and by early-exit error paths that bypass the scope.
+func HetznerClusterSummaryOpts() []conditions.SummaryOption {
+	return []conditions.SummaryOption{
+		// The summary is derived from all condition types listed in ForConditionTypes.
+		// The order matters: it defines the priority in which conditions surface in the summary.
+		conditions.ForConditionTypes{
+			HCloudTokenAvailableCondition,
+			HCloudRateLimitExceededCondition,
+			HetznerClusterDeletingCondition,
+			HetznerClusterNetworkReadyCondition,
+			HetznerClusterLoadBalancerReadyCondition,
+			HetznerClusterPlacementGroupsSyncedCondition,
+			HetznerClusterControlPlaneEndpointSetCondition,
+			HetznerClusterTargetClusterReadyCondition,
+			HetznerClusterTargetClusterSecretReadyCondition,
+		},
+		// IgnoreTypesIfMissing lists conditions that may legitimately not be present on the object.
+		// If any of these are missing, the summary treats them as if they are healthy.
+		conditions.IgnoreTypesIfMissing{
+			HetznerClusterNetworkReadyCondition,
+			HetznerClusterLoadBalancerReadyCondition,
+			HetznerClusterDeletingCondition,
+			HCloudRateLimitExceededCondition,
+		},
+		// CustomMergeStrategy is used only to override the merge reasons, so
+		// the Ready summary uses CAPI's standard Ready reasons (Ready /
+		// NotReady / ReadyUnknown) instead of the generic merge defaults
+		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
+		conditions.CustomMergeStrategy{
+			MergeStrategy: conditions.DefaultMergeStrategy(
+				conditions.GetPriorityFunc(conditions.GetDefaultMergePriorityFunc(
+					// conditions with negative polarity
+					HCloudRateLimitExceededCondition,
+					HetznerClusterDeletingCondition,
+				)),
+				conditions.ComputeReasonFunc(conditions.GetDefaultComputeMergeReasonFunc(
+					clusterv1.NotReadyReason,
+					clusterv1.ReadyUnknownReason,
+					clusterv1.ReadyReason,
+				)),
+			),
+		},
+	}
 }
 
 // ClusterTagKey generates the key for resources associated with a cluster.

@@ -86,9 +86,6 @@ func initializeWebhookInEnvironment() {
 	if err != nil {
 		klog.Fatalf("Failed to read core webhook configuration file: %v ", err)
 	}
-	if err != nil {
-		klog.Fatalf("failed to parse yaml")
-	}
 	// append the webhook with suffix to avoid clashing webhooks. repeated for every webhook
 	mutatingWebhooks, validatingWebhooks, err := appendWebhookConfiguration(configyamlFile, "config")
 	if err != nil {

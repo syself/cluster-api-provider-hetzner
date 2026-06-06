@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	"sigs.k8s.io/randfill"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // TestFuzzyConversion checks that converting a CAPH object between v1beta1 and v1beta2 is
@@ -57,21 +57,21 @@ func TestFuzzyConversion(t *testing.T) {
 	if err := AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add v1beta1 to scheme: %v", err)
 	}
-	if err := infrav1.AddToScheme(scheme); err != nil {
+	if err := infrav2.AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add v1beta2 to scheme: %v", err)
 	}
 
-	t.Run("for HetznerCluster", fuzzyConversionTestFunc(scheme, &infrav1.HetznerCluster{}, &HetznerCluster{}))
-	t.Run("for HetznerClusterTemplate", fuzzyConversionTestFunc(scheme, &infrav1.HetznerClusterTemplate{}, &HetznerClusterTemplate{}))
-	t.Run("for HCloudMachine", fuzzyConversionTestFunc(scheme, &infrav1.HCloudMachine{}, &HCloudMachine{}))
-	t.Run("for HCloudMachineTemplate", fuzzyConversionTestFunc(scheme, &infrav1.HCloudMachineTemplate{}, &HCloudMachineTemplate{}))
-	t.Run("for HCloudRemediation", fuzzyConversionTestFunc(scheme, &infrav1.HCloudRemediation{}, &HCloudRemediation{}))
-	t.Run("for HCloudRemediationTemplate", fuzzyConversionTestFunc(scheme, &infrav1.HCloudRemediationTemplate{}, &HCloudRemediationTemplate{}))
-	t.Run("for HetznerBareMetalHost", fuzzyConversionTestFunc(scheme, &infrav1.HetznerBareMetalHost{}, &HetznerBareMetalHost{}))
-	t.Run("for HetznerBareMetalMachine", fuzzyConversionTestFunc(scheme, &infrav1.HetznerBareMetalMachine{}, &HetznerBareMetalMachine{}))
-	t.Run("for HetznerBareMetalMachineTemplate", fuzzyConversionTestFunc(scheme, &infrav1.HetznerBareMetalMachineTemplate{}, &HetznerBareMetalMachineTemplate{}))
-	t.Run("for HetznerBareMetalRemediation", fuzzyConversionTestFunc(scheme, &infrav1.HetznerBareMetalRemediation{}, &HetznerBareMetalRemediation{}))
-	t.Run("for HetznerBareMetalRemediationTemplate", fuzzyConversionTestFunc(scheme, &infrav1.HetznerBareMetalRemediationTemplate{}, &HetznerBareMetalRemediationTemplate{}))
+	t.Run("for HetznerCluster", fuzzyConversionTestFunc(scheme, &infrav2.HetznerCluster{}, &HetznerCluster{}))
+	t.Run("for HetznerClusterTemplate", fuzzyConversionTestFunc(scheme, &infrav2.HetznerClusterTemplate{}, &HetznerClusterTemplate{}))
+	t.Run("for HCloudMachine", fuzzyConversionTestFunc(scheme, &infrav2.HCloudMachine{}, &HCloudMachine{}))
+	t.Run("for HCloudMachineTemplate", fuzzyConversionTestFunc(scheme, &infrav2.HCloudMachineTemplate{}, &HCloudMachineTemplate{}))
+	t.Run("for HCloudRemediation", fuzzyConversionTestFunc(scheme, &infrav2.HCloudRemediation{}, &HCloudRemediation{}))
+	t.Run("for HCloudRemediationTemplate", fuzzyConversionTestFunc(scheme, &infrav2.HCloudRemediationTemplate{}, &HCloudRemediationTemplate{}))
+	t.Run("for HetznerBareMetalHost", fuzzyConversionTestFunc(scheme, &infrav2.HetznerBareMetalHost{}, &HetznerBareMetalHost{}))
+	t.Run("for HetznerBareMetalMachine", fuzzyConversionTestFunc(scheme, &infrav2.HetznerBareMetalMachine{}, &HetznerBareMetalMachine{}))
+	t.Run("for HetznerBareMetalMachineTemplate", fuzzyConversionTestFunc(scheme, &infrav2.HetznerBareMetalMachineTemplate{}, &HetznerBareMetalMachineTemplate{}))
+	t.Run("for HetznerBareMetalRemediation", fuzzyConversionTestFunc(scheme, &infrav2.HetznerBareMetalRemediation{}, &HetznerBareMetalRemediation{}))
+	t.Run("for HetznerBareMetalRemediationTemplate", fuzzyConversionTestFunc(scheme, &infrav2.HetznerBareMetalRemediationTemplate{}, &HetznerBareMetalRemediationTemplate{}))
 }
 
 // These focused ConsumerRef tests cover the intentional non-round-tripped parts of the v1beta2
@@ -100,7 +100,7 @@ func TestConvertHetznerBareMetalHostConsumerRefToV1Beta2(t *testing.T) {
 			},
 		},
 	}
-	dst := &infrav1.HetznerBareMetalHost{}
+	dst := &infrav2.HetznerBareMetalHost{}
 
 	if err := Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(src, dst, nil); err != nil {
 		t.Fatalf("failed to convert HetznerBareMetalHost to v1beta2: %v", err)
@@ -136,17 +136,17 @@ func TestConvertHetznerBareMetalHostConsumerRefToV1Beta2(t *testing.T) {
 // TestConvertHetznerBareMetalHostConsumerRefToV1Beta1RestoresNamespace verifies that converting
 // from v1beta2 restores the v1beta1 ConsumerRef namespace from the host namespace.
 func TestConvertHetznerBareMetalHostConsumerRefToV1Beta1RestoresNamespace(t *testing.T) {
-	src := &infrav1.HetznerBareMetalHost{
+	src := &infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "host-a",
 			Namespace: "host-namespace",
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
+		Spec: infrav2.HetznerBareMetalHostSpec{
 			ServerID: 1,
-			ConsumerRef: &infrav1.HetznerBareMetalHostConsumerReference{
+			ConsumerRef: &infrav2.HetznerBareMetalHostConsumerReference{
 				Kind:     "HetznerBareMetalMachine",
 				Name:     "machine-a",
-				APIGroup: infrav1.GroupVersion.Group,
+				APIGroup: infrav2.GroupVersion.Group,
 			},
 		},
 	}
@@ -175,7 +175,7 @@ func TestConvertHetznerBareMetalHostConsumerRefToV1Beta1RestoresNamespace(t *tes
 // TestConvertHetznerBareMetalHostConsumerRefNil verifies that nil ConsumerRef values stay nil in
 // both conversion directions.
 func TestConvertHetznerBareMetalHostConsumerRefNil(t *testing.T) {
-	toV1Beta2 := &infrav1.HetznerBareMetalHostSpec{}
+	toV1Beta2 := &infrav2.HetznerBareMetalHostSpec{}
 	if err := Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(&HetznerBareMetalHostSpec{}, toV1Beta2, nil); err != nil {
 		t.Fatalf("failed to convert nil ConsumerRef to v1beta2: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestConvertHetznerBareMetalHostConsumerRefNil(t *testing.T) {
 	}
 
 	toV1Beta1 := &HetznerBareMetalHostSpec{}
-	if err := Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(&infrav1.HetznerBareMetalHostSpec{}, toV1Beta1, nil); err != nil {
+	if err := Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(&infrav2.HetznerBareMetalHostSpec{}, toV1Beta1, nil); err != nil {
 		t.Fatalf("failed to convert nil ConsumerRef to v1beta1: %v", err)
 	}
 	if toV1Beta1.ConsumerRef != nil {
@@ -202,7 +202,7 @@ func TestConvertHetznerBareMetalHostConsumerRefInvalidAPIVersion(t *testing.T) {
 			Name:       "machine-a",
 		},
 	}
-	dst := &infrav1.HetznerBareMetalHostSpec{}
+	dst := &infrav2.HetznerBareMetalHostSpec{}
 
 	if err := Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(src, dst, nil); err == nil {
 		t.Fatal("expected invalid ConsumerRef apiVersion to fail conversion")
@@ -279,7 +279,7 @@ func TestHetznerClusterConvertToPromoteV1Beta2Shape(t *testing.T) {
 		},
 	}
 
-	dst := &infrav1.HetznerCluster{}
+	dst := &infrav2.HetznerCluster{}
 	if err := src.ConvertTo(dst); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -296,9 +296,9 @@ func TestHetznerClusterConvertToPromoteV1Beta2Shape(t *testing.T) {
 	if dst.Spec.ControlPlaneEndpoint.Host != "1.2.3.4" || dst.Spec.ControlPlaneEndpoint.Port != 6443 {
 		t.Fatalf("controlPlaneEndpoint mismatch: %#v", dst.Spec.ControlPlaneEndpoint)
 	}
-	if !reflect.DeepEqual(dst.Spec.SSHKeys.RescueSecretRef, infrav1.SSHSecretRef{
+	if !reflect.DeepEqual(dst.Spec.SSHKeys.RescueSecretRef, infrav2.SSHSecretRef{
 		Name: "rescue-ssh",
-		Key: infrav1.SSHSecretKeyRef{
+		Key: infrav2.SSHSecretKeyRef{
 			Name:       "name",
 			PublicKey:  "public",
 			PrivateKey: "private",
@@ -350,13 +350,13 @@ func TestHetznerClusterConvertFromDemoteV1Beta2Shape(t *testing.T) {
 		},
 	}
 
-	src := &infrav1.HetznerCluster{
-		Spec: infrav1.HetznerClusterSpec{
-			ControlPlaneEndpoint: infrav1.APIEndpoint{Host: "5.6.7.8", Port: 8443},
-			SSHKeys: infrav1.HetznerSSHKeys{
-				RescueSecretRef: infrav1.SSHSecretRef{
+	src := &infrav2.HetznerCluster{
+		Spec: infrav2.HetznerClusterSpec{
+			ControlPlaneEndpoint: infrav2.APIEndpoint{Host: "5.6.7.8", Port: 8443},
+			SSHKeys: infrav2.HetznerSSHKeys{
+				RescueSecretRef: infrav2.SSHSecretRef{
 					Name: "rescue-ssh",
-					Key: infrav1.SSHSecretKeyRef{
+					Key: infrav2.SSHSecretKeyRef{
 						Name:       "name",
 						PublicKey:  "public",
 						PrivateKey: "private",
@@ -364,17 +364,17 @@ func TestHetznerClusterConvertFromDemoteV1Beta2Shape(t *testing.T) {
 				},
 			},
 		},
-		Status: infrav1.HetznerClusterStatus{
+		Status: infrav2.HetznerClusterStatus{
 			Conditions: v1beta2Conditions,
-			Initialization: infrav1.HetznerClusterInitializationStatus{
+			Initialization: infrav2.HetznerClusterInitializationStatus{
 				Provisioned: ptr.To(true),
 			},
 			FailureDomains: []clusterv1.FailureDomain{
 				{Name: "nbg1", ControlPlane: nil},
 				{Name: "fsn1", ControlPlane: ptr.To(true), Attributes: map[string]string{"zone": "eu-central"}},
 			},
-			Deprecated: &infrav1.HetznerClusterDeprecatedStatus{
-				V1Beta1: &infrav1.HetznerClusterV1Beta1DeprecatedStatus{
+			Deprecated: &infrav2.HetznerClusterDeprecatedStatus{
+				V1Beta1: &infrav2.HetznerClusterV1Beta1DeprecatedStatus{
 					Conditions: deprecatedConditions,
 				},
 			},
@@ -424,9 +424,9 @@ func TestHetznerClusterConvertFromDemoteV1Beta2Shape(t *testing.T) {
 // status.ready to status.initialization.provisioned conversion preserves an explicit
 // false provisioned value through the stored hub annotation.
 func TestHetznerClusterRoundTripPreservesFalseProvisionedIntent(t *testing.T) {
-	src := &infrav1.HetznerCluster{
-		Status: infrav1.HetznerClusterStatus{
-			Initialization: infrav1.HetznerClusterInitializationStatus{
+	src := &infrav2.HetznerCluster{
+		Status: infrav2.HetznerClusterStatus{
+			Initialization: infrav2.HetznerClusterInitializationStatus{
 				Provisioned: ptr.To(false),
 			},
 		},
@@ -437,7 +437,7 @@ func TestHetznerClusterRoundTripPreservesFalseProvisionedIntent(t *testing.T) {
 		t.Fatalf("failed to convert from v1beta2: %v", err)
 	}
 
-	restored := &infrav1.HetznerCluster{}
+	restored := &infrav2.HetznerCluster{}
 	if err := spoke.ConvertTo(restored); err != nil {
 		t.Fatalf("failed to convert back to v1beta2: %v", err)
 	}
@@ -458,7 +458,7 @@ func TestHetznerClusterConvertToNilProvisionedForFalseReadyWithoutAnnotation(t *
 		},
 	}
 
-	dst := &infrav1.HetznerCluster{}
+	dst := &infrav2.HetznerCluster{}
 	if err := src.ConvertTo(dst); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -547,7 +547,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		// empty-vs-nil (or ordering) ambiguity, so normalize them to make the round trip match.
 		// provisioned is left as-is: ConvertTo/ConvertFrom preserve it losslessly via the MarshalData
 		// annotation, so nil, *true and *false all survive.
-		func(in *infrav1.HetznerClusterStatus, c randfill.Continue) {
+		func(in *infrav2.HetznerClusterStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if len(in.Conditions) == 0 {
 				in.Conditions = nil
@@ -571,14 +571,14 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			in.Spec.ConsumerRef.ResourceVersion = ""
 			in.Spec.ConsumerRef.FieldPath = ""
 		},
-		func(in *infrav1.HetznerBareMetalHost, c randfill.Continue) {
+		func(in *infrav2.HetznerBareMetalHost, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.Spec.ConsumerRef == nil {
 				return
 			}
 			// Keep the fuzzed v1beta2 reference in the group that can be rebuilt as a v1beta1
 			// ObjectReference by this package.
-			in.Spec.ConsumerRef.APIGroup = infrav1.GroupVersion.Group
+			in.Spec.ConsumerRef.APIGroup = infrav2.GroupVersion.Group
 		},
 	}
 }

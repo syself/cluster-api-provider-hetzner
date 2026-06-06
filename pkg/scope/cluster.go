@@ -28,14 +28,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
@@ -47,7 +48,7 @@ type ClusterScopeParams struct {
 	HetznerSecret  *corev1.Secret
 	HCloudClient   hcloudclient.Client
 	Cluster        *clusterv1.Cluster
-	HetznerCluster *infrav1.HetznerCluster
+	HetznerCluster *infrav2.HetznerCluster
 }
 
 // NewClusterScope creates a new Scope from the supplied parameters.
@@ -71,7 +72,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		return nil, errors.New("failed to generate new scope from nil Logger")
 	}
 
-	helper, err := v1beta1patch.NewHelper(params.HetznerCluster, params.Client)
+	helper, err := patch.NewHelper(params.HetznerCluster, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
@@ -93,13 +94,13 @@ type ClusterScope struct {
 	logr.Logger
 	Client        client.Client
 	APIReader     client.Reader
-	patchHelper   *v1beta1patch.Helper
+	patchHelper   *patch.Helper
 	hetznerSecret *corev1.Secret
 
 	HCloudClient hcloudclient.Client
 
 	Cluster        *clusterv1.Cluster
-	HetznerCluster *infrav1.HetznerCluster
+	HetznerCluster *infrav2.HetznerCluster
 }
 
 // Name returns the HetznerCluster name.
@@ -119,34 +120,30 @@ func (s *ClusterScope) HetznerSecret() *corev1.Secret {
 
 // Close closes the current scope persisting the cluster configuration and status.
 func (s *ClusterScope) Close(ctx context.Context) error {
-	// set summary for v1beta1 conditions.
-	v1beta1conditions.SetSummary(s.HetznerCluster)
+	// set summary for deprecated v1beta1 conditions.
+	deprecatedv1beta1conditions.SetSummary(s.HetznerCluster)
 
 	// set summary for v1beta2 conditions.
-
-	readyCondition, err := v1beta2conditions.NewSummaryCondition(
+	readyCondition, err := conditions.NewSummaryCondition(
 		s.HetznerCluster,
-		clusterv1beta1.ReadyV1Beta2Condition,
-		infrav1.ClusterV1Beta2SummaryOpts()...,
+		clusterv1.ReadyCondition,
+		infrav2.HetznerClusterSummaryOpts()...,
 	)
 	if err != nil {
-		// Note, this could only happen if we hit edge cases in computing the summary, which should not happen due to the fact
-		// that we are passing a non empty list of ForConditionTypes.
+		// Note, this could only happen if we hit edge cases in computing the summary, which should not
+		// happen due to the fact that we are passing a non empty list of ForConditionTypes.
 		s.Error(err, "Failed to set v1beta2 Ready condition")
-		unknownReadyCondition := metav1.Condition{
-			Type:   clusterv1beta1.ReadyV1Beta2Condition,
+		conditions.Set(s.HetznerCluster, metav1.Condition{
+			Type:   clusterv1.ReadyCondition,
 			Status: metav1.ConditionUnknown,
-			Reason: infrav1.InternalErrorV1Beta2Reason,
-		}
-
-		// set the ready condition with unknown status.
-		v1beta2conditions.Set(s.HetznerCluster, unknownReadyCondition)
+			Reason: clusterv1.InternalErrorReason,
+		})
 
 		patchErr := s.patchHelper.Patch(ctx, s.HetznerCluster, clusterpatchOpts()...)
 		return errors.Join(err, patchErr)
 	}
 
-	v1beta2conditions.Set(s.HetznerCluster, *readyCondition)
+	conditions.Set(s.HetznerCluster, *readyCondition)
 
 	return s.patchHelper.Patch(ctx, s.HetznerCluster, clusterpatchOpts()...)
 }
@@ -157,17 +154,18 @@ func (s *ClusterScope) PatchObject(ctx context.Context) error {
 }
 
 // GetSpecRegion returns a region.
-func (s *ClusterScope) GetSpecRegion() []infrav1.Region {
+func (s *ClusterScope) GetSpecRegion() []infrav2.Region {
 	return s.HetznerCluster.Spec.ControlPlaneRegions
 }
 
 // SetStatusFailureDomain sets the region for the status.
-func (s *ClusterScope) SetStatusFailureDomain(regions []infrav1.Region) {
-	s.HetznerCluster.Status.FailureDomains = make(clusterv1beta1.FailureDomains)
+func (s *ClusterScope) SetStatusFailureDomain(regions []infrav2.Region) {
+	s.HetznerCluster.Status.FailureDomains = make([]clusterv1.FailureDomain, 0, len(regions))
 	for _, region := range regions {
-		s.HetznerCluster.Status.FailureDomains[string(region)] = clusterv1beta1.FailureDomainSpec{
-			ControlPlane: true,
-		}
+		s.HetznerCluster.Status.FailureDomains = append(s.HetznerCluster.Status.FailureDomains, clusterv1.FailureDomain{
+			Name:         string(region),
+			ControlPlane: ptr.To(true),
+		})
 	}
 }
 
@@ -224,32 +222,32 @@ func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, 
 }
 
 // clusterpatchOpts returns the list of patch.Option for HetznerCluster.
-func clusterpatchOpts() []v1beta1patch.Option {
-	return []v1beta1patch.Option{
-		// owned v1beta1 conditions.
-		v1beta1patch.WithOwnedConditions{Conditions: []clusterv1beta1.ConditionType{
-			clusterv1.ReadyCondition,
-			infrav1.HCloudTokenAvailableCondition,
-			infrav1.HetznerAPIReachableCondition,
-			infrav1.NetworkReadyCondition,
-			infrav1.LoadBalancerReadyCondition,
-			infrav1.PlacementGroupsSyncedCondition,
-			infrav1.ControlPlaneEndpointSetCondition,
-			infrav1.TargetClusterReadyCondition,
-			infrav1.TargetClusterSecretReadyCondition,
+func clusterpatchOpts() []patch.Option {
+	return []patch.Option{
+		// owned deprecated v1beta1 conditions.
+		patch.WithOwnedV1Beta1Conditions{Conditions: []clusterv1.ConditionType{
+			clusterv1.ReadyV1Beta1Condition,
+			infrav2.HCloudTokenAvailableV1Beta1Condition,
+			infrav2.HetznerAPIReachableV1Beta1Condition,
+			infrav2.NetworkReadyV1Beta1Condition,
+			infrav2.LoadBalancerReadyV1Beta1Condition,
+			infrav2.PlacementGroupsSyncedV1Beta1Condition,
+			infrav2.ControlPlaneEndpointSetV1Beta1Condition,
+			infrav2.TargetClusterReadyV1Beta1Condition,
+			infrav2.TargetClusterSecretReadyV1Beta1Condition,
 		}},
 		// owned v1beta2 conditions.
-		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
-			clusterv1beta1.ReadyV1Beta2Condition,
-			infrav1.HCloudTokenAvailableV1Beta2Condition,
-			infrav1.HCloudRateLimitExceededV1Beta2Condition,
-			infrav1.HetznerClusterDeletingV1Beta2Condition,
-			infrav1.HetznerClusterNetworkReadyV1Beta2Condition,
-			infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
-			infrav1.HetznerClusterPlacementGroupsSyncedV1Beta2Condition,
-			infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition,
-			infrav1.HetznerClusterTargetClusterReadyV1Beta2Condition,
-			infrav1.HetznerClusterTargetClusterSecretReadyV1Beta2Condition,
+		patch.WithOwnedConditions{Conditions: []string{
+			clusterv1.ReadyCondition,
+			infrav2.HCloudTokenAvailableCondition,
+			infrav2.HCloudRateLimitExceededCondition,
+			infrav2.HetznerClusterDeletingCondition,
+			infrav2.HetznerClusterNetworkReadyCondition,
+			infrav2.HetznerClusterLoadBalancerReadyCondition,
+			infrav2.HetznerClusterPlacementGroupsSyncedCondition,
+			infrav2.HetznerClusterControlPlaneEndpointSetCondition,
+			infrav2.HetznerClusterTargetClusterReadyCondition,
+			infrav2.HetznerClusterTargetClusterSecretReadyCondition,
 		}},
 	}
 }

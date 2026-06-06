@@ -26,11 +26,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 const providerIDPrefix = "hcloud://"
@@ -73,38 +77,69 @@ func ServerIDFromProviderID(providerID *string) (int64, error) {
 	return id, nil
 }
 
+// HandleRateLimitExceeded sets the rate-limit conditions on a v1beta2 resource if err is an HCloud
+// rate-limit error, and reports whether it was. It is used by the controllers and services that
+// reconcile v1beta2 resources. Controllers and services still on v1beta1 use
+// HandleRateLimitExceededV1Beta1.
+func HandleRateLimitExceeded(cluster *infrav2.HetznerCluster, err error, functionName string) bool {
+	if !hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+		return false
+	}
+
+	msg := fmt.Sprintf("exceeded hcloud rate limit with calling function %q", functionName)
+
+	deprecatedv1beta1conditions.MarkFalse(
+		cluster,
+		infrav2.HetznerAPIReachableV1Beta1Condition,
+		infrav2.RateLimitExceededV1Beta1Reason,
+		clusterv1.ConditionSeverityWarning,
+		"%s",
+		msg,
+	)
+	conditions.Set(cluster, metav1.Condition{
+		Type:    infrav2.HCloudRateLimitExceededCondition,
+		Status:  metav1.ConditionTrue,
+		Reason:  infrav2.HCloudRateLimitExceededReason,
+		Message: msg,
+	})
+
+	record.Warnf(cluster, "RateLimitExceeded", msg)
+	return true
+}
+
 type runtimeObjectWithConditions interface {
 	v1beta1conditions.Setter
 	runtime.Object
 }
 
-// HandleRateLimitExceeded handles rate limit exceeded errors.
-// Returns true if RateLimit is reached.
-func HandleRateLimitExceeded(obj runtimeObjectWithConditions, err error, functionName string) bool {
-	if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-		msg := fmt.Sprintf("exceeded hcloud rate limit with calling function %q", functionName)
-		v1beta1conditions.MarkFalse(
-			obj,
-			infrav1.HetznerAPIReachableCondition,
-			infrav1.RateLimitExceededReason,
-			clusterv1beta1.ConditionSeverityWarning,
-			"%s",
-			msg,
-		)
-
-		// set v1beta2 condition if the object supports it.
-		if setter, ok := obj.(v1beta2conditions.Setter); ok {
-			v1beta2conditions.Set(setter, metav1.Condition{
-				Type:    infrav1.HCloudRateLimitExceededV1Beta2Condition,
-				Status:  metav1.ConditionTrue,
-				Reason:  infrav1.HCloudRateLimitExceededV1Beta2Reason,
-				Message: msg,
-			})
-		}
-
-		record.Warnf(obj, "RateLimitExceeded", msg)
-		return true
+// HandleRateLimitExceededV1Beta1 is the still-v1beta1 counterpart of HandleRateLimitExceeded, used by
+// the resources that have not been switched to v1beta2 yet. It writes the deprecated v1beta1
+// HetznerAPIReachable condition and, when the object supports the staged v1beta2 conditions, the
+// v1beta2 HCloudRateLimitExceeded condition.
+func HandleRateLimitExceededV1Beta1(obj runtimeObjectWithConditions, err error, functionName string) bool {
+	if !hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+		return false
 	}
 
-	return false
+	msg := fmt.Sprintf("exceeded hcloud rate limit with calling function %q", functionName)
+
+	v1beta1conditions.MarkFalse(
+		obj,
+		infrav1.HetznerAPIReachableCondition,
+		infrav1.RateLimitExceededReason,
+		clusterv1beta1.ConditionSeverityWarning,
+		"%s",
+		msg,
+	)
+	if setter, ok := obj.(v1beta2conditions.Setter); ok {
+		v1beta2conditions.Set(setter, metav1.Condition{
+			Type:    infrav1.HCloudRateLimitExceededV1Beta2Condition,
+			Status:  metav1.ConditionTrue,
+			Reason:  infrav1.HCloudRateLimitExceededV1Beta2Reason,
+			Message: msg,
+		})
+	}
+
+	record.Warnf(obj, "RateLimitExceeded", msg)
+	return true
 }

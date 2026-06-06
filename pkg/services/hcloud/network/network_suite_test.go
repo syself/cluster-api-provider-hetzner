@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
@@ -32,7 +32,7 @@ import (
 var (
 	_, networkCidr, _ = net.ParseCIDR("10.0.0.0/16")
 	_, subnetCidr, _  = net.ParseCIDR("10.0.0.0/24")
-	hetznerCluster    infrav1.HetznerCluster
+	hetznerCluster    infrav2.HetznerCluster
 	service           Service
 	hcloudClient      hcloudclient.Client
 )
@@ -44,7 +44,7 @@ func TestNetwork(t *testing.T) {
 
 var _ = BeforeEach(func() {
 	hetznerCluster.Name = "hetzner-cluster"
-	hetznerCluster.Spec.HCloudNetwork = infrav1.HCloudNetworkSpec{
+	hetznerCluster.Spec.HCloudNetwork = infrav2.HCloudNetworkSpec{
 		Enabled:         true,
 		CIDRBlock:       networkCidr.String(),
 		SubnetCIDRBlock: subnetCidr.String(),
