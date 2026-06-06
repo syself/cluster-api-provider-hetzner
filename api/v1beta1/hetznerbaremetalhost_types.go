@@ -426,13 +426,14 @@ func (host *HetznerBareMetalHost) SetV1Beta2Conditions(conditions []metav1.Condi
 // order (highest-priority first). Credentials and provisioning problems must outrank
 // Deleting, since deletion may itself need credentials to succeed.
 //  1. RobotCredentialsAvailable - invalid Robot credentials block every Robot API call.
-//  2. RobotRateLimitExceeded    - rate-limit issues (negative polarity).
-//  3. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
-//  4. RootDeviceHintsValidated  - device hints must validate before provisioning.
-//  5. ProvisionSucceeded        - provisioning state (rescue -> image -> OS).
-//  6. RebootSucceeded           - post-provision reboot via annotation.
-//  7. NodeBootIDRetrieved       - workload-cluster Node check after provisioning.
-//  8. Deleting                  - deletion state (negative polarity).
+//  2. ActionCompleted           - fatal permanent error requiring manual intervention.
+//  3. RobotRateLimitExceeded    - rate-limit issues (negative polarity).
+//  4. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
+//  5. RootDeviceHintsValidated  - device hints must validate before provisioning.
+//  6. ProvisionSucceeded        - provisioning state (rescue -> image -> OS).
+//  7. RebootSucceeded           - post-provision reboot via annotation.
+//  8. NodeBootIDRetrieved       - workload-cluster Node check after provisioning.
+//  9. Deleting                  - deletion state (negative polarity).
 func HetznerBareMetalHostV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
 	return []v1beta2conditions.SummaryOption{
 		// ForConditionTypes lists every condition that contributes to Ready, in
@@ -753,6 +754,7 @@ func (host *HetznerBareMetalHost) ClearError() {
 		host.Spec.Status.ErrorMessage = ""
 	}
 	host.Spec.Status.ErrorCount = 0
+	v1beta2conditions.Delete(host, HetznerBareMetalHostActionCompletedV1Beta2Condition)
 }
 
 // HasRebootAnnotation checks for the existence of reboot annotations and returns true if at least one exists.

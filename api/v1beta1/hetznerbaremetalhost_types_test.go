@@ -485,6 +485,17 @@ func TestHetznerBareMetalHost_SetError(t *testing.T) {
 	require.Equal(t, metav1.ConditionFalse, actionCompletedCondition.Status)
 	require.Equal(t, HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason, actionCompletedCondition.Reason)
 	require.Equal(t, "some error", actionCompletedCondition.Message)
+	require.Equal(t, 1, host.Spec.Status.ErrorCount)
+
+	// Calling SetError again with the same type and message (as happens on every reconcile while the
+	// annotation is present) must keep the condition stable and increment ErrorCount.
+	host.SetError(PermanentError, "some error")
+	actionCompletedCondition = v1beta2conditions.Get(&host, HetznerBareMetalHostActionCompletedV1Beta2Condition)
+	require.NotNil(t, actionCompletedCondition)
+	require.Equal(t, metav1.ConditionFalse, actionCompletedCondition.Status)
+	require.Equal(t, HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason, actionCompletedCondition.Reason)
+	require.Equal(t, "some error", actionCompletedCondition.Message)
+	require.Equal(t, 2, host.Spec.Status.ErrorCount)
 
 	// Other errors should not add the PermanentErrorAnnotation or set the ActionCompleted condition.
 	host = HetznerBareMetalHost{

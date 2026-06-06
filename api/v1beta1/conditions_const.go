@@ -700,9 +700,9 @@ const (
 )
 
 const (
-	// HetznerBareMetalHostActionCompletedV1Beta2Condition reports that the host is currently in a non-terminal
-	// or failure state during an action such as provisioning or post-provisioning operations.
-	// This condition is only present when there is a failure or a stuck state that requires user-visible reporting.
+	// HetznerBareMetalHostActionCompletedV1Beta2Condition reports whether the last action on the host completed
+	// successfully. Set to False when a fatal, non-recoverable error is detected that requires manual intervention.
+	// Absent on healthy hosts; only present when a permanent error has been recorded.
 	HetznerBareMetalHostActionCompletedV1Beta2Condition = "ActionCompleted"
 	// HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason represents a fatal, non-recoverable error that persists on the host.
 	HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason = "PermanentError"
