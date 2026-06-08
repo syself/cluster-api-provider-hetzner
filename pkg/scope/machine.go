@@ -113,19 +113,16 @@ func (m *MachineScope) Close(ctx context.Context) error {
 		infrav1.HCloudMachineV1Beta2SummaryOpts()...,
 	)
 	if err != nil {
-		// Note, this could only happen if we hit edge cases in computing the summary, which should not happen due to the fact
-		// that we are passing a non empty list of ForConditionTypes.
-		m.Error(err, "Failed to set v1beta2 Ready condition")
-		unknownReadyCondition := metav1.Condition{
+		// This happens when no ForConditionTypes conditions are set yet (e.g. early-exit paths
+		// where all condition types are listed in IgnoreTypesIfMissing). Treat it as "not ready
+		// yet" rather than an internal error — set Ready=Unknown and continue without surfacing
+		// the error, so we don't trigger constant reconcile retries.
+		v1beta2conditions.Set(m.HCloudMachine, metav1.Condition{
 			Type:   clusterv1beta1.ReadyV1Beta2Condition,
 			Status: metav1.ConditionUnknown,
 			Reason: infrav1.InternalErrorV1Beta2Reason,
-		}
-
-		v1beta2conditions.Set(m.HCloudMachine, unknownReadyCondition)
-
-		patchErr := m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
-		return errors.Join(err, patchErr)
+		})
+		return m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
 	}
 
 	v1beta2conditions.Set(m.HCloudMachine, *readyCondition)
