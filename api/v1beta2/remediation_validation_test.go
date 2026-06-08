@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestRemediationStrategyEffectiveCooldown(t *testing.T) {
@@ -42,17 +42,17 @@ func TestRemediationStrategyEffectiveCooldown(t *testing.T) {
 		},
 		{
 			name:     "zero cooldown",
-			strategy: &RemediationStrategy{Cooldown: &metav1.Duration{Duration: 0}},
+			strategy: &RemediationStrategy{CooldownSeconds: ptr.To(int32(0))},
 			want:     0,
 		},
 		{
 			name:     "configured cooldown",
-			strategy: &RemediationStrategy{Cooldown: &metav1.Duration{Duration: 10 * time.Minute}},
+			strategy: &RemediationStrategy{CooldownSeconds: ptr.To(int32(600))},
 			want:     10 * time.Minute,
 		},
 		{
 			name:     "negative cooldown clamped to default",
-			strategy: &RemediationStrategy{Cooldown: &metav1.Duration{Duration: -1 * time.Second}},
+			strategy: &RemediationStrategy{CooldownSeconds: ptr.To(int32(-1))},
 			want:     DefaultRemediationCooldown,
 		},
 	}

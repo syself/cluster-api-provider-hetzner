@@ -51,6 +51,10 @@ const (
 )
 
 // RemediationStrategy describes how to remediate machines.
+// The v1beta2 type uses whole-second counters instead of durations, so conversion
+// is hand-written in conversion.go instead of generated. This shared type is also
+// used by HetznerBareMetalRemediation, which inherits the same conversion.
+// +k8s:conversion-gen=false
 type RemediationStrategy struct {
 	// Type represents the type of the remediation strategy. At the moment, only "Reboot" is supported.
 	// +kubebuilder:default=Reboot
