@@ -100,12 +100,12 @@ type HCloudRemediation struct {
 	Status HCloudRemediationStatus `json:"status,omitempty"`
 }
 
-// GetConditions returns the set of v1beta2 conditions for the HCloudRemediation object.
+// GetConditions returns the set of conditions for the HCloudRemediation object.
 func (r *HCloudRemediation) GetConditions() []metav1.Condition {
 	return r.Status.Conditions
 }
 
-// SetConditions sets the v1beta2 conditions for the HCloudRemediation object.
+// SetConditions sets the conditions for the HCloudRemediation object.
 func (r *HCloudRemediation) SetConditions(conditions []metav1.Condition) {
 	r.Status.Conditions = conditions
 }
