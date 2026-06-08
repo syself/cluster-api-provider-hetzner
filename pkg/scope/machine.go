@@ -250,9 +250,16 @@ func (m *MachineScope) ServerIDFromProviderID() (int64, error) {
 	return serverID, nil
 }
 
-// SetReady sets the ready field on the machine.
+// SetReady sets the ready field on the machine, and also sets status.initialization.provisioned
+// required by the CAPI v1beta2 contract.
 func (m *MachineScope) SetReady(ready bool) {
 	m.HCloudMachine.Status.Ready = ready
+	if ready {
+		if m.HCloudMachine.Status.Initialization == nil {
+			m.HCloudMachine.Status.Initialization = &infrav1.HCloudMachineInitializationStatus{}
+		}
+		m.HCloudMachine.Status.Initialization.Provisioned = true
+	}
 }
 
 // HasServerAvailableCondition checks whether ServerAvailable condition is set on true.
