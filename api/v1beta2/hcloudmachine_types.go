@@ -108,11 +108,25 @@ type HCloudMachineSpec struct {
 	PublicNetwork *PublicNetworkSpec `json:"publicNetwork,omitempty"`
 }
 
+// HCloudMachineInitializationStatus provides observations of the HCloudMachine initialization process.
+// NOTE: v1beta2 contract requires status.initialization.provisioned; this mirrors it.
+type HCloudMachineInitializationStatus struct {
+	// Provisioned is true when the provider resource has been provisioned.
+	// +optional
+	Provisioned bool `json:"provisioned,omitempty"`
+}
+
 // HCloudMachineStatus defines the observed state of HCloudMachine.
 type HCloudMachineStatus struct {
 	// Ready is true when the provider resource is ready.
 	// +optional
 	Ready bool `json:"ready"`
+
+	// Initialization provides observations of the HCloudMachine initialization process.
+	// NOTE: Fields in this struct are part of the v1beta2 contract and are used to determine
+	// if the infrastructure is provisioned.
+	// +optional
+	Initialization *HCloudMachineInitializationStatus `json:"initialization,omitempty"`
 
 	// Addresses contain the server's associated addresses.
 	Addresses []clusterv1beta1.MachineAddress `json:"addresses,omitempty"`
