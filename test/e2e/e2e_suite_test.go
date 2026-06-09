@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -305,10 +306,31 @@ func createClusterctlLocalRepository(ctx context.Context, config *clusterctl.E2E
 	return clusterctlConfig
 }
 
+// pullKindNodeImageWithRetry pulls the kind node image before cluster creation to handle transient
+// Docker Hub failures without aborting the whole suite.
+func pullKindNodeImageWithRetry(ctx context.Context) {
+	image := fmt.Sprintf("%s:%s", bootstrap.DefaultNodeImageRepository, bootstrap.DefaultNodeImageVersion)
+	const maxAttempts = 3
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		out, err := exec.CommandContext(ctx, "docker", "pull", image).CombinedOutput() //nolint:gosec
+		if err == nil {
+			return
+		}
+		lastErr = err
+		GinkgoLogr.Info("docker pull failed", "image", image, "attempt", attempt, "maxAttempts", maxAttempts, "output", string(out))
+		if attempt < maxAttempts {
+			time.Sleep(time.Duration(attempt) * 15 * time.Second)
+		}
+	}
+	Expect(lastErr).ToNot(HaveOccurred(), "Failed to pull kind node image %s after %d attempts", image, maxAttempts)
+}
+
 func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme, useExistingCluster bool) (bootstrap.ClusterProvider, framework.ClusterProxy) {
 	var clusterProvider bootstrap.ClusterProvider
 	kubeconfigPath := ""
 	if !useExistingCluster {
+		pullKindNodeImageWithRetry(ctx)
 		clusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
 			Name:               config.ManagementClusterName,
 			RequiresDockerSock: config.HasDockerProvider(),
