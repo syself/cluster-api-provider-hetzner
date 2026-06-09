@@ -29,6 +29,9 @@ type HCloudRemediationSpec struct {
 }
 
 // HCloudRemediationStatus defines the observed state of HCloudRemediation.
+// The v1beta2 status reshapes these fields (typed counters, demoted conditions),
+// so conversion is hand-written in conversion.go instead of generated.
+// +k8s:conversion-gen=false
 type HCloudRemediationStatus struct {
 	// Phase represents the current phase of machine remediation.
 	// E.g. Pending, Running, Done etc.

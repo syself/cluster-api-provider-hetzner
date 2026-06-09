@@ -94,7 +94,7 @@ Example of an image provided by Hetzner via NFS:
 
 ```yaml
 image:
-  path: /root/.oldroot/nfs//images/Ubuntu-2404-noble-amd64-base.tar.gz
+  path: /root/.oldroot/nfs//images/Ubuntu-2404-noble-amd64-base.tar.zst
 ```
 
 Example of an image provided by you via https. The script installimage of Hetzner parses the name to detect the version. It is

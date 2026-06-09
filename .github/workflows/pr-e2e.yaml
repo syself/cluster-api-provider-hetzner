@@ -94,6 +94,10 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Use hbmh list from main branch
+        run: |
+          git fetch origin main
+          git checkout FETCH_HEAD -- test/e2e/data/infrastructure-hetzner/v1beta1/bases/hetznerbaremetalhosts.yaml
       - name: Run e2e Test
         id: e2e-bm
         uses: ./.github/actions/e2e

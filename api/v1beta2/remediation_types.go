@@ -18,8 +18,6 @@ package v1beta2
 
 import (
 	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // DefaultRemediationCooldown is the cooldown applied when the strategy does
@@ -58,28 +56,31 @@ type RemediationStrategy struct {
 	Type RemediationType `json:"type,omitempty"`
 
 	// RetryLimit sets the maximum number of remediation retries. Zero retries if not set.
+	// +kubebuilder:validation:Minimum=0
 	// +optional
-	RetryLimit int `json:"retryLimit,omitempty"`
+	RetryLimit *int32 `json:"retryLimit,omitempty"`
 
-	// Timeout sets the timeout between remediation retries. It should be of the form "10m", or "40s".
-	Timeout *metav1.Duration `json:"timeout"`
+	// TimeoutSeconds sets the timeout, in seconds, between remediation retries.
+	// +kubebuilder:validation:Minimum=0
+	TimeoutSeconds int32 `json:"timeoutSeconds"`
 
-	// Cooldown is the minimum time between successive remediations of the same
-	// machine. If a new remediation starts within this window of the previous
-	// successful one, the reboot is skipped and the machine is deleted.
-	// Set to 0s to disable the guard.
-	// +kubebuilder:default="30m"
-	// +kubebuilder:validation:XValidation:rule="duration(self) >= duration('0s')",message="cooldown must be non-negative"
+	// CooldownSeconds is the minimum time, in seconds, between successive
+	// remediations of the same machine. If a new remediation starts within this
+	// window of the previous successful one, the reboot is skipped and the
+	// machine is deleted. An explicit 0 disables the guard and is distinct from an
+	// absent value, which defaults to 1800 (30m).
+	// +kubebuilder:default=1800
+	// +kubebuilder:validation:Minimum=0
 	// +optional
-	Cooldown *metav1.Duration `json:"cooldown,omitempty"`
+	CooldownSeconds *int32 `json:"cooldownSeconds,omitempty"`
 }
 
 // EffectiveCooldown returns the configured cooldown, or DefaultRemediationCooldown
-// when the strategy or cooldown is unset. A negative value is clamped to the
+// when the strategy or cooldownSeconds is unset. A negative value is clamped to the
 // default as a defense-in-depth against admission bypass.
 func (s *RemediationStrategy) EffectiveCooldown() time.Duration {
-	if s == nil || s.Cooldown == nil || s.Cooldown.Duration < 0 {
+	if s == nil || s.CooldownSeconds == nil || *s.CooldownSeconds < 0 {
 		return DefaultRemediationCooldown
 	}
-	return s.Cooldown.Duration
+	return time.Duration(*s.CooldownSeconds) * time.Second
 }
