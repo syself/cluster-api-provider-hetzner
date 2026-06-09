@@ -18,6 +18,8 @@ package imageurlcommand
 
 // Output is the format of /root/output.json written by the image-url-command binary.
 // Written continuously during execution; presence and content are optional from CAPH's perspective.
+// On completion (success or failure) CAPH emits the full JSON as a Kubernetes Event
+// (reason "ImageURLCommandOutputJSON") and logs it to the controller log.
 type Output struct {
 	Status  string `json:"status"`
 	Message string `json:"message,omitempty"`
