@@ -148,7 +148,7 @@ spec:
       name: Retry limit
       type: string
     - description: Timeout for the remediation
-      jsonPath: .spec.template.spec.strategy.timeout
+      jsonPath: .spec.template.spec.strategy.timeoutSeconds
       name: Timeout
       type: string
     name: v1beta2
@@ -190,32 +190,36 @@ spec:
                         description: Strategy field defines the remediation strategy
                           to be applied.
                         properties:
-                          cooldown:
-                            default: 30m
+                          cooldownSeconds:
+                            default: 1800
                             description: |-
-                              Cooldown is the minimum time between successive remediations of the same
-                              machine. If a new remediation starts within this window of the previous
-                              successful one, the reboot is skipped and the machine is deleted.
-                              Set to 0s to disable the guard.
-                            type: string
-                            x-kubernetes-validations:
-                            - message: cooldown must be non-negative
-                              rule: duration(self) >= duration('0s')
+                              CooldownSeconds is the minimum time, in seconds, between successive
+                              remediations of the same machine. If a new remediation starts within this
+                              window of the previous successful one, the reboot is skipped and the
+                              machine is deleted. An explicit 0 disables the guard and is distinct from an
+                              absent value, which defaults to 1800 (30m).
+                            format: int32
+                            minimum: 0
+                            type: integer
                           retryLimit:
                             description: RetryLimit sets the maximum number of remediation
                               retries. Zero retries if not set.
+                            format: int32
+                            minimum: 0
                             type: integer
-                          timeout:
-                            description: Timeout sets the timeout between remediation
-                              retries. It should be of the form "10m", or "40s".
-                            type: string
+                          timeoutSeconds:
+                            description: TimeoutSeconds sets the timeout, in seconds,
+                              between remediation retries.
+                            format: int32
+                            minimum: 0
+                            type: integer
                           type:
                             default: Reboot
                             description: Type represents the type of the remediation
                               strategy. At the moment, only "Reboot" is supported.
                             type: string
                         required:
-                        - timeout
+                        - timeoutSeconds
                         type: object
                     type: object
                 required:
