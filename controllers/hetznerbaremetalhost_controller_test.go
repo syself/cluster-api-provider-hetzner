@@ -1010,10 +1010,17 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 })
 
 func configureRescueSSHClient(sshClient *sshmock.Client) {
-	sshClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
+	// GetHostName is called once during actionRegistering, once during pre-provisioning
+	// and once during actionImageInstalling.
+	// After image installation the host reboots into the OS.
+	sshClient.On("GetHostName", mock.Anything).Times(3).Return(sshclient.Output{
 		StdOut: "rescue",
 		StdErr: "",
 		Err:    nil,
+	})
+	// Calling GetHostName with rescue SSH client when host is booted into desired OS should lead to error.
+	sshClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
+		Err: sshclient.ErrAuthenticationFailed,
 	})
 	sshClient.On("GetHardwareDetailsRAM", mock.Anything).Return(sshclient.Output{
 		StdOut: "100000",
