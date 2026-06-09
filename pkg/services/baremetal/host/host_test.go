@@ -1625,7 +1625,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		hostRebootTriggeredAt *metav1.Time
 		// Rescue SSH client responses (Step-1: checkRescueAndTriggerReboot)
 		// Empty output (default) means non-rescue hostname so Step-1 passes through to Step-2.
-		outRescueSshClientGetHostName sshclient.Output
+		outRescueSSHClientGetHostName sshclient.Output
 		// OS SSH client responses (Step-2: verifyProvisionedOS)
 		outSSHClientGetHostName        sshclient.Output
 		outSSHClientCloudInitStatus    sshclient.Output
@@ -1662,9 +1662,9 @@ var _ = Describe("actionEnsureProvisioned", func() {
 
 			host := helpers.BareMetalHost("test-host", "default", hostOpts...)
 
-			// rescueSshMock is used in Step-1 (checkRescueAndTriggerReboot).
-			rescueSshMock := &sshmock.Client{}
-			rescueSshMock.On("GetHostName", mock.Anything).Return(in.outRescueSshClientGetHostName)
+			// rescueSSHMock is used in Step-1 (checkRescueAndTriggerReboot).
+			rescueSSHMock := &sshmock.Client{}
+			rescueSSHMock.On("GetHostName", mock.Anything).Return(in.outRescueSSHClientGetHostName)
 
 			// sshMock is used in Step-2 (verifyProvisionedOS).
 			sshMock := &sshmock.Client{}
@@ -1687,7 +1687,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			robotMock.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
 
 			service := newTestService(host, &robotMock,
-				bmmock.NewSSHFactory(rescueSshMock, oldSSHMock, sshMock),
+				bmmock.NewSSHFactory(rescueSSHMock, oldSSHMock, sshMock),
 				helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
 				helpers.GetDefaultSSHSecret("rescue-ssh-secret", "default"))
 
@@ -1729,7 +1729,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		},
 		Entry("correct hostname, cloud init running",
 			testCaseActionEnsureProvisioned{
-				outRescueSshClientGetHostName:          sshclient.Output{},
+				outRescueSSHClientGetHostName:          sshclient.Output{},
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: running"},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1747,7 +1747,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		),
 		Entry("correct hostname, cloud init done, no SIGTERM",
 			testCaseActionEnsureProvisioned{
-				outRescueSshClientGetHostName:          sshclient.Output{},
+				outRescueSSHClientGetHostName:          sshclient.Output{},
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: ""},
@@ -1765,7 +1765,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		),
 		Entry("correct hostname, cloud init done, SIGTERM",
 			testCaseActionEnsureProvisioned{
-				outRescueSshClientGetHostName:          sshclient.Output{},
+				outRescueSSHClientGetHostName:          sshclient.Output{},
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: "found SIGTERM in cloud init output logs"},
@@ -1783,7 +1783,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		),
 		Entry("correct hostname, cloud init error",
 			testCaseActionEnsureProvisioned{
-				outRescueSshClientGetHostName:          sshclient.Output{},
+				outRescueSSHClientGetHostName:          sshclient.Output{},
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: error"},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1801,7 +1801,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		),
 		Entry("correct hostname, cloud init disabled",
 			testCaseActionEnsureProvisioned{
-				outRescueSshClientGetHostName:          sshclient.Output{},
+				outRescueSSHClientGetHostName:          sshclient.Output{},
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: disabled"},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1821,7 +1821,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		// refused; returns actionContinue.
 		Entry("connectionFailed, same ports",
 			testCaseActionEnsureProvisioned{
-				outRescueSshClientGetHostName:          sshclient.Output{Err: syscall.ECONNREFUSED},
+				outRescueSSHClientGetHostName:          sshclient.Output{Err: syscall.ECONNREFUSED},
 				outSSHClientGetHostName:                sshclient.Output{Err: syscall.ECONNREFUSED},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1842,7 +1842,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			testCaseActionEnsureProvisioned{
 				hostErrorType:                          infrav1.ErrorTypeHardwareRebootTriggered,
 				hostRebootTriggeredAt:                  ptr.To(metav1.NewTime(time.Now().Add(-2 * time.Minute))),
-				outRescueSshClientGetHostName:          sshclient.Output{}, // not called (Step-1 skipped)
+				outRescueSSHClientGetHostName:          sshclient.Output{}, // not called (Step-1 skipped)
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: ""},
@@ -1863,7 +1863,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			testCaseActionEnsureProvisioned{
 				hostErrorType:                          infrav1.ErrorTypeHardwareRebootTriggered,
 				hostRebootTriggeredAt:                  ptr.To(metav1.NewTime(time.Now().Add(-2 * time.Minute))),
-				outRescueSshClientGetHostName:          sshclient.Output{},
+				outRescueSSHClientGetHostName:          sshclient.Output{},
 				outSSHClientGetHostName:                sshclient.Output{Err: timeout},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1884,7 +1884,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			testCaseActionEnsureProvisioned{
 				hostErrorType:                          infrav1.ErrorTypeHardwareRebootTriggered,
 				hostRebootTriggeredAt:                  ptr.To(metav1.NewTime(time.Now().Add(-15 * time.Minute))),
-				outRescueSshClientGetHostName:          sshclient.Output{},
+				outRescueSSHClientGetHostName:          sshclient.Output{},
 				outSSHClientGetHostName:                sshclient.Output{Err: timeout},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1914,18 +1914,18 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		host.Spec.Status.SSHSpec.NoSSHAfterInstallImage = true
 
 		robotMock := robotmock.Client{}
-		rescueSshMock := &sshmock.Client{}
-		osSshMock := &sshmock.Client{}
+		rescueSSHMock := &sshmock.Client{}
+		osSSHMock := &sshmock.Client{}
 
 		service := newTestService(host, &robotMock,
-			bmmock.NewSSHFactory(rescueSshMock, osSshMock, osSshMock),
+			bmmock.NewSSHFactory(rescueSSHMock, osSSHMock, osSSHMock),
 			helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
 			helpers.GetDefaultSSHSecret("rescue-ssh-secret", "default"))
 
 		actResult := service.actionEnsureProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionComplete{}))
 		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorType("")))
-		Expect(osSshMock.AssertNotCalled(GinkgoT(), "GetHostName", mock.Anything)).To(BeTrue())
+		Expect(osSSHMock.AssertNotCalled(GinkgoT(), "GetHostName", mock.Anything)).To(BeTrue())
 	})
 })
 
@@ -1964,8 +1964,8 @@ var _ = Describe("checkRescueAndTriggerReboot", func() {
 
 			host := helpers.BareMetalHost("test-host", "default", hostOpts...)
 
-			rescueSshMock := &sshmock.Client{}
-			rescueSshMock.On("GetHostName", mock.Anything).Return(tc.rescueSSHHostname)
+			rescueSSHMock := &sshmock.Client{}
+			rescueSSHMock.On("GetHostName", mock.Anything).Return(tc.rescueSSHHostname)
 
 			robotMock := robotmock.Client{}
 			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: tc.rescueActive}, nil)
@@ -1973,7 +1973,7 @@ var _ = Describe("checkRescueAndTriggerReboot", func() {
 			robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
 
 			service := newTestService(host, &robotMock,
-				bmmock.NewSSHFactory(rescueSshMock, &sshmock.Client{}, &sshmock.Client{}),
+				bmmock.NewSSHFactory(rescueSSHMock, &sshmock.Client{}, &sshmock.Client{}),
 				nil,
 				helpers.GetDefaultSSHSecret("rescue-ssh-secret", "default"))
 
