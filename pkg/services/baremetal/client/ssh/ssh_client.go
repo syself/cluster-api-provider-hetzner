@@ -940,6 +940,7 @@ func (c *sshClient) getImageURLCommandOutput(ctx context.Context) (string, error
 func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 	for range outputJSONMaxRetries {
 		out := c.runSSH(ctx, "cat "+outputJSONPath)
+
 		exitStatus, err := out.ExitStatus()
 		if err != nil {
 			return "", fmt.Errorf("reading output.json: %w", err)
@@ -947,11 +948,15 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 		if exitStatus != 0 {
 			return "", fmt.Errorf("reading output.json failed with exit status %d", exitStatus)
 		}
+
 		content := strings.TrimSpace(out.StdOut)
 		if strings.HasSuffix(content, "}") {
 			return content, nil
 		}
+
 		time.Sleep(50 * time.Millisecond)
 	}
+
+	// max retries reached - we return the error now
 	return "", fmt.Errorf("output.json did not end with '}' after %d attempts", outputJSONMaxRetries)
 }

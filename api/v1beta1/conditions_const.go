@@ -283,6 +283,17 @@ const (
 )
 
 const (
+	// NodeProvisioningSucceededV1Beta2Condition reports the result of the image-url-command.
+	NodeProvisioningSucceededV1Beta2Condition = "NodeProvisioningSucceeded"
+	// NodeProvisioningSucceededV1Beta2Reason indicates the image-url-command completed successfully.
+	NodeProvisioningSucceededV1Beta2Reason = "Succeeded"
+	// NodeProvisioningFailedV1Beta2Reason indicates the image-url-command failed permanently.
+	NodeProvisioningFailedV1Beta2Reason = "Failed"
+	// NodeProvisioningInProgressV1Beta2Reason indicates the image-url-command has not yet completed.
+	NodeProvisioningInProgressV1Beta2Reason = "InProgress"
+)
+
+const (
 	// RemediationSkippedCondition reports that remediation was skipped because
 	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
 	RemediationSkippedCondition clusterv1beta1.ConditionType = "RemediationSkipped"
