@@ -86,9 +86,10 @@ var (
 
 // Test suite global vars.
 var (
-	ctx              = ctrl.SetupSignalHandler()
-	suiteStartTime   = time.Now()
-	errPermanentHBMH = errors.New("permanent HetznerBareMetalHost error")
+	ctx                = ctrl.SetupSignalHandler()
+	suiteStartTime     = time.Now()
+	errPermanentHBMH   = errors.New("permanent HetznerBareMetalHost error")
+	errNoAvailableHost = errors.New("no available bare-metal host")
 
 	// e2eConfig to be used for this test, read from configPath.
 	e2eConfig *clusterctl.E2EConfig
@@ -361,7 +362,7 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 		case <-time.After(30 * time.Second):
 			err := logStatus(ctx, restConfig, c, ccmLogs)
 			if err != nil {
-				if errors.Is(err, errPermanentHBMH) {
+				if errors.Is(err, errPermanentHBMH) || errors.Is(err, errNoAvailableHost) {
 					Fail(err.Error())
 				}
 				log(fmt.Sprintf("Error logging status: %v", err))
@@ -384,6 +385,10 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 	}
 
 	if err := logBareMetalHostStatus(ctx, c); err != nil {
+		return err
+	}
+
+	if err := checkBareMetalMachineNoAvailableHost(ctx, c); err != nil {
 		return err
 	}
 
@@ -981,6 +986,23 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState) + " | Ready Condition: " + state + " " + reason + " " + msg)
 	}
 	return errors.Join(allErrors...)
+}
+
+func checkBareMetalMachineNoAvailableHost(ctx context.Context, c client.Client) error {
+	machineList := &infrav1.HetznerBareMetalMachineList{}
+	if err := c.List(ctx, machineList); err != nil {
+		return fmt.Errorf("failed to list HetznerBareMetalMachines: %w", err)
+	}
+	for _, machine := range machineList.Items {
+		if machine.DeletionTimestamp != nil {
+			continue
+		}
+		cond := v1beta1conditions.Get(&machine, infrav1.HostAssociateSucceededCondition)
+		if cond != nil && cond.Status == corev1.ConditionFalse && cond.Reason == string(infrav1.NoAvailableHostReason) {
+			return fmt.Errorf("%w: HetznerBareMetalMachine %s/%s: %s", errNoAvailableHost, machine.Namespace, machine.Name, cond.Message)
+		}
+	}
+	return nil
 }
 
 func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.ClusterProxy, config *clusterctl.E2EConfig, clusterctlConfig, artifactFolder string) {
