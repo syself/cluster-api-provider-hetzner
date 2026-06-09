@@ -36,7 +36,7 @@ type conditionSetter interface {
 
 // ApplyNodeProvisioningConditions sets NodeProvisioningSucceededCondition based on
 // the top-level status field of the image-url-command output.json.
-func ApplyNodeProvisioningConditions(obj conditionSetter, output OutputV2) {
+func ApplyNodeProvisioningConditions(obj conditionSetter, output Output) {
 	switch output.Status {
 	case "Succeeded":
 		v1beta1conditions.MarkTrue(obj, infrav1.NodeProvisioningSucceededCondition)
@@ -67,10 +67,10 @@ func ApplyNodeProvisioningConditions(obj conditionSetter, output OutputV2) {
 	}
 }
 
-// ParseAndApply unmarshals content into OutputV2 and updates conditions on obj.
+// ParseAndApply unmarshals content into Output and updates conditions on obj.
 // It is a no-op if content is empty, not valid JSON, or has no status field.
 func ParseAndApply(obj conditionSetter, content string) {
-	var output OutputV2
+	var output Output
 	if err := json.Unmarshal([]byte(content), &output); err == nil && output.Status != "" {
 		ApplyNodeProvisioningConditions(obj, output)
 	}

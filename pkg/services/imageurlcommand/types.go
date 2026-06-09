@@ -16,9 +16,9 @@ limitations under the License.
 
 package imageurlcommand
 
-// OutputV2 is the format of /root/output.json written by the image-url-command binary.
+// Output is the format of /root/output.json written by the image-url-command binary.
 // Written continuously during execution; presence and content are optional from CAPH's perspective.
-type OutputV2 struct {
+type Output struct {
 	Status  string `json:"status"`
 	Message string `json:"message,omitempty"`
 }
