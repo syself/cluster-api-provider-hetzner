@@ -1,4 +1,3 @@
-# 2026-06-08: Disabled after CI hit repeated rescue-mode reboot timeouts.
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
@@ -10,7 +9,7 @@ spec:
   serverID: 1670788 # ip: 136.243.69.167
   rootDeviceHints:
     wwn: "0x5002538c0004413f"
-  maintenanceMode: true #### < --- set to false, when ok.
+  maintenanceMode: false
   description: Test Machine 1670788
 ---
 # Feb 2026: worked.
@@ -19,7 +18,7 @@ kind: HetznerBareMetalHost
 metadata:
   name: "bm-e2e-1716772"
   labels:
-    baremetal-pool: free-pool
+    baremetal-pool: ci-pool
     name: bm-e2e-1716772
 spec:
   serverID: 1716772 # ip: 136.243.69.24
