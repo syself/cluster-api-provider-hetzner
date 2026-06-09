@@ -208,27 +208,12 @@ type HCloudMachineV1Beta1DeprecatedStatus struct {
 	//
 	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
 	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
-
-	// failureReason will be set in the event that there is a terminal problem reconciling the
-	// HCloudMachine and will contain a succinct value suitable for machine interpretation.
-	//
-	// +optional
-	//
-	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-	FailureReason *string `json:"failureReason,omitempty"`
-
-	// failureMessage will be set in the event that there is a terminal problem reconciling the
-	// HCloudMachine and will contain a more verbose string suitable for logging and human consumption.
-	//
-	// +optional
-	//
-	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-	FailureMessage *string `json:"failureMessage,omitempty"`
 }
 
-// InstanceState is the state of the HCloud server that backs an HCloudMachine. It mirrors the Hetzner
-// Cloud server states and adds CAPH owned states for lifecycle phases that Hetzner does not report on
-// its own, such as deletion driven by CAPH.
+// InstanceState is the state of the HCloud server that backs an HCloudMachine. It is set from the
+// Hetzner Cloud server status, with additional CAPH owned states for lifecycle phases that Hetzner does
+// not report on its own, such as deletion driven by CAPH. The field may hold any status the Hetzner API
+// reports; the constants below name the states CAPH handles explicitly.
 type InstanceState string
 
 const (
@@ -242,10 +227,6 @@ const (
 	InstanceStateStarting InstanceState = "starting"
 	// InstanceStateStopping is set when the server is stopping.
 	InstanceStateStopping InstanceState = "stopping"
-	// InstanceStateMigrating is set when the server is migrating.
-	InstanceStateMigrating InstanceState = "migrating"
-	// InstanceStateRebuilding is set when the server is rebuilding.
-	InstanceStateRebuilding InstanceState = "rebuilding"
 	// InstanceStateDeleting is set when CAPH is deleting the server.
 	InstanceStateDeleting InstanceState = "deleting"
 	// InstanceStateUnknown is set when the server state is unknown.

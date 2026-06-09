@@ -650,10 +650,9 @@ func TestHCloudMachineRoundTripPreservesFalseProvisionedIntent(t *testing.T) {
 	}
 }
 
-// TestHCloudMachineFailureFieldsDemoteToDeprecated verifies that status.failureReason and
-// status.failureMessage are demoted to status.deprecated.v1beta1 on the v1beta2 object and promoted
-// back to the old status fields on the round trip.
-func TestHCloudMachineFailureFieldsDemoteToDeprecated(t *testing.T) {
+// TestHCloudMachineFailureFieldsAreDropped verifies that the deprecated status.failureReason and
+// status.failureMessage, which CAPH never populates, are dropped on conversio.
+func TestHCloudMachineFailureFieldsAreDropped(t *testing.T) {
 	src := &HCloudMachine{
 		Status: HCloudMachineStatus{
 			FailureReason:  ptr.To("boom"),
@@ -666,20 +665,8 @@ func TestHCloudMachineFailureFieldsDemoteToDeprecated(t *testing.T) {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
 
-	if hub.Status.Deprecated == nil || hub.Status.Deprecated.V1Beta1 == nil {
-		t.Fatalf("expected failure fields under status.deprecated.v1beta1, got %#v", hub.Status.Deprecated)
-	}
-
-	dst := &HCloudMachine{}
-	if err := dst.ConvertFrom(hub); err != nil {
-		t.Fatalf("failed to convert from v1beta2: %v", err)
-	}
-
-	if dst.Status.FailureReason == nil || *dst.Status.FailureReason != "boom" {
-		t.Fatalf("status.failureReason = %v, want boom", dst.Status.FailureReason)
-	}
-	if dst.Status.FailureMessage == nil || *dst.Status.FailureMessage != "it broke" {
-		t.Fatalf("status.failureMessage = %v, want it broke", dst.Status.FailureMessage)
+	if hub.Status.Deprecated != nil {
+		t.Fatalf("expected failure fields to be dropped, got status.deprecated = %#v", hub.Status.Deprecated)
 	}
 }
 
@@ -715,7 +702,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		// HCloudMachine v1beta1 status: collapse empty condition slices to nil, drop the V1Beta2 wrapper
 		// unless it carries conditions, collapse a pointer to the empty instanceState to nil, and collapse
 		// a non-nil pointer to the zero time to nil so the round trip matches. failureReason/failureMessage
-		// need no normalization: they map directly to and from status.deprecated.v1beta1.
+		// are dropped in v1beta2, so nil them: they do not round-trip.
 		func(in *HCloudMachineStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if len(in.Conditions) == 0 {
@@ -730,12 +717,13 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			if in.LastRemediatedAt != nil && in.LastRemediatedAt.IsZero() {
 				in.LastRemediatedAt = nil
 			}
+			in.FailureReason = nil
+			in.FailureMessage = nil
 		},
 		// HCloudMachine v1beta2 status (hub side): conditions and the deprecated wrapper have an
 		// empty-vs-nil ambiguity, so normalize them to make the round trip match. The deprecated wrapper
-		// survives only when it carries conditions, failureReason or failureMessage. provisioned is left
-		// as-is: ConvertTo/ConvertFrom preserve it losslessly via the MarshalData annotation, so nil,
-		// *true and *false all survive.
+		// survives only when it carries conditions. provisioned is left as-is: ConvertTo/ConvertFrom
+		// preserve it losslessly via the MarshalData annotation, so nil, *true and *false all survive.
 		func(in *infrav1.HCloudMachineStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if len(in.Conditions) == 0 {
@@ -744,10 +732,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil && len(in.Deprecated.V1Beta1.Conditions) == 0 {
 				in.Deprecated.V1Beta1.Conditions = nil
 			}
-			if in.Deprecated != nil && (in.Deprecated.V1Beta1 == nil ||
-				(in.Deprecated.V1Beta1.Conditions == nil &&
-					in.Deprecated.V1Beta1.FailureReason == nil &&
-					in.Deprecated.V1Beta1.FailureMessage == nil)) {
+			if in.Deprecated != nil && (in.Deprecated.V1Beta1 == nil || in.Deprecated.V1Beta1.Conditions == nil) {
 				in.Deprecated = nil
 			}
 		},

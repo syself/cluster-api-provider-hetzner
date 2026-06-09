@@ -305,7 +305,8 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_ControllerGeneratedSta
 //   - status.addresses elements change from clusterv1beta1.MachineAddress to clusterv1.MachineAddress.
 //   - status.instanceState changes from *hcloud.ServerStatus to the CAPH owned InstanceState value type.
 //   - status.lastRemediatedAt moves from a pointer to a value.
-//   - status.failureReason and status.failureMessage are demoted to status.deprecated.v1beta1.
+//   - status.failureReason and status.failureMessage are dropped: they are deprecated and never
+//     populated by CAPH, so they are not carried over to v1beta2.
 //   - status.ready maps to status.initialization.provisioned at the object level
 //     (HCloudMachine.ConvertTo), because that lossy bool -> *bool mapping needs the restored hub data.
 func Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus(in *HCloudMachineStatus, out *infrav1.HCloudMachineStatus, s apiconversion.Scope) error {
@@ -314,17 +315,11 @@ func Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus(in *HClo
 		out.Conditions = in.V1Beta2.Conditions
 	}
 
-	// Demote the old v1beta1 conditions, failureReason and failureMessage to status.deprecated.v1beta1.
-	if len(in.Conditions) > 0 || in.FailureReason != nil || in.FailureMessage != nil {
-		var conditions clusterv1.Conditions
-		if len(in.Conditions) > 0 {
-			conditions = convertDeprecatedConditionsToV1Beta2(in.Conditions)
-		}
+	// Demote the old v1beta1 conditions to status.deprecated.v1beta1.conditions.
+	if len(in.Conditions) > 0 {
 		out.Deprecated = &infrav1.HCloudMachineDeprecatedStatus{
 			V1Beta1: &infrav1.HCloudMachineV1Beta1DeprecatedStatus{
-				Conditions:     conditions,
-				FailureReason:  in.FailureReason,
-				FailureMessage: in.FailureMessage,
+				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
 			},
 		}
 	}
@@ -387,11 +382,9 @@ func Convert_v1beta2_HCloudMachineStatus_To_v1beta1_HCloudMachineStatus(in *infr
 		}
 	}
 
-	// Promote the deprecated v1beta1 conditions, failureReason and failureMessage back to the old status fields.
+	// Promote the deprecated v1beta1 conditions back to the old status.conditions.
 	if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil {
 		out.Conditions = convertDeprecatedConditionsToV1Beta1(in.Deprecated.V1Beta1.Conditions)
-		out.FailureReason = in.Deprecated.V1Beta1.FailureReason
-		out.FailureMessage = in.Deprecated.V1Beta1.FailureMessage
 	}
 
 	if in.Addresses != nil {
