@@ -90,28 +90,32 @@ still succeeds based on `IMAGE_URL_DONE` alone.
   "phases": {
     "Preparation": {
       "status": "Succeeded",
+      "duration": "45.2s",
       "steps": [
-        {"name": "VerifyTools",        "status": "Succeeded", "message": ""},
-        {"name": "CheckDeviceExists",  "status": "Succeeded", "message": ""}
+        {"name": "VerifyTools",       "status": "Succeeded", "duration": "0.3s", "percentOfTimeout": 1,  "message": ""},
+        {"name": "CheckDeviceExists", "status": "Succeeded", "duration": "0.1s", "percentOfTimeout": 2,  "message": ""}
       ]
     },
     "ImageDeployment": {
       "status": "Succeeded",
+      "duration": "62.1s",
       "steps": [
-        {"name": "PullImage",  "status": "Succeeded", "message": ""},
-        {"name": "WriteImage", "status": "Succeeded", "message": ""}
+        {"name": "PullImage",  "status": "Succeeded", "duration": "58.4s", "percentOfTimeout": 13, "message": ""},
+        {"name": "WriteImage", "status": "Succeeded", "duration": "3.5s",  "percentOfTimeout": 2,  "message": ""}
       ]
     },
     "BootstrapDelivery": {
       "status": "Succeeded",
+      "duration": "1.2s",
       "steps": [
-        {"name": "ConfigureCloudInit", "status": "Succeeded", "message": ""}
+        {"name": "ConfigureCloudInit", "status": "Succeeded", "duration": "0.8s", "percentOfTimeout": 4, "message": ""}
       ]
     },
     "Handover": {
       "status": "Succeeded",
+      "duration": "0.5s",
       "steps": [
-        {"name": "UnmountDisk", "status": "Succeeded", "message": ""}
+        {"name": "UnmountDisk", "status": "Succeeded", "duration": "0.5s", "percentOfTimeout": 2, "message": ""}
       ]
     }
   }
