@@ -81,7 +81,7 @@ provisioning.
 ## output.json (optional)
 
 The command may write `/root/output.json` at any point during execution. CAPH reads it
-continuously to set detailed phase conditions on the machine. If the file does not exist, provisioning
+continuously to monitor provisioning progress. If the file does not exist, provisioning
 still succeeds based on `IMAGE_URL_DONE` alone.
 
 ```json
@@ -125,8 +125,8 @@ When present, CAPH sets the `NodeProvisioningSucceeded` condition on the machine
 ## Measured durations for hcloud
 
 | oldState | newState | avg(s) | min(s) | max(s) |
-|----------|----------|-------:|-------:|-------:|
-|  | Initializing | 3.30 | 2.00 | 5.00 |
+| -------- | -------- | -----: | -----: | -----: |
+| | Initializing | 3.30 | 2.00 | 5.00 |
 | Initializing | EnablingRescue | 19.20 | 11.00 | 21.00 |
 | EnablingRescue | BootingToRescue | 14.20 | 9.00 | 23.00 |
 | BootingToRescue | RunningImageCommand | 38.20 | 37.00 | 42.00 |
