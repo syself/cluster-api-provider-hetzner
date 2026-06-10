@@ -1019,13 +1019,15 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			Message: "imageURLCommand running",
 		})
 		if outputJSON, readErr := hcloudSSHClient.ReadOutputJSON(ctx); readErr == nil {
-			imageurlcommand.ParseAndApply(hm, outputJSON)
+			_ = imageurlcommand.ParseAndApply(hm, outputJSON)
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		if outputJSON, readErr := hcloudSSHClient.ReadOutputJSON(ctx); readErr == nil {
-			imageurlcommand.ParseAndApply(hm, outputJSON)
+			if err := imageurlcommand.ParseAndApply(hm, outputJSON); err != nil {
+				s.scope.Info("output.json: could not set NodeProvisioningSucceeded condition", "err", err)
+			}
 			record.Event(hm, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 		}

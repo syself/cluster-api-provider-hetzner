@@ -1326,7 +1326,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
 		if outputJSON, readErr := sshClient.ReadOutputJSON(ctx); readErr == nil {
-			imageurlcommand.ParseAndApply(host, outputJSON)
+			_ = imageurlcommand.ParseAndApply(host, outputJSON)
 		}
 		return actionContinue{delay: 10 * time.Second}
 
@@ -1335,7 +1335,9 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
 
 		if outputJSON, readErr := sshClient.ReadOutputJSON(ctx); readErr == nil {
-			imageurlcommand.ParseAndApply(host, outputJSON)
+			if err := imageurlcommand.ParseAndApply(host, outputJSON); err != nil {
+				s.scope.Info("output.json: could not set NodeProvisioningSucceeded condition", "err", err)
+			}
 			record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 		}

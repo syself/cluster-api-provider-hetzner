@@ -80,9 +80,48 @@ provisioning.
 
 ## output.json (optional)
 
-The command may write `/root/output.json` at any point during execution. CAPH reads it
-continuously to monitor provisioning progress. If the file does not exist, provisioning
-still succeeds based on `IMAGE_URL_DONE` alone.
+The command may write `/root/output.json` at any point during execution. If the file does not
+exist, provisioning still succeeds based on `IMAGE_URL_DONE` alone.
+
+CAPH reads the `status` field from this file to set the `NodeProvisioningSucceeded` condition on the
+machine (HCloudMachine or HetznerBareMetalHost). The `message` field is forwarded verbatim into the
+condition message.
+
+### Fields CAPH reads
+
+CAPH only reads two top-level fields:
+
+| Field     | Required               | Values                                         | Purpose                                       |
+|-----------|------------------------|------------------------------------------------|-----------------------------------------------|
+| `status`  | yes (to set condition) | `"Succeeded"`, `"Failed"`, or any other string | Sets `NodeProvisioningSucceeded` condition    |
+| `message` | no                     | free-form string                               | Included in the condition message             |
+
+Minimal success example:
+
+```json
+{"status": "Succeeded"}
+```
+
+Minimal failure example:
+
+```json
+{"status": "Failed", "message": "failed to pull image: disk full"}
+```
+
+Any other fields in the JSON are **ignored by CAPH** but are forwarded as-is via the Kubernetes
+event (see below). You can use them for your own structured debugging output.
+
+### Kubernetes event on completion
+
+When the command finishes (success or failure), CAPH emits a Kubernetes event with reason
+`ImageURLCommandOutputJSON` containing the **full JSON content** of the file. If the command
+failed, the event type is `Warning`; otherwise it is `Normal`. The content is also written to
+the controller log at key `outputJSON`.
+
+### Extended example
+
+Your command can include arbitrary extra fields for its own structured debug output. CAPH
+passes the whole JSON through untouched:
 
 ```json
 {
@@ -92,39 +131,21 @@ still succeeds based on `IMAGE_URL_DONE` alone.
       "status": "Succeeded",
       "duration": "45.2s",
       "steps": [
-        {"name": "VerifyTools",       "status": "Succeeded", "duration": "0.3s", "percentOfTimeout": 1,  "message": ""},
-        {"name": "CheckDeviceExists", "status": "Succeeded", "duration": "0.1s", "percentOfTimeout": 2,  "message": ""}
+        {"name": "VerifyTools",       "status": "Succeeded", "duration": "0.3s"},
+        {"name": "CheckDeviceExists", "status": "Succeeded", "duration": "0.1s"}
       ]
     },
     "ImageDeployment": {
       "status": "Succeeded",
       "duration": "62.1s",
       "steps": [
-        {"name": "PullImage",  "status": "Succeeded", "duration": "58.4s", "percentOfTimeout": 13, "message": ""},
-        {"name": "WriteImage", "status": "Succeeded", "duration": "3.5s",  "percentOfTimeout": 2,  "message": ""}
-      ]
-    },
-    "BootstrapDelivery": {
-      "status": "Succeeded",
-      "duration": "1.2s",
-      "steps": [
-        {"name": "ConfigureCloudInit", "status": "Succeeded", "duration": "0.8s", "percentOfTimeout": 4, "message": ""}
-      ]
-    },
-    "Handover": {
-      "status": "Succeeded",
-      "duration": "0.5s",
-      "steps": [
-        {"name": "UnmountDisk", "status": "Succeeded", "duration": "0.5s", "percentOfTimeout": 2, "message": ""}
+        {"name": "PullImage",  "status": "Succeeded", "duration": "58.4s"},
+        {"name": "WriteImage", "status": "Succeeded", "duration": "3.5s"}
       ]
     }
   }
 }
 ```
-
-When the command finishes (success or failure), CAPH emits a Kubernetes event with reason `ImageURLCommandOutputJSON` containing the full JSON content. If the command failed, the event type is `Warning`; otherwise it is `Normal`. The content is also written to the controller log at key `outputJSON`.
-
-When present, CAPH sets the `NodeProvisioningSucceeded` condition on the machine (HCloudMachine or HetznerBareMetalHost) based on the top-level `status` field.
 
 ## Measured durations for hcloud
 

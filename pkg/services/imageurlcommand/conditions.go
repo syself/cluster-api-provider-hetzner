@@ -19,6 +19,7 @@ package imageurlcommand
 
 import (
 	"encoding/json"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
@@ -68,10 +69,15 @@ func ApplyNodeProvisioningConditions(obj conditionSetter, output Output) {
 }
 
 // ParseAndApply unmarshals content into Output and updates conditions on obj.
-// It is a no-op if content is empty, not valid JSON, or has no status field.
-func ParseAndApply(obj conditionSetter, content string) {
+// Returns an error if content is not valid JSON or has no status field.
+func ParseAndApply(obj conditionSetter, content string) error {
 	var output Output
-	if err := json.Unmarshal([]byte(content), &output); err == nil && output.Status != "" {
-		ApplyNodeProvisioningConditions(obj, output)
+	if err := json.Unmarshal([]byte(content), &output); err != nil {
+		return fmt.Errorf("output.json: %w", err)
 	}
+	if output.Status == "" {
+		return fmt.Errorf("output.json: no status field")
+	}
+	ApplyNodeProvisioningConditions(obj, output)
+	return nil
 }
