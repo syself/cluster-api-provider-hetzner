@@ -24,7 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 const (
@@ -98,6 +98,7 @@ type HostSelector struct {
 
 	// MatchExpressions defines the label match expressions that must be true on a chosen BareMetalHost.
 	// +optional
+	// +listType=atomic
 	MatchExpressions []HostSelectorRequirement `json:"matchExpressions,omitempty"`
 }
 
@@ -110,6 +111,7 @@ type HostSelectorRequirement struct {
 	Operator selection.Operator `json:"operator"`
 
 	// Values define the values whose relation to the label value in the host machine is defined by the selection operator.
+	// +listType=atomic
 	Values []string `json:"values"`
 }
 
@@ -179,14 +181,17 @@ type InstallImage struct {
 	PostInstallScript string `json:"postInstallScript,omitempty"`
 
 	// Partitions define the additional Partitions to be created in installimage.
+	// +listType=atomic
 	Partitions []Partition `json:"partitions"`
 
 	// LVMDefinitions defines the logical volume definitions to be created.
 	// +optional
+	// +listType=atomic
 	LVMDefinitions []LVMDefinition `json:"logicalVolumeDefinitions,omitempty"`
 
 	// BTRFSDefinitions define the btrfs subvolume definitions to be created.
 	// +optional
+	// +listType=atomic
 	BTRFSDefinitions []BTRFSDefinition `json:"btrfsDefinitions,omitempty"`
 
 	// Swraid defines the SWRAID in InstallImage. It enables or disables raids. Set 1 to enable.
@@ -310,46 +315,73 @@ type LVMDefinition struct {
 
 // HetznerBareMetalMachineStatus defines the observed state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineStatus struct {
-	// LastUpdated identifies when this status was last observed.
+	// conditions represents the observations of a HetznerBareMetalMachine's current state.
+	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated and HostReady.
 	// +optional
-	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// FailureReason will be set in the event that there is a terminal problem.
-	//
-	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
-	//
+	// initialization provides observations of the HetznerBareMetalMachine initialization process.
+	// NOTE: Fields in this struct are part of the Cluster API contract and are used to orchestrate initial Machine provisioning.
 	// +optional
-	FailureReason *string `json:"failureReason,omitempty"`
-
-	// FailureMessage will be set in the event that there is a terminal problem.
-	//
-	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
-	//
-	// +optional
-	FailureMessage *string `json:"failureMessage,omitempty"`
+	Initialization HetznerBareMetalMachineInitializationStatus `json:"initialization,omitempty,omitzero"`
 
 	// Addresses is a list of addresses assigned to the machine.
 	// This field is copied from the infrastructure provider reference.
 	// +optional
-	Addresses []clusterv1beta1.MachineAddress `json:"addresses,omitempty"`
-
-	// Ready is the state of the hetznerbaremetalmachine.
-	// +optional
-	Ready bool `json:"ready"`
+	// +listType=atomic
+	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
 
 	// Phase represents the current phase of HetznerBareMetalMachineStatus actuation.
 	// E.g. Pending, Running, Terminating, Failed, etc.
 	// +optional
-	Phase clusterv1beta1.MachinePhase `json:"phase,omitempty"`
+	Phase clusterv1.MachinePhase `json:"phase,omitempty"`
 
-	// Conditions define the current service state of the HetznerBareMetalMachine.
+	// LastUpdated identifies when this status was last observed.
 	// +optional
-	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
+	LastUpdated metav1.Time `json:"lastUpdated,omitempty,omitzero"`
 
 	// LastRemediatedAt records when the most recent successful remediation completed.
 	// Used to prevent reboot loops across successive MHC incidents.
 	// +optional
-	LastRemediatedAt *metav1.Time `json:"lastRemediatedAt,omitempty"`
+	LastRemediatedAt metav1.Time `json:"lastRemediatedAt,omitempty,omitzero"`
+
+	// deprecated groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
+	// +optional
+	Deprecated *HetznerBareMetalMachineDeprecatedStatus `json:"deprecated,omitempty"`
+}
+
+// HetznerBareMetalMachineInitializationStatus provides observations of the HetznerBareMetalMachine initialization process.
+// +kubebuilder:validation:MinProperties=1
+type HetznerBareMetalMachineInitializationStatus struct {
+	// provisioned is true when the infrastructure provider reports that the HetznerBareMetalMachine's infrastructure is fully provisioned.
+	// NOTE: this field is part of the Cluster API contract, and it is used to orchestrate initial Machine provisioning.
+	// The value of this field is never updated after provisioning is completed.
+	// +optional
+	Provisioned *bool `json:"provisioned,omitempty"`
+}
+
+// HetznerBareMetalMachineDeprecatedStatus groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
+// See https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more context.
+type HetznerBareMetalMachineDeprecatedStatus struct {
+	// v1beta1 groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
+	// +optional
+	V1Beta1 *HetznerBareMetalMachineV1Beta1DeprecatedStatus `json:"v1beta1,omitempty"`
+}
+
+// HetznerBareMetalMachineV1Beta1DeprecatedStatus groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
+// See https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more context.
+type HetznerBareMetalMachineV1Beta1DeprecatedStatus struct {
+	// conditions defines current service state of the HetznerBareMetalMachine.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
+	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
 }
 
 // HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
@@ -358,12 +390,13 @@ type HetznerBareMetalMachineStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:path=hetznerbaremetalmachines,scope=Namespaced,categories=cluster-api,shortName=hbmm
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this HetznerBareMetalMachine belongs"
-// +kubebuilder:printcolumn:name="Host",type="string",JSONPath=".metadata.annotations.infrastructure\\.cluster\\.x-k8s\\.io/HetznerBareMetalHost",description="HetznerBareMetalHost"
 // +kubebuilder:printcolumn:name="Machine",type="string",JSONPath=".metadata.ownerReferences[?(@.kind==\"Machine\")].name",description="Machine object which owns with this HetznerBareMetalMachine"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status",description="HetznerBareMetalMachine infrastructure is ready"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="HetznerBareMetalMachine status such as Pending/Provisioning/Running etc"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of HetznerBareMetalMachine"
-// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
-// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message"
+// +kubebuilder:printcolumn:name="Host",type="string",JSONPath=".metadata.annotations.infrastructure\\.cluster\\.x-k8s\\.io/HetznerBareMetalHost",description="HetznerBareMetalHost",priority=1
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason",priority=1
+// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message",priority=1
 type HetznerBareMetalMachine struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -374,14 +407,33 @@ type HetznerBareMetalMachine struct {
 	Status HetznerBareMetalMachineStatus `json:"status,omitempty"`
 }
 
-// GetConditions returns the observations of the operational state of the HetznerBareMetalMachine resource.
-func (hbmm *HetznerBareMetalMachine) GetConditions() clusterv1beta1.Conditions {
+// GetConditions returns the set of conditions for the HetznerBareMetalMachine resource.
+func (hbmm *HetznerBareMetalMachine) GetConditions() []metav1.Condition {
 	return hbmm.Status.Conditions
 }
 
-// SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1beta1.Conditions.
-func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1beta1.Conditions) {
+// SetConditions sets conditions for the HetznerBareMetalMachine object.
+func (hbmm *HetznerBareMetalMachine) SetConditions(conditions []metav1.Condition) {
 	hbmm.Status.Conditions = conditions
+}
+
+// GetV1Beta1Conditions returns the deprecated v1beta1 conditions of the HetznerBareMetalMachine object.
+func (hbmm *HetznerBareMetalMachine) GetV1Beta1Conditions() clusterv1.Conditions {
+	if hbmm.Status.Deprecated == nil || hbmm.Status.Deprecated.V1Beta1 == nil {
+		return nil
+	}
+	return hbmm.Status.Deprecated.V1Beta1.Conditions
+}
+
+// SetV1Beta1Conditions sets the deprecated v1beta1 conditions on the HetznerBareMetalMachine object.
+func (hbmm *HetznerBareMetalMachine) SetV1Beta1Conditions(conditions clusterv1.Conditions) {
+	if hbmm.Status.Deprecated == nil {
+		hbmm.Status.Deprecated = &HetznerBareMetalMachineDeprecatedStatus{}
+	}
+	if hbmm.Status.Deprecated.V1Beta1 == nil {
+		hbmm.Status.Deprecated.V1Beta1 = &HetznerBareMetalMachineV1Beta1DeprecatedStatus{}
+	}
+	hbmm.Status.Deprecated.V1Beta1.Conditions = conditions
 }
 
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.
