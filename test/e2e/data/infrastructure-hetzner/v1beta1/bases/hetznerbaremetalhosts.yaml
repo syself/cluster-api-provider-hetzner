@@ -18,7 +18,7 @@ kind: HetznerBareMetalHost
 metadata:
   name: "bm-e2e-1716772"
   labels:
-    baremetal-pool: free-pool
+    baremetal-pool: ci-pool
     name: bm-e2e-1716772
 spec:
   serverID: 1716772 # ip: 136.243.69.24

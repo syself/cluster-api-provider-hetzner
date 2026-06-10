@@ -22,9 +22,12 @@ package v1beta1
 
 import (
 	"fmt"
+	"math"
 	"sort"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
@@ -282,10 +285,127 @@ func Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplat
 	return autoConvert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus(in, out, s)
 }
 
-// Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus converts the
-// v1beta1 HCloudRemediationStatus to v1beta2, dropping the V1Beta2 field.
-func Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus(in *HCloudRemediationStatus, out *infrav2.HCloudRemediationStatus, s apiconversion.Scope) error {
-	return autoConvert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus(in, out, s)
+// remediationRetryToPointer maps a v1beta1 int counter to the v1beta2 *int32 form. v1beta1 stores an
+// unset counter as 0, while v1beta2 stores it as a nil pointer, so non-positive values map to nil.
+func remediationRetryToPointer(in int) (*int32, error) {
+	if in <= 0 {
+		return nil, nil
+	}
+	if in > math.MaxInt32 || in < math.MinInt32 {
+		return nil, fmt.Errorf("remediation retry counter %d is outside the int32 range", in)
+	}
+	return ptr.To(int32(in)), nil
+}
+
+// remediationRetryFromPointer maps a v1beta2 *int32 counter back to the v1beta1 int form.
+func remediationRetryFromPointer(in *int32) int {
+	if in == nil {
+		return 0
+	}
+	return int(*in)
+}
+
+// remediationDurationToSeconds converts a duration to whole seconds for the v1beta2 form. Negative
+// values clamp to 0 to satisfy the v1beta2 schema, and a positive value below one second ceils to 1
+// so a small configured duration never collapses to 0.
+func remediationDurationToSeconds(in metav1.Duration) (int32, error) {
+	if in.Duration < 0 {
+		return 0, nil
+	}
+	seconds := in.Duration / time.Second
+	if seconds == 0 && in.Duration > 0 {
+		return 1, nil
+	}
+	if seconds > math.MaxInt32 {
+		return 0, fmt.Errorf("remediation duration %s is outside the int32 seconds range", in.Duration)
+	}
+	return int32(seconds), nil //nolint:gosec // checked against the int32 range above
+}
+
+// Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy converts a v1beta1
+// RemediationStrategy to v1beta2. It is hand-written (the type is tagged +k8s:conversion-gen=false)
+// because v1beta2 stores the timeout and cooldown as whole-second *int32 counters and the retry limit
+// as a *int32. It is shared with HetznerBareMetalRemediation.
+func Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(in *RemediationStrategy, out *infrav2.RemediationStrategy, _ apiconversion.Scope) error {
+	var err error
+	out.Type = infrav2.RemediationType(in.Type)
+	out.RetryLimit, err = remediationRetryToPointer(in.RetryLimit)
+	if err != nil {
+		return err
+	}
+	if in.Timeout != nil {
+		timeoutSeconds, err := remediationDurationToSeconds(*in.Timeout)
+		if err != nil {
+			return err
+		}
+		out.TimeoutSeconds = timeoutSeconds
+	}
+	if in.Cooldown != nil {
+		cooldownSeconds, err := remediationDurationToSeconds(*in.Cooldown)
+		if err != nil {
+			return err
+		}
+		out.CooldownSeconds = ptr.To(cooldownSeconds)
+	}
+	return nil
+}
+
+// Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy converts a v1beta2
+// RemediationStrategy back to v1beta1, restoring the durations from the whole-second counters.
+func Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(in *infrav2.RemediationStrategy, out *RemediationStrategy, _ apiconversion.Scope) error {
+	out.Type = RemediationType(in.Type)
+	out.RetryLimit = remediationRetryFromPointer(in.RetryLimit)
+	out.Timeout = &metav1.Duration{Duration: time.Duration(in.TimeoutSeconds) * time.Second}
+	if in.CooldownSeconds != nil {
+		out.Cooldown = &metav1.Duration{Duration: time.Duration(*in.CooldownSeconds) * time.Second}
+	}
+	return nil
+}
+
+// Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus is hand-written (the type
+// is tagged +k8s:conversion-gen=false) because the conditions and counters change shape between
+// versions. It promotes the staged status.v1beta2.conditions to status.conditions, demotes the old
+// status.conditions to status.deprecated.v1beta1.conditions, and maps retryCount and lastRemediated to
+// their v1beta2 forms.
+func Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus(in *HCloudRemediationStatus, out *infrav2.HCloudRemediationStatus, _ apiconversion.Scope) error {
+	var err error
+	out.Phase = in.Phase
+	out.RetryCount, err = remediationRetryToPointer(in.RetryCount)
+	if err != nil {
+		return err
+	}
+	if in.LastRemediated != nil {
+		out.LastRemediated = *in.LastRemediated
+	}
+	if in.V1Beta2 != nil {
+		out.Conditions = in.V1Beta2.Conditions
+	}
+	if len(in.Conditions) > 0 {
+		out.Deprecated = &infrav2.HCloudRemediationDeprecatedStatus{
+			V1Beta1: &infrav2.HCloudRemediationV1Beta1DeprecatedStatus{
+				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
+			},
+		}
+	}
+	return nil
+}
+
+// Convert_v1beta2_HCloudRemediationStatus_To_v1beta1_HCloudRemediationStatus restores the staged
+// v1beta2 conditions and the old condition slice from their v1beta2 homes.
+func Convert_v1beta2_HCloudRemediationStatus_To_v1beta1_HCloudRemediationStatus(in *infrav2.HCloudRemediationStatus, out *HCloudRemediationStatus, _ apiconversion.Scope) error {
+	out.Phase = in.Phase
+	out.RetryCount = remediationRetryFromPointer(in.RetryCount)
+	if !in.LastRemediated.IsZero() {
+		lastRemediated := in.LastRemediated
+		out.LastRemediated = &lastRemediated
+	}
+	if len(in.Conditions) > 0 {
+		out.V1Beta2 = &HCloudRemediationV1Beta2Status{Conditions: in.Conditions}
+	}
+	if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil {
+		out.Conditions = convertDeprecatedConditionsToV1Beta1(in.Deprecated.V1Beta1.Conditions)
+	}
+	return nil
 }
 
 // Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMachineStatus converts

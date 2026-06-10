@@ -43,7 +43,7 @@ type HetznerBareMetalRemediationTemplateStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Strategy",type=string,JSONPath=".spec.template.spec.strategy.type",description="Type of the remediation strategy"
 // +kubebuilder:printcolumn:name="Retry limit",type=string,JSONPath=".spec.template.spec.strategy.retryLimit",description="How many times remediation controller should attempt to remediate the host"
-// +kubebuilder:printcolumn:name="Timeout",type=string,JSONPath=".spec.template.spec.strategy.timeout",description="Timeout for the remediation"
+// +kubebuilder:printcolumn:name="Timeout",type=string,JSONPath=".spec.template.spec.strategy.timeoutSeconds",description="Timeout for the remediation"
 
 // HetznerBareMetalRemediationTemplate is the Schema for the hetznerbaremetalremediationtemplates API.
 type HetznerBareMetalRemediationTemplate struct {
