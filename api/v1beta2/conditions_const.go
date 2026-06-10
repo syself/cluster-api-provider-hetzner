@@ -412,4 +412,3 @@ const (
 	// NodeProvisioningSucceededV1Beta1Condition is the legacy v1beta1 condition kept for migration.
 	NodeProvisioningSucceededV1Beta1Condition clusterv1.ConditionType = "NodeProvisioningSucceeded"
 )
-
