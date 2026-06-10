@@ -69,8 +69,8 @@ and must start with `image-url-command-`.
 
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 
-The command must end with the last line containing `IMAGE_URL_DONE`. Otherwise the execution is
-considered to have failed.
+The command must end with the last line on stdout containing `IMAGE_URL_DONE`. Otherwise the
+execution is considered to have failed.
 
 The controller uses url.ParseRequestURI (Go function) to validate the imageURL.
 
