@@ -396,6 +396,47 @@ const (
 	HetznerClusterDeletingReason = clusterv1.DeletingReason
 )
 
+// HetznerBareMetalMachine's v1beta2 conditions.
+const (
+	// HetznerBareMetalMachineHostAssociatedCondition is true when the host is associated.
+	HetznerBareMetalMachineHostAssociatedCondition = "HostAssociated"
+
+	// HetznerBareMetalMachineHostAssociatedReason surfaces when the host is associated.
+	HetznerBareMetalMachineHostAssociatedReason = "Associated"
+
+	// HetznerBareMetalMachineNoAvailableHostReason surfaces when no available host is found.
+	HetznerBareMetalMachineNoAvailableHostReason = "NoAvailableHost"
+
+	// HetznerBareMetalMachineHostAssociationFailedReason surfaces when host association failed.
+	HetznerBareMetalMachineHostAssociationFailedReason = "AssociationFailed"
+
+	// HetznerBareMetalMachineWaitingForBootstrapDataReason surfaces when waiting for bootstrap data.
+	HetznerBareMetalMachineWaitingForBootstrapDataReason = clusterv1.WaitingForBootstrapDataReason
+)
+
+const (
+	// HetznerBareMetalMachineDeletingCondition surfaces details about ongoing deletion of the HetznerBareMetalMachine.
+	HetznerBareMetalMachineDeletingCondition = clusterv1.DeletingCondition
+
+	// HetznerBareMetalMachineDeletingReason surfaces when the HetznerBareMetalMachine is being deleted.
+	HetznerBareMetalMachineDeletingReason = clusterv1.DeletingReason
+)
+
+const (
+	// HetznerBareMetalMachineHostReadyCondition is true when the associated host is ready.
+	HetznerBareMetalMachineHostReadyCondition = "HostReady"
+
+	// HetznerBareMetalMachineHostReadyReason surfaces when the host is ready.
+	HetznerBareMetalMachineHostReadyReason = clusterv1.ReadyReason
+
+	// HetznerBareMetalMachineNotFoundReason surfaces when the host is not found.
+	HetznerBareMetalMachineNotFoundReason = "NotFound"
+
+	// HetznerBareMetalMachineHostNotReadyReason surfaces when the host is not ready.
+	HetznerBareMetalMachineHostNotReadyReason = "NotReady"
+)
+
+
 const (
 	// NodeProvisioningSucceededCondition reports the result of the image-url-command.
 	// True on success; False on permanent failure; Unknown while in progress.
