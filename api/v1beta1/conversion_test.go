@@ -407,6 +407,33 @@ func TestHetznerBareMetalHostRoundTripPreservesDroppedStatusFields(t *testing.T)
 	}
 }
 
+// TestHetznerBareMetalHostRebootTriggeredAtNilRoundTrip verifies that a nil spec.status.rebootTriggeredAt
+// in v1beta1 converts to the zero value in v1beta2 and back to a nil pointer in v1beta1.
+func TestHetznerBareMetalHostRebootTriggeredAtNilRoundTrip(t *testing.T) {
+	src := &HetznerBareMetalHost{
+		Spec: HetznerBareMetalHostSpec{
+			ServerID: 1,
+			Status:   ControllerGeneratedStatus{RebootTriggeredAt: nil},
+		},
+	}
+
+	hub := &infrav1.HetznerBareMetalHost{}
+	if err := src.ConvertTo(hub); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+	if !hub.Status.RebootTriggeredAt.IsZero() {
+		t.Fatalf("expected a zero rebootTriggeredAt in v1beta2, got %#v", hub.Status.RebootTriggeredAt)
+	}
+
+	restored := &HetznerBareMetalHost{}
+	if err := restored.ConvertFrom(hub); err != nil {
+		t.Fatalf("failed to convert back to v1beta1: %v", err)
+	}
+	if restored.Spec.Status.RebootTriggeredAt != nil {
+		t.Fatalf("expected a nil rebootTriggeredAt in v1beta1, got %#v", restored.Spec.Status.RebootTriggeredAt)
+	}
+}
+
 func fuzzyConversionTestFunc(scheme *runtime.Scheme, hub conversion.Hub, spoke conversion.Convertible) func(*testing.T) {
 	return utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme:      scheme,

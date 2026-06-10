@@ -814,7 +814,7 @@ spec:
       type: string
     - description: Server ID of the host
       jsonPath: .spec.serverID
-      name: SERVER-ID
+      name: Server ID
       priority: 1
       type: integer
     - jsonPath: .status.conditions[?(@.type=='Ready')].reason
