@@ -396,3 +396,20 @@ const (
 	HetznerClusterDeletingReason = clusterv1.DeletingReason
 )
 
+const (
+	// NodeProvisioningSucceededCondition reports the result of the image-url-command.
+	// True on success; False on permanent failure; Unknown while in progress.
+	NodeProvisioningSucceededCondition clusterv1.ConditionType = "NodeProvisioningSucceeded"
+	// NodeProvisioningSucceededReason indicates the image-url-command completed successfully.
+	NodeProvisioningSucceededReason = "Succeeded"
+	// NodeProvisioningFailedReason indicates the image-url-command failed permanently.
+	NodeProvisioningFailedReason = "Failed"
+	// NodeProvisioningInProgressReason indicates the image-url-command has not yet completed.
+	NodeProvisioningInProgressReason = "InProgress"
+)
+
+const (
+	// NodeProvisioningSucceededV1Beta1Condition is the legacy v1beta1 condition kept for migration.
+	NodeProvisioningSucceededV1Beta1Condition clusterv1.ConditionType = "NodeProvisioningSucceeded"
+)
+
