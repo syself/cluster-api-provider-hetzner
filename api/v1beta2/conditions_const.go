@@ -397,12 +397,18 @@ const (
 )
 
 const (
-	// NodeProvisioningSucceededV1Beta1Condition reports the result of the image-url-command.
+	// NodeProvisioningSucceededCondition reports the result of the image-url-command.
+	// True on success; False on permanent failure; Unknown while in progress.
+	NodeProvisioningSucceededCondition clusterv1.ConditionType = "NodeProvisioningSucceeded"
+	// NodeProvisioningSucceededReason indicates the image-url-command completed successfully.
+	NodeProvisioningSucceededReason = "Succeeded"
+	// NodeProvisioningFailedReason indicates the image-url-command failed permanently.
+	NodeProvisioningFailedReason = "Failed"
+	// NodeProvisioningInProgressReason indicates the image-url-command has not yet completed.
+	NodeProvisioningInProgressReason = "InProgress"
+)
+
+const (
+	// NodeProvisioningSucceededV1Beta1Condition is the legacy v1beta1 condition kept for migration.
 	NodeProvisioningSucceededV1Beta1Condition clusterv1.ConditionType = "NodeProvisioningSucceeded"
-	// NodeProvisioningSucceededV1Beta1Reason indicates the image-url-command completed successfully.
-	NodeProvisioningSucceededV1Beta1Reason = "Succeeded"
-	// NodeProvisioningFailedV1Beta1Reason indicates the image-url-command failed permanently.
-	NodeProvisioningFailedV1Beta1Reason = "Failed"
-	// NodeProvisioningInProgressV1Beta1Reason indicates the image-url-command has not yet completed.
-	NodeProvisioningInProgressV1Beta1Reason = "InProgress"
 )
