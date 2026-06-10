@@ -16,10 +16,10 @@ limitations under the License.
 
 package controllers
 
-// This file holds the still-v1beta1 counterparts of the condition and token helpers in conditions.go.
+// This file holds the still-v1beta1 counterparts of the condition and token helpers in util.go.
 // They are used by controllers that still reconcile v1beta1 resources, through the deprecated v1beta1
 // condition packages. The whole file can be deleted once the last controller is migrated, leaving
-// only the v1beta2 helpers in conditions.go.
+// only the helpers in util.go.
 
 import (
 	"context"
@@ -48,9 +48,9 @@ func reconcileRateLimitV1Beta1(setter v1beta1conditions.Setter, rateLimitWaitTim
 	condition := v1beta1conditions.Get(setter, infrav1.HetznerAPIReachableCondition)
 	if condition != nil && condition.Status == corev1.ConditionFalse {
 		if time.Now().Before(condition.LastTransitionTime.Add(rateLimitWaitTime)) {
-			// Not yet timed out, reconcile again after timeout.
-			// Don't give a more precise requeueAfter value to not reconcile too many
-			// objects at the same time.
+			// Rate limit wait has not elapsed yet, so signal the caller to requeue.
+			// The caller requeues after a fixed interval rather than the exact remaining
+			// wait, so that objects rate-limited together do not all reconcile at once.
 			return true
 		}
 		// Wait time is over, we continue.

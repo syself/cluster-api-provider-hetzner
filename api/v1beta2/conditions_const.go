@@ -247,9 +247,6 @@ const (
 	// DeprecatedInstanceBootstrapReadyV1Beta1Condition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
 	DeprecatedInstanceBootstrapReadyV1Beta1Condition clusterv1.ConditionType = "InstanceBootstrapReady"
 
-	// DeprecatedHetznerClusterTargetClusterReadyV1Beta1Condition reports on whether the kubeconfig in the target cluster is ready.
-	DeprecatedHetznerClusterTargetClusterReadyV1Beta1Condition clusterv1.ConditionType = "HetznerClusterTargetClusterReady"
-
 	// DeprecatedNetworkAttachedV1Beta1Condition reports on whether there is a network attached to the cluster.
 	DeprecatedNetworkAttachedV1Beta1Condition clusterv1.ConditionType = "NetworkAttached"
 
@@ -261,9 +258,6 @@ const (
 
 	// DeprecatedAssociateBMHV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
 	DeprecatedAssociateBMHV1Beta1Condition clusterv1.ConditionType = "AssociateBMHCondition"
-
-	// DeprecatedRateLimitExceededV1Beta1Condition reports whether the rate limit has been reached.
-	DeprecatedRateLimitExceededV1Beta1Condition clusterv1.ConditionType = "RateLimitExceeded"
 )
 
 const (

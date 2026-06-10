@@ -322,7 +322,7 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
+func getDefaultHetznerClusterV1Beta1Spec() infrav1.HetznerClusterSpec {
 	return infrav1.HetznerClusterSpec{
 		ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
 			Enabled:   true,
@@ -443,7 +443,7 @@ func getDefaultHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec
 	}
 }
 
-func isPresentAndFalseWithReason(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType, reason string) bool {
+func isPresentAndFalseWithReasonV1Beta1(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType, reason string) bool {
 	err := testEnv.Get(ctx, key, getter)
 	if err != nil {
 		return false
@@ -457,11 +457,11 @@ func isPresentAndFalseWithReason(key types.NamespacedName, getter v1beta1conditi
 		objectCondition.Reason == reason
 }
 
-// isPresentAndFalseWithReasonV2 reads a legacy-shape condition from a v1beta2
+// isPresentAndFalseWithReasonDeprecatedV1Beta1 reads a legacy-shape condition from a v1beta2
 // CAPI core object (Cluster, Machine) via GetV1Beta1Conditions(), i.e. the
 // status.deprecated.v1beta1.conditions field. This is how CAPI 1.11 exposes
 // legacy conditions on v1beta2 objects under the v1beta1 contract compat layer.
-func isPresentAndFalseWithReasonV2(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType, reason string) bool {
+func isPresentAndFalseWithReasonDeprecatedV1Beta1(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType, reason string) bool {
 	if err := testEnv.Get(ctx, key, obj); err != nil {
 		return false
 	}
@@ -473,7 +473,7 @@ func isPresentAndFalseWithReasonV2(key types.NamespacedName, obj client.Object, 
 	return c != nil && c.Status == corev1.ConditionFalse && c.Reason == reason
 }
 
-func isPresentAndTrueV2(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType) bool {
+func isPresentAndTrueDeprecatedV1Beta1(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType) bool {
 	if err := testEnv.Get(ctx, key, obj); err != nil {
 		return false
 	}
@@ -485,7 +485,7 @@ func isPresentAndTrueV2(key types.NamespacedName, obj client.Object, condition c
 	return c != nil && c.Status == corev1.ConditionTrue
 }
 
-func isPresentAndTrue(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType) bool {
+func isPresentAndTrueV1Beta1(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType) bool {
 	err := testEnv.Get(ctx, key, getter)
 	if err != nil {
 		return false
@@ -498,7 +498,13 @@ func isPresentAndTrue(key types.NamespacedName, getter v1beta1conditions.Getter,
 	return objectCondition.Status == corev1.ConditionTrue
 }
 
-func isV1Beta2ConditionWithStatusAndReason(key types.NamespacedName, getter client.Object, condition string, status metav1.ConditionStatus, reason string) bool {
+// isConditionWithStatusAndReason reads a condition from either a native v1beta2 object (via
+// conditions.Getter, which reads status.conditions) or a still-v1beta1 object that stages its
+// conditions (via v1beta2conditions.Getter, which reads status.v1beta2.conditions). A native object
+// has GetConditions(), not the staged GetV1Beta2Conditions(), so it does not satisfy the staged
+// getter; that is why we try the native getter first and fall back to the staged one. The staged
+// branch goes away once every resource is a native v1beta2 type.
+func isConditionWithStatusAndReason(key types.NamespacedName, getter client.Object, condition string, status metav1.ConditionStatus, reason string) bool {
 	if err := testEnv.Get(ctx, key, getter); err != nil {
 		return false
 	}
@@ -517,15 +523,15 @@ func isV1Beta2ConditionWithStatusAndReason(key types.NamespacedName, getter clie
 	return objectCondition.Status == status && objectCondition.Reason == reason
 }
 
-func isPresentAndTrueWithReasonV1Beta2(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
-	return isV1Beta2ConditionWithStatusAndReason(key, getter, condition, metav1.ConditionTrue, reason)
+func isPresentAndTrueWithReason(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
+	return isConditionWithStatusAndReason(key, getter, condition, metav1.ConditionTrue, reason)
 }
 
-func isPresentAndFalseWithReasonV1Beta2(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
-	return isV1Beta2ConditionWithStatusAndReason(key, getter, condition, metav1.ConditionFalse, reason)
+func isPresentAndFalseWithReason(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
+	return isConditionWithStatusAndReason(key, getter, condition, metav1.ConditionFalse, reason)
 }
 
-func isAbsentV1Beta2(key types.NamespacedName, getter client.Object, condition string) bool {
+func isAbsent(key types.NamespacedName, getter client.Object, condition string) bool {
 	if err := testEnv.Get(ctx, key, getter); err != nil {
 		return false
 	}

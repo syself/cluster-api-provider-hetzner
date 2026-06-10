@@ -203,12 +203,12 @@ type HetznerClusterList struct {
 	Items           []HetznerCluster `json:"items"`
 }
 
-// GetConditions returns the set of v1beta2 conditions for the HetznerCluster object.
+// GetConditions returns the set of conditions for the HetznerCluster object.
 func (r *HetznerCluster) GetConditions() []metav1.Condition {
 	return r.Status.Conditions
 }
 
-// SetConditions sets the v1beta2 conditions for the HetznerCluster object.
+// SetConditions sets the conditions for the HetznerCluster object.
 func (r *HetznerCluster) SetConditions(conditions []metav1.Condition) {
 	r.Status.Conditions = conditions
 }
@@ -232,7 +232,7 @@ func (r *HetznerCluster) SetV1Beta1Conditions(conditions clusterv1.Conditions) {
 	r.Status.Deprecated.V1Beta1.Conditions = conditions
 }
 
-// HetznerClusterSummaryOpts returns the v1beta2 summary options for a HetznerCluster.
+// HetznerClusterSummaryOpts returns the summary options for a HetznerCluster.
 // It is the single source of truth for which conditions contribute to the Ready summary,
 // used both by ClusterScope.Close() and by early-exit error paths that bypass the scope.
 func HetznerClusterSummaryOpts() []conditions.SummaryOption {

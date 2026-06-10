@@ -36,24 +36,21 @@ import (
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 )
 
-// This file holds the condition and token helpers for controllers that reconcile v1beta2 resources.
-// They write conditions directly on the v1beta2 type, which natively satisfies both condition
-// surfaces: the v1beta2 conditions (status.conditions, via the util/conditions package) and the
-// deprecated v1beta1 conditions (status.deprecated.v1beta1.conditions, via the
-// util/conditions/deprecated/v1beta1 package). Controllers still reconciling v1beta1 resources use
-// the V1Beta1 counterparts in conditions_v1beta1.go.
+// This file holds the condition and token helpers for the controllers. util_v1beta1.go holds the
+// counterparts for the controllers that have not been migrated yet, and can be deleted once they
+// are.
 
 // reconcileRateLimit checks whether the rate limit has been reached and returns whether the
-// controller should wait a bit more. When the wait is over it clears the rate-limit state on both
-// condition surfaces (the deprecated HetznerAPIReachable marked True, the v1beta2
-// HCloudRateLimitExceeded deleted, since we cannot know the limit is gone until the next API call).
+// controller should wait a bit more. When the wait is over it clears the rate-limit conditions
+// (HetznerAPIReachable marked reachable again, HCloudRateLimitExceeded deleted, since we cannot know
+// the limit is gone until the next API call).
 func reconcileRateLimit(cluster *infrav2.HetznerCluster, rateLimitWaitTime time.Duration) bool {
 	condition := conditions.Get(cluster, infrav2.HCloudRateLimitExceededCondition)
 	if condition != nil && condition.Status == metav1.ConditionTrue {
 		if time.Now().Before(condition.LastTransitionTime.Add(rateLimitWaitTime)) {
-			// Not yet timed out, reconcile again after timeout.
-			// Don't give a more precise requeueAfter value to not reconcile too many
-			// objects at the same time.
+			// Rate limit wait has not elapsed yet, so signal the caller to requeue.
+			// The caller requeues after a fixed interval rather than the exact remaining
+			// wait, so that objects rate-limited together do not all reconcile at once.
 			return true
 		}
 		// Wait time is over, we continue.
@@ -96,16 +93,14 @@ func getAndValidateHCloudToken(ctx context.Context, namespace string, hetznerClu
 	return hcloudToken, hetznerSecret, nil
 }
 
-// hcloudTokenErrorResult handles errors from getAndValidateHCloudToken for controllers reconciling
-// v1beta2 resources. It sets the HCloudTokenAvailable condition (both surfaces), then computes the
-// Ready summary (the deprecated v1beta1 summary always, the v1beta2 summary from the passed opts)
-// before writing the status once. It mirrors hcloudTokenErrorResultV1Beta1.
+// hcloudTokenErrorResult handles errors from getAndValidateHCloudToken. It sets the
+// HCloudTokenAvailable condition, computes the Ready summary, and writes the status once.
 func hcloudTokenErrorResult(
 	ctx context.Context,
 	inerr error,
 	cluster *infrav2.HetznerCluster,
 	crClient client.Client,
-	v1beta2SummaryOpts []conditions.SummaryOption,
+	summaryOpts []conditions.SummaryOption,
 ) (ctrl.Result, error) {
 	res := ctrl.Result{}
 
@@ -163,11 +158,11 @@ func hcloudTokenErrorResult(
 
 	deprecatedv1beta1conditions.SetSummary(cluster)
 
-	if len(v1beta2SummaryOpts) > 0 {
+	if len(summaryOpts) > 0 {
 		if readyCondition, err := conditions.NewSummaryCondition(
 			cluster,
 			clusterv1.ReadyCondition,
-			v1beta2SummaryOpts...,
+			summaryOpts...,
 		); err == nil {
 			conditions.Set(cluster, *readyCondition)
 		}

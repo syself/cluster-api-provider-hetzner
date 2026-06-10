@@ -77,9 +77,8 @@ func ServerIDFromProviderID(providerID *string) (int64, error) {
 	return id, nil
 }
 
-// HandleRateLimitExceeded sets the rate-limit conditions on a v1beta2 resource if err is an HCloud
-// rate-limit error, and reports whether it was. It is used by the controllers and services that
-// reconcile v1beta2 resources. Controllers and services still on v1beta1 use
+// HandleRateLimitExceeded sets the rate-limit conditions if err is an HCloud rate-limit error, and
+// reports whether it was. Controllers and services still on v1beta1 use
 // HandleRateLimitExceededV1Beta1.
 func HandleRateLimitExceeded(cluster *infrav2.HetznerCluster, err error, functionName string) bool {
 	if !hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {

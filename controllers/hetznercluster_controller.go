@@ -189,9 +189,6 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}()
 
-	// delete the deprecated condition from existing cluster objects
-	deprecatedv1beta1conditions.Delete(hetznerCluster, infrav2.DeprecatedRateLimitExceededV1Beta1Condition)
-
 	// check whether rate limit has been reached and if so, then wait.
 	if wait := reconcileRateLimit(hetznerCluster, r.RateLimitWaitTime); wait {
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
@@ -250,9 +247,6 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	}
 
 	processControlPlaneEndpoint(hetznerCluster)
-
-	// delete deprecated conditions of old clusters
-	deprecatedv1beta1conditions.Delete(clusterScope.HetznerCluster, infrav2.DeprecatedHetznerClusterTargetClusterReadyV1Beta1Condition)
 
 	result, err := r.reconcileTargetClusterManager(ctx, clusterScope)
 	if err != nil {

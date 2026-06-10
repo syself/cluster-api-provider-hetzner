@@ -123,7 +123,7 @@ func (s *ClusterScope) Close(ctx context.Context) error {
 	// set summary for deprecated v1beta1 conditions.
 	deprecatedv1beta1conditions.SetSummary(s.HetznerCluster)
 
-	// set summary for v1beta2 conditions.
+	// set summary for conditions.
 	readyCondition, err := conditions.NewSummaryCondition(
 		s.HetznerCluster,
 		clusterv1.ReadyCondition,
@@ -132,7 +132,7 @@ func (s *ClusterScope) Close(ctx context.Context) error {
 	if err != nil {
 		// Note, this could only happen if we hit edge cases in computing the summary, which should not
 		// happen due to the fact that we are passing a non empty list of ForConditionTypes.
-		s.Error(err, "Failed to set v1beta2 Ready condition")
+		s.Error(err, "Failed to set Ready condition")
 		conditions.Set(s.HetznerCluster, metav1.Condition{
 			Type:   clusterv1.ReadyCondition,
 			Status: metav1.ConditionUnknown,
@@ -236,7 +236,7 @@ func clusterpatchOpts() []patch.Option {
 			infrav2.TargetClusterReadyV1Beta1Condition,
 			infrav2.TargetClusterSecretReadyV1Beta1Condition,
 		}},
-		// owned v1beta2 conditions.
+		// owned conditions.
 		patch.WithOwnedConditions{Conditions: []string{
 			clusterv1.ReadyCondition,
 			infrav2.HCloudTokenAvailableCondition,

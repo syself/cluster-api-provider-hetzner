@@ -205,6 +205,9 @@ func (m *MachineScope) Namespace() string {
 }
 
 // HetznerSecret returns the hetzner secret.
+//
+// TODO: remove this once the HCloudMachine controller is migrated and MachineScope embeds
+// ClusterScope again, which already provides HetznerSecret and its backing field.
 func (m *MachineScope) HetznerSecret() *corev1.Secret {
 	return m.hetznerSecret
 }
