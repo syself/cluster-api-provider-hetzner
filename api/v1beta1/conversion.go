@@ -317,7 +317,9 @@ func Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus(
 // but not a type and do not correspond, so HetznerBareMetalMachineStatus is excluded from conversion-gen
 // (+k8s:conversion-gen=false) and converted fully by hand here:
 //   - status.v1beta2.conditions is promoted to status.conditions.
-//   - status.conditions, status.failureReason and status.failureMessage are demoted to status.deprecated.v1beta1.
+//   - status.conditions is demoted to status.deprecated.v1beta1.conditions.
+//   - status.failureReason and status.failureMessage are dropped: they are deprecated and never
+//     populated by CAPH, so they are not carried over to v1beta2.
 //   - status.lastUpdated and status.lastRemediatedAt move from pointer to value.
 //   - status.ready maps to status.initialization.provisioned at the object level
 //     (HetznerBareMetalMachine.ConvertTo), because that lossy bool -> *bool mapping needs the restored hub data.
@@ -327,13 +329,11 @@ func Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMa
 		out.Conditions = in.V1Beta2.Conditions
 	}
 
-	// Demote the old v1beta1 conditions, failureReason and failureMessage to status.deprecated.v1beta1.
-	if len(in.Conditions) > 0 || in.FailureReason != nil || in.FailureMessage != nil {
+	// Demote the old v1beta1 conditions to status.deprecated.v1beta1.conditions.
+	if len(in.Conditions) > 0 {
 		out.Deprecated = &infrav1.HetznerBareMetalMachineDeprecatedStatus{
 			V1Beta1: &infrav1.HetznerBareMetalMachineV1Beta1DeprecatedStatus{
-				Conditions:     convertDeprecatedConditionsToV1Beta2(in.Conditions),
-				FailureReason:  in.FailureReason,
-				FailureMessage: in.FailureMessage,
+				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
 			},
 		}
 	}
@@ -355,8 +355,7 @@ func Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMa
 // Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMachineStatus converts the
 // v1beta2 HetznerBareMetalMachineStatus back to v1beta1. It is the inverse of the function above:
 //   - status.conditions is demoted to the staged status.v1beta2.conditions.
-//   - status.deprecated.v1beta1.conditions, .failureReason and .failureMessage are promoted back to
-//     status.conditions, status.failureReason and status.failureMessage.
+//   - status.deprecated.v1beta1.conditions is promoted back to status.conditions.
 //   - status.lastUpdated and status.lastRemediatedAt move from value to pointer (zero time -> nil).
 //   - status.initialization.provisioned maps back to status.ready.
 func Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMachineStatus(in *infrav1.HetznerBareMetalMachineStatus, out *HetznerBareMetalMachineStatus, _ apiconversion.Scope) error {
@@ -367,11 +366,9 @@ func Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMa
 		}
 	}
 
-	// Promote the deprecated v1beta1 conditions, failureReason and failureMessage back to the old status fields.
+	// Promote the deprecated v1beta1 conditions back to the old status.conditions.
 	if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil {
 		out.Conditions = convertDeprecatedConditionsToV1Beta1(in.Deprecated.V1Beta1.Conditions)
-		out.FailureReason = in.Deprecated.V1Beta1.FailureReason
-		out.FailureMessage = in.Deprecated.V1Beta1.FailureMessage
 	}
 
 	out.Addresses = convertMachineAddressesToV1Beta1(in.Addresses)

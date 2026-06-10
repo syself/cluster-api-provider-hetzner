@@ -432,10 +432,9 @@ func TestHetznerBareMetalMachineConvertToNilProvisionedForFalseReadyWithoutAnnot
 	}
 }
 
-// TestHetznerBareMetalMachineRoundTripPreservesFailureFields verifies that status.failureReason and
-// status.failureMessage survive a v1beta1 -> v1beta2 -> v1beta1 round trip. On the v1beta2 type they
-// live under status.deprecated.v1beta1.
-func TestHetznerBareMetalMachineRoundTripPreservesFailureFields(t *testing.T) {
+// TestHetznerBareMetalMachineFailureFieldsAreDropped verifies that the deprecated status.failureReason
+// and status.failureMessage, which CAPH never populates, are dropped on conversion.
+func TestHetznerBareMetalMachineFailureFieldsAreDropped(t *testing.T) {
 	src := &HetznerBareMetalMachine{
 		Status: HetznerBareMetalMachineStatus{
 			FailureReason:  ptr.To("boom"),
@@ -448,16 +447,8 @@ func TestHetznerBareMetalMachineRoundTripPreservesFailureFields(t *testing.T) {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
 
-	dst := &HetznerBareMetalMachine{}
-	if err := dst.ConvertFrom(hub); err != nil {
-		t.Fatalf("failed to convert from v1beta2: %v", err)
-	}
-
-	if dst.Status.FailureReason == nil || *dst.Status.FailureReason != "boom" {
-		t.Fatalf("status.failureReason = %v, want boom", dst.Status.FailureReason)
-	}
-	if dst.Status.FailureMessage == nil || *dst.Status.FailureMessage != "it broke" {
-		t.Fatalf("status.failureMessage = %v, want it broke", dst.Status.FailureMessage)
+	if hub.Status.Deprecated != nil {
+		t.Fatalf("expected failure fields to be dropped, got status.deprecated = %#v", hub.Status.Deprecated)
 	}
 }
 
@@ -760,8 +751,8 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		// HetznerBareMetalMachine v1beta1 status: collapse empty condition slices to nil, drop the
 		// V1Beta2 wrapper unless it carries conditions, and collapse a non-nil pointer to the zero time
-		// to nil so the round trip matches. failureReason/failureMessage need no normalization: they
-		// move to status.deprecated.v1beta1 on the hub and back, so the round trip preserves them.
+		// to nil so the round trip matches. failureReason/failureMessage are dropped in v1beta2, so nil
+		// them: they do not round-trip.
 		func(in *HetznerBareMetalMachineStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if len(in.Conditions) == 0 {
@@ -776,27 +767,22 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			if in.LastRemediatedAt != nil && in.LastRemediatedAt.IsZero() {
 				in.LastRemediatedAt = nil
 			}
+			in.FailureReason = nil
+			in.FailureMessage = nil
 		},
 		// HetznerBareMetalMachine v1beta2 status (hub side): conditions and the deprecated wrapper have
 		// an empty-vs-nil ambiguity, so normalize them to make the round trip match. The deprecated
-		// wrapper also carries failureReason/failureMessage, so keep it when any of those is set and
-		// drop it only when it holds nothing. provisioned is left as-is: ConvertTo/ConvertFrom preserve
-		// it losslessly via the MarshalData annotation, so nil, *true and *false all survive.
+		// wrapper survives only when it carries conditions. provisioned is left as-is: ConvertTo/ConvertFrom
+		// preserve it losslessly via the MarshalData annotation, so nil, *true and *false all survive.
 		func(in *infrav1.HetznerBareMetalMachineStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if len(in.Conditions) == 0 {
 				in.Conditions = nil
 			}
-			if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil {
-				if len(in.Deprecated.V1Beta1.Conditions) == 0 {
-					in.Deprecated.V1Beta1.Conditions = nil
-				}
-				if in.Deprecated.V1Beta1.Conditions == nil &&
-					in.Deprecated.V1Beta1.FailureReason == nil &&
-					in.Deprecated.V1Beta1.FailureMessage == nil {
-					in.Deprecated = nil
-				}
-			} else {
+			if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil && len(in.Deprecated.V1Beta1.Conditions) == 0 {
+				in.Deprecated.V1Beta1.Conditions = nil
+			}
+			if in.Deprecated != nil && (in.Deprecated.V1Beta1 == nil || in.Deprecated.V1Beta1.Conditions == nil) {
 				in.Deprecated = nil
 			}
 		},

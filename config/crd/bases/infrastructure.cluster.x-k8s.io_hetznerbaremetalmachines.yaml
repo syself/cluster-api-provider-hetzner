@@ -1005,18 +1005,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - type
                         x-kubernetes-list-type: map
-                      failureMessage:
-                        description: |-
-                          failureMessage will be set in the event that there is a terminal problem.
-
-                          Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-                        type: string
-                      failureReason:
-                        description: |-
-                          failureReason will be set in the event that there is a terminal problem.
-
-                          Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-                        type: string
                     type: object
                 type: object
               initialization:

@@ -382,20 +382,6 @@ type HetznerBareMetalMachineV1Beta1DeprecatedStatus struct {
 	//
 	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
 	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
-
-	// failureReason will be set in the event that there is a terminal problem.
-	//
-	// +optional
-	//
-	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-	FailureReason *string `json:"failureReason,omitempty"`
-
-	// failureMessage will be set in the event that there is a terminal problem.
-	//
-	// +optional
-	//
-	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-	FailureMessage *string `json:"failureMessage,omitempty"`
 }
 
 // HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
