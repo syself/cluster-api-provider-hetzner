@@ -390,12 +390,14 @@ spec:
                                   items:
                                     type: string
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               required:
                               - key
                               - operator
                               - values
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           matchLabels:
                             additionalProperties:
                               type: string
@@ -430,6 +432,7 @@ spec:
                               - volume
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           image:
                             description: Image is the image to be provisioned. It
                               defines the image for baremetal machine.
@@ -490,6 +493,7 @@ spec:
                               - vg
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           partitions:
                             description: Partitions define the additional Partitions
                               to be created in installimage.
@@ -521,6 +525,7 @@ spec:
                               - size
                               type: object
                             type: array
+                            x-kubernetes-list-type: atomic
                           postInstallScript:
                             description: |-
                               PostInstallScript (Bash) is used for configuring commands that should be executed after installimage.
