@@ -443,6 +443,14 @@ func getDefaultHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec
 	}
 }
 
+// isPresentAndFalseWithReasonV1Beta1 reads a condition via the deprecated v1beta1conditions package
+// (util/deprecated/v1beta1/conditions), i.e. the object's own status.conditions under the v1beta1
+// contract. Only objects still served through the v1beta1 API satisfy this getter. This is distinct
+// from isPresentAndFalseWithReasonDeprecatedV1Beta1, which reads status.deprecated.v1beta1.conditions
+// on a v1beta2 object.
+//
+// TODO: remove this helper (and isPresentAndTrueV1Beta1) once every resource is migrated to native
+// v1beta2 conditions, after which nothing satisfies the v1beta1conditions getter.
 func isPresentAndFalseWithReasonV1Beta1(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType, reason string) bool {
 	err := testEnv.Get(ctx, key, getter)
 	if err != nil {
@@ -473,6 +481,10 @@ func isPresentAndFalseWithReasonDeprecatedV1Beta1(key types.NamespacedName, obj 
 	return c != nil && c.Status == corev1.ConditionFalse && c.Reason == reason
 }
 
+// isPresentAndTrueDeprecatedV1Beta1 reads a legacy-shape condition from a v1beta2
+// CAPI core object (Cluster, Machine) via GetV1Beta1Conditions(), i.e. the
+// status.deprecated.v1beta1.conditions field. This is how CAPI 1.11 exposes
+// legacy conditions on v1beta2 objects under the v1beta1 contract compat layer.
 func isPresentAndTrueDeprecatedV1Beta1(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType) bool {
 	if err := testEnv.Get(ctx, key, obj); err != nil {
 		return false
@@ -485,6 +497,14 @@ func isPresentAndTrueDeprecatedV1Beta1(key types.NamespacedName, obj client.Obje
 	return c != nil && c.Status == corev1.ConditionTrue
 }
 
+// isPresentAndTrueV1Beta1 reads a condition via the deprecated v1beta1conditions package
+// (util/deprecated/v1beta1/conditions), i.e. the object's own status.conditions under the v1beta1
+// contract. Only objects still served through the v1beta1 API satisfy this getter. This is distinct
+// from isPresentAndTrueDeprecatedV1Beta1, which reads status.deprecated.v1beta1.conditions on a
+// v1beta2 object.
+//
+// TODO: remove this helper (and isPresentAndFalseWithReasonV1Beta1) once every resource is migrated
+// to native v1beta2 conditions, after which nothing satisfies the v1beta1conditions getter.
 func isPresentAndTrueV1Beta1(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType) bool {
 	err := testEnv.Get(ctx, key, getter)
 	if err != nil {
