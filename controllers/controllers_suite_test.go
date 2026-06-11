@@ -197,12 +197,9 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 		testEnv.GetLogger().Info("Starting test: ===> ===> ===> ===> ===> ===> ===> " + t.Name())
 	}
 
-	var once sync.Once
 	return func() {
-		once.Do(func() {
-			r.baremetalSSHClientFactory.SetClients(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
-			r.reconcileGate.Unlock()
-		})
+		r.baremetalSSHClientFactory.SetClients(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
+		r.reconcileGate.Unlock()
 	}
 }
 
