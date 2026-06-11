@@ -641,7 +641,7 @@ spec:
         swraid: 0
         swraidLevel: 1
         image:
-          path: /root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz
+          path: /root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.zst
         partitions:
           - fileSystem: esp
             mount: /boot/efi
