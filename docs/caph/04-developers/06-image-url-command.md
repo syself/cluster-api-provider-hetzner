@@ -78,6 +78,15 @@ A Kubernetes event will be created in both (success, failure) cases containing t
 and stderr) of the script. If the script takes longer than 7 minutes, the controller cancels the
 provisioning.
 
+## Outcome summary
+
+| `IMAGE_URL_DONE` in stdout | `output.json` exists | `status` in `output.json` | Result |
+| :------------------------: | :------------------: | :-----------------------: | ------ |
+| yes | no | — | **success** |
+| yes | yes | `"Succeeded"` | **success**, `NodeProvisioningSucceeded` condition set |
+| yes | yes | `"Failed"` or other | **failure**, `NodeProvisioningSucceeded` condition set to failed |
+| no | any | any | **failure**, provisioning cancelled |
+
 ## output.json (optional)
 
 The command may write `/root/output.json` at any point during execution. If the file does not
