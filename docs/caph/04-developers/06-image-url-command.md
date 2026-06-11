@@ -88,6 +88,9 @@ provisioning.
 | yes | yes | any other string | **success**, `NodeProvisioningSucceeded` condition set to Unknown |
 | no | any | any | **failure**, provisioning cancelled |
 
+Implemented in `handleBootStateRunningImageCommand` (hcloud) and
+`actionImageInstallingImageURLCommand` (baremetal).
+
 ## output.json (optional)
 
 The command may write `/root/output.json` at any point during execution. If the file does not
