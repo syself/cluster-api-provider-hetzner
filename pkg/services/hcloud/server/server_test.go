@@ -1309,6 +1309,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 	})
 
+	// Tests below verify the outcome table in docs/caph/04-developers/06-image-url-command.md#outcome-summary
 	It("aborts when output.json reports failure despite IMAGE_URL_DONE in stdout", func() {
 		By("setting bootstrap data ready and machine in RunningImageCommand state")
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
