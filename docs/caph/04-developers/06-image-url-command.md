@@ -80,7 +80,7 @@ provisioning.
 
 ## Outcome summary
 
-| `IMAGE_URL_DONE` in stdout | `output.json` exists | `status` in `output.json` | Result |
+| **`IMAGE_URL_DONE` in stdout** | **`output.json` exists** | **`status` in `output.json`** | **Result** |
 | :------------------------: | :------------------: | :-----------------------: | ------ |
 | yes | no | — | **success** |
 | yes | yes | `"Succeeded"` | **success**, `NodeProvisioningSucceeded` condition set |
