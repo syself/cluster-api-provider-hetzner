@@ -2064,7 +2064,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 			}
 
 			errMsg := fmt.Sprintf("failed to get server %d", serverID)
-			return nil, handleRateLimit(s.scope.HCloudMachine, err, "GetServer", errMsg)
+			return nil, fmt.Errorf("%s: %w", errMsg, err)
 		}
 
 		v1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
