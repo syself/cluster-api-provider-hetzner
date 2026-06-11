@@ -121,8 +121,9 @@ func NewControllerResetter(
 		debug:                                 os.Getenv("DEBUG") != "",
 	}
 
-	// Wire the reconcile gate so that mock setup (write lock) is serialized with
-	// in-flight reconciles (read lock) for the two reconcilers that call mocked clients.
+	// The reconcileGate ensures that mock setup is serialized with in-flight reconciles. The
+	// mock setup waits via a write-lock until all reconciles are finished (by releasing the
+	// read-lock).
 	hetznerBareMetalHostReconciler.ReconcileGate = &r.reconcileGate
 	hcloudMachineReconciler.ReconcileGate = &r.reconcileGate
 
