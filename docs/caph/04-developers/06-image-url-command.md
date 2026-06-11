@@ -84,7 +84,8 @@ provisioning.
 | :------------------------: | :------------------: | :-----------------------: | ------ |
 | yes | no | — | **success** |
 | yes | yes | `"Succeeded"` | **success**, `NodeProvisioningSucceeded` condition set |
-| yes | yes | `"Failed"` or other | **failure**, `NodeProvisioningSucceeded` condition set to failed |
+| yes | yes | `"Failed"` | **failure**, provisioning cancelled |
+| yes | yes | any other string | **success**, `NodeProvisioningSucceeded` condition set to Unknown |
 | no | any | any | **failure**, provisioning cancelled |
 
 ## output.json (optional)
