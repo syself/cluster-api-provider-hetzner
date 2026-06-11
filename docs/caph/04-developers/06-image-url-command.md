@@ -131,16 +131,16 @@ passes the whole JSON through untouched:
       "status": "Succeeded",
       "duration": "45.2s",
       "steps": [
-        {"name": "VerifyTools",       "status": "Succeeded", "duration": "0.3s"},
-        {"name": "CheckDeviceExists", "status": "Succeeded", "duration": "0.1s"}
+        {"name": "VerifyTools",       "status": "Succeeded", "duration": "0.3s", "percentOfTimeout": 1},
+        {"name": "CheckDeviceExists", "status": "Succeeded", "duration": "0.1s", "percentOfTimeout": 0}
       ]
     },
     "ImageDeployment": {
       "status": "Succeeded",
       "duration": "62.1s",
       "steps": [
-        {"name": "PullImage",  "status": "Succeeded", "duration": "58.4s"},
-        {"name": "WriteImage", "status": "Succeeded", "duration": "3.5s"}
+        {"name": "PullImage",  "status": "Succeeded", "duration": "58.4s", "percentOfTimeout": 14},
+        {"name": "WriteImage", "status": "Succeeded", "duration": "3.5s",  "percentOfTimeout": 1}
       ]
     }
   }
