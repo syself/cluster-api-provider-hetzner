@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -701,6 +702,9 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	hardwareDetails, err := getHardwareDetails(ctx, sshClient)
 	if err != nil {
 		return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
+	}
+	if existing := s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails; existing != nil && !reflect.DeepEqual(*existing, hardwareDetails) {
+		s.scope.Info("HardwareDetails changed", "old", existing, "new", hardwareDetails)
 	}
 	s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
 
