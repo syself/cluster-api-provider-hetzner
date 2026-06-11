@@ -138,7 +138,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateRunning, "", nil)
-		sshMock.On("ReadOutputJSON", mock.Anything).Return("", fmt.Errorf("no output.json")).Once()
+		sshMock.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
@@ -153,7 +153,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
-		sshMock.On("ReadOutputJSON", mock.Anything).Return("", fmt.Errorf("no output.json")).Once()
+		sshMock.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
 		sshMock.On("Reboot", mock.Anything).Return(sshclient.Output{})
 
 		robot := robotmock.Client{}
@@ -171,7 +171,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
-	It("sets NodeProvisioningSucceeded=True when ReadOutputJSON returns an error", func() {
+	It("sets NodeProvisioningSucceeded=False when ReadOutputJSON returns an error", func() {
 		// Regression test: previously the condition was never set when ReadOutputJSON
 		// returned an error (file absent, SSH error, incomplete JSON, etc.).
 		host := newBaseHost()
@@ -187,8 +187,8 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		svc := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 		res := svc.actionImageInstalling(ctx)
-		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
-		Expect(v1beta1conditions.IsTrue(host, infrav1.NodeProvisioningSucceededCondition)).To(BeTrue())
+		Expect(res).To(BeAssignableToTypeOf(actionError{}))
+		Expect(v1beta1conditions.IsTrue(host, infrav1.NodeProvisioningSucceededCondition)).To(BeFalse())
 	})
 
 	It("returns error when command failed", func() {
@@ -196,7 +196,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFailed, "some logs", nil)
-		sshMock.On("ReadOutputJSON", mock.Anything).Return("", fmt.Errorf("no output.json")).Once()
+		sshMock.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		res := svc.actionImageInstalling(ctx)

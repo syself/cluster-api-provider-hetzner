@@ -29,6 +29,12 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
+const (
+	OutputJsonSucceeded  = "Succeeded"
+	OutputJsonFailed     = "Failed"
+	OutputJsonProcessing = "Processing"
+)
+
 // conditionSetter accepts objects that implement both v1beta1 and v1beta2 condition setters.
 type conditionSetter interface {
 	v1beta1conditions.Setter
@@ -39,14 +45,14 @@ type conditionSetter interface {
 // the top-level status field of the image-url-command output.json.
 func ApplyNodeProvisioningConditions(obj conditionSetter, output Output) {
 	switch output.Status {
-	case "Succeeded":
+	case OutputJsonSucceeded:
 		v1beta1conditions.MarkTrue(obj, infrav1.NodeProvisioningSucceededCondition)
 		v1beta2conditions.Set(obj, metav1.Condition{
 			Type:   infrav1.NodeProvisioningSucceededV1Beta2Condition,
 			Status: metav1.ConditionTrue,
 			Reason: infrav1.NodeProvisioningSucceededV1Beta2Reason,
 		})
-	case "Failed":
+	case OutputJsonFailed:
 		v1beta1conditions.MarkFalse(obj, infrav1.NodeProvisioningSucceededCondition,
 			infrav1.NodeProvisioningFailedReason, clusterv1beta1.ConditionSeverityError,
 			"%s", output.Message)
@@ -57,13 +63,19 @@ func ApplyNodeProvisioningConditions(obj conditionSetter, output Output) {
 			Message: output.Message,
 		})
 	default:
+		var message string
+		if output.Message == "" {
+			message = "provisioning in progress"
+		} else {
+			message = output.Message
+		}
 		v1beta1conditions.MarkUnknown(obj, infrav1.NodeProvisioningSucceededCondition,
-			infrav1.NodeProvisioningInProgressReason, "provisioning in progress")
+			infrav1.NodeProvisioningInProgressReason, "%s", message)
 		v1beta2conditions.Set(obj, metav1.Condition{
 			Type:    infrav1.NodeProvisioningSucceededV1Beta2Condition,
 			Status:  metav1.ConditionUnknown,
 			Reason:  infrav1.NodeProvisioningInProgressV1Beta2Reason,
-			Message: "provisioning in progress",
+			Message: message,
 		})
 	}
 }
@@ -72,7 +84,7 @@ func ApplyNodeProvisioningConditions(obj conditionSetter, output Output) {
 func Parse(content string) (Output, error) {
 	var output Output
 	if err := json.Unmarshal([]byte(content), &output); err != nil {
-		return Output{}, fmt.Errorf("output.json: %w", err)
+		return Output{}, fmt.Errorf("output.json: %w", content, err)
 	}
 	if output.Status == "" {
 		return Output{}, fmt.Errorf("output.json: no status field")

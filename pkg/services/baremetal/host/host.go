@@ -1328,8 +1328,16 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
-		if outputJSON, readErr := sshClient.ReadOutputJSON(ctx); readErr == nil {
-			_ = imageurlcommand.ParseAndApply(host, outputJSON)
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			return actionError{err: fmt.Errorf("ReadOutputJSON failed222: %w", err)}
+		}
+		if outputJSON == "" {
+			return actionContinue{delay: 10 * time.Second}
+		}
+		err = imageurlcommand.ParseAndApply(host, outputJSON)
+		if err != nil {
+			return actionError{err: fmt.Errorf("ParseAndApply failed: %w", err)}
 		}
 		return actionContinue{delay: 10 * time.Second}
 
@@ -1337,34 +1345,43 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
 		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
 
-		imageurlcommand.ApplyNodeProvisioningConditions(host, imageurlcommand.Output{Status: "Succeeded"})
-		if outputJSON, readErr := sshClient.ReadOutputJSON(ctx); readErr == nil {
-			output, parseErr := imageurlcommand.Parse(outputJSON)
-			if parseErr != nil {
-				s.scope.Info("output.json: could not set NodeProvisioningSucceeded condition", "err", parseErr)
-			} else {
-				imageurlcommand.ApplyNodeProvisioningConditions(host, output)
-				if output.Status == "Failed" {
-					msg := output.Message
-					if msg == "" {
-						msg = "output.json reports status Failed"
-					}
-					record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
-					s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
-					v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-						"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
-					v1beta2conditions.Set(host, metav1.Condition{
-						Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
-						Status:  metav1.ConditionFalse,
-						Reason:  "ImageURLCommandFailed",
-						Message: msg,
-					})
-					return s.recordActionFailure(infrav1.FatalError, msg)
-				}
-			}
-			record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
-			s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			return actionError{err: fmt.Errorf("ReadOutputJSON33 failed: %w", err)}
 		}
+
+		var output imageurlcommand.Output
+		if outputJSON == "" {
+			output = imageurlcommand.Output{
+				Status: imageurlcommand.OutputJsonSucceeded,
+			}
+		} else {
+			output, err = imageurlcommand.Parse(outputJSON)
+			if err != nil {
+				return actionError{err: fmt.Errorf("ReadOutputJSON failed: %w", err)}
+			}
+		}
+
+		imageurlcommand.ApplyNodeProvisioningConditions(host, output)
+		if output.Status == imageurlcommand.OutputJsonFailed {
+			msg := output.Message
+			if msg == "" {
+				msg = "output.json reports status Failed"
+			}
+			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
+			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+			v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
+				"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
+			v1beta2conditions.Set(host, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "ImageURLCommandFailed",
+				Message: msg,
+			})
+			return s.recordActionFailure(infrav1.FatalError, msg)
+		}
+		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
+		s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 
 		// Update name in robot API
 		if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
@@ -1391,11 +1408,25 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 	case sshclient.ImageURLCommandStateFailed:
 		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", logFile)
+		s.scope.Error(nil, "image-url-command failed", "logFile", logFile)
+
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			return actionError{err: fmt.Errorf("ReadOutputJSON failed111: %w", err)}
+		}
+
 		msg := "image-url-command failed"
-		s.scope.Error(nil, msg, "logFile", logFile)
-		if outputJSON, readErr := sshClient.ReadOutputJSON(ctx); readErr == nil {
+		if outputJSON != "" {
+			output, err := imageurlcommand.Parse(outputJSON)
+			if err != nil {
+				return actionError{err: fmt.Errorf("Parse failed: %w", err)}
+			}
+			imageurlcommand.ApplyNodeProvisioningConditions(s.scope.HetznerBareMetalHost, output)
 			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+			if output.Message != "" {
+				msg = output.Message
+			}
 		}
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
