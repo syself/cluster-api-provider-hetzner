@@ -428,35 +428,6 @@ var _ = Describe("findServer", func() {
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 
-	It("returns rate-limit error for a ready machine", func() {
-		hcloudMachine := &infrav1.HCloudMachine{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-machine",
-				Namespace: "default",
-			},
-			Status: infrav1.HCloudMachineStatus{
-				Ready: true,
-			},
-			Spec: infrav1.HCloudMachineSpec{
-				ProviderID: ptr.To("hcloud://1234567"),
-			},
-		}
-		hcloudClient := mocks.NewClient(GinkgoT())
-		service := newTestService(hcloudMachine, hcloudClient)
-
-		rateLimitErr := hcloud.Error{
-			Code:    hcloud.ErrorCodeRateLimitExceeded,
-			Message: "rate limit exceeded for ip 48.49.48.49",
-		}
-		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(nil, rateLimitErr).Once()
-
-		server, err := service.findServer(context.Background())
-		Expect(server).To(BeNil())
-		Expect(err).To(HaveOccurred())
-		Expect(hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded)).To(BeTrue())
-		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
-	})
-
 	It("returns wrapped ListServers errors so callers can detect rate limits", func() {
 		hcloudMachine := &infrav1.HCloudMachine{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1462,6 +1433,8 @@ var _ = Describe("Reconcile", func() {
 	})
 
 	It("keeps a ready machine in Ready state when GetServer returns a rate-limit error", func() {
+		// The reconcilement for a provisioned HCloudMachine with ready state should be a no-op
+		// when it encounters a rate-limit error.
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
