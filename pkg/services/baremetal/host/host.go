@@ -1359,7 +1359,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		} else {
 			output, err = imageurlcommand.Parse(outputJSON)
 			if err != nil {
-				return actionError{err: fmt.Errorf("Parse: %w", err)}
+				return actionError{err: fmt.Errorf("parse: %w", err)}
 			}
 		}
 
@@ -1420,7 +1420,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		if outputJSON != "" {
 			output, err := imageurlcommand.Parse(outputJSON)
 			if err != nil {
-				return actionError{err: fmt.Errorf("Parse failed: %w", err)}
+				return actionError{err: fmt.Errorf("parse: %w", err)}
 			}
 			imageurlcommand.ApplyNodeProvisioningConditions(s.scope.HetznerBareMetalHost, output)
 			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)

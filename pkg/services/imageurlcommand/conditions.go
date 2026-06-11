@@ -29,6 +29,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
+// Status values written by the image-url-command binary into output.json.
 const (
 	OutputJSONSucceeded  = "Succeeded"
 	OutputJSONFailed     = "Failed"
