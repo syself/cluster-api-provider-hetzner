@@ -1330,7 +1330,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 	case sshclient.ImageURLCommandStateRunning:
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
-			return actionError{err: fmt.Errorf("ReadOutputJSON failed222: %w", err)}
+			return actionError{err: fmt.Errorf("ReadOutputJSON: %w", err)}
 		}
 		if outputJSON == "" {
 			return actionContinue{delay: 10 * time.Second}
@@ -1347,7 +1347,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
-			return actionError{err: fmt.Errorf("ReadOutputJSON33 failed: %w", err)}
+			return actionError{err: fmt.Errorf("ReadOutputJSON: %w", err)}
 		}
 
 		var output imageurlcommand.Output
@@ -1358,7 +1358,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		} else {
 			output, err = imageurlcommand.Parse(outputJSON)
 			if err != nil {
-				return actionError{err: fmt.Errorf("ReadOutputJSON failed: %w", err)}
+				return actionError{err: fmt.Errorf("Parse: %w", err)}
 			}
 		}
 
@@ -1412,7 +1412,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
-			return actionError{err: fmt.Errorf("ReadOutputJSON failed111: %w", err)}
+			return actionError{err: fmt.Errorf("ReadOutputJSON: %w", err)}
 		}
 
 		msg := "image-url-command failed"

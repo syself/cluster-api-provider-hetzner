@@ -84,7 +84,7 @@ func ApplyNodeProvisioningConditions(obj conditionSetter, output Output) {
 func Parse(content string) (Output, error) {
 	var output Output
 	if err := json.Unmarshal([]byte(content), &output); err != nil {
-		return Output{}, fmt.Errorf("output.json: %w", content, err)
+		return Output{}, fmt.Errorf("output.json: %w", err)
 	}
 	if output.Status == "" {
 		return Output{}, fmt.Errorf("output.json: no status field")
