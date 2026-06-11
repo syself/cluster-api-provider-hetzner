@@ -1024,7 +1024,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		}
 		output := imageurlcommand.Output{}
 		if outputJSON == "" {
-			output.Status = imageurlcommand.OutputJsonProcessing
+			output.Status = imageurlcommand.OutputJSONProcessing
 			output.Message = "still running"
 		} else {
 			output, err = imageurlcommand.Parse(outputJSON)
@@ -1044,7 +1044,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		var output imageurlcommand.Output
 		if outputJSON == "" {
 			output = imageurlcommand.Output{
-				Status: imageurlcommand.OutputJsonSucceeded,
+				Status: imageurlcommand.OutputJSONSucceeded,
 			}
 		} else {
 			output, err = imageurlcommand.Parse(outputJSON)
@@ -1055,7 +1055,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 
 		imageurlcommand.ApplyNodeProvisioningConditions(hm, output)
 
-		if output.Status == imageurlcommand.OutputJsonFailed {
+		if output.Status == imageurlcommand.OutputJSONFailed {
 			msg := output.Message
 			if msg == "" {
 				msg = "output.json reports status Failed"

@@ -1353,7 +1353,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		var output imageurlcommand.Output
 		if outputJSON == "" {
 			output = imageurlcommand.Output{
-				Status: imageurlcommand.OutputJsonSucceeded,
+				Status: imageurlcommand.OutputJSONSucceeded,
 			}
 		} else {
 			output, err = imageurlcommand.Parse(outputJSON)
@@ -1363,7 +1363,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		}
 
 		imageurlcommand.ApplyNodeProvisioningConditions(host, output)
-		if output.Status == imageurlcommand.OutputJsonFailed {
+		if output.Status == imageurlcommand.OutputJSONFailed {
 			msg := output.Message
 			if msg == "" {
 				msg = "output.json reports status Failed"

@@ -30,9 +30,9 @@ import (
 )
 
 const (
-	OutputJsonSucceeded  = "Succeeded"
-	OutputJsonFailed     = "Failed"
-	OutputJsonProcessing = "Processing"
+	OutputJSONSucceeded  = "Succeeded"
+	OutputJSONFailed     = "Failed"
+	OutputJSONProcessing = "Processing"
 )
 
 // conditionSetter accepts objects that implement both v1beta1 and v1beta2 condition setters.
@@ -45,14 +45,14 @@ type conditionSetter interface {
 // the top-level status field of the image-url-command output.json.
 func ApplyNodeProvisioningConditions(obj conditionSetter, output Output) {
 	switch output.Status {
-	case OutputJsonSucceeded:
+	case OutputJSONSucceeded:
 		v1beta1conditions.MarkTrue(obj, infrav1.NodeProvisioningSucceededCondition)
 		v1beta2conditions.Set(obj, metav1.Condition{
 			Type:   infrav1.NodeProvisioningSucceededV1Beta2Condition,
 			Status: metav1.ConditionTrue,
 			Reason: infrav1.NodeProvisioningSucceededV1Beta2Reason,
 		})
-	case OutputJsonFailed:
+	case OutputJSONFailed:
 		v1beta1conditions.MarkFalse(obj, infrav1.NodeProvisioningSucceededCondition,
 			infrav1.NodeProvisioningFailedReason, clusterv1beta1.ConditionSeverityError,
 			"%s", output.Message)
