@@ -1335,6 +1335,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		if outputJSON == "" {
 			return actionContinue{delay: 10 * time.Second}
 		}
+
 		err = imageurlcommand.ParseAndApply(host, outputJSON)
 		if err != nil {
 			return actionError{err: fmt.Errorf("ParseAndApply failed: %w", err)}

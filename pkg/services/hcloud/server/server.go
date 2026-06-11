@@ -1022,6 +1022,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("ReadOutputJSON: %w", err)
 		}
+
 		output := imageurlcommand.Output{}
 		if outputJSON == "" {
 			output.Status = imageurlcommand.OutputJSONProcessing
