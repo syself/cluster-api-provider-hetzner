@@ -75,9 +75,10 @@ type HetznerBareMetalHostReconciler struct {
 	// WorkloadClusterClientFactory overrides the default real factory. Intended for tests only.
 	WorkloadClusterClientFactory scope.WorkloadClusterClientFactory
 
-	// ReconcileGate, when non-nil, is held as a read lock for the full duration of each
-	// Reconcile call. Tests set this to a shared write lock that they acquire during mock
-	// setup, so no reconcile can observe an incompletely configured mock.
+	// ReconcileGate, when non-nil, is held as a read lock for the full duration of each Reconcile
+	// call. Tests set this to a shared write lock that they acquire during mock setup, so no
+	// reconcile can observe an incompletely configured mock. Before setting up mocks (in tests
+	// only), we want to ensure that all Reconcile() calls are finished.
 	ReconcileGate *sync.RWMutex
 }
 
