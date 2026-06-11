@@ -553,7 +553,6 @@ const (
 	HetznerBareMetalMachineHostNotReadyReason = "NotReady"
 )
 
-
 const (
 	// NodeProvisioningSucceededCondition reports the result of the image-url-command.
 	// True on success; False on permanent failure; Unknown while in progress.
