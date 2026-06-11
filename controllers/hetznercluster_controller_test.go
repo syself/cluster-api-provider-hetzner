@@ -1661,8 +1661,13 @@ var _ = Describe("reconcileRateLimit", func() {
 		Expect(v1beta2conditions.Has(hcloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)).To(BeFalse())
 	})
 
-	It("returns wait==false if rate limit condition is set to true", func() {
-		deprecatedv1beta1conditions.MarkTrue(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)
+	It("returns wait==false if rate limit condition is present but not exceeded", func() {
+		conditions.Set(hetznerCluster, metav1.Condition{
+			Type:               infrav2.HCloudRateLimitExceededCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             "NotExceeded",
+			LastTransitionTime: metav1.Now(),
+		})
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 	})
 
