@@ -191,9 +191,9 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
-	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
+	hcloudToken, _, err := getAndValidateHCloudTokenV1Beta1(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, machineTemplate, r, infrav1.HCloudMachineTemplateV1Beta2SummaryOpts())
+		return hcloudTokenErrorResultV1Beta1(ctx, err, machineTemplate, r, infrav1.HCloudMachineTemplateV1Beta2SummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
@@ -234,7 +234,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	}()
 
 	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(machineTemplate, r.RateLimitWaitTime); wait {
+	if wait := reconcileRateLimitV1Beta1(machineTemplate, r.RateLimitWaitTime); wait {
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 

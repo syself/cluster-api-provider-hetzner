@@ -37,6 +37,7 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
@@ -47,6 +48,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
@@ -206,6 +208,7 @@ var _ scope.WorkloadClusterClientFactory = &fakeWorkloadClusterClientFactory{}
 
 var _ = BeforeSuite(func() {
 	utilruntime.Must(infrav1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(infrav2.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
 
 	testEnv = helpers.NewTestEnvironment()
@@ -319,7 +322,7 @@ var _ = AfterSuite(func() {
 	}
 })
 
-func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
+func getDefaultHetznerClusterV1Beta1Spec() infrav1.HetznerClusterSpec {
 	return infrav1.HetznerClusterSpec{
 		ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
 			Enabled:   true,
@@ -440,7 +443,15 @@ func getDefaultHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec
 	}
 }
 
-func isPresentAndFalseWithReason(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType, reason string) bool {
+// isPresentAndFalseWithReasonV1Beta1 reads a condition via the deprecated v1beta1conditions package
+// (util/deprecated/v1beta1/conditions), i.e. the object's own status.conditions under the v1beta1
+// contract. Only objects still served through the v1beta1 API satisfy this getter. This is distinct
+// from isPresentAndFalseWithReasonDeprecatedV1Beta1, which reads status.deprecated.v1beta1.conditions
+// on a v1beta2 object.
+//
+// TODO: remove this helper (and isPresentAndTrueV1Beta1) once every resource is migrated to native
+// v1beta2 conditions, after which nothing satisfies the v1beta1conditions getter.
+func isPresentAndFalseWithReasonV1Beta1(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType, reason string) bool {
 	err := testEnv.Get(ctx, key, getter)
 	if err != nil {
 		return false
@@ -454,11 +465,11 @@ func isPresentAndFalseWithReason(key types.NamespacedName, getter v1beta1conditi
 		objectCondition.Reason == reason
 }
 
-// isPresentAndFalseWithReasonV2 reads a legacy-shape condition from a v1beta2
+// isPresentAndFalseWithReasonDeprecatedV1Beta1 reads a legacy-shape condition from a v1beta2
 // CAPI core object (Cluster, Machine) via GetV1Beta1Conditions(), i.e. the
 // status.deprecated.v1beta1.conditions field. This is how CAPI 1.11 exposes
 // legacy conditions on v1beta2 objects under the v1beta1 contract compat layer.
-func isPresentAndFalseWithReasonV2(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType, reason string) bool {
+func isPresentAndFalseWithReasonDeprecatedV1Beta1(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType, reason string) bool {
 	if err := testEnv.Get(ctx, key, obj); err != nil {
 		return false
 	}
@@ -470,7 +481,31 @@ func isPresentAndFalseWithReasonV2(key types.NamespacedName, obj client.Object, 
 	return c != nil && c.Status == corev1.ConditionFalse && c.Reason == reason
 }
 
-func isPresentAndTrue(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType) bool {
+// isPresentAndTrueDeprecatedV1Beta1 reads a legacy-shape condition from a v1beta2
+// CAPI core object (Cluster, Machine) via GetV1Beta1Conditions(), i.e. the
+// status.deprecated.v1beta1.conditions field. This is how CAPI 1.11 exposes
+// legacy conditions on v1beta2 objects under the v1beta1 contract compat layer.
+func isPresentAndTrueDeprecatedV1Beta1(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType) bool {
+	if err := testEnv.Get(ctx, key, obj); err != nil {
+		return false
+	}
+	getter, ok := obj.(deprecatedv1beta1conditions.Getter)
+	if !ok {
+		return false
+	}
+	c := deprecatedv1beta1conditions.Get(getter, condition)
+	return c != nil && c.Status == corev1.ConditionTrue
+}
+
+// isPresentAndTrueV1Beta1 reads a condition via the deprecated v1beta1conditions package
+// (util/deprecated/v1beta1/conditions), i.e. the object's own status.conditions under the v1beta1
+// contract. Only objects still served through the v1beta1 API satisfy this getter. This is distinct
+// from isPresentAndTrueDeprecatedV1Beta1, which reads status.deprecated.v1beta1.conditions on a
+// v1beta2 object.
+//
+// TODO: remove this helper (and isPresentAndFalseWithReasonV1Beta1) once every resource is migrated
+// to native v1beta2 conditions, after which nothing satisfies the v1beta1conditions getter.
+func isPresentAndTrueV1Beta1(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType) bool {
 	err := testEnv.Get(ctx, key, getter)
 	if err != nil {
 		return false
@@ -483,9 +518,20 @@ func isPresentAndTrue(key types.NamespacedName, getter v1beta1conditions.Getter,
 	return objectCondition.Status == corev1.ConditionTrue
 }
 
-func isV1Beta2ConditionWithStatusAndReason(key types.NamespacedName, getter client.Object, condition string, status metav1.ConditionStatus, reason string) bool {
+// isConditionWithStatusAndReason reads a condition from either a native v1beta2 object (via
+// conditions.Getter, which reads status.conditions) or a still-v1beta1 object that stages its
+// conditions (via v1beta2conditions.Getter, which reads status.v1beta2.conditions). A native object
+// has GetConditions(), not the staged GetV1Beta2Conditions(), so it does not satisfy the staged
+// getter; that is why we try the native getter first and fall back to the staged one. The staged
+// branch goes away once every resource is a native v1beta2 type.
+func isConditionWithStatusAndReason(key types.NamespacedName, getter client.Object, condition string, status metav1.ConditionStatus, reason string) bool {
 	if err := testEnv.Get(ctx, key, getter); err != nil {
 		return false
+	}
+
+	if nativeGetter, ok := getter.(conditions.Getter); ok {
+		objectCondition := conditions.Get(nativeGetter, condition)
+		return objectCondition != nil && objectCondition.Status == status && objectCondition.Reason == reason
 	}
 
 	v1beta2Getter, ok := getter.(v1beta2conditions.Getter)
@@ -497,17 +543,21 @@ func isV1Beta2ConditionWithStatusAndReason(key types.NamespacedName, getter clie
 	return objectCondition.Status == status && objectCondition.Reason == reason
 }
 
-func isPresentAndTrueWithReasonV1Beta2(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
-	return isV1Beta2ConditionWithStatusAndReason(key, getter, condition, metav1.ConditionTrue, reason)
+func isPresentAndTrueWithReason(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
+	return isConditionWithStatusAndReason(key, getter, condition, metav1.ConditionTrue, reason)
 }
 
-func isPresentAndFalseWithReasonV1Beta2(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
-	return isV1Beta2ConditionWithStatusAndReason(key, getter, condition, metav1.ConditionFalse, reason)
+func isPresentAndFalseWithReason(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
+	return isConditionWithStatusAndReason(key, getter, condition, metav1.ConditionFalse, reason)
 }
 
-func isAbsentV1Beta2(key types.NamespacedName, getter client.Object, condition string) bool {
+func isAbsent(key types.NamespacedName, getter client.Object, condition string) bool {
 	if err := testEnv.Get(ctx, key, getter); err != nil {
 		return false
+	}
+
+	if nativeGetter, ok := getter.(conditions.Getter); ok {
+		return conditions.Get(nativeGetter, condition) == nil
 	}
 
 	v1beta2Getter, ok := getter.(v1beta2conditions.Getter)

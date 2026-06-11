@@ -101,11 +101,9 @@ var _ = DescribeTable("createLabels",
 
 		service := Service{
 			scope: &scope.MachineScope{
-				HCloudMachine: &hcloudMachine,
-				Machine:       &capiMachine,
-				ClusterScope: scope.ClusterScope{
-					HetznerCluster: &hetznerCluster,
-				},
+				HCloudMachine:    &hcloudMachine,
+				Machine:          &capiMachine,
+				HetznerCluster:   &hetznerCluster,
 				SSHClientFactory: testEnv.HCloudSSHClientFactory,
 			},
 		}
@@ -568,7 +566,7 @@ var _ = Describe("getSSHKeys", func() {
 
 	BeforeEach(func() {
 		hcloudClient = mocks.NewClient(GinkgoT())
-		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
+		machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
 			Client:       testEnv.GetClient(),
 			APIReader:    testEnv.GetAPIReader(),
 			HCloudClient: hcloudClient,
@@ -596,6 +594,13 @@ var _ = Describe("getSSHKeys", func() {
 				},
 			},
 
+			HCloudMachine: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-machine",
+					Namespace: "default",
+				},
+			},
+
 			HetznerSecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "secretname",
@@ -605,20 +610,18 @@ var _ = Describe("getSSHKeys", func() {
 					"hcloud-ssh-key-name": []byte("sshKey1"),
 				},
 			},
+			Machine: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-machine",
+					Namespace: "default",
+				},
+			},
+			SSHClientFactory: testEnv.HCloudSSHClientFactory,
 		})
 		Expect(err).To(BeNil())
 
 		service = &Service{
-			scope: &scope.MachineScope{
-				ClusterScope: *clusterScope,
-				HCloudMachine: &infrav1.HCloudMachine{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "my-machine",
-						Namespace: "default",
-					},
-				},
-				SSHClientFactory: testEnv.HCloudSSHClientFactory,
-			},
+			scope: machineScope,
 		}
 	})
 
@@ -846,57 +849,48 @@ var _ = Describe("Reconcile", func() {
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "server-reconcile")
 		Expect(err).To(BeNil())
 
-		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-			Client:       testEnv.GetClient(),
-			APIReader:    testEnv.GetAPIReader(),
-			HCloudClient: hcloudClient,
-			Logger:       GinkgoLogr,
-
-			Cluster: &clusterv1.Cluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "clustername",
-					Namespace: testNs.Name,
-				},
+		cluster := &clusterv1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "clustername",
+				Namespace: testNs.Name,
 			},
+		}
 
-			HetznerCluster: &infrav1.HetznerCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "clustername",
-					Namespace: testNs.Name,
-				},
-				Spec: infrav1.HetznerClusterSpec{
-					HetznerSecret: infrav1.HetznerSecretRef{
-						Name: "secretname",
-						Key: infrav1.HetznerSecretKeyRef{
-							SSHKey: "hcloud-ssh-key-name",
-						},
+		hetznerCluster := &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "clustername",
+				Namespace: testNs.Name,
+			},
+			Spec: infrav1.HetznerClusterSpec{
+				HetznerSecret: infrav1.HetznerSecretRef{
+					Name: "secretname",
+					Key: infrav1.HetznerSecretKeyRef{
+						SSHKey: "hcloud-ssh-key-name",
 					},
-					SSHKeys: infrav1.HetznerSSHKeys{
-						HCloud: []infrav1.SSHKey{},
-						RobotRescueSecretRef: infrav1.SSHSecretRef{
-							Name: "rescue-ssh-secret",
-							Key: infrav1.SSHSecretKeyRef{
-								Name:       "sshkey-name",
-								PublicKey:  "public-key",
-								PrivateKey: "private-key",
-							},
+				},
+				SSHKeys: infrav1.HetznerSSHKeys{
+					HCloud: []infrav1.SSHKey{},
+					RobotRescueSecretRef: infrav1.SSHSecretRef{
+						Name: "rescue-ssh-secret",
+						Key: infrav1.SSHSecretKeyRef{
+							Name:       "sshkey-name",
+							PublicKey:  "public-key",
+							PrivateKey: "private-key",
 						},
 					},
 				},
 			},
+		}
 
-			HetznerSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "secretname",
-					Namespace: testNs.Name,
-				},
-				Data: map[string][]byte{
-					"hcloud-ssh-key-name": []byte("sshKey1"),
-				},
+		hetznerSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "secretname",
+				Namespace: testNs.Name,
 			},
-		})
-
-		Expect(err).To(BeNil())
+			Data: map[string][]byte{
+				"hcloud-ssh-key-name": []byte("sshKey1"),
+			},
+		}
 
 		err = testEnv.Create(ctx, helpers.GetDefaultSSHSecret("rescue-ssh-secret", testNs.Name))
 		Expect(err).To(BeNil())
@@ -950,14 +944,21 @@ var _ = Describe("Reconcile", func() {
 		err = controllerutil.SetOwnerReference(capiMachine, hcloudMachine, testEnv.Scheme())
 		Expect(err).ShouldNot(HaveOccurred())
 
-		service = &Service{
-			scope: &scope.MachineScope{
-				ClusterScope:     *clusterScope,
-				Machine:          capiMachine,
-				HCloudMachine:    hcloudMachine,
-				SSHClientFactory: testEnv.HCloudSSHClientFactory,
-			},
-		}
+		machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
+			Client:           testEnv.GetClient(),
+			APIReader:        testEnv.GetAPIReader(),
+			HCloudClient:     hcloudClient,
+			Logger:           GinkgoLogr,
+			Cluster:          cluster,
+			HetznerCluster:   hetznerCluster,
+			HetznerSecret:    hetznerSecret,
+			Machine:          capiMachine,
+			HCloudMachine:    hcloudMachine,
+			SSHClientFactory: testEnv.HCloudSSHClientFactory,
+		})
+		Expect(err).To(BeNil())
+
+		service = &Service{scope: machineScope}
 		service.scope.Client = testEnv.Client
 
 		Eventually(func() error {

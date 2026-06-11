@@ -269,7 +269,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			It("sets bootstrap condition on false if no bootstrap available", func() {
 				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, bmMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
+					return isPresentAndFalseWithReasonV1Beta1(key, bmMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -289,7 +289,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				By("checking that bootstrap condition is set on true")
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, bmMachine, infrav1.BootstrapReadyCondition)
+					return isPresentAndTrueV1Beta1(key, bmMachine, infrav1.BootstrapReadyCondition)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 		})
@@ -399,17 +399,17 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			It("sets the appropriate conditions that a host is associated and later provisioned", func() {
 				By("checking that the host is associated")
 				Eventually(func() bool {
-					return isPresentAndTrue(key, bmMachine, infrav1.HostAssociateSucceededCondition)
+					return isPresentAndTrueV1Beta1(key, bmMachine, infrav1.HostAssociateSucceededCondition)
 				}, timeout).Should(BeTrue())
 
 				By("checking that the host is ready")
 				Eventually(func() bool {
-					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
+					return isPresentAndTrueV1Beta1(key, bmMachine, infrav1.HostReadyCondition)
 				}, timeout).Should(BeTrue())
 
 				By("checking that the bare metal machine is ready")
 				Eventually(func() bool {
-					return isPresentAndTrue(key, bmMachine, clusterv1beta1.ReadyCondition)
+					return isPresentAndTrueV1Beta1(key, bmMachine, clusterv1beta1.ReadyCondition)
 				}, timeout).Should(BeTrue())
 			})
 
@@ -417,7 +417,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				By("Waiting until host is provisioned")
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
+					return isPresentAndTrueV1Beta1(key, bmMachine, infrav1.HostReadyCondition)
 				}, timeout).Should(BeTrue())
 
 				err := testEnv.Get(ctx, hostKey, host)
@@ -449,7 +449,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			It("hbmm deletes successfully and host gets deprovisioned, even if state is 'ensure-provisioned'", func() {
 				By("checking that the host is ready")
 				Eventually(func() bool {
-					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
+					return isPresentAndTrueV1Beta1(key, bmMachine, infrav1.HostReadyCondition)
 				}, timeout).Should(BeTrue())
 
 				osSSHClient.On("GetHostName", mock.Anything).Unset()
@@ -626,7 +626,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			It("checks that HostReady condition is True for hetznerBareMetalMachine", func() {
 				Eventually(func() bool {
-					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
+					return isPresentAndTrueV1Beta1(key, bmMachine, infrav1.HostReadyCondition)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -788,7 +788,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 		It("creates the bare metal machine and sets condition that no host is available", func() {
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, bmMachine, infrav1.HostAssociateSucceededCondition, infrav1.NoAvailableHostReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, bmMachine, infrav1.HostAssociateSucceededCondition, infrav1.NoAvailableHostReason)
 			}, timeout).Should(BeTrue())
 		})
 
@@ -877,7 +877,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			By("Waiting until host is provisioned")
 
 			Eventually(func() bool {
-				return isPresentAndTrue(bmmKey, bmMachine, infrav1.HostReadyCondition)
+				return isPresentAndTrueV1Beta1(bmmKey, bmMachine, infrav1.HostReadyCondition)
 			}, timeout).Should(BeTrue())
 
 			err := testEnv.Get(ctx, hostKey, host)
@@ -889,7 +889,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			Expect(testEnv.Delete(ctx, host)).To(Succeed())
 
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(bmmKey, bmMachine, infrav1.HostReadyCondition, infrav1.HostNotFoundReason)
+				return isPresentAndFalseWithReasonV1Beta1(bmmKey, bmMachine, infrav1.HostReadyCondition, infrav1.HostNotFoundReason)
 			}, timeout).Should(BeTrue())
 
 			By("ensuring remediate machine annotation is set on CAPI machine")

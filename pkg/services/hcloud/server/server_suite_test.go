@@ -296,12 +296,12 @@ func newTestService(hcloudMachine *infrav1.HCloudMachine, hcloudClient hcloudcli
 	}
 	return &Service{
 		&scope.MachineScope{
-			HCloudMachine: hcloudMachine,
-			ClusterScope: scope.ClusterScope{
-				HCloudClient: hcloudClient,
-				Client:       client,
-			},
-			Machine: machine,
+			HCloudMachine:  hcloudMachine,
+			HCloudClient:   hcloudClient,
+			Client:         client,
+			Cluster:        &clusterv1.Cluster{},
+			HetznerCluster: &infrav1.HetznerCluster{},
+			Machine:        machine,
 		},
 	}
 }
