@@ -220,6 +220,240 @@ func fuzzyConversionTestFunc(scheme *runtime.Scheme, hub conversion.Hub, spoke c
 	})
 }
 
+// TestHetznerBareMetalMachineConvertToPromoteV1Beta2Shape verifies that converting a v1beta1
+// HetznerBareMetalMachine to v1beta2 promotes the staged v1beta2 conditions, demotes the old
+// v1beta1 conditions, maps status.ready to status.initialization.provisioned, and moves the
+// pointer timestamps to their value form.
+func TestHetznerBareMetalMachineConvertToPromoteV1Beta2Shape(t *testing.T) {
+	legacyConditions := clusterv1beta1.Conditions{
+		{
+			Type:               clusterv1beta1.ConditionType("LegacyReady"),
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyReady",
+			Message:            "legacy condition",
+		},
+	}
+	v1beta2Conditions := []metav1.Condition{
+		{
+			Type:               clusterv1beta1.ReadyV1Beta2Condition,
+			Status:             metav1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(2, 0),
+			Reason:             clusterv1beta1.ReadyV1Beta2Reason,
+			Message:            "ready",
+		},
+	}
+	lastUpdated := metav1.Unix(3, 0)
+	lastRemediatedAt := metav1.Unix(4, 0)
+	legacyAddresses := []clusterv1beta1.MachineAddress{
+		{Type: clusterv1beta1.MachineInternalIP, Address: "10.0.0.2"},
+	}
+	wantAddresses := []clusterv1.MachineAddress{
+		{Type: clusterv1.MachineInternalIP, Address: "10.0.0.2"},
+	}
+
+	src := &HetznerBareMetalMachine{
+		Status: HetznerBareMetalMachineStatus{
+			Ready:            true,
+			Conditions:       legacyConditions,
+			Addresses:        legacyAddresses,
+			LastUpdated:      &lastUpdated,
+			LastRemediatedAt: &lastRemediatedAt,
+			V1Beta2: &HetznerBareMetalMachineV1Beta2Status{
+				Conditions: v1beta2Conditions,
+			},
+		},
+	}
+
+	dst := &infrav2.HetznerBareMetalMachine{}
+	if err := src.ConvertTo(dst); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+
+	if !reflect.DeepEqual(dst.Status.Conditions, v1beta2Conditions) {
+		t.Fatalf("v1beta2 status.conditions mismatch:\n got: %#v\nwant: %#v", dst.Status.Conditions, v1beta2Conditions)
+	}
+	// The v1beta1 status.conditions (core/v1beta1) are demoted to status.deprecated.v1beta1.conditions,
+	// which the v1beta2 object stores as the structurally identical core/v1beta2 copy.
+	wantDeprecatedConditions := clusterv1.Conditions{
+		{
+			Type:               "LegacyReady",
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyReady",
+			Message:            "legacy condition",
+		},
+	}
+	if !reflect.DeepEqual(dst.GetV1Beta1Conditions(), wantDeprecatedConditions) {
+		t.Fatalf("deprecated v1beta1 conditions were not preserved: %#v", dst.Status.Deprecated)
+	}
+	if dst.Status.Initialization.Provisioned == nil || !*dst.Status.Initialization.Provisioned {
+		t.Fatalf("status.initialization.provisioned = %v, want true", dst.Status.Initialization.Provisioned)
+	}
+	if !reflect.DeepEqual(dst.Status.Addresses, wantAddresses) {
+		t.Fatalf("addresses mismatch:\n got: %#v\nwant: %#v", dst.Status.Addresses, wantAddresses)
+	}
+	if !dst.Status.LastUpdated.Equal(&lastUpdated) {
+		t.Fatalf("lastUpdated mismatch: got %v, want %v", dst.Status.LastUpdated, lastUpdated)
+	}
+	if !dst.Status.LastRemediatedAt.Equal(&lastRemediatedAt) {
+		t.Fatalf("lastRemediatedAt mismatch: got %v, want %v", dst.Status.LastRemediatedAt, lastRemediatedAt)
+	}
+}
+
+// TestHetznerBareMetalMachineConvertFromDemoteV1Beta2Shape verifies that converting a v1beta2
+// HetznerBareMetalMachine back to v1beta1 demotes v1beta2-only fields into the compatibility
+// locations used by the v1beta1 API.
+func TestHetznerBareMetalMachineConvertFromDemoteV1Beta2Shape(t *testing.T) {
+	legacyConditions := clusterv1beta1.Conditions{
+		{
+			Type:               clusterv1beta1.ConditionType("LegacyReady"),
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyNotReady",
+			Message:            "legacy condition",
+		},
+	}
+	v1beta2Conditions := []metav1.Condition{
+		{
+			Type:               clusterv1beta1.ReadyV1Beta2Condition,
+			Status:             metav1.ConditionFalse,
+			LastTransitionTime: metav1.Unix(2, 0),
+			Reason:             clusterv1beta1.NotReadyV1Beta2Reason,
+			Message:            "not ready",
+		},
+	}
+	lastUpdated := metav1.Unix(3, 0)
+	lastRemediatedAt := metav1.Unix(4, 0)
+	v1beta2Addresses := []clusterv1.MachineAddress{
+		{Type: clusterv1.MachineExternalIP, Address: "192.0.2.1"},
+	}
+	wantAddresses := []clusterv1beta1.MachineAddress{
+		{Type: clusterv1beta1.MachineExternalIP, Address: "192.0.2.1"},
+	}
+
+	// deprecatedConditions are stored on the v1beta2 object as the core/v1beta2 copy; after demotion
+	// they become the structurally identical core/v1beta1 conditions on the v1beta1 status.conditions.
+	deprecatedConditions := clusterv1.Conditions{
+		{
+			Type:               "LegacyReady",
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyNotReady",
+			Message:            "legacy condition",
+		},
+	}
+
+	src := &infrav2.HetznerBareMetalMachine{
+		Status: infrav2.HetznerBareMetalMachineStatus{
+			Conditions: v1beta2Conditions,
+			Addresses:  v1beta2Addresses,
+			Initialization: infrav2.HetznerBareMetalMachineInitializationStatus{
+				Provisioned: ptr.To(true),
+			},
+			LastUpdated:      lastUpdated,
+			LastRemediatedAt: lastRemediatedAt,
+			Deprecated: &infrav2.HetznerBareMetalMachineDeprecatedStatus{
+				V1Beta1: &infrav2.HetznerBareMetalMachineV1Beta1DeprecatedStatus{
+					Conditions: deprecatedConditions,
+				},
+			},
+		},
+	}
+
+	dst := &HetznerBareMetalMachine{}
+	if err := dst.ConvertFrom(src); err != nil {
+		t.Fatalf("failed to convert from v1beta2: %v", err)
+	}
+
+	if dst.Status.V1Beta2 == nil || !reflect.DeepEqual(dst.Status.V1Beta2.Conditions, v1beta2Conditions) {
+		t.Fatalf("v1beta2 conditions were not staged on v1beta1: %#v", dst.Status.V1Beta2)
+	}
+	if !reflect.DeepEqual(dst.Status.Conditions, legacyConditions) {
+		t.Fatalf("legacy conditions mismatch:\n got: %#v\nwant: %#v", dst.Status.Conditions, legacyConditions)
+	}
+	if !dst.Status.Ready {
+		t.Fatal("status.ready = false, want true")
+	}
+	if !reflect.DeepEqual(dst.Status.Addresses, wantAddresses) {
+		t.Fatalf("addresses mismatch:\n got: %#v\nwant: %#v", dst.Status.Addresses, wantAddresses)
+	}
+	if dst.Status.LastUpdated == nil || !dst.Status.LastUpdated.Equal(&lastUpdated) {
+		t.Fatalf("lastUpdated mismatch: %#v", dst.Status.LastUpdated)
+	}
+	if dst.Status.LastRemediatedAt == nil || !dst.Status.LastRemediatedAt.Equal(&lastRemediatedAt) {
+		t.Fatalf("lastRemediatedAt mismatch: %#v", dst.Status.LastRemediatedAt)
+	}
+}
+
+// TestHetznerBareMetalMachineRoundTripPreservesFalseProvisionedIntent verifies that the lossy
+// status.ready to status.initialization.provisioned conversion preserves an explicit false
+// provisioned value through the stored hub annotation.
+func TestHetznerBareMetalMachineRoundTripPreservesFalseProvisionedIntent(t *testing.T) {
+	src := &infrav2.HetznerBareMetalMachine{
+		Status: infrav2.HetznerBareMetalMachineStatus{
+			Initialization: infrav2.HetznerBareMetalMachineInitializationStatus{
+				Provisioned: ptr.To(false),
+			},
+		},
+	}
+
+	spoke := &HetznerBareMetalMachine{}
+	if err := spoke.ConvertFrom(src); err != nil {
+		t.Fatalf("failed to convert from v1beta2: %v", err)
+	}
+
+	restored := &infrav2.HetznerBareMetalMachine{}
+	if err := spoke.ConvertTo(restored); err != nil {
+		t.Fatalf("failed to convert back to v1beta2: %v", err)
+	}
+
+	if restored.Status.Initialization.Provisioned == nil || *restored.Status.Initialization.Provisioned {
+		t.Fatalf("status.initialization.provisioned = %v, want false", restored.Status.Initialization.Provisioned)
+	}
+}
+
+// TestHetznerBareMetalMachineConvertToNilProvisionedForFalseReadyWithoutAnnotation verifies that a
+// v1beta1 HetznerBareMetalMachine with status.ready=false and no conversion data annotation converts
+// to status.initialization.provisioned=nil (not *false): a bare false ready is not a deliberate
+// provisioning signal, so the value is treated as unknown.
+func TestHetznerBareMetalMachineConvertToNilProvisionedForFalseReadyWithoutAnnotation(t *testing.T) {
+	src := &HetznerBareMetalMachine{
+		Status: HetznerBareMetalMachineStatus{
+			Ready: false,
+		},
+	}
+
+	dst := &infrav2.HetznerBareMetalMachine{}
+	if err := src.ConvertTo(dst); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+
+	if dst.Status.Initialization.Provisioned != nil {
+		t.Fatalf("status.initialization.provisioned = %v, want nil", dst.Status.Initialization.Provisioned)
+	}
+}
+
+// TestHetznerBareMetalMachineFailureFieldsAreDropped verifies that the deprecated status.failureReason
+// and status.failureMessage, which CAPH never populates, are dropped on conversion.
+func TestHetznerBareMetalMachineFailureFieldsAreDropped(t *testing.T) {
+	src := &HetznerBareMetalMachine{
+		Status: HetznerBareMetalMachineStatus{
+			FailureReason:  ptr.To("boom"),
+			FailureMessage: ptr.To("it broke"),
+		},
+	}
+
+	hub := &infrav2.HetznerBareMetalMachine{}
+	if err := src.ConvertTo(hub); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+
+	if hub.Status.Deprecated != nil {
+		t.Fatalf("expected failure fields to be dropped, got status.deprecated = %#v", hub.Status.Deprecated)
+	}
+}
+
 // TestRemediationRetryToPointer verifies the v1beta1 int to v1beta2 *int32 counter
 // conversion, including the compatibility rule that v1beta1 zero maps to nil.
 func TestRemediationRetryToPointer(t *testing.T) {
@@ -624,9 +858,42 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			c.FillNoCustom(in)
 			in.V1Beta2 = nil
 		},
+		// HetznerBareMetalMachine v1beta1 status: collapse empty condition slices to nil, drop the
+		// V1Beta2 wrapper unless it carries conditions, and collapse a non-nil pointer to the zero time
+		// to nil so the round trip matches. failureReason/failureMessage are dropped in v1beta2, so nil
+		// them: they do not round-trip.
 		func(in *HetznerBareMetalMachineStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
-			in.V1Beta2 = nil
+			if len(in.Conditions) == 0 {
+				in.Conditions = nil
+			}
+			if in.V1Beta2 != nil && len(in.V1Beta2.Conditions) == 0 {
+				in.V1Beta2 = nil
+			}
+			if in.LastUpdated != nil && in.LastUpdated.IsZero() {
+				in.LastUpdated = nil
+			}
+			if in.LastRemediatedAt != nil && in.LastRemediatedAt.IsZero() {
+				in.LastRemediatedAt = nil
+			}
+			in.FailureReason = nil
+			in.FailureMessage = nil
+		},
+		// HetznerBareMetalMachine v1beta2 status (hub side): conditions and the deprecated wrapper have
+		// an empty-vs-nil ambiguity, so normalize them to make the round trip match. The deprecated
+		// wrapper survives only when it carries conditions. provisioned is left as-is: ConvertTo/ConvertFrom
+		// preserve it losslessly via the MarshalData annotation, so nil, *true and *false all survive.
+		func(in *infrav2.HetznerBareMetalMachineStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if len(in.Conditions) == 0 {
+				in.Conditions = nil
+			}
+			if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil && len(in.Deprecated.V1Beta1.Conditions) == 0 {
+				in.Deprecated.V1Beta1.Conditions = nil
+			}
+			if in.Deprecated != nil && (in.Deprecated.V1Beta1 == nil || in.Deprecated.V1Beta1.Conditions == nil) {
+				in.Deprecated = nil
+			}
 		},
 		// HCloudRemediation v1beta1 status: keep retryCount in the non-negative v1beta2 int32 range,
 		// collapse zero lastRemediated and empty condition slices to nil, and drop the V1Beta2

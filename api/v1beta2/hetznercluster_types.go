@@ -174,8 +174,6 @@ type HetznerClusterV1Beta1DeprecatedStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=hetznerclusters,scope=Namespaced,categories=cluster-api,shortName=hccl
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this HetznerCluster belongs"
-// TODO(#2017): the Ready column reads a v1beta2 Ready condition that the v1beta1 controller does not
-// emit yet, so it renders blank until the HetznerCluster controller is switched to v1beta2 (tracked under #2017).
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status",description="Cluster infrastructure is ready for Nodes"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of HetznerCluster"
 // +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".spec.controlPlaneEndpoint",description="API Endpoint",priority=1
