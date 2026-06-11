@@ -1455,6 +1455,12 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 		service.scope.HCloudMachine.Status.Ready = true
 		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateOperatingSystemRunning
+		// Setting HCloudTokenAvailableV1Beta2Condition here so the summary condition can be computed.
+		v1beta2conditions.Set(service.scope.HCloudMachine, metav1.Condition{
+			Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
+		})
 
 		By("making GetServer return a rate-limit error")
 		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(nil, hcloud.Error{
@@ -1466,8 +1472,13 @@ var _ = Describe("Reconcile", func() {
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 
-		By("ensuring BootState is unchanged i.e. still OperatingSystemRunning")
+		By("ensuring the machine remains Ready with its BootState intact")
+		Expect(service.scope.HCloudMachine.Status.Ready).To(BeTrue())
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
+
+		By("ensuring the summary condition is True, meaning no error condition was set")
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, clusterv1beta1.ReadyV1Beta2Condition, metav1.ConditionTrue, clusterv1beta1.ReadyV1Beta2Reason)).To(BeTrue())
 	})
 
 	It("does not create a server when the image-url-command is not available on disk", func() {
