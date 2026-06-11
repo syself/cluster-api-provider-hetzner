@@ -952,11 +952,17 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 	defer scpClient.Close()
 
 	for range outputJSONMaxRetries {
+		out := c.runSSH(ctx, "test -f "+outputJSONPath)
+		exitStatus, err := out.ExitStatus()
+		if err != nil {
+			return "", fmt.Errorf("ReadOutputJSON: test -f: %w", err)
+		}
+		if exitStatus != 0 {
+			return "", nil // file does not exist
+		}
+
 		var buf bytes.Buffer
 		if err := scpClient.CopyFromRemotePassThru(ctx, &buf, outputJSONPath, nil); err != nil {
-			if strings.Contains(strings.ToLower(err.Error()), "no such file") {
-				return "", nil
-			}
 			return "", fmt.Errorf("reading output.json: %w", err)
 		}
 
