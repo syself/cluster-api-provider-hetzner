@@ -68,15 +68,24 @@ func ApplyNodeProvisioningConditions(obj conditionSetter, output Output) {
 	}
 }
 
+// Parse unmarshals content into an Output struct without applying conditions.
+func Parse(content string) (Output, error) {
+	var output Output
+	if err := json.Unmarshal([]byte(content), &output); err != nil {
+		return Output{}, fmt.Errorf("output.json: %w", err)
+	}
+	if output.Status == "" {
+		return Output{}, fmt.Errorf("output.json: no status field")
+	}
+	return output, nil
+}
+
 // ParseAndApply unmarshals content into Output and updates conditions on obj.
 // Returns an error if content is not valid JSON or has no status field.
 func ParseAndApply(obj conditionSetter, content string) error {
-	var output Output
-	if err := json.Unmarshal([]byte(content), &output); err != nil {
-		return fmt.Errorf("output.json: %w", err)
-	}
-	if output.Status == "" {
-		return fmt.Errorf("output.json: no status field")
+	output, err := Parse(content)
+	if err != nil {
+		return err
 	}
 	ApplyNodeProvisioningConditions(obj, output)
 	return nil

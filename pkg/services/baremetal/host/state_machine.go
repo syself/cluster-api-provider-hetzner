@@ -344,16 +344,6 @@ func (hsm *hostStateMachine) handleEnsureProvisioned(ctx context.Context) action
 		return actionComplete{}
 	}
 
-	// If hardware reboot during ensure-provisioned timed out (provisioning error),
-	// the OS failed to come up. Trigger reprovisioning.
-	if hsm.host.Spec.Status.ErrorType == infrav1.ProvisioningError {
-		hsm.log.Info("provisioning error in ensure-provisioned state, triggering reprovisioning")
-		hsm.host.ClearError()
-		hsm.host.Spec.Status.RebootTriggeredAt = nil
-		hsm.nextState = infrav1.StateImageInstalling
-		return actionComplete{}
-	}
-
 	actResult := hsm.reconciler.actionEnsureProvisioned(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateProvisioned
