@@ -1476,7 +1476,13 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.Ready).To(BeTrue())
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 
-		By("ensuring the summary condition is True, meaning no error condition was set")
+		By("ensuring the summary conditions are True, meaning no error condition was set")
+		// The summary condition is actually set by scope.Close() function which the controller
+		// calls after service.Reconcile() returns. In tests we call service.Reconcile() directly,
+		// so scope.Close() never runs and the summary is never computed. That's why we call the set summary
+		// functions manually.
+		v1beta1conditions.SetSummary(service.scope.HCloudMachine)
+		Expect(v1beta1conditions.IsTrue(service.scope.HCloudMachine, clusterv1beta1.ReadyCondition)).To(BeTrue())
 		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
 		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, clusterv1beta1.ReadyV1Beta2Condition, metav1.ConditionTrue, clusterv1beta1.ReadyV1Beta2Reason)).To(BeTrue())
 	})
