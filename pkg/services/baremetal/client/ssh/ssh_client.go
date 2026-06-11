@@ -220,7 +220,8 @@ type Client interface {
 
 	// ReadOutputJSON reads /root/output.json from the rescue system. It retries up to
 	// outputJSONMaxRetries times when the content does not end with '}', which guards against
-	// reading a partially-written file. An empty file returns an empty string and error is nil.
+	// reading a partially-written file. An empty or not existing file returns an empty string and
+	// error is nil.
 	ReadOutputJSON(ctx context.Context) (string, error)
 }
 
@@ -953,6 +954,9 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 	for range outputJSONMaxRetries {
 		var buf bytes.Buffer
 		if err := scpClient.CopyFromRemotePassThru(ctx, &buf, outputJSONPath, nil); err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "no such file") {
+				return "", nil
+			}
 			return "", fmt.Errorf("reading output.json: %w", err)
 		}
 
