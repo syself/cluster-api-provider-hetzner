@@ -102,7 +102,7 @@ var _ = Describe("SetErrorMessage", func() {
 	)
 })
 
-// Tests below verify the outcome table in docs/caph/04-developers/06-image-url-command.md#outcome-summary
+// Tests below verify the outcome table in docs/caph/04-developers/06-image-url-command.md#outcome-summary.
 var _ = Describe("actionImageInstalling (image-url-command)", func() {
 	ctx := context.Background()
 
