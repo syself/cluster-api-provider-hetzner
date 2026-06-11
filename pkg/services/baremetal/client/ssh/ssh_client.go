@@ -218,9 +218,9 @@ type Client interface {
 	// be: NotStarted, Running, Failed, FinishedSuccesfully.
 	StateOfImageURLCommand(ctx context.Context) (state ImageURLCommandState, logFile string, err error)
 
-	// ReadOutputJSON reads /root/output.json from the rescue system.
-	// It retries up to outputJSONMaxRetries times when the content does not end with '}',
-	// which guards against reading a partially-written file.
+	// ReadOutputJSON reads /root/output.json from the rescue system. It retries up to
+	// outputJSONMaxRetries times when the content does not end with '}', which guards against
+	// reading a partially-written file. An empty file returns an empty string and error is nil.
 	ReadOutputJSON(ctx context.Context) (string, error)
 }
 
@@ -938,18 +938,28 @@ func (c *sshClient) getImageURLCommandOutput(ctx context.Context) (string, error
 }
 
 func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
-	for range outputJSONMaxRetries {
-		out := c.runSSH(ctx, "cat "+outputJSONPath)
+	client, err := c.getSSHClient(ctx)
+	if err != nil {
+		return "", fmt.Errorf("ReadOutputJSON: %w", err)
+	}
+	defer client.Close()
 
-		exitStatus, err := out.ExitStatus()
-		if err != nil {
+	scpClient, err := scp.NewClientBySSH(client)
+	if err != nil {
+		return "", fmt.Errorf("ReadOutputJSON: NewClientBySSH: %w", err)
+	}
+	defer scpClient.Close()
+
+	for range outputJSONMaxRetries {
+		var buf bytes.Buffer
+		if err := scpClient.CopyFromRemotePassThru(ctx, &buf, outputJSONPath, nil); err != nil {
 			return "", fmt.Errorf("reading output.json: %w", err)
 		}
-		if exitStatus != 0 {
-			return "", fmt.Errorf("reading output.json failed with exit status %d", exitStatus)
-		}
 
-		content := strings.TrimSpace(out.StdOut)
+		content := strings.TrimSpace(buf.String())
+		if content == "" {
+			return "", nil
+		}
 		if strings.HasSuffix(content, "}") {
 			return content, nil
 		}
@@ -957,6 +967,5 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// max retries reached - we return the error now
 	return "", fmt.Errorf("output.json did not end with '}' after %d attempts", outputJSONMaxRetries)
 }
