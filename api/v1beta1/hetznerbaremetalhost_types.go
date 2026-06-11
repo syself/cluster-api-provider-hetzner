@@ -607,6 +607,11 @@ type HardwareDetails struct {
 }
 
 // HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
+//
+// The v1beta1 host stores its controller-generated status in spec.status, so this status subresource
+// carries no data. The v1beta2 shape moves that status into the real status subresource, a cross-field
+// move that conversion-gen cannot express, so the conversion is hand-written at the object level.
+// +k8s:conversion-gen=false
 type HetznerBareMetalHostStatus struct{}
 
 // +kubebuilder:object:root=true

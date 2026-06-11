@@ -396,6 +396,123 @@ const (
 	HetznerClusterDeletingReason = clusterv1.DeletingReason
 )
 
+// HetznerBareMetalHost's v1beta2 conditions.
+
+const (
+	// HetznerBareMetalHostSSHKeysAvailableCondition reports whether SSH keys for the host are available.
+	HetznerBareMetalHostSSHKeysAvailableCondition = "SSHKeysAvailable"
+	// HetznerBareMetalHostSSHKeysAvailableReason indicates SSH keys are available.
+	HetznerBareMetalHostSSHKeysAvailableReason = clusterv1.AvailableReason
+	// HetznerBareMetalHostSSHKeysInvalidReason indicates SSH keys in the secret are invalid.
+	HetznerBareMetalHostSSHKeysInvalidReason = "Invalid"
+	// HetznerBareMetalHostSSHKeyAlreadyExistsReason indicates the SSH key already exists under a different name in Hetzner Robot.
+	HetznerBareMetalHostSSHKeyAlreadyExistsReason = "AlreadyExists"
+	// HetznerBareMetalHostOSSSHSecretMissingReason indicates the OS SSH secret is missing.
+	HetznerBareMetalHostOSSSHSecretMissingReason = "OSSSHSecretMissing"
+	// HetznerBareMetalHostRescueSSHSecretMissingReason indicates the rescue SSH secret is missing.
+	HetznerBareMetalHostRescueSSHSecretMissingReason = "RescueSSHSecretMissing"
+)
+
+const (
+	// HetznerBareMetalHostRobotCredentialsAvailableCondition reports whether Robot API credentials are valid and reachable.
+	HetznerBareMetalHostRobotCredentialsAvailableCondition = "RobotCredentialsAvailable"
+	// HetznerBareMetalHostRobotCredentialsAvailableReason indicates the Robot credentials are available.
+	HetznerBareMetalHostRobotCredentialsAvailableReason = clusterv1.AvailableReason
+	// HetznerBareMetalHostRobotCredentialsInvalidReason indicates Robot credentials are invalid.
+	HetznerBareMetalHostRobotCredentialsInvalidReason = "Invalid" // #nosec
+	// HetznerBareMetalHostSecretUnreachableReason indicates the secret holding the Robot credentials is unreachable.
+	HetznerBareMetalHostSecretUnreachableReason = "SecretUnreachable" // #nosec
+)
+
+const (
+	// HetznerBareMetalHostRootDeviceHintsValidatedCondition reports whether the root device hints could be validated.
+	HetznerBareMetalHostRootDeviceHintsValidatedCondition = "RootDeviceHintsValidated"
+	// HetznerBareMetalHostRootDeviceHintsValidatedReason indicates root device hints are validated.
+	HetznerBareMetalHostRootDeviceHintsValidatedReason = "Validated"
+	// HetznerBareMetalHostValidationFailedReason indicates the specified root device hints could not be validated.
+	HetznerBareMetalHostValidationFailedReason = "ValidationFailed"
+)
+
+const (
+	// HetznerBareMetalHostProvisionSucceededCondition reports whether the host has been provisioned.
+	HetznerBareMetalHostProvisionSucceededCondition = "ProvisionSucceeded"
+	// HetznerBareMetalHostProvisionSucceededReason indicates the host has been provisioned.
+	HetznerBareMetalHostProvisionSucceededReason = clusterv1.ProvisionedReason
+	// HetznerBareMetalHostProvisioningReason indicates the server is provisioning.
+	HetznerBareMetalHostProvisioningReason = "Provisioning"
+	// HetznerBareMetalHostSSHConnectionRefusedReason indicates the server cannot be reached via SSH.
+	HetznerBareMetalHostSSHConnectionRefusedReason = "SSHConnectionRefused"
+	// HetznerBareMetalHostImageSpecInvalidReason indicates the image specification is invalid.
+	HetznerBareMetalHostImageSpecInvalidReason = "ImageSpecInvalid"
+	// HetznerBareMetalHostDownloadingImageFailedReason indicates downloading the machine image failed.
+	HetznerBareMetalHostDownloadingImageFailedReason = "DownloadingImageFailed"
+	// HetznerBareMetalHostNoStorageDeviceFoundReason indicates no suitable storage device could be found.
+	HetznerBareMetalHostNoStorageDeviceFoundReason = "NoStorageDeviceFound"
+	// HetznerBareMetalHostServerNotFoundReason indicates a bare metal server could not be found.
+	HetznerBareMetalHostServerNotFoundReason = "ServerNotFound"
+	// HetznerBareMetalHostServerHasNoIPv4Reason indicates a bare metal server has no IPv4 address.
+	HetznerBareMetalHostServerHasNoIPv4Reason = "ServerHasNoIPv4"
+	// HetznerBareMetalHostLinuxOnOtherDiskFoundReason indicates the server cannot be provisioned on the given WWN.
+	HetznerBareMetalHostLinuxOnOtherDiskFoundReason = "LinuxOnOtherDiskFound"
+	// HetznerBareMetalHostWipingDiskFailedReason indicates erasing the disks before provisioning failed.
+	HetznerBareMetalHostWipingDiskFailedReason = "WipingDiskFailed"
+	// HetznerBareMetalHostSSHToRescueSystemFailedReason indicates the rescue system cannot be reached via SSH.
+	HetznerBareMetalHostSSHToRescueSystemFailedReason = "SSHToRescueSystemFailed"
+	// HetznerBareMetalHostRebootTimeoutReachedReason indicates the reboot timeout was reached.
+	HetznerBareMetalHostRebootTimeoutReachedReason = "RebootTimeoutReached"
+	// HetznerBareMetalHostCheckingDiskFailedReason indicates checking the health of the disk was not successful.
+	HetznerBareMetalHostCheckingDiskFailedReason = "CheckingDiskFailed"
+)
+
+const (
+	// HetznerBareMetalHostDeletingCondition reports on whether the HetznerBareMetalHost is being deleted (negative polarity).
+	HetznerBareMetalHostDeletingCondition = clusterv1.DeletingCondition
+	// HetznerBareMetalHostDeletingReason indicates the HetznerBareMetalHost is being deleted.
+	HetznerBareMetalHostDeletingReason = clusterv1.DeletingReason
+)
+
+const (
+	// HetznerBareMetalHostNodeBootIDRetrievedCondition reports whether the boot ID of the node was retrieved.
+	HetznerBareMetalHostNodeBootIDRetrievedCondition = "NodeBootIDRetrieved"
+	// HetznerBareMetalHostNodeBootIDRetrievedReason indicates the boot ID was retrieved from the node.
+	HetznerBareMetalHostNodeBootIDRetrievedReason = "Retrieved"
+	// HetznerBareMetalHostGettingWorkloadClusterClientFailedReason indicates initializing the workload cluster client failed.
+	HetznerBareMetalHostGettingWorkloadClusterClientFailedReason = "GettingWorkloadClusterClientFailed"
+	// HetznerBareMetalHostGettingNodeInWorkloadClusterFailedReason indicates fetching the node object from the workload cluster failed.
+	HetznerBareMetalHostGettingNodeInWorkloadClusterFailedReason = "GettingNodeInWorkloadClusterFailed"
+	// HetznerBareMetalHostBootIDEmptyReason indicates the boot ID on the node object is empty.
+	HetznerBareMetalHostBootIDEmptyReason = "BootIDEmpty"
+)
+
+const (
+	// HetznerBareMetalHostRebootSucceededCondition reports whether the most recent reboot of the host succeeded.
+	HetznerBareMetalHostRebootSucceededCondition = "RebootSucceeded"
+	// HetznerBareMetalHostRebootSucceededReason indicates the most recent reboot succeeded.
+	HetznerBareMetalHostRebootSucceededReason = "Succeeded"
+	// HetznerBareMetalHostRebootingReason indicates the host is rebooting.
+	HetznerBareMetalHostRebootingReason = "Rebooting"
+	// HetznerBareMetalHostRebootSucceededTimeoutReachedOutReason indicates the reboot did not complete within the timeout.
+	HetznerBareMetalHostRebootSucceededTimeoutReachedOutReason = "TimeoutReached"
+	// HetznerBareMetalHostRebootingViaSSHFailedReason indicates triggering the reboot via SSH failed.
+	HetznerBareMetalHostRebootingViaSSHFailedReason = "RebootingViaSSHFailed"
+	// HetznerBareMetalHostRebootingBMServerViaAPIFailedReason indicates triggering the reboot via the Robot API failed.
+	HetznerBareMetalHostRebootingBMServerViaAPIFailedReason = "RebootingBMServerViaAPIFailed"
+)
+
+const (
+	// HetznerBareMetalHostRobotRateLimitExceededCondition reports whether the Robot API rate limit has been exceeded (negative polarity).
+	HetznerBareMetalHostRobotRateLimitExceededCondition = "RobotRateLimitExceeded"
+	// HetznerBareMetalHostRobotRateLimitExceededReason indicates the Robot API rate limit has been exceeded.
+	HetznerBareMetalHostRobotRateLimitExceededReason = "Exceeded"
+)
+
+const (
+	// HetznerBareMetalHostActionCompletedCondition surfaces the host's current provisioning or operational
+	// action. It is present only while an action is in progress or the host is stuck (carrying the reason and
+	// message for that state) and is removed once the action clears; it has no steady-state True.
+	HetznerBareMetalHostActionCompletedCondition = "ActionCompleted"
+)
+
 // HetznerBareMetalMachine's v1beta2 conditions.
 const (
 	// HetznerBareMetalMachineHostAssociatedCondition is true when the host is associated.
