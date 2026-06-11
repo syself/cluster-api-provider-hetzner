@@ -466,7 +466,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 						return false
 					}
 
-					return isPresentAndTrue(key, host, infrav1.ProvisionSucceededCondition)
+					return isPresentAndTrueV1Beta1(key, host, infrav1.ProvisionSucceededCondition)
 				}, timeout).Should(BeTrue())
 			})
 		})
@@ -840,7 +840,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		It("gives an error", func() {
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.RescueSSHSecretMissingReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, host, infrav1.CredentialsAvailableCondition, infrav1.RescueSSHSecretMissingReason)
 			}, timeout).Should(BeTrue())
 		})
 
@@ -862,7 +862,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 			}()
 
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
 			}, timeout).Should(BeTrue())
 		})
 	})
@@ -892,7 +892,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		It("gives the right error if secret is missing", func() {
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.OSSSHSecretMissingReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, host, infrav1.CredentialsAvailableCondition, infrav1.OSSSHSecretMissingReason)
 			}, timeout).Should(BeTrue())
 		})
 
@@ -914,7 +914,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 			}()
 
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
 			}, timeout).Should(BeTrue())
 		})
 	})
@@ -960,7 +960,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		It("should set CredentialsAvailable condition to false if Robot API returned unauthorized", func() {
 			By("making the Robot client return an unauthorized error")
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
 			}, timeout).Should(BeTrue())
 
 			Expect(robotClient.AssertExpectations(GinkgoT())).To(BeTrue())
@@ -1003,7 +1003,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		It("sets RobotCredentialsAvailable to false if robot-user is empty", func() {
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
 			}, timeout).Should(BeTrue())
 		})
 	})
