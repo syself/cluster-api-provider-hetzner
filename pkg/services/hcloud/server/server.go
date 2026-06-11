@@ -1024,6 +1024,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
+		imageurlcommand.ApplyNodeProvisioningConditions(hm, imageurlcommand.Output{Status: "Succeeded"})
 		if outputJSON, readErr := hcloudSSHClient.ReadOutputJSON(ctx); readErr == nil {
 			output, parseErr := imageurlcommand.Parse(outputJSON)
 			if parseErr != nil {
@@ -1054,8 +1055,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			}
 			record.Event(hm, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
-		} else {
-			imageurlcommand.ApplyNodeProvisioningConditions(hm, imageurlcommand.Output{Status: "Succeeded"})
 		}
 
 		// The image got installed. Now reboot in the real operating system.

@@ -1337,6 +1337,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
 		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
 
+		imageurlcommand.ApplyNodeProvisioningConditions(host, imageurlcommand.Output{Status: "Succeeded"})
 		if outputJSON, readErr := sshClient.ReadOutputJSON(ctx); readErr == nil {
 			output, parseErr := imageurlcommand.Parse(outputJSON)
 			if parseErr != nil {
@@ -1363,8 +1364,6 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			}
 			record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
-		} else {
-			imageurlcommand.ApplyNodeProvisioningConditions(host, imageurlcommand.Output{Status: "Succeeded"})
 		}
 
 		// Update name in robot API
