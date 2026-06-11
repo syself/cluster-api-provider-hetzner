@@ -171,6 +171,26 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
+	It("sets NodeProvisioningSucceeded=True when ReadOutputJSON returns an error", func() {
+		// Regression test: previously the condition was never set when ReadOutputJSON
+		// returned an error (file absent, SSH error, incomplete JSON, etc.).
+		host := newBaseHost()
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
+		sshMock.On("ReadOutputJSON", mock.Anything).Return("", fmt.Errorf("ssh connection lost")).Once()
+		sshMock.On("Reboot", mock.Anything).Return(sshclient.Output{})
+
+		robot := robotmock.Client{}
+		robot.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
+
+		svc := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
+		Expect(v1beta1conditions.IsTrue(host, infrav1.NodeProvisioningSucceededCondition)).To(BeTrue())
+	})
+
 	It("returns error when command failed", func() {
 		host := newBaseHost()
 		sshMock := &sshmock.Client{}
