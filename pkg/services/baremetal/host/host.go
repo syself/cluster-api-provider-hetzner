@@ -698,13 +698,11 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	}
 	record.Eventf(s.scope.HetznerBareMetalHost, "GetHardwareDetails", msg)
 
-	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails == nil {
-		hardwareDetails, err := getHardwareDetails(ctx, sshClient)
-		if err != nil {
-			return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
-		}
-		s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
+	hardwareDetails, err := getHardwareDetails(ctx, sshClient)
+	if err != nil {
+		return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
 	}
+	s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
 
 	if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints == nil {
 		v1beta1conditions.MarkFalse(
