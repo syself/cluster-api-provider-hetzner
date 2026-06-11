@@ -189,8 +189,8 @@ github.com/google/uuid
 github.com/grpc-ecosystem/grpc-gateway/v2/internal/httprule
 github.com/grpc-ecosystem/grpc-gateway/v2/runtime
 github.com/grpc-ecosystem/grpc-gateway/v2/utilities
-# github.com/guettli/check-conditions v0.0.33
-## explicit; go 1.20
+# github.com/guettli/check-conditions v0.0.41
+## explicit; go 1.24
 github.com/guettli/check-conditions/pkg/checkconditions
 # github.com/hetznercloud/hcloud-go/v2 v2.32.0
 ## explicit; go 1.24.0
