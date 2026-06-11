@@ -1363,6 +1363,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			}
 			record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+		} else {
+			imageurlcommand.ApplyNodeProvisioningConditions(host, imageurlcommand.Output{Status: "Succeeded"})
 		}
 
 		// Update name in robot API

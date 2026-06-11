@@ -82,7 +82,7 @@ provisioning.
 
 | **`IMAGE_URL_DONE` in stdout** | **`output.json` exists** | **`status` in `output.json`** | **Result** |
 | :------------------------: | :------------------: | :-----------------------: | ------ |
-| yes | no | — | **success**, `NodeProvisioningSucceeded` condition not set |
+| yes | no | — | **success**, `NodeProvisioningSucceeded` condition set to True |
 | yes | yes | `"Succeeded"` | **success**, `NodeProvisioningSucceeded` condition set to True |
 | yes | yes | any other string | **success**, `NodeProvisioningSucceeded` condition set to Unknown |
 | yes | yes | `"Failed"` | **failure**, provisioning cancelled |

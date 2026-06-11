@@ -1054,6 +1054,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			}
 			record.Event(hm, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+		} else {
+			imageurlcommand.ApplyNodeProvisioningConditions(hm, imageurlcommand.Output{Status: "Succeeded"})
 		}
 
 		// The image got installed. Now reboot in the real operating system.
