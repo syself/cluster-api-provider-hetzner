@@ -211,6 +211,229 @@ func TestConvertHetznerBareMetalHostConsumerRefInvalidAPIVersion(t *testing.T) {
 	}
 }
 
+// TestHetznerBareMetalHostConvertToMovesStatusToSubresource verifies that converting a v1beta1
+// HetznerBareMetalHost to v1beta2 moves spec.status into the status subresource, promotes the staged
+// v1beta2 conditions to status.conditions, demotes the v1beta1 conditions to
+// status.deprecated.v1beta1.conditions, and maps rebootTriggeredAt from a pointer to a value.
+func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
+	legacyConditions := clusterv1beta1.Conditions{
+		{
+			Type:               clusterv1beta1.ConditionType("LegacyReady"),
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyReady",
+			Message:            "legacy condition",
+		},
+	}
+	v1beta2Conditions := []metav1.Condition{
+		{
+			Type:               clusterv1beta1.ReadyV1Beta2Condition,
+			Status:             metav1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(2, 0),
+			Reason:             clusterv1beta1.ReadyV1Beta2Reason,
+			Message:            "ready",
+		},
+	}
+	wantDeprecatedConditions := clusterv1.Conditions{
+		{
+			Type:               "LegacyReady",
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyReady",
+			Message:            "legacy condition",
+		},
+	}
+	rebootTriggeredAt := metav1.Unix(3, 0)
+
+	src := &HetznerBareMetalHost{
+		Spec: HetznerBareMetalHostSpec{
+			ServerID: 42,
+			Status: ControllerGeneratedStatus{
+				IPv4:              "1.2.3.4",
+				IPv6:              "2001:db8::1",
+				ProvisioningState: StateProvisioned,
+				ErrorType:         FatalError,
+				RebootTypes:       []RebootType{RebootTypeSoftware, RebootTypeHardware},
+				RebootTriggeredAt: &rebootTriggeredAt,
+				NodeBootID:        "boot-id",
+				Conditions:        legacyConditions,
+				V1Beta2:           &HetznerBareMetalHostV1Beta2Status{Conditions: v1beta2Conditions},
+			},
+		},
+	}
+
+	dst := &infrav1.HetznerBareMetalHost{}
+	if err := src.ConvertTo(dst); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+
+	if dst.Status.IPv4 != "1.2.3.4" || dst.Status.IPv6 != "2001:db8::1" {
+		t.Fatalf("status addresses not moved to the subresource: %#v", dst.Status)
+	}
+	if dst.Status.ProvisioningState != infrav1.StateProvisioned || dst.Status.ErrorType != infrav1.FatalError {
+		t.Fatalf("status fields not moved to the subresource: %#v", dst.Status)
+	}
+	if dst.Status.NodeBootID != "boot-id" {
+		t.Fatalf("status.nodeBootID not moved: %q", dst.Status.NodeBootID)
+	}
+	if !reflect.DeepEqual(dst.Status.RebootTypes, []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}) {
+		t.Fatalf("status.rebootTypes mismatch: %#v", dst.Status.RebootTypes)
+	}
+	if !dst.Status.RebootTriggeredAt.Equal(&rebootTriggeredAt) {
+		t.Fatalf("status.rebootTriggeredAt mismatch: %#v", dst.Status.RebootTriggeredAt)
+	}
+	if !reflect.DeepEqual(dst.Status.Conditions, v1beta2Conditions) {
+		t.Fatalf("status.conditions mismatch:\n got: %#v\nwant: %#v", dst.Status.Conditions, v1beta2Conditions)
+	}
+	if !reflect.DeepEqual(dst.GetV1Beta1Conditions(), wantDeprecatedConditions) {
+		t.Fatalf("deprecated v1beta1 conditions were not preserved: %#v", dst.Status.Deprecated)
+	}
+}
+
+// TestHetznerBareMetalHostConvertFromMovesStatusToSpec verifies that converting a v1beta2
+// HetznerBareMetalHost back to v1beta1 moves the status subresource into spec.status, demotes the
+// v1beta2 conditions to the staged status.v1beta2.conditions, and promotes the deprecated v1beta1
+// conditions back to spec.status.conditions.
+func TestHetznerBareMetalHostConvertFromMovesStatusToSpec(t *testing.T) {
+	deprecatedConditions := clusterv1.Conditions{
+		{
+			Type:               "LegacyReady",
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyNotReady",
+			Message:            "legacy condition",
+		},
+	}
+	legacyConditions := clusterv1beta1.Conditions{
+		{
+			Type:               clusterv1beta1.ConditionType("LegacyReady"),
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyNotReady",
+			Message:            "legacy condition",
+		},
+	}
+	v1beta2Conditions := []metav1.Condition{
+		{
+			Type:               clusterv1beta1.ReadyV1Beta2Condition,
+			Status:             metav1.ConditionFalse,
+			LastTransitionTime: metav1.Unix(2, 0),
+			Reason:             clusterv1beta1.NotReadyV1Beta2Reason,
+			Message:            "not ready",
+		},
+	}
+
+	src := &infrav1.HetznerBareMetalHost{
+		Spec: infrav1.HetznerBareMetalHostSpec{ServerID: 7},
+		Status: infrav1.HetznerBareMetalHostStatus{
+			IPv4:       "5.6.7.8",
+			Conditions: v1beta2Conditions,
+			Deprecated: &infrav1.HetznerBareMetalHostDeprecatedStatus{
+				V1Beta1: &infrav1.HetznerBareMetalHostV1Beta1DeprecatedStatus{
+					Conditions: deprecatedConditions,
+				},
+			},
+		},
+	}
+
+	dst := &HetznerBareMetalHost{}
+	if err := dst.ConvertFrom(src); err != nil {
+		t.Fatalf("failed to convert from v1beta2: %v", err)
+	}
+
+	if dst.Spec.Status.IPv4 != "5.6.7.8" {
+		t.Fatalf("status.ipv4 not moved back to spec.status: %q", dst.Spec.Status.IPv4)
+	}
+	if dst.Spec.Status.V1Beta2 == nil || !reflect.DeepEqual(dst.Spec.Status.V1Beta2.Conditions, v1beta2Conditions) {
+		t.Fatalf("v1beta2 conditions were not staged on v1beta1: %#v", dst.Spec.Status.V1Beta2)
+	}
+	if !reflect.DeepEqual(dst.Spec.Status.Conditions, legacyConditions) {
+		t.Fatalf("legacy conditions mismatch:\n got: %#v\nwant: %#v", dst.Spec.Status.Conditions, legacyConditions)
+	}
+}
+
+// TestHetznerBareMetalHostRoundTripPreservesDroppedStatusFields verifies that the spec.status fields
+// with no v1beta2 equivalent survive a v1beta1 -> v1beta2 -> v1beta1 round trip through the conversion data
+// annotation, including the nested hardwareDetails.cpu.flags.
+func TestHetznerBareMetalHostRoundTripPreservesDroppedStatusFields(t *testing.T) {
+	lastUpdated := metav1.Unix(10, 0)
+	src := &HetznerBareMetalHost{
+		Spec: HetznerBareMetalHostSpec{
+			ServerID: 1,
+			Status: ControllerGeneratedStatus{
+				HetznerClusterRef: "cluster-a",
+				UserData:          &corev1.SecretReference{Name: "user-data", Namespace: "default"},
+				InstallImage:      &InstallImage{Image: Image{Name: "image", URL: "oci://example/image:1", Path: "/root.tar.gz"}},
+				SSHSpec:           &SSHSpec{PortAfterInstallImage: 22, PortAfterCloudInit: 22},
+				ErrorCount:        3,
+				ErrorMessage:      "boom",
+				LastUpdated:       &lastUpdated,
+				HardwareDetails:   &HardwareDetails{RAMGB: 64, CPU: CPU{Threads: 8, Flags: []string{"sse", "avx"}}},
+			},
+		},
+	}
+
+	hub := &infrav1.HetznerBareMetalHost{}
+	if err := src.ConvertTo(hub); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+
+	restored := &HetznerBareMetalHost{}
+	if err := restored.ConvertFrom(hub); err != nil {
+		t.Fatalf("failed to convert back to v1beta1: %v", err)
+	}
+
+	status := restored.Spec.Status
+	if status.HetznerClusterRef != "cluster-a" {
+		t.Fatalf("hetznerClusterRef not restored: %q", status.HetznerClusterRef)
+	}
+	if !reflect.DeepEqual(status.UserData, src.Spec.Status.UserData) {
+		t.Fatalf("userData not restored: %#v", status.UserData)
+	}
+	if !reflect.DeepEqual(status.InstallImage, src.Spec.Status.InstallImage) {
+		t.Fatalf("installImage not restored: %#v", status.InstallImage)
+	}
+	if !reflect.DeepEqual(status.SSHSpec, src.Spec.Status.SSHSpec) {
+		t.Fatalf("sshSpec not restored: %#v", status.SSHSpec)
+	}
+	if status.ErrorCount != 3 || status.ErrorMessage != "boom" {
+		t.Fatalf("error fields not restored: count=%d message=%q", status.ErrorCount, status.ErrorMessage)
+	}
+	if status.LastUpdated == nil || !status.LastUpdated.Equal(&lastUpdated) {
+		t.Fatalf("lastUpdated not restored: %#v", status.LastUpdated)
+	}
+	if status.HardwareDetails == nil || !reflect.DeepEqual(status.HardwareDetails.CPU.Flags, []string{"sse", "avx"}) {
+		t.Fatalf("hardwareDetails.cpu.flags not restored: %#v", status.HardwareDetails)
+	}
+}
+
+// TestHetznerBareMetalHostRebootTriggeredAtNilRoundTrip verifies that a nil spec.status.rebootTriggeredAt
+// in v1beta1 converts to the zero value in v1beta2 and back to a nil pointer in v1beta1.
+func TestHetznerBareMetalHostRebootTriggeredAtNilRoundTrip(t *testing.T) {
+	src := &HetznerBareMetalHost{
+		Spec: HetznerBareMetalHostSpec{
+			ServerID: 1,
+			Status:   ControllerGeneratedStatus{RebootTriggeredAt: nil},
+		},
+	}
+
+	hub := &infrav1.HetznerBareMetalHost{}
+	if err := src.ConvertTo(hub); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+	if !hub.Status.RebootTriggeredAt.IsZero() {
+		t.Fatalf("expected a zero rebootTriggeredAt in v1beta2, got %#v", hub.Status.RebootTriggeredAt)
+	}
+
+	restored := &HetznerBareMetalHost{}
+	if err := restored.ConvertFrom(hub); err != nil {
+		t.Fatalf("failed to convert back to v1beta1: %v", err)
+	}
+	if restored.Spec.Status.RebootTriggeredAt != nil {
+		t.Fatalf("expected a nil rebootTriggeredAt in v1beta1, got %#v", restored.Spec.Status.RebootTriggeredAt)
+	}
+}
+
 func fuzzyConversionTestFunc(scheme *runtime.Scheme, hub conversion.Hub, spoke conversion.Convertible) func(*testing.T) {
 	return utilconversion.FuzzTestFunc(utilconversion.FuzzTestFuncInput{
 		Scheme:      scheme,
@@ -846,10 +1069,6 @@ func normalizeV1Beta2FailureDomains(in []clusterv1.FailureDomain) []clusterv1.Fa
 // two API versions represent empty or staged data differently.
 func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{
-		func(in *ControllerGeneratedStatus, c randfill.Continue) {
-			c.FillNoCustom(in)
-			in.V1Beta2 = nil
-		},
 		func(in *HCloudMachineStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			in.V1Beta2 = nil
@@ -999,6 +1218,26 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		func(in *HetznerBareMetalHost, c randfill.Continue) {
 			c.FillNoCustom(in)
+
+			// v1beta1 keeps the controller-generated status in spec.status. The v1beta2 status carries
+			// the bare metav1 conditions, so collapse empty condition slices to nil and drop the staged
+			// V1Beta2 wrapper unless it carries conditions, so the conditions round trip. rebootTriggeredAt
+			// moves to a value type and lastUpdated round trips through the conversion data annotation,
+			// so collapse a pointer to the zero time to nil in both cases.
+			status := &in.Spec.Status
+			if len(status.Conditions) == 0 {
+				status.Conditions = nil
+			}
+			if status.V1Beta2 != nil && len(status.V1Beta2.Conditions) == 0 {
+				status.V1Beta2 = nil
+			}
+			if status.RebootTriggeredAt != nil && status.RebootTriggeredAt.IsZero() {
+				status.RebootTriggeredAt = nil
+			}
+			if status.LastUpdated != nil && status.LastUpdated.IsZero() {
+				status.LastUpdated = nil
+			}
+
 			if in.Spec.ConsumerRef == nil {
 				return
 			}
@@ -1013,6 +1252,16 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		func(in *infrav1.HetznerBareMetalHost, c randfill.Continue) {
 			c.FillNoCustom(in)
+
+			// conditions and deprecated have an empty-vs-nil ambiguity, so normalize them to make the
+			// round trip match.
+			if len(in.Status.Conditions) == 0 {
+				in.Status.Conditions = nil
+			}
+			if in.Status.Deprecated == nil || in.Status.Deprecated.V1Beta1 == nil || len(in.Status.Deprecated.V1Beta1.Conditions) == 0 {
+				in.Status.Deprecated = nil
+			}
+
 			if in.Spec.ConsumerRef == nil {
 				return
 			}
