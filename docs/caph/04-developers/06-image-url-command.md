@@ -82,10 +82,10 @@ provisioning.
 
 | **`IMAGE_URL_DONE` in stdout** | **`output.json` exists** | **`status` in `output.json`** | **Result** |
 | :------------------------: | :------------------: | :-----------------------: | ------ |
-| yes | no | — | **success** |
-| yes | yes | `"Succeeded"` | **success**, `NodeProvisioningSucceeded` condition set |
-| yes | yes | `"Failed"` | **failure**, provisioning cancelled |
+| yes | no | — | **success**, `NodeProvisioningSucceeded` condition not set |
+| yes | yes | `"Succeeded"` | **success**, `NodeProvisioningSucceeded` condition set to True |
 | yes | yes | any other string | **success**, `NodeProvisioningSucceeded` condition set to Unknown |
+| yes | yes | `"Failed"` | **failure**, provisioning cancelled |
 | no | any | any | **failure**, provisioning cancelled |
 
 Implemented in `handleBootStateRunningImageCommand` (hcloud) and
