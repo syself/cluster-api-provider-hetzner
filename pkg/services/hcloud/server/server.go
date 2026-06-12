@@ -1395,12 +1395,10 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	}
 
 	if v1beta1conditions.IsTrue(hm, infrav1.ServerAvailableCondition) {
-		// If ServerAvailableCondition is set to true, then it means that this server was
-		// already successfully added as a target in the load balancer during a prior reconcile, this condition
-		// is only set to True after reconcileLoadBalancerAttachment returns without an error.
-		// It is safe to use HetznerCluster.Status as a cache here because the HetznerCluster controller
-		// watches HCloudMachine objects and triggers a reconcile on every ServerAvailableCondition marked
-		// as true transition and on machine deletion, keeping the target list up to date.
+		// The status may be slightly outdated but that is acceptable as this check
+		// is only a safeguard against unexpected changes (e.g. a user manually removing a target).
+		// In the vast majority of reconciles there is nothing to do, so we skip the extra API call
+		// to fetch the live load-balancer targets.
 		for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
 			if target.Type == infrav1.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
 				return reconcile.Result{}, nil
