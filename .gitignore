@@ -90,3 +90,5 @@ watchall-output*
 /generated
 
 .vscode
+
+test/e2e/ginkgo-log-*.txt

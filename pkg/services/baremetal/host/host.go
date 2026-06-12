@@ -48,6 +48,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/imageurlcommand"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -447,6 +448,9 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 			// A timeout error from SSH indicates that the server did not yet finish rebooting.
 			// As the server has no error set yet, set error message and return.
 			s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh timeout error - server has not restarted yet")
+			if s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt == nil {
+				s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
+			}
 			return false, nil
 		}
 
@@ -1324,11 +1328,61 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			return actionError{err: fmt.Errorf("ReadOutputJSON: %w", err)}
+		}
+		if outputJSON == "" {
+			return actionContinue{delay: 10 * time.Second}
+		}
+
+		err = imageurlcommand.ParseAndApply(host, outputJSON)
+		if err != nil {
+			return actionError{err: fmt.Errorf("ParseAndApply failed: %w", err)}
+		}
 		return actionContinue{delay: 10 * time.Second}
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
 		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
+
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			return actionError{err: fmt.Errorf("ReadOutputJSON: %w", err)}
+		}
+
+		var output imageurlcommand.Output
+		if outputJSON == "" {
+			output = imageurlcommand.Output{
+				Status: imageurlcommand.OutputJSONSucceeded,
+			}
+		} else {
+			output, err = imageurlcommand.Parse(outputJSON)
+			if err != nil {
+				return actionError{err: fmt.Errorf("parse: %w", err)}
+			}
+		}
+
+		imageurlcommand.ApplyNodeProvisioningConditions(host, output)
+		if output.Status == imageurlcommand.OutputJSONFailed {
+			msg := output.Message
+			if msg == "" {
+				msg = "output.json reports status Failed"
+			}
+			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
+			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+			v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
+				"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
+			v1beta2conditions.Set(host, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "ImageURLCommandFailed",
+				Message: msg,
+			})
+			return s.recordActionFailure(infrav1.FatalError, msg)
+		}
+		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
+		s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 
 		// Update name in robot API
 		if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
@@ -1355,8 +1409,26 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 	case sshclient.ImageURLCommandStateFailed:
 		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", logFile)
+		s.scope.Error(nil, "image-url-command failed", "logFile", logFile)
+
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			return actionError{err: fmt.Errorf("ReadOutputJSON: %w", err)}
+		}
+
 		msg := "image-url-command failed"
-		s.scope.Error(nil, msg, "logFile", logFile)
+		if outputJSON != "" {
+			output, err := imageurlcommand.Parse(outputJSON)
+			if err != nil {
+				return actionError{err: fmt.Errorf("parse: %w", err)}
+			}
+			imageurlcommand.ApplyNodeProvisioningConditions(s.scope.HetznerBareMetalHost, output)
+			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
+			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+			if output.Message != "" {
+				msg = output.Message
+			}
+		}
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
@@ -2619,6 +2691,11 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 // Imagine the controller triggers a reboot, and reconciles immediately. This would
 // mean the controller would do the same reboot immediately again.
 func (s *Service) hasJustRebooted() bool {
+	// If RebootTriggeredAt is nil, we cannot know when the reboot happened, so we treat it as not just rebooted.
+	// Without this guard, hasTimedOut(nil, ...) returns false, making this function return true indefinitely.
+	if s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt == nil {
+		return false
+	}
 	return (s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSSHRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSoftwareRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeHardwareRebootTriggered) &&

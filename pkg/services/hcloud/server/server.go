@@ -46,6 +46,7 @@ import (
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/imageurlcommand"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -1017,9 +1018,68 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			Reason:  infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason,
 			Message: "imageURLCommand running",
 		})
+		outputJSON, err := hcloudSSHClient.ReadOutputJSON(ctx)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("ReadOutputJSON: %w", err)
+		}
+
+		output := imageurlcommand.Output{}
+		if outputJSON == "" {
+			output.Status = imageurlcommand.OutputJSONProcessing
+			output.Message = "still running"
+		} else {
+			output, err = imageurlcommand.Parse(outputJSON)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("ReadOutputJSON: %w", err)
+			}
+		}
+		imageurlcommand.ApplyNodeProvisioningConditions(hm, output)
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
+		outputJSON, err := hcloudSSHClient.ReadOutputJSON(ctx)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("ReadOutputJSON: %w", err)
+		}
+
+		var output imageurlcommand.Output
+		if outputJSON == "" {
+			output = imageurlcommand.Output{
+				Status: imageurlcommand.OutputJSONSucceeded,
+			}
+		} else {
+			output, err = imageurlcommand.Parse(outputJSON)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("parse: %w", err)
+			}
+		}
+
+		imageurlcommand.ApplyNodeProvisioningConditions(hm, output)
+
+		if output.Status == imageurlcommand.OutputJSONFailed {
+			msg := output.Message
+			if msg == "" {
+				msg = "output.json reports status Failed"
+			}
+			record.Warn(hm, "ImageURLCommandOutputJSON", outputJSON)
+			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+			s.scope.Error(errors.New(msg), "", "logFile", logFile)
+			if err := s.scope.SetErrorAndRemediate(ctx, msg); err != nil {
+				return reconcile.Result{}, err
+			}
+			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+				"ImageCommandFailed", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
+			v1beta2conditions.Set(hm, metav1.Condition{
+				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HCloudMachineImageURLCommandFailedV1Beta2Reason,
+				Message: msg,
+			})
+			return reconcile.Result{}, nil
+		}
+		record.Event(hm, "ImageURLCommandOutputJSON", outputJSON)
+		s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+
 		// The image got installed. Now reboot in the real operating system.
 		if rebootErr := hcloudSSHClient.Reboot(ctx).Err; rebootErr != nil {
 			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w", rebootErr)
@@ -1040,10 +1100,25 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	case sshclient.ImageURLCommandStateFailed:
+		outputJSON, err := hcloudSSHClient.ReadOutputJSON(ctx)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("ReadOutputJSON: %w", err)
+		}
 		msg := "ImageURLCommand failed. Deleting machine"
+		if outputJSON != "" {
+			output, err := imageurlcommand.Parse(outputJSON)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("parse: %w", err)
+			}
+			record.Warn(hm, "ImageURLCommandOutputJSON", outputJSON)
+			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+			if output.Message != "" {
+				msg += ": " + output.Message
+			}
+		}
 		err = errors.New(msg)
 		s.scope.Error(err, "", "logFile", logFile)
-		err := s.scope.SetErrorAndRemediate(ctx, msg)
+		err = s.scope.SetErrorAndRemediate(ctx, msg)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

@@ -45,8 +45,12 @@ spec:
       imageURLCommand: image-url-command-install-foo.sh
 ```
 
-The command will get the imageURL, bootstrap-data, machine-name of the corresponding
-machine and the root devices (seperated by spaces) as argument.
+The command receives the following positional arguments:
+
+1. `imageURL` — the OCI (or other) image URL
+2. `/root/bootstrap.data` — path to the bootstrap data file written by CAPH
+3. `machine-name` — name of the corresponding machine
+4. `root-devices` — space-separated list of root device names (e.g. `sda sdb`)
 
 Example:
 
@@ -54,16 +58,19 @@ Example:
 /root/image-url-command oci://example.com/yourimage:v1 /root/bootstrap.data my-md-bm-kh57r-5z2v8-zdfc9 'sda sdb'
 ```
 
-It is up to the command to download from that URL and provision the disk accordingly. The command
-must be accessible by the controller pod below `/shared`. You can use an initContainer to copy the
+The image format — whole-disk image, root-filesystem tarball, or anything else — is entirely
+your choice, as long as the `imageURLCommand` binary and the artifact at `imageURL` match each other.
+Both are user-configurable; you are responsible for keeping them in sync.
+
+The command must be accessible by the controller pod below `/shared`. You can use an initContainer to copy the
 command to a shared emptyDir.
 For both hcloud and bare metal, the command field is only the basename of a command below `/shared`
 and must start with `image-url-command-`.
 
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 
-The command must end with the last line containing IMAGE_URL_DONE. Otherwise the execution is
-considered to have failed.
+The command must end with the last line on stdout containing `IMAGE_URL_DONE`. Otherwise the
+execution is considered to have failed.
 
 The controller uses url.ParseRequestURI (Go function) to validate the imageURL.
 
@@ -71,11 +78,93 @@ A Kubernetes event will be created in both (success, failure) cases containing t
 and stderr) of the script. If the script takes longer than 7 minutes, the controller cancels the
 provisioning.
 
-We measured these durations for hcloud:
+## Outcome summary
+
+| **`IMAGE_URL_DONE` in stdout** | **`output.json` exists** | **`status` in `output.json`** | **Result** |
+| :------------------------: | :------------------: | :-----------------------: | ------ |
+| yes | no | — | **success**, `NodeProvisioningSucceeded` condition set to True |
+| yes | yes | `"Succeeded"` | **success**, `NodeProvisioningSucceeded` condition set to True |
+| yes | yes | any other string | **success**, `NodeProvisioningSucceeded` condition set to Unknown |
+| yes | yes | `"Failed"` | **failure**, provisioning cancelled |
+| no | any | any | **failure**, provisioning cancelled |
+
+Implemented in `handleBootStateRunningImageCommand` (hcloud) and
+`actionImageInstallingImageURLCommand` (baremetal).
+
+## output.json (optional)
+
+The command may write `/root/output.json` at any point during execution. If the file does not
+exist, provisioning still succeeds based on `IMAGE_URL_DONE` alone.
+
+CAPH reads the `status` field from this file to set the `NodeProvisioningSucceeded` condition on the
+machine (HCloudMachine or HetznerBareMetalHost). The `message` field is forwarded verbatim into the
+condition message.
+
+### Fields CAPH reads
+
+CAPH only reads two top-level fields:
+
+| Field     | Required               | Values                                         | Purpose                                       |
+|-----------|------------------------|------------------------------------------------|-----------------------------------------------|
+| `status`  | yes (to set condition) | `"Succeeded"`, `"Failed"`, or any other string | Sets `NodeProvisioningSucceeded` condition    |
+| `message` | no                     | free-form string                               | Included in the condition message             |
+
+Minimal success example:
+
+```json
+{"status": "Succeeded"}
+```
+
+Minimal failure example:
+
+```json
+{"status": "Failed", "message": "failed to pull image: disk full"}
+```
+
+Any other fields in the JSON are **ignored by CAPH** but are forwarded as-is via the Kubernetes
+event (see below). You can use them for your own structured debugging output.
+
+### Kubernetes event on completion
+
+When the command finishes (success or failure), CAPH emits a Kubernetes event with reason
+`ImageURLCommandOutputJSON` containing the **full JSON content** of the file. If the command
+failed, the event type is `Warning`; otherwise it is `Normal`. The content is also written to
+the controller log at key `outputJSON`.
+
+### Extended example
+
+Your command can include arbitrary extra fields for its own structured debug output. CAPH
+passes the whole JSON through untouched:
+
+```json
+{
+  "status": "Succeeded",
+  "phases": {
+    "Preparation": {
+      "status": "Succeeded",
+      "duration": "45.2s",
+      "steps": [
+        {"name": "VerifyTools",       "status": "Succeeded", "duration": "0.3s", "percentOfTimeout": 1},
+        {"name": "CheckDeviceExists", "status": "Succeeded", "duration": "0.1s", "percentOfTimeout": 0}
+      ]
+    },
+    "ImageDeployment": {
+      "status": "Succeeded",
+      "duration": "62.1s",
+      "steps": [
+        {"name": "PullImage",  "status": "Succeeded", "duration": "58.4s", "percentOfTimeout": 14},
+        {"name": "WriteImage", "status": "Succeeded", "duration": "3.5s",  "percentOfTimeout": 1}
+      ]
+    }
+  }
+}
+```
+
+## Measured durations for hcloud
 
 | oldState | newState | avg(s) | min(s) | max(s) |
-|----------|----------|-------:|-------:|-------:|
-|  | Initializing | 3.30 | 2.00 | 5.00 |
+| -------- | -------- | -----: | -----: | -----: |
+| | Initializing | 3.30 | 2.00 | 5.00 |
 | Initializing | EnablingRescue | 19.20 | 11.00 | 21.00 |
 | EnablingRescue | BootingToRescue | 14.20 | 9.00 | 23.00 |
 | BootingToRescue | RunningImageCommand | 38.20 | 37.00 | 42.00 |
