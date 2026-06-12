@@ -620,13 +620,61 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		return nil
 	}
 
-	// check whether IPs of host have been added as load balancer targets already
+	// check whether IPs of host have been added as load balancer targets already.
 	var foundIPv4 bool
 	var foundIPv6 bool
 
-	for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
-		if target.Type == infrav1.LoadBalancerTargetTypeIP {
-			switch target.IP {
+	if v1beta1conditions.IsTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition) {
+		// If ServerAvailableCondition is set to true, then it means that this machine's ip was
+		// already successfully added as a target in the load balancer during a prior reconcile, this condition
+		// is only set to True after reconcileLoadBalancerAttachment returns nil.
+		// It is safe to use HetznerCluster.Status as a cache here because the HetznerCluster controller
+		// watches HetznerBareMetalMachine objects and triggers a reconcile on every ServerAvailableCondition
+		// marked as true transition and on machine deletion, keeping the target list up to date.
+		for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
+			if target.Type == infrav1.LoadBalancerTargetTypeIP {
+				switch target.IP {
+				case host.Spec.Status.IPv4:
+					foundIPv4 = true
+				case host.Spec.Status.IPv6:
+					foundIPv6 = true
+				}
+			}
+		}
+	} else {
+		// use the HCloud API.
+		clusterTagKey := s.scope.HetznerCluster.ClusterTagKey()
+		opts := hcloud.LoadBalancerListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: utils.LabelsToLabelSelector(map[string]string{
+					clusterTagKey: string(infrav1.ResourceLifecycleOwned),
+				}),
+			},
+		}
+
+		loadBalancers, err := s.scope.HCloudClient.ListLoadBalancers(ctx, opts)
+		if err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ListLoadBalancers")
+			return fmt.Errorf("failed to list load balancers: %w", err)
+		}
+
+		if len(loadBalancers) != 1 {
+			return fmt.Errorf("found %v loadbalancers in HCloud", len(loadBalancers))
+		}
+
+		lb := loadBalancers[0]
+
+		// This should never be the case: the label selector is cluster-scoped,
+		// so the only LB it can return is the one we own.
+		if lb.ID != s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID {
+			return fmt.Errorf("mismatch between the owned loadbalancer ID (%d) and the one specified in HetznerCluster.Status.ControlPlaneLoadBalancer.ID (%d)", lb.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+		}
+
+		for _, target := range lb.Targets {
+			if target.Type != hcloud.LoadBalancerTargetTypeIP || target.IP == nil {
+				continue
+			}
+			switch target.IP.IP {
 			case host.Spec.Status.IPv4:
 				foundIPv4 = true
 			case host.Spec.Status.IPv6:
