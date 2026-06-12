@@ -720,6 +720,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
 			Message: infrav1.ErrorMessageMissingRootDeviceHints,
 		})
+		record.Warn(s.scope.HetznerBareMetalHost, "RootDeviceHintsValidationFailed", infrav1.ErrorMessageMissingRootDeviceHints)
 		return s.recordActionFailure(infrav1.RegistrationError, infrav1.ErrorMessageMissingRootDeviceHints)
 	}
 	errMsg := s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.IsValidWithMessage()
@@ -738,6 +739,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
 			Message: errMsg,
 		})
+		record.Warn(s.scope.HetznerBareMetalHost, "RootDeviceHintsValidationFailed", errMsg)
 		return s.recordActionFailure(infrav1.RegistrationError, errMsg)
 	}
 
@@ -757,6 +759,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
 			Message: err.Error(),
 		})
+		record.Warn(s.scope.HetznerBareMetalHost, "RootDeviceHintsValidationFailed", err.Error())
 		return s.recordActionFailure(infrav1.RegistrationError, err.Error())
 	}
 
@@ -790,6 +793,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
 			Message: msg,
 		})
+		record.Warn(s.scope.HetznerBareMetalHost, "RootDeviceHintsValidationFailed", msg)
 		return s.recordActionFailure(infrav1.FatalError, msg)
 	}
 
@@ -1310,6 +1314,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
 		s.scope.Error(nil, msg, "logFile", logFile)
+		record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandTimedOut", logFile)
+
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandTimedOut", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
@@ -1378,6 +1384,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		if command == "" {
 			err = errors.New("internal error: spec.status.installImage.imageURLCommand is not set")
 			s.scope.Error(err, "")
+			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandMissing", err.Error())
+
 			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 				"ImageURLCommandMissing",
 				clusterv1beta1.ConditionSeverityError,
@@ -1395,6 +1403,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		if err != nil {
 			err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", command, err)
 			s.scope.Error(err, "")
+			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandNotAccessible", err.Error())
+
 			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 				"ImageURLCommandNotAccessible",
 				clusterv1beta1.ConditionSeverityWarning,
@@ -1426,6 +1436,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				"ImageURLCommand", command,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
+			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandFailedToStart", err.Error())
+
 			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 				"ImageURLCommandFailedToStart",
 				clusterv1beta1.ConditionSeverityWarning,
@@ -1445,6 +1457,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				"ImageURLCommand", command,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
+			record.Warn(s.scope.HetznerBareMetalHost, "StartImageURLCommandFailed", msg)
+
 			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 				"StartImageURLCommandFailed",
 				clusterv1beta1.ConditionSeverityWarning,
@@ -1764,6 +1778,7 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 			Reason:  infrav1.HetznerBareMetalHostImageSpecInvalidV1Beta2Reason,
 			Message: errorMessage,
 		})
+		record.Warn(s.scope.HetznerBareMetalHost, "infrav1.HetznerBareMetalHostImageSpecInvalidV1Beta2Reason", errorMessage)
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, errorMessage)
 	}
 	if needsDownload {
@@ -1787,6 +1802,7 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 				Reason:  infrav1.HetznerBareMetalHostDownloadingImageFailedV1Beta2Reason,
 				Message: err.Error(),
 			})
+			record.Warn(s.scope.HetznerBareMetalHost, infrav1.ImageDownloadFailedReason, err.Error())
 			return autoSetupInput{}, actionError{err: err}
 		}
 	}
@@ -1818,6 +1834,7 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 			Reason:  infrav1.HetznerBareMetalHostNoStorageDeviceFoundV1Beta2Reason,
 			Message: msg,
 		})
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostNoStorageDeviceFoundV1Beta2Reason, msg)
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, msg)
 	}
 
@@ -2236,6 +2253,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		if rebootDesired {
 			s.scope.Error(errors.New(msg), "")
 			s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
+			record.Warn(s.scope.HetznerBareMetalHost, "EmptyNodeRef", msg)
 			return actionStop{}
 		}
 
@@ -2287,6 +2305,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// When no reboot is requested the boot ID is non-critical; requeue and wait for kubelet to populate it.
 		if rebootDesired {
 			s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
+			record.Warn(s.scope.HetznerBareMetalHost, "EmptyBootID", msg)
 			return actionStop{}
 		}
 
@@ -2327,6 +2346,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		if rebootDuration > 5*time.Minute {
 			msg := fmt.Sprintf("Rebooting timed out after: %s", rebootDuration.Round(time.Second))
 			s.scope.Info(msg)
+			record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostRebootSucceededTimeoutReachedOutV1Beta2Reason, msg)
 			v1beta1conditions.MarkFalse(
 				s.scope.HetznerBareMetalHost,
 				infrav1.RebootSucceededCondition,
