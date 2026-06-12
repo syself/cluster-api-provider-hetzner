@@ -130,7 +130,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 					testEnv.GetLogger().Info("found the machine template", "OwnerType", machineTemplate.Status.OwnerType)
 					return machineTemplate.Status.OwnerType == "ClusterClass" &&
-						isPresentAndTrueWithReasonV1Beta2(key, machineTemplate, infrav1.HCloudMachineTemplateAvailableV1Beta2Condition, infrav1.HCloudMachineTemplateOwnedByClusterClassV1Beta2Reason)
+						isPresentAndTrueWithReason(key, machineTemplate, infrav1.HCloudMachineTemplateAvailableV1Beta2Condition, infrav1.HCloudMachineTemplateOwnedByClusterClassV1Beta2Reason)
 				}, timeout).Should(BeTrue())
 			})
 		})
@@ -165,7 +165,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 			It("sets Available to unknown while waiting for the owner Cluster", func() {
 				Eventually(func() bool {
-					return isV1Beta2ConditionWithStatusAndReason(
+					return isConditionWithStatusAndReason(
 						key,
 						machineTemplate,
 						infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
@@ -222,7 +222,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 			It("sets Available to false when the infrastructure ref is missing", func() {
 				Eventually(func() bool {
-					return isPresentAndFalseWithReasonV1Beta2(key, machineTemplate, infrav1.HCloudMachineTemplateAvailableV1Beta2Condition, infrav1.HCloudMachineTemplateMissingInfrastructureRefV1Beta2Reason)
+					return isPresentAndFalseWithReason(key, machineTemplate, infrav1.HCloudMachineTemplateAvailableV1Beta2Condition, infrav1.HCloudMachineTemplateMissingInfrastructureRefV1Beta2Reason)
 				}, timeout).Should(BeTrue())
 			})
 		})
@@ -263,7 +263,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 							},
 						},
 					},
-					Spec: getDefaultHetznerClusterSpec(),
+					Spec: getDefaultHetznerClusterV1Beta1Spec(),
 				}
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
@@ -329,7 +329,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 						return false
 					}
 
-					return isPresentAndTrueWithReasonV1Beta2(key, machineTemplate, infrav1.HCloudMachineTemplateAvailableV1Beta2Condition, infrav1.HCloudMachineTemplateAvailableV1Beta2Reason)
+					return isPresentAndTrueWithReason(key, machineTemplate, infrav1.HCloudMachineTemplateAvailableV1Beta2Condition, infrav1.HCloudMachineTemplateAvailableV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 			})
 		})

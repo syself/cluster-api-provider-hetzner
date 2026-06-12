@@ -159,7 +159,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 
-	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
+	hcloudToken, hetznerSecret, err := getAndValidateHCloudTokenV1Beta1(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
 		// On the token-error early-return, hcloudTokenErrorResult does a full
 		// Status().Update. Set the deletion markers here so they are persisted
@@ -172,21 +172,19 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 				Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
 			})
 		}
-		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r, infrav1.HCloudMachineV1Beta2SummaryOpts())
+		return hcloudTokenErrorResultV1Beta1(ctx, err, hcloudMachine, r, infrav1.HCloudMachineV1Beta2SummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
-		ClusterScopeParams: scope.ClusterScopeParams{
-			Client:         r,
-			Logger:         log,
-			Cluster:        cluster,
-			HetznerCluster: hetznerCluster,
-			HCloudClient:   hcc,
-			HetznerSecret:  hetznerSecret,
-			APIReader:      r.APIReader,
-		},
+		Client:           r,
+		Logger:           log,
+		Cluster:          cluster,
+		HetznerCluster:   hetznerCluster,
+		HCloudClient:     hcc,
+		HetznerSecret:    hetznerSecret,
+		APIReader:        r.APIReader,
 		Machine:          machine,
 		HCloudMachine:    hcloudMachine,
 		SSHClientFactory: r.SSHClientFactory,
@@ -262,7 +260,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	}()
 
 	// Check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(hcloudMachine, r.RateLimitWaitTime); wait {
+	if wait := reconcileRateLimitV1Beta1(hcloudMachine, r.RateLimitWaitTime); wait {
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 

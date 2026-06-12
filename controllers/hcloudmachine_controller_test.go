@@ -308,7 +308,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					},
 				},
 			},
-			Spec: getDefaultHetznerClusterSpec(),
+			Spec: getDefaultHetznerClusterV1Beta1Spec(),
 		}
 
 		hetznerSecret = getDefaultHetznerSecret(testNs.Name)
@@ -412,7 +412,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					if c.Reason != infrav1.BootstrapNotReadyReason {
 						return fmt.Errorf("BootstrapNotReadyReason not set. Reason: %q", c.Reason)
 					}
-					if !isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason) {
+					if !isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason) {
 						return fmt.Errorf("ServerCreatedV1Beta2Condition not false with WaitingForBootstrapData reason")
 					}
 					return nil
@@ -434,7 +434,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				By("checking that bootstrap condition is ready")
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, hcloudMachine, infrav1.BootstrapReadyCondition)
+					return isPresentAndTrueV1Beta1(key, hcloudMachine, infrav1.BootstrapReadyCondition)
 				}, timeout, interval).Should(BeTrue())
 
 				By("listing hcloud servers")
@@ -454,22 +454,22 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				By("checking if server created condition is set")
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerCreateSucceededCondition) &&
-						isPresentAndTrueWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerCreatedV1Beta2Reason)
+					return isPresentAndTrueV1Beta1(key, hcloudMachine, infrav1.ServerCreateSucceededCondition) &&
+						isPresentAndTrueWithReason(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerCreatedV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 
 				By("checking if server provisioned condition is set")
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerProvisionedCondition) &&
-						isPresentAndTrueWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, infrav1.HCloudMachineServerProvisionedV1Beta2Reason)
+					return isPresentAndTrueV1Beta1(key, hcloudMachine, infrav1.ServerProvisionedCondition) &&
+						isPresentAndTrueWithReason(key, hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, infrav1.HCloudMachineServerProvisionedV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 
 				By("checking if server available condition is set")
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerAvailableCondition) &&
-						isPresentAndTrueWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition, infrav1.HCloudMachineServerAvailableV1Beta2Reason)
+					return isPresentAndTrueV1Beta1(key, hcloudMachine, infrav1.ServerAvailableCondition) &&
+						isPresentAndTrueWithReason(key, hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition, infrav1.HCloudMachineServerAvailableV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 
 				By("checking if the v1beta2 summary condition is set")
@@ -537,8 +537,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 			It("checks that ImageNotFound is visible in conditions if image does not exist", func() {
 				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ImageNotFoundReason) &&
-						isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerImageNotFoundV1Beta2Reason)
+					return isPresentAndFalseWithReasonV1Beta1(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ImageNotFoundReason) &&
+						isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerImageNotFoundV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 			})
 		})
@@ -645,8 +645,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 			It("should show the expected reason for server not created", func() {
 				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.InstanceHasNonExistingPlacementGroupReason) &&
-						isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason)
+					return isPresentAndFalseWithReasonV1Beta1(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.InstanceHasNonExistingPlacementGroupReason) &&
+						isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason)
 				}, timeout).Should(BeTrue())
 			})
 		})
@@ -755,7 +755,7 @@ var _ = Describe("Hetzner secret", func() {
 					},
 				},
 			},
-			Spec: getDefaultHetznerClusterSpec(),
+			Spec: getDefaultHetznerClusterV1Beta1Spec(),
 		}
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
@@ -827,13 +827,13 @@ var _ = Describe("Hetzner secret", func() {
 			}
 
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudTokenAvailableCondition, expectedReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, hcloudMachine, infrav1.HCloudTokenAvailableCondition, expectedReason)
 			}, timeout, interval).Should(BeTrue())
 			Eventually(func() bool {
-				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, expectedV1Beta2Reason)
+				return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, expectedV1Beta2Reason)
 			}, timeout, interval).Should(BeTrue())
 			Eventually(func() bool {
-				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition, clusterv1beta1.NotReadyV1Beta2Reason)
+				return isPresentAndFalseWithReason(key, hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition, clusterv1beta1.NotReadyV1Beta2Reason)
 			}, timeout, interval).Should(BeTrue())
 			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
 		},
@@ -904,12 +904,12 @@ var _ = Describe("Hetzner secret", func() {
 
 		// ServerAvailable v1beta2 condition should be False with Deleting reason.
 		Eventually(func() bool {
-			return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition, infrav1.HCloudMachineDeletingV1Beta2Reason)
+			return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition, infrav1.HCloudMachineDeletingV1Beta2Reason)
 		}, timeout, interval).Should(BeTrue())
 
 		// Token condition should also be False (secret is missing).
 		Eventually(func() bool {
-			return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HetznerSecretUnreachableReason)
+			return isPresentAndFalseWithReasonV1Beta1(key, hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HetznerSecretUnreachableReason)
 		}, timeout, interval).Should(BeTrue())
 	})
 })
@@ -979,7 +979,7 @@ var _ = Describe("IgnoreInsignificantHetznerClusterUpdates Predicate", func() {
 
 		oldCluster = &infrav1.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-predicate", ResourceVersion: "1"},
-			Spec:       getDefaultHetznerClusterSpec(),
+			Spec:       getDefaultHetznerClusterV1Beta1Spec(),
 			Status: infrav1.HetznerClusterStatus{
 				Conditions: []clusterv1beta1.Condition{},
 			},

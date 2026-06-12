@@ -52,6 +52,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
@@ -85,6 +86,7 @@ func init() {
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	utilruntime.Must(bootstrapv1.AddToScheme(scheme))
 	utilruntime.Must(infrav1.AddToScheme(scheme))
+	utilruntime.Must(infrav2.AddToScheme(scheme))
 
 	// Get the root of the current file to use in CRD paths.
 	_, filename, _, _ := goruntime.Caller(0) //nolint:dogsled
@@ -100,9 +102,16 @@ func init() {
 	}
 
 	// Create the test environment.
+	//
+	// Scheme is set so that envtest enables the conversion webhooks for every CRD whose type is
+	// convertible in this scheme (it has both the v1beta1 and v1beta2 types registered above). This
+	// is required now that the Some controllers reconcile the v1beta2 type while the CRD
+	// storage version is still v1beta1: without conversion, v1beta2 status writes
+	// would be stored unconverted against the v1beta1 schema and corrupted.
 	env = &envtest.Environment{
 		ErrorIfCRDPathMissing: true,
 		CRDDirectoryPaths:     crdPaths,
+		Scheme:                scheme,
 	}
 }
 

@@ -131,7 +131,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					},
 				},
 			},
-			Spec: getDefaultHetznerClusterSpec(),
+			Spec: getDefaultHetznerClusterV1Beta1Spec(),
 		}
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
@@ -204,7 +204,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
 			Eventually(func() bool {
-				return isPresentAndTrue(hcloudMachineKey, hcloudRemediation, infrav1.HCloudTokenAvailableCondition)
+				return isPresentAndTrueV1Beta1(hcloudMachineKey, hcloudRemediation, infrav1.HCloudTokenAvailableCondition)
 			})
 		})
 
@@ -239,7 +239,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if hcloudRemediation.Status.Phase != infrav1.PhaseDeleting {
 					return fmt.Errorf("hcloudRemediation.Status.Phase is not infrav1.PhaseDeleting")
 				}
-				if !isPresentAndFalseWithReasonV2(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
+				if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
 					return fmt.Errorf("MachineOwnerRemediatedCondition not set")
 				}
 				return nil
@@ -330,7 +330,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 
 				testEnv.GetLogger().Info("status of hcloudRemediation", "status", hcloudRemediation.Status.Phase)
 				return hcloudRemediation.Status.Phase == infrav1.PhaseDeleting &&
-					isPresentAndFalseWithReasonV2(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
+					isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
 			}, timeout).Should(BeTrue())
 		})
 		It("should set RemediationSkippedCondition when HCloudMachine has irrecoverable server creation failure", func() {
@@ -363,7 +363,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 
 			By("checking that RemediationSkippedCondition is set with IrrecoverableServerCreateFailureReason")
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(
+				return isPresentAndFalseWithReasonV1Beta1(
 					hcloudRemediationkey,
 					hcloudRemediation,
 					infrav1.RemediationSkippedCondition,
