@@ -24,12 +24,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stoewer/go-strcase"
 	"github.com/syself/hrobot-go/models"
 	"golang.org/x/crypto/ssh"
@@ -703,8 +703,13 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	if err != nil {
 		return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
 	}
-	if existing := s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails; existing != nil && !reflect.DeepEqual(*existing, hardwareDetails) {
-		s.scope.Info("HardwareDetails changed", "old", existing, "new", hardwareDetails)
+
+	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails != nil {
+		diff := cmp.Diff(*s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails, hardwareDetails)
+		if diff != "" {
+			s.scope.Info("HardwareDetails changed", "diff", diff)
+			record.Eventf(s.scope.HetznerBareMetalHost, "HardwareDetails changed", diff)
+		}
 	}
 	s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
 
