@@ -133,8 +133,8 @@ github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 h1:Ovs26xHkKqVztRpIrF/92Bcuy
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgfV/d3M/q6VIi02HzZEHgUlZvzk=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 h1:HWRh5R2+9EifMyIHV7ZV+MIZqgz+PMpZ14Jynv3O2Zs=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0/go.mod h1:JfhWUomR1baixubs02l85lZYYOm7LV6om4ceouMv45c=
-github.com/guettli/check-conditions v0.0.33 h1:x4TL3z0C4wfD0T7rZQIYy9rbaf9A1b1ssDfiDkej20o=
-github.com/guettli/check-conditions v0.0.33/go.mod h1:6NifCTWJHcTBVv/0BvsF4ed3K/UOQsw7Pfp7kiRKNww=
+github.com/guettli/check-conditions v0.0.41 h1:DU2p+o5Qu98GPkRD3sMiulwaX0vLyTzJy98JwjxDr0U=
+github.com/guettli/check-conditions v0.0.41/go.mod h1:/KguCZV3Iy26SdS8W3foY6lpo9lJlJrXonsM+EHZpDs=
 github.com/hetznercloud/hcloud-go/v2 v2.32.0 h1:BRe+k7ESdYv3xQLBGdKUfk+XBFRJNGKzq70nJI24ciM=
 github.com/hetznercloud/hcloud-go/v2 v2.32.0/go.mod h1:hAanyyfn9M0cMmZ68CXzPCF54KRb9EXd8eiE2FHKGIE=
 github.com/huandu/xstrings v1.5.0 h1:2ag3IFq9ZDANvthTwTiqSSZLjDc+BedvHPAp5tJy2TI=

@@ -43,7 +43,10 @@ type Arguments struct {
 	RetryCount               int16
 	RetryForEver             bool
 	Timeout                  time.Duration
-	forbiddenResourcesPrinted bool
+	// WarnDeletionTimestampOlderThan warns about resources whose deletionTimestamp
+	// is older than this duration. Set to 0 to disable.
+	WarnDeletionTimestampOlderThan time.Duration
+	forbiddenResourcesPrinted      bool
 }
 
 // matchAnyPattern reports whether name matches any of the given glob patterns.
@@ -485,6 +488,16 @@ func printResources(args *Arguments, list *unstructured.UnstructuredList, gvr sc
 			continue
 		}
 		counter.checkedResources++
+		if args.WarnDeletionTimestampOlderThan > 0 {
+			if dt := obj.GetDeletionTimestamp(); dt != nil && !dt.IsZero() {
+				age := time.Since(dt.Time)
+				if age > args.WarnDeletionTimestampOlderThan {
+					line := fmt.Sprintf("  %s %s %s DeletionTimestamp set for %s",
+						obj.GetNamespace(), gvr.Resource, obj.GetName(), age.Round(time.Second))
+					lines = append(lines, line)
+				}
+			}
+		}
 		var conditions []interface{}
 		var err error
 		if gvr.Resource == "hetznerbaremetalhosts" {
@@ -555,10 +568,40 @@ func printConditions(args *Arguments, conditions []interface{}, counter *handleR
 			}
 		}
 	}
+	// Merge rows that share the same (status, reason, message) into one output line.
+	// This avoids duplicate lines when multiple condition types carry identical information
+	// (e.g. Failed and FailureTarget both reporting BackoffLimitExceeded).
+	type mergeKey struct{ status, reason, message string }
+	type mergedEntry struct {
+		row   conditionRow
+		types []string
+	}
+	var order []mergeKey
+	byKey := map[mergeKey]*mergedEntry{}
 	for _, r := range rows {
 		if skipReadyCondition && r.conditionType == readyString {
 			continue
 		}
+		k := mergeKey{r.conditionStatus, r.conditionReason, r.conditionMessage}
+		if e, ok := byKey[k]; ok {
+			e.types = append(e.types, r.conditionType)
+			if !r.conditionLastTransitionTime.IsZero() &&
+				(e.row.conditionLastTransitionTime.IsZero() ||
+					r.conditionLastTransitionTime.Before(e.row.conditionLastTransitionTime)) {
+				e.row.conditionLastTransitionTime = r.conditionLastTransitionTime
+			}
+		} else {
+			byKey[k] = &mergedEntry{row: r, types: []string{r.conditionType}}
+			order = append(order, k)
+		}
+	}
+
+	for _, k := range order {
+		e := byKey[k]
+		slices.Sort(e.types)
+		r := e.row
+		r.conditionType = strings.Join(e.types, "/")
+
 		duration := ""
 		if !r.conditionLastTransitionTime.IsZero() {
 			d := time.Since(r.conditionLastTransitionTime)
@@ -571,7 +614,20 @@ func printConditions(args *Arguments, conditions []interface{}, counter *handleR
 		addLine := true
 		if args.WhileRegex != nil {
 			addLine = false
-			if args.WhileRegex.MatchString(outLine) {
+			// Check each individual type for backward compatibility with --while regexes
+			// that match on a specific condition type name (e.g. "Failed=True").
+			for _, t := range e.types {
+				singleLine := fmt.Sprintf("  %s %s %s Condition %s=%s %s %q (%s)",
+					obj.GetNamespace(), gvr.Resource, obj.GetName(),
+					t, r.conditionStatus, r.conditionReason, r.conditionMessage, duration)
+				if args.WhileRegex.MatchString(singleLine) {
+					again = true
+					addLine = true
+					break
+				}
+			}
+			// Also check the merged line (handles regexes that match the combined type string).
+			if !addLine && args.WhileRegex.MatchString(outLine) {
 				again = true
 				addLine = true
 			}
@@ -676,12 +732,16 @@ var conditionTypesOfResourceWithPositiveMeaning = map[string][]string{
 		"MountPropagation",    // Longhorn
 		"RequiredPackages",    // Longhorn
 		"KernelModulesLoaded", // Longhorn
+		"EtcdIsVoter",
 	},
 	"machines": {
 		"NodeKubeadmLabelsAndTaintsSet",
 	},
 	"autopilotclusters": {
 		"ClusterRunning",
+	},
+	"applicationsets": {
+		"ParametersGenerated",
 	},
 }
 
@@ -724,6 +784,9 @@ var conditionTypesOfResourceWithNegativeMeaning = map[string][]string{
 	},
 	"machines": {
 		"Updating",
+	},
+	"applicationsets": {
+		"ErrorOccurred",
 	},
 }
 
@@ -793,6 +856,7 @@ func conditionTypeHasPositiveMeaning(resource string, ct string) bool {
 		"RunningDesiredVersion", // elasticsearches
 		"ready",                 // perconaservermongodbs
 		"sharding",              // perconaservermongodbs
+		"Conformant",            // customresourcedefinitions KubernetesAPIApprovalPolicyConformant
 		"NoWarnings",            // rabbitmqclusters
 		"ReconcileSuccess",      // rabbitmqclusters
 	} {
