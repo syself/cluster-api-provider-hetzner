@@ -5,7 +5,7 @@ on:
       - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
 env:
   IMAGE_NAME: caph
-  REGISTRY: ghcr.io/syself
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
   metadata_flavor: latest=true
   metadata_tags: type=ref,event=tag
 permissions:
@@ -82,24 +82,24 @@ jobs:
 
       - name: Sign Container Images
         run: |
-          cosign sign --yes ghcr.io/syself/caph@${{ steps.docker_build_release.outputs.digest }}
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Generate SBOM
         shell: bash
         # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
         run: |
           bom generate --format=json -o sbom_ci_main_caph_${{ steps.meta.outputs.version }}-spdx.json \
-          --image=ghcr.io/syself/caph:${{ steps.meta.outputs.version }}
+          --image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
 
       - name: Attach SBOM to Container Images
         run: |
-          cosign attest --yes --type=spdxjson --predicate sbom_ci_main_caph_${{ steps.meta.outputs.version }}-spdx.json ghcr.io/syself/caph@${{ steps.docker_build_release.outputs.digest }}
+          cosign attest --yes --type=spdxjson --predicate sbom_ci_main_caph_${{ steps.meta.outputs.version }}-spdx.json ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Image Releases digests
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "ghcr.io/syself/caph:${{ steps.meta.outputs.version }}@${{ steps.docker_build_release.outputs.digest }}" >> image-digest/caph.txt
+          echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}@${{ steps.docker_build_release.outputs.digest }}" >> image-digest/caph.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
