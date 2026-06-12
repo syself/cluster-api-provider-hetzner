@@ -81,9 +81,11 @@ func TestControllers(t *testing.T) {
 type ControllerResetter struct {
 	debug bool
 	// reconcileGate serializes mock-client setup against in-flight reconciles.
-	// ResetAndInitNamespace holds the write lock while swapping clients;
-	// HetznerBareMetalHostReconciler and HCloudMachineReconciler hold the read
-	// lock during each Reconcile call via their ReconcileGate pointer.
+	// ResetAndInitNamespace holds the write lock while swapping clients/mocks.
+	// HetznerBareMetalHostReconciler and HCloudMachineReconciler hold the read lock during each
+	// Reconcile call via their ReconcileGate pointer. This ensures no Reconcile is active while
+	// clients/mocks are being swapped between tests. Without this, tests can fail randomly
+	// because an in-flight Reconcile may observe inconsistent state during the swap.
 	reconcileGate                         sync.RWMutex
 	baremetalSSHClientFactory             *mocks.SSHFactory
 	HetznerClusterReconciler              *HetznerClusterReconciler
