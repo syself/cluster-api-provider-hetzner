@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
@@ -40,11 +42,27 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
 // MachineScopeParams defines the input parameters used to create a new Scope.
+//
+// MachineScopeParams keeps its own fields instead of embedding ClusterScopeParams, because the two
+// scopes are on different API versions during the migration. ClusterScopeParams carries the v1beta2
+// HetznerCluster, while the HCloudMachine controller is still on v1beta1 and passes the cluster as
+// v1beta1, so MachineScopeParams holds its own v1beta1 HetznerCluster. Embedding ClusterScopeParams
+// would make that field v1beta2, which cannot hold the v1beta1 cluster this scope works with.
+//
+// TODO: once the HCloudMachine controller is migrated to v1beta2, MachineScopeParams also uses the
+// v1beta2 HetznerCluster, so embed ClusterScopeParams here again and drop the duplicated fields.
 type MachineScopeParams struct {
-	ClusterScopeParams
+	Client           client.Client
+	APIReader        client.Reader
+	Logger           logr.Logger
+	HetznerSecret    *corev1.Secret
+	HCloudClient     hcloudclient.Client
+	Cluster          *clusterv1.Cluster
+	HetznerCluster   *infrav1.HetznerCluster
 	Machine          *clusterv1.Machine
 	HCloudMachine    *infrav1.HCloudMachine
 	SSHClientFactory sshclient.Factory
@@ -74,19 +92,38 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 	if params.HCloudMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudMachine")
 	}
-
-	cs, err := NewClusterScope(params.ClusterScopeParams)
-	if err != nil {
-		return nil, fmt.Errorf("failed create new cluster scope: %w", err)
+	if params.Cluster == nil {
+		return nil, errors.New("failed to generate new scope from nil Cluster")
+	}
+	if params.HetznerCluster == nil {
+		return nil, errors.New("failed to generate new scope from nil HetznerCluster")
+	}
+	if params.HCloudClient == nil {
+		return nil, errors.New("failed to generate new scope from nil HCloudClient")
+	}
+	if params.APIReader == nil {
+		return nil, errors.New("failed to generate new scope from nil APIReader")
 	}
 
-	cs.patchHelper, err = v1beta1patch.NewHelper(params.HCloudMachine, params.Client)
+	emptyLogger := logr.Logger{}
+	if params.Logger == emptyLogger {
+		return nil, errors.New("failed to generate new scope from nil Logger")
+	}
+
+	patchHelper, err := v1beta1patch.NewHelper(params.HCloudMachine, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
 	return &MachineScope{
-		ClusterScope:     *cs,
+		Logger:           params.Logger,
+		Client:           params.Client,
+		APIReader:        params.APIReader,
+		patchHelper:      patchHelper,
+		hetznerSecret:    params.HetznerSecret,
+		HCloudClient:     params.HCloudClient,
+		Cluster:          params.Cluster,
+		HetznerCluster:   params.HetznerCluster,
 		Machine:          params.Machine,
 		HCloudMachine:    params.HCloudMachine,
 		SSHClientFactory: params.SSHClientFactory,
@@ -94,8 +131,27 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 }
 
 // MachineScope defines the basic context for an actuator to operate upon.
+//
+// MachineScope keeps its own fields instead of embedding ClusterScope, because the two scopes are on
+// different API versions during the migration. ClusterScope reconciles the v1beta2 HetznerCluster,
+// while the HCloudMachine controller is still on v1beta1 and reads the cluster as v1beta1, so
+// MachineScope holds its own v1beta1 HetznerCluster. Embedding ClusterScope would make that field
+// v1beta2, which cannot hold the v1beta1 cluster this scope works with.
+//
+// TODO: once the HCloudMachine controller is migrated to v1beta2, MachineScope also uses the v1beta2
+// HetznerCluster, so embed ClusterScope here again and drop the duplicated fields.
 type MachineScope struct {
-	ClusterScope
+	logr.Logger
+	Client        client.Client
+	APIReader     client.Reader
+	patchHelper   *v1beta1patch.Helper
+	hetznerSecret *corev1.Secret
+
+	HCloudClient hcloudclient.Client
+
+	Cluster        *clusterv1.Cluster
+	HetznerCluster *infrav1.HetznerCluster
+
 	Machine          *clusterv1.Machine
 	HCloudMachine    *infrav1.HCloudMachine
 	SSHClientFactory sshclient.Factory
@@ -146,6 +202,14 @@ func (m *MachineScope) Name() string {
 // Namespace returns the namespace name.
 func (m *MachineScope) Namespace() string {
 	return m.HCloudMachine.Namespace
+}
+
+// HetznerSecret returns the hetzner secret.
+//
+// TODO: remove this once the HCloudMachine controller is migrated and MachineScope embeds
+// ClusterScope again, which already provides HetznerSecret and its backing field.
+func (m *MachineScope) HetznerSecret() *corev1.Secret {
+	return m.hetznerSecret
 }
 
 // PatchObject persists the machine spec and status.

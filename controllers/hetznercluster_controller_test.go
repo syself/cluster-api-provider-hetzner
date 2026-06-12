@@ -33,19 +33,91 @@ import (
 	"k8s.io/utils/ptr"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
+
+func getDefaultHetznerClusterSpec() infrav2.HetznerClusterSpec {
+	return infrav2.HetznerClusterSpec{
+		ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
+			Enabled:   true,
+			Algorithm: "round_robin",
+			ExtraServices: []infrav2.LoadBalancerServiceSpec{
+				{
+					DestinationPort: 8132,
+					ListenPort:      8132,
+					Protocol:        "tcp",
+				},
+				{
+					DestinationPort: 8133,
+					ListenPort:      8133,
+					Protocol:        "tcp",
+				},
+			},
+			Port:   6443,
+			Region: "fsn1",
+			Type:   "lb11",
+		},
+		ControlPlaneEndpoint: infrav2.APIEndpoint{},
+		ControlPlaneRegions:  []infrav2.Region{"fsn1"},
+		HCloudNetwork: infrav2.HCloudNetworkSpec{
+			CIDRBlock:       "10.0.0.0/16",
+			Enabled:         true,
+			NetworkZone:     "eu-central",
+			SubnetCIDRBlock: "10.0.0.0/24",
+		},
+		HCloudPlacementGroups: []infrav2.HCloudPlacementGroupSpec{
+			{
+				Name: defaultPlacementGroupName,
+				Type: "spread",
+			},
+			{
+				Name: "md-0",
+				Type: "spread",
+			},
+		},
+		HetznerSecret: infrav2.HetznerSecretRef{
+			Key: infrav2.HetznerSecretKeyRef{
+				HCloudToken:          "hcloud",
+				HetznerRobotUser:     "robot-user",
+				HetznerRobotPassword: "robot-password",
+			},
+			Name: "hetzner-secret",
+		},
+		SSHKeys: infrav2.HetznerSSHKeys{
+			HCloud: []infrav2.SSHKey{
+				{
+					Name: "testsshkey",
+				},
+			},
+			RescueSecretRef: infrav2.SSHSecretRef{
+				Name: "rescue-ssh-secret",
+				Key: infrav2.SSHSecretKeyRef{
+					Name:       "sshkey-name",
+					PublicKey:  "public-key",
+					PrivateKey: "private-key",
+				},
+			},
+		},
+	}
+}
+
+func isHetznerClusterProvisioned(hetznerCluster *infrav2.HetznerCluster) bool {
+	return ptr.Deref(hetznerCluster.Status.Initialization.Provisioned, false)
+}
 
 func TestIgnoreInsignificantClusterStatusUpdates(t *testing.T) {
 	logger := klog.Background()
@@ -154,93 +226,103 @@ func TestIgnoreInsignificantHetznerClusterStatusUpdates(t *testing.T) {
 
 	testCases := []struct {
 		name     string
-		oldObj   *infrav1.HetznerCluster
-		newObj   *infrav1.HetznerCluster
+		oldObj   *infrav2.HetznerCluster
+		newObj   *infrav2.HetznerCluster
 		expected bool
 	}{
 		{
 			name: "No significant changes",
-			oldObj: &infrav1.HetznerCluster{
+			oldObj: &infrav2.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hetzner-cluster",
 					Namespace: "default",
 				},
-				Status: infrav1.HetznerClusterStatus{
-					Ready: true,
+				Status: infrav2.HetznerClusterStatus{
+					Initialization: infrav2.HetznerClusterInitializationStatus{
+						Provisioned: ptr.To(true),
+					},
 				},
 			},
-			newObj: &infrav1.HetznerCluster{
+			newObj: &infrav2.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "test-hetzner-cluster",
 					Namespace:       "default",
 					ResourceVersion: "2",
 				},
-				Status: infrav1.HetznerClusterStatus{
-					Ready: true,
+				Status: infrav2.HetznerClusterStatus{
+					Initialization: infrav2.HetznerClusterInitializationStatus{
+						Provisioned: ptr.To(true),
+					},
 				},
 			},
 			expected: false,
 		},
 		{
 			name: "Significant changes in spec",
-			oldObj: &infrav1.HetznerCluster{
+			oldObj: &infrav2.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hetzner-cluster",
 					Namespace: "default",
 				},
-				Spec: infrav1.HetznerClusterSpec{
-					ControlPlaneRegions: []infrav1.Region{"fsn1"},
+				Spec: infrav2.HetznerClusterSpec{
+					ControlPlaneRegions: []infrav2.Region{"fsn1"},
 				},
 			},
-			newObj: &infrav1.HetznerCluster{
+			newObj: &infrav2.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hetzner-cluster",
 					Namespace: "default",
 				},
-				Spec: infrav1.HetznerClusterSpec{
-					ControlPlaneRegions: []infrav1.Region{"nbg1"},
+				Spec: infrav2.HetznerClusterSpec{
+					ControlPlaneRegions: []infrav2.Region{"nbg1"},
 				},
 			},
 			expected: true,
 		},
 		{
 			name: "Empty status in new object",
-			oldObj: &infrav1.HetznerCluster{
+			oldObj: &infrav2.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hetzner-cluster",
 					Namespace: "default",
 				},
-				Status: infrav1.HetznerClusterStatus{
-					Ready: true,
+				Status: infrav2.HetznerClusterStatus{
+					Initialization: infrav2.HetznerClusterInitializationStatus{
+						Provisioned: ptr.To(true),
+					},
 				},
 			},
-			newObj: &infrav1.HetznerCluster{
+			newObj: &infrav2.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hetzner-cluster",
 					Namespace: "default",
 				},
-				Status: infrav1.HetznerClusterStatus{},
+				Status: infrav2.HetznerClusterStatus{},
 			},
 			expected: true,
 		},
 		{
 			name: "Changes only in status",
-			oldObj: &infrav1.HetznerCluster{
+			oldObj: &infrav2.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hetzner-cluster",
 					Namespace: "default",
 				},
-				Status: infrav1.HetznerClusterStatus{
-					Ready: false,
+				Status: infrav2.HetznerClusterStatus{
+					Initialization: infrav2.HetznerClusterInitializationStatus{
+						Provisioned: ptr.To(false),
+					},
 				},
 			},
-			newObj: &infrav1.HetznerCluster{
+			newObj: &infrav2.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-hetzner-cluster",
 					Namespace: "default",
 				},
-				Status: infrav1.HetznerClusterStatus{
-					Ready: true,
+				Status: infrav2.HetznerClusterStatus{
+					Initialization: infrav2.HetznerClusterInitializationStatus{
+						Provisioned: ptr.To(true),
+					},
 				},
 			},
 			expected: false,
@@ -346,9 +428,9 @@ func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 
 	testScheme := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(testScheme))
-	utilruntime.Must(infrav1.AddToScheme(testScheme))
+	utilruntime.Must(infrav2.AddToScheme(testScheme))
 
-	hetznerCluster := &infrav1.HetznerCluster{
+	hetznerCluster := &infrav2.HetznerCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cluster",
 			Namespace: "test-ns",
@@ -361,7 +443,7 @@ func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = "custom-robot-user"
 	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = "custom-robot-password"
 	hetznerCluster.Spec.HCloudNetwork.Enabled = false
-	hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1beta1.APIEndpoint{
+	hetznerCluster.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{
 		Host: "198.51.100.10",
 		Port: 6443,
 	}
@@ -418,9 +500,9 @@ func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 
 	testScheme := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(testScheme))
-	utilruntime.Must(infrav1.AddToScheme(testScheme))
+	utilruntime.Must(infrav2.AddToScheme(testScheme))
 
-	hetznerCluster := &infrav1.HetznerCluster{
+	hetznerCluster := &infrav2.HetznerCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cluster",
 			Namespace: "test-ns",
@@ -433,7 +515,7 @@ func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = "custom-robot-user"
 	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = "custom-robot-password"
 	hetznerCluster.Spec.HCloudNetwork.Enabled = false
-	hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1beta1.APIEndpoint{
+	hetznerCluster.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{
 		Host: "198.51.100.10",
 		Port: 6443,
 	}
@@ -490,9 +572,9 @@ func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing
 
 	testScheme := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(testScheme))
-	utilruntime.Must(infrav1.AddToScheme(testScheme))
+	utilruntime.Must(infrav2.AddToScheme(testScheme))
 
-	hetznerCluster := &infrav1.HetznerCluster{
+	hetznerCluster := &infrav2.HetznerCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cluster",
 			Namespace: "test-ns",
@@ -504,7 +586,7 @@ func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing
 	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = "custom-robot-user"
 	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = "custom-robot-password"
 	hetznerCluster.Spec.HCloudNetwork.Enabled = false
-	hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1beta1.APIEndpoint{
+	hetznerCluster.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{
 		Host: "198.51.100.10",
 		Port: 6443,
 	}
@@ -567,7 +649,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			namespace string
 			testNs    *corev1.Namespace
 
-			instance    *infrav1.HetznerCluster
+			instance    *infrav2.HetznerCluster
 			capiCluster *clusterv1.Cluster
 
 			hetznerSecret *corev1.Secret
@@ -596,7 +678,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				},
 				Spec: clusterv1.ClusterSpec{
 					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-						APIGroup: infrav1.GroupVersion.Group,
+						APIGroup: infrav2.GroupVersion.Group,
 						Kind:     "HetznerCluster",
 						Name:     hetznerClusterName,
 					},
@@ -605,7 +687,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
 
 			// Create the HetznerCluster object
-			instance = &infrav1.HetznerCluster{
+			instance = &infrav2.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      hetznerClusterName,
 					Namespace: namespace,
@@ -656,7 +738,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					return false
 				}
 				for _, f := range instance.Finalizers {
-					if f == infrav1.HetznerClusterFinalizer {
+					if f == infrav2.HetznerClusterFinalizer {
 						return true
 					}
 				}
@@ -670,7 +752,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			// The controller should set the Deleting condition to True once it
 			// processes the deletion request.
 			Eventually(func() bool {
-				return isPresentAndTrueWithReasonV1Beta2(key, instance, clusterv1beta1.DeletingV1Beta2Condition, clusterv1beta1.DeletingV1Beta2Reason)
+				return isPresentAndTrueWithReason(key, instance, infrav2.HetznerClusterDeletingCondition, infrav2.HetznerClusterDeletingReason)
 			}, timeout, time.Second).Should(BeTrue())
 
 			// Remove the blocking finalizer so the object can be fully cleaned up.
@@ -694,8 +776,8 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, instance, infrav1.LoadBalancerReadyCondition) &&
-						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition, string(infrav1.HetznerClusterLoadBalancerReadyV1Beta2Reason))
+					return isPresentAndTrueDeprecatedV1Beta1(key, instance, infrav2.LoadBalancerReadyV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, instance, infrav2.HetznerClusterLoadBalancerReadyCondition, string(infrav2.HetznerClusterLoadBalancerReadyReason))
 				}, timeout, time.Second).Should(BeTrue())
 
 				newLBName := "new-lb-name"
@@ -703,24 +785,24 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				By("updating load balancer type")
 
-				ph, err := v1beta1patch.NewHelper(instance, testEnv)
+				ph, err := patch.NewHelper(instance, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				instance.Spec.ControlPlaneLoadBalancer.Type = newLBType
 
 				Eventually(func() error {
-					return ph.Patch(ctx, instance, v1beta1patch.WithStatusObservedGeneration{})
+					return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
 				}, timeout).Should(BeNil())
 
 				By("updating load balancer name")
 
-				ph, err = v1beta1patch.NewHelper(instance, testEnv)
+				ph, err = patch.NewHelper(instance, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				instance.Spec.ControlPlaneLoadBalancer.Name = &newLBName
 
 				Eventually(func() error {
-					return ph.Patch(ctx, instance, v1beta1patch.WithStatusObservedGeneration{})
+					return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
 				}, timeout).Should(BeNil())
 
 				By("listing load balancers and checking spec")
@@ -764,24 +846,24 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, instance, infrav1.LoadBalancerReadyCondition) &&
-						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition, string(infrav1.HetznerClusterLoadBalancerReadyV1Beta2Reason))
+					return isPresentAndTrueDeprecatedV1Beta1(key, instance, infrav2.LoadBalancerReadyV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, instance, infrav2.HetznerClusterLoadBalancerReadyCondition, string(infrav2.HetznerClusterLoadBalancerReadyReason))
 				}, timeout).Should(BeTrue())
 
 				By("adding additional extra services")
 
-				ph, err := v1beta1patch.NewHelper(instance, testEnv)
+				ph, err := patch.NewHelper(instance, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				instance.Spec.ControlPlaneLoadBalancer.ExtraServices = append(instance.Spec.ControlPlaneLoadBalancer.ExtraServices,
-					infrav1.LoadBalancerServiceSpec{
+					infrav2.LoadBalancerServiceSpec{
 						DestinationPort: 8134,
 						ListenPort:      8134,
 						Protocol:        "tcp",
 					})
 
 				Eventually(func() error {
-					return ph.Patch(ctx, instance, v1beta1patch.WithStatusObservedGeneration{})
+					return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
 				}, timeout).Should(BeNil())
 
 				Eventually(func() int {
@@ -806,9 +888,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				By("reducing extra targets")
 
-				ph, err = v1beta1patch.NewHelper(instance, testEnv)
+				ph, err = patch.NewHelper(instance, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
-				instance.Spec.ControlPlaneLoadBalancer.ExtraServices = []infrav1.LoadBalancerServiceSpec{
+				instance.Spec.ControlPlaneLoadBalancer.ExtraServices = []infrav2.LoadBalancerServiceSpec{
 					{
 						DestinationPort: 8134,
 						ListenPort:      8134,
@@ -817,7 +899,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				}
 
 				Eventually(func() error {
-					return ph.Patch(ctx, instance, v1beta1patch.WithStatusObservedGeneration{})
+					return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
 				}, timeout).Should(BeNil())
 
 				Eventually(func() int {
@@ -842,12 +924,12 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				By("removing extra targets")
 
-				ph, err = v1beta1patch.NewHelper(instance, testEnv)
+				ph, err = patch.NewHelper(instance, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
 				instance.Spec.ControlPlaneLoadBalancer.ExtraServices = nil
 
 				Eventually(func() error {
-					return ph.Patch(ctx, instance, v1beta1patch.WithStatusObservedGeneration{})
+					return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
 				}, timeout).Should(BeNil())
 
 				Eventually(func() int {
@@ -873,7 +955,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 			It("should not create load balancer if disabled and the cluster should get ready", func() {
 				instance.Spec.ControlPlaneLoadBalancer.Enabled = false
-				instance.Spec.ControlPlaneEndpoint = &clusterv1beta1.APIEndpoint{
+				instance.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{
 					Host: "my.test.host",
 					Port: 6443,
 				}
@@ -884,11 +966,13 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						return false
 					}
 
-					return instance.Status.ControlPlaneLoadBalancer == nil && instance.Status.Ready
+					return instance.Status.ControlPlaneLoadBalancer == nil &&
+						instance.Status.Initialization.Provisioned != nil &&
+						*instance.Status.Initialization.Provisioned
 				}, timeout, time.Second).Should(BeTrue())
 
 				By("making sure LoadBalancerReady condition is not set")
-				Expect(isAbsentV1Beta2(key, instance, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition)).To(BeTrue())
+				Expect(isAbsent(key, instance, infrav2.HetznerClusterLoadBalancerReadyCondition)).To(BeTrue())
 			})
 
 			It("should take over an existing load balancer with correct name", func() {
@@ -923,7 +1007,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					if err != nil {
 						return false
 					}
-					c := v1beta1conditions.Get(instance, infrav1.LoadBalancerReadyCondition)
+					c := deprecatedv1beta1conditions.Get(instance, infrav2.LoadBalancerReadyV1Beta1Condition)
 					if c == nil {
 						GinkgoLogr.Info("LoadBalancerReadyCondition is nil")
 						return false
@@ -947,11 +1031,11 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				value, found := loadBalancers[0].Labels[instance.ClusterTagKey()]
 				Expect(found).To(BeTrue())
-				Expect(value).To(Equal(string(infrav1.ResourceLifecycleOwned)))
+				Expect(value).To(Equal(string(infrav2.ResourceLifecycleOwned)))
 
 				By("checking that kubeapi service is set on load balancer")
 
-				var foundHetznerCluster infrav1.HetznerCluster
+				var foundHetznerCluster infrav2.HetznerCluster
 
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, key, &foundHetznerCluster); err != nil {
@@ -1003,7 +1087,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 			It("should set the appropriate condition if a named load balancer is taken by another cluster", func() {
 				By("creating load balancer manually")
-				labelsOwnedByOtherCluster := map[string]string{instance.ClusterTagKey() + "s": string(infrav1.ResourceLifecycleOwned)}
+				labelsOwnedByOtherCluster := map[string]string{instance.ClusterTagKey() + "s": string(infrav2.ResourceLifecycleOwned)}
 				opts := hcloud.LoadBalancerCreateOpts{
 					Name:             lbName,
 					Algorithm:        &hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeLeastConnections},
@@ -1022,8 +1106,8 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				By("checking that cluster is ready")
 
 				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, instance, infrav1.LoadBalancerReadyCondition, infrav1.LoadBalancerFailedToOwnReason) &&
-						isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition, infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason)
+					return isPresentAndFalseWithReasonDeprecatedV1Beta1(key, instance, infrav2.LoadBalancerReadyV1Beta1Condition, infrav2.LoadBalancerFailedToOwnV1Beta1Reason) &&
+						isPresentAndFalseWithReason(key, instance, infrav2.HetznerClusterLoadBalancerReadyCondition, infrav2.HetznerClusterLoadBalancerOwningFailedReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -1036,16 +1120,16 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				By("checking that cluster has condition set")
 
 				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, instance, infrav1.LoadBalancerReadyCondition, infrav1.LoadBalancerFailedToOwnReason) &&
-						isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition, infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason)
+					return isPresentAndFalseWithReasonDeprecatedV1Beta1(key, instance, infrav2.LoadBalancerReadyV1Beta1Condition, infrav2.LoadBalancerFailedToOwnV1Beta1Reason) &&
+						isPresentAndFalseWithReason(key, instance, infrav2.HetznerClusterLoadBalancerReadyCondition, infrav2.HetznerClusterLoadBalancerOwningFailedReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
 			It("should work with capi.syself.com/allow-empty-control-plane-address annotation error condition", func() {
 				instance.Annotations = make(map[string]string)
-				instance.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
+				instance.Annotations[infrav2.AllowEmptyControlPlaneAddressAnnotation] = "true"
 				instance.Spec.ControlPlaneLoadBalancer.Enabled = false
-				instance.Spec.ControlPlaneEndpoint = nil
+				instance.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{}
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
 				Eventually(func() bool {
@@ -1053,16 +1137,16 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						return false
 					}
 
-					return isPresentAndFalseWithReason(key, instance, infrav1.ControlPlaneEndpointSetCondition, infrav1.ControlPlaneEndpointNotSetReason) &&
-						isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition, infrav1.HetznerClusterControlPlaneEndpointNotSetV1Beta2Reason)
+					return isPresentAndFalseWithReasonDeprecatedV1Beta1(key, instance, infrav2.ControlPlaneEndpointSetV1Beta1Condition, infrav2.ControlPlaneEndpointNotSetV1Beta1Reason) &&
+						isPresentAndFalseWithReason(key, instance, infrav2.HetznerClusterControlPlaneEndpointSetCondition, infrav2.HetznerClusterControlPlaneEndpointNotSetReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
 			It("should work with capi.syself.com/allow-empty-control-plane-address annotation error condition custom port", func() {
 				instance.Annotations = make(map[string]string)
-				instance.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
+				instance.Annotations[infrav2.AllowEmptyControlPlaneAddressAnnotation] = "true"
 				instance.Spec.ControlPlaneLoadBalancer.Enabled = false
-				instance.Spec.ControlPlaneEndpoint = &clusterv1beta1.APIEndpoint{
+				instance.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{
 					Host: "",
 					Port: 1234,
 				}
@@ -1073,16 +1157,16 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						return false
 					}
 
-					return isPresentAndFalseWithReason(key, instance, infrav1.ControlPlaneEndpointSetCondition, infrav1.ControlPlaneEndpointNotSetReason) &&
-						isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition, infrav1.HetznerClusterControlPlaneEndpointNotSetV1Beta2Reason)
+					return isPresentAndFalseWithReasonDeprecatedV1Beta1(key, instance, infrav2.ControlPlaneEndpointSetV1Beta1Condition, infrav2.ControlPlaneEndpointNotSetV1Beta1Reason) &&
+						isPresentAndFalseWithReason(key, instance, infrav2.HetznerClusterControlPlaneEndpointSetCondition, infrav2.HetznerClusterControlPlaneEndpointNotSetReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
 			It("should work with capi.syself.com/allow-empty-control-plane-address annotation success condition", func() {
 				instance.Annotations = make(map[string]string)
-				instance.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
+				instance.Annotations[infrav2.AllowEmptyControlPlaneAddressAnnotation] = "true"
 				instance.Spec.ControlPlaneLoadBalancer.Enabled = false
-				instance.Spec.ControlPlaneEndpoint = &clusterv1beta1.APIEndpoint{
+				instance.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{
 					Host: "localhost",
 					Port: 6443,
 				}
@@ -1093,15 +1177,15 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						return false
 					}
 
-					return isPresentAndTrue(key, instance, infrav1.ControlPlaneEndpointSetCondition) &&
-						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Reason)
+					return isPresentAndTrueDeprecatedV1Beta1(key, instance, infrav2.ControlPlaneEndpointSetV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, instance, infrav2.HetznerClusterControlPlaneEndpointSetCondition, infrav2.HetznerClusterControlPlaneEndpointSetReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
 			It("should work with enabled load balancer success", func() {
 				instance.Annotations = make(map[string]string)
 				instance.Spec.ControlPlaneLoadBalancer.Enabled = true
-				instance.Spec.ControlPlaneEndpoint = &clusterv1beta1.APIEndpoint{
+				instance.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{
 					Host: "localhost",
 					Port: 6443,
 				}
@@ -1112,8 +1196,8 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						return false
 					}
 
-					return isPresentAndTrue(key, instance, infrav1.ControlPlaneEndpointSetCondition) &&
-						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Reason)
+					return isPresentAndTrueDeprecatedV1Beta1(key, instance, infrav2.ControlPlaneEndpointSetV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, instance, infrav2.HetznerClusterControlPlaneEndpointSetCondition, infrav2.HetznerClusterControlPlaneEndpointSetReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 		})
@@ -1169,13 +1253,13 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			})
 
 			DescribeTable("create and delete placement groups without error",
-				func(placementGroups []infrav1.HCloudPlacementGroupSpec) {
+				func(placementGroups []infrav2.HCloudPlacementGroupSpec) {
 					instance.Spec.HCloudPlacementGroups = placementGroups
 					Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
 					Eventually(func() bool {
-						return isPresentAndTrue(key, instance, infrav1.PlacementGroupsSyncedCondition) &&
-							isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.HetznerClusterPlacementGroupsSyncedV1Beta2Condition, infrav1.HetznerClusterPlacementGroupsSyncedV1Beta2Reason)
+						return isPresentAndTrueDeprecatedV1Beta1(key, instance, infrav2.PlacementGroupsSyncedV1Beta1Condition) &&
+							isPresentAndTrueWithReason(key, instance, infrav2.HetznerClusterPlacementGroupsSyncedCondition, infrav2.HetznerClusterPlacementGroupsSyncedReason)
 					}, timeout).Should(BeTrue())
 
 					By("checking for presence of HCloudPlacementGroup objects")
@@ -1192,7 +1276,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						return len(pgs)
 					}, timeout).Should(Equal(len(placementGroups)))
 				},
-				Entry("placement groups", []infrav1.HCloudPlacementGroupSpec{
+				Entry("placement groups", []infrav2.HCloudPlacementGroupSpec{
 					{
 						Name: defaultPlacementGroupName,
 						Type: "spread",
@@ -1202,7 +1286,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						Type: "spread",
 					},
 				}),
-				Entry("no placement groups", []infrav1.HCloudPlacementGroupSpec{}),
+				Entry("no placement groups", []infrav2.HCloudPlacementGroupSpec{}),
 			)
 
 			Context("update placement groups", func() {
@@ -1211,14 +1295,14 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				})
 
 				DescribeTable("update placement groups",
-					func(newPlacementGroupSpec []infrav1.HCloudPlacementGroupSpec) {
-						ph, err := v1beta1patch.NewHelper(instance, testEnv)
+					func(newPlacementGroupSpec []infrav2.HCloudPlacementGroupSpec) {
+						ph, err := patch.NewHelper(instance, testEnv)
 						Expect(err).ShouldNot(HaveOccurred())
 
 						instance.Spec.HCloudPlacementGroups = newPlacementGroupSpec
 
 						Eventually(func() error {
-							return ph.Patch(ctx, instance, v1beta1patch.WithStatusObservedGeneration{})
+							return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
 						}, timeout).Should(BeNil())
 
 						Eventually(func() int {
@@ -1233,9 +1317,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 							return len(pgs)
 						}, timeout, time.Second).Should(Equal(len(newPlacementGroupSpec)))
 					},
-					Entry("one pg", []infrav1.HCloudPlacementGroupSpec{{Name: "md-0", Type: "spread"}}),
-					Entry("no pgs", []infrav1.HCloudPlacementGroupSpec{}),
-					Entry("three pgs", []infrav1.HCloudPlacementGroupSpec{
+					Entry("one pg", []infrav2.HCloudPlacementGroupSpec{{Name: "md-0", Type: "spread"}}),
+					Entry("no pgs", []infrav2.HCloudPlacementGroupSpec{}),
+					Entry("three pgs", []infrav2.HCloudPlacementGroupSpec{
 						{Name: "md-0", Type: "spread"},
 						{Name: "md-1", Type: "spread"},
 						{Name: "md-2", Type: "spread"},
@@ -1260,7 +1344,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, instance, infrav1.NetworkReadyCondition)
+					return isPresentAndTrueDeprecatedV1Beta1(key, instance, infrav2.NetworkReadyV1Beta1Condition)
 				}, timeout).Should(BeTrue())
 			},
 			)
@@ -1321,7 +1405,7 @@ func createCapiAndHcloudMachines(ctx context.Context, env *helpers.TestEnvironme
 var _ = Describe("Hetzner secret", func() {
 	var (
 		testNs         *corev1.Namespace
-		hetznerCluster *infrav1.HetznerCluster
+		hetznerCluster *infrav2.HetznerCluster
 		capiCluster    *clusterv1.Cluster
 
 		hetznerSecret *corev1.Secret
@@ -1344,7 +1428,7 @@ var _ = Describe("Hetzner secret", func() {
 			},
 			Spec: clusterv1.ClusterSpec{
 				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-					APIGroup: infrav1.GroupVersion.Group,
+					APIGroup: infrav2.GroupVersion.Group,
 					Kind:     "HetznerCluster",
 					Name:     hetznerClusterName,
 				},
@@ -1352,7 +1436,7 @@ var _ = Describe("Hetzner secret", func() {
 		}
 		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
 
-		hetznerCluster = &infrav1.HetznerCluster{
+		hetznerCluster = &infrav2.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      hetznerClusterName,
 				Namespace: testNs.Name,
@@ -1377,13 +1461,13 @@ var _ = Describe("Hetzner secret", func() {
 	})
 
 	DescribeTable("test different hetzner secret",
-		func(secretFunc func() *corev1.Secret, expectedV1Beta1Reason string, expectedV1Beta2Reason string) {
+		func(secretFunc func() *corev1.Secret, expectedV1Beta1Reason string, expectedReason string) {
 			hetznerSecret = secretFunc()
 			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, hetznerCluster, infrav1.HCloudTokenAvailableCondition, expectedV1Beta1Reason) &&
-					isPresentAndFalseWithReasonV1Beta2(key, hetznerCluster, infrav1.HCloudTokenAvailableV1Beta2Condition, expectedV1Beta2Reason)
+				return isPresentAndFalseWithReasonDeprecatedV1Beta1(key, hetznerCluster, infrav2.HCloudTokenAvailableV1Beta1Condition, expectedV1Beta1Reason) &&
+					isPresentAndFalseWithReason(key, hetznerCluster, infrav2.HCloudTokenAvailableCondition, expectedReason)
 			}, timeout, time.Second).Should(BeTrue())
 			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
 		},
@@ -1397,7 +1481,7 @@ var _ = Describe("Hetzner secret", func() {
 					"hcloud": []byte("my-token"),
 				},
 			}
-		}, infrav1.HetznerSecretUnreachableReason, infrav1.HCloudTokenSecretUnreachableV1Beta2Reason),
+		}, infrav2.HetznerSecretUnreachableV1Beta1Reason, infrav2.HCloudTokenSecretUnreachableReason),
 		Entry("empty hcloud token", func() *corev1.Secret {
 			return &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1408,7 +1492,7 @@ var _ = Describe("Hetzner secret", func() {
 					"hcloud": []byte(""),
 				},
 			}
-		}, infrav1.HCloudCredentialsInvalidReason, infrav1.HCloudTokenInvalidV1Beta2Reason),
+		}, infrav2.HCloudCredentialsInvalidV1Beta1Reason, infrav2.HCloudTokenInvalidReason),
 		Entry("wrong key in secret", func() *corev1.Secret {
 			return &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1419,13 +1503,13 @@ var _ = Describe("Hetzner secret", func() {
 					"wrongkey": []byte("my-token"),
 				},
 			}
-		}, infrav1.HCloudCredentialsInvalidReason, infrav1.HCloudTokenInvalidV1Beta2Reason),
+		}, infrav2.HCloudCredentialsInvalidV1Beta1Reason, infrav2.HCloudTokenInvalidReason),
 	)
 })
 
 var _ = Describe("HetznerCluster validation", func() {
 	var (
-		hetznerCluster *infrav1.HetznerCluster
+		hetznerCluster *infrav2.HetznerCluster
 		testNs         *corev1.Namespace
 	)
 	BeforeEach(func() {
@@ -1439,7 +1523,7 @@ var _ = Describe("HetznerCluster validation", func() {
 
 	Context("validate create", func() {
 		BeforeEach(func() {
-			hetznerCluster = &infrav1.HetznerCluster{
+			hetznerCluster = &infrav2.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hcloud-validation-machine",
 					Namespace: testNs.Name,
@@ -1454,8 +1538,8 @@ var _ = Describe("HetznerCluster validation", func() {
 
 		It("should succeed with capi.syself.com/allow-empty-control-plane-address annotation", func() {
 			hetznerCluster.Annotations = make(map[string]string)
-			hetznerCluster.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
-			hetznerCluster.Spec.ControlPlaneRegions = []infrav1.Region{}
+			hetznerCluster.Annotations[infrav2.AllowEmptyControlPlaneAddressAnnotation] = "true"
+			hetznerCluster.Spec.ControlPlaneRegions = []infrav2.Region{}
 			hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = false
 			hetznerCluster.Spec.ControlPlaneEndpoint.Port = 443
 			hetznerCluster.Spec.ControlPlaneEndpoint.Host = "localhost"
@@ -1464,8 +1548,8 @@ var _ = Describe("HetznerCluster validation", func() {
 
 		It("should succeed with capi.syself.com/allow-empty-control-plane-address annotation empty host", func() {
 			hetznerCluster.Annotations = make(map[string]string)
-			hetznerCluster.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
-			hetznerCluster.Spec.ControlPlaneRegions = []infrav1.Region{}
+			hetznerCluster.Annotations[infrav2.AllowEmptyControlPlaneAddressAnnotation] = "true"
+			hetznerCluster.Spec.ControlPlaneRegions = []infrav2.Region{}
 			hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = false
 			hetznerCluster.Spec.ControlPlaneEndpoint.Port = 443
 			hetznerCluster.Spec.ControlPlaneEndpoint.Host = ""
@@ -1474,20 +1558,20 @@ var _ = Describe("HetznerCluster validation", func() {
 
 		It("should succeed with capi.syself.com/allow-empty-control-plane-address annotation empty ControlPlaneEndpoint", func() {
 			hetznerCluster.Annotations = make(map[string]string)
-			hetznerCluster.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
-			hetznerCluster.Spec.ControlPlaneRegions = []infrav1.Region{}
+			hetznerCluster.Annotations[infrav2.AllowEmptyControlPlaneAddressAnnotation] = "true"
+			hetznerCluster.Spec.ControlPlaneRegions = []infrav2.Region{}
 			hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = false
-			hetznerCluster.Spec.ControlPlaneEndpoint = nil
+			hetznerCluster.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{}
 			Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 		})
 
 		It("should fail without a wrong controlPlaneRegion name", func() {
-			hetznerCluster.Spec.ControlPlaneRegions = append(hetznerCluster.Spec.ControlPlaneRegions, infrav1.Region("wrong-region"))
+			hetznerCluster.Spec.ControlPlaneRegions = append(hetznerCluster.Spec.ControlPlaneRegions, infrav2.Region("wrong-region"))
 			Expect(testEnv.Create(ctx, hetznerCluster)).ToNot(Succeed())
 		})
 
 		It("should fail with an SSHKey without name", func() {
-			hetznerCluster.Spec.SSHKeys.HCloud = append(hetznerCluster.Spec.SSHKeys.HCloud, infrav1.SSHKey{})
+			hetznerCluster.Spec.SSHKeys.HCloud = append(hetznerCluster.Spec.SSHKeys.HCloud, infrav2.SSHKey{})
 			Expect(testEnv.Create(ctx, hetznerCluster)).ToNot(Succeed())
 		})
 
@@ -1497,12 +1581,12 @@ var _ = Describe("HetznerCluster validation", func() {
 		})
 
 		It("should fail with an empty placementGroup name", func() {
-			hetznerCluster.Spec.HCloudPlacementGroups = append(hetznerCluster.Spec.HCloudPlacementGroups, infrav1.HCloudPlacementGroupSpec{})
+			hetznerCluster.Spec.HCloudPlacementGroups = append(hetznerCluster.Spec.HCloudPlacementGroups, infrav2.HCloudPlacementGroupSpec{})
 			Expect(testEnv.Create(ctx, hetznerCluster)).ToNot(Succeed())
 		})
 
 		It("should fail with a wrong placementGroup type", func() {
-			hetznerCluster.Spec.HCloudPlacementGroups = append(hetznerCluster.Spec.HCloudPlacementGroups, infrav1.HCloudPlacementGroupSpec{
+			hetznerCluster.Spec.HCloudPlacementGroups = append(hetznerCluster.Spec.HCloudPlacementGroups, infrav2.HCloudPlacementGroupSpec{
 				Name: "newName",
 				Type: "wrong-type",
 			})
@@ -1512,9 +1596,9 @@ var _ = Describe("HetznerCluster validation", func() {
 })
 
 var _ = Describe("reconcileRateLimit", func() {
-	var hetznerCluster *infrav1.HetznerCluster
+	var hetznerCluster *infrav2.HetznerCluster
 	BeforeEach(func() {
-		hetznerCluster = &infrav1.HetznerCluster{
+		hetznerCluster = &infrav2.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "rate-limit-cluster",
 				Namespace: "default",
@@ -1524,15 +1608,24 @@ var _ = Describe("reconcileRateLimit", func() {
 	})
 
 	It("returns wait==true if rate limit exceeded is set and time is not over", func() {
-		v1beta1conditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
+		conditions.Set(hetznerCluster, metav1.Condition{
+			Type:               infrav2.HCloudRateLimitExceededCondition,
+			Status:             metav1.ConditionTrue,
+			Reason:             infrav2.HCloudRateLimitExceededReason,
+			LastTransitionTime: metav1.Now(),
+		})
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeTrue())
 	})
 
 	It("returns wait==false if rate limit exceeded is set and time is over", func() {
-		v1beta1conditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
-		conditionList := hetznerCluster.GetConditions()
-		conditionList[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
+		conditions.Set(hetznerCluster, metav1.Condition{
+			Type:               infrav2.HCloudRateLimitExceededCondition,
+			Status:             metav1.ConditionTrue,
+			Reason:             infrav2.HCloudRateLimitExceededReason,
+			LastTransitionTime: metav1.NewTime(time.Now().Add(-time.Hour)),
+		})
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(conditions.Has(hetznerCluster, infrav2.HCloudRateLimitExceededCondition)).To(BeFalse())
 	})
 
 	It("returns wait==true if HCloudRateLimitExceeded condition is True and time is not over (v1beta2)", func() {
@@ -1544,7 +1637,7 @@ var _ = Describe("reconcileRateLimit", func() {
 			Reason:             infrav1.HCloudRateLimitExceededV1Beta2Reason,
 			LastTransitionTime: metav1.Now(),
 		})
-		Expect(reconcileRateLimit(hcloudMachine, testEnv.RateLimitWaitTime)).To(BeTrue())
+		Expect(reconcileRateLimitV1Beta1(hcloudMachine, testEnv.RateLimitWaitTime)).To(BeTrue())
 		rateLimitCond := v1beta2conditions.Get(hcloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)
 		Expect(rateLimitCond).NotTo(BeNil())
 		Expect(rateLimitCond.Status).To(Equal(metav1.ConditionTrue))
@@ -1562,14 +1655,19 @@ var _ = Describe("reconcileRateLimit", func() {
 			Reason:             infrav1.HCloudRateLimitExceededV1Beta2Reason,
 			LastTransitionTime: metav1.NewTime(time.Now().Add(-time.Hour)),
 		})
-		Expect(reconcileRateLimit(hcloudMachine, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(reconcileRateLimitV1Beta1(hcloudMachine, testEnv.RateLimitWaitTime)).To(BeFalse())
 		// Condition must be deleted (not just set to False) so the next API call
 		// determines the real rate-limit status instead of assuming it is gone.
 		Expect(v1beta2conditions.Has(hcloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)).To(BeFalse())
 	})
 
-	It("returns wait==false if rate limit condition is set to true", func() {
-		v1beta1conditions.MarkTrue(hetznerCluster, infrav1.HetznerAPIReachableCondition)
+	It("returns wait==false if rate limit condition is present but not exceeded", func() {
+		conditions.Set(hetznerCluster, metav1.Condition{
+			Type:               infrav2.HCloudRateLimitExceededCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             "NotExceeded",
+			LastTransitionTime: metav1.Now(),
+		})
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 	})
 
@@ -1578,66 +1676,64 @@ var _ = Describe("reconcileRateLimit", func() {
 	})
 
 	It("returns wait==true if HCloudRateLimitExceeded condition is True and time is not over (v1beta2)", func() {
-		v1beta1conditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
-		v1beta2conditions.Set(hetznerCluster, metav1.Condition{
-			Type:               infrav1.HCloudRateLimitExceededV1Beta2Condition,
+		deprecatedv1beta1conditions.MarkFalse(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition, infrav2.RateLimitExceededV1Beta1Reason, clusterv1.ConditionSeverityWarning, "")
+		conditions.Set(hetznerCluster, metav1.Condition{
+			Type:               infrav2.HCloudRateLimitExceededCondition,
 			Status:             metav1.ConditionTrue,
-			Reason:             infrav1.HCloudRateLimitExceededV1Beta2Reason,
+			Reason:             infrav2.HCloudRateLimitExceededReason,
 			LastTransitionTime: metav1.Now(),
 		})
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeTrue())
-		rateLimitCond := v1beta2conditions.Get(hetznerCluster, infrav1.HCloudRateLimitExceededV1Beta2Condition)
+		rateLimitCond := conditions.Get(hetznerCluster, infrav2.HCloudRateLimitExceededCondition)
 		Expect(rateLimitCond).NotTo(BeNil())
 		Expect(rateLimitCond.Status).To(Equal(metav1.ConditionTrue))
-		Expect(rateLimitCond.Reason).To(Equal(infrav1.HCloudRateLimitExceededV1Beta2Reason))
+		Expect(rateLimitCond.Reason).To(Equal(infrav2.HCloudRateLimitExceededReason))
 	})
 
 	It("removes HCloudRateLimitExceeded condition and returns wait==false when wait time is over (v1beta2)", func() {
-		v1beta1conditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
-		conditionList := hetznerCluster.GetConditions()
-		conditionList[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
-		v1beta2conditions.Set(hetznerCluster, metav1.Condition{
-			Type:               infrav1.HCloudRateLimitExceededV1Beta2Condition,
+		deprecatedv1beta1conditions.MarkFalse(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition, infrav2.RateLimitExceededV1Beta1Reason, clusterv1.ConditionSeverityWarning, "")
+		conditions.Set(hetznerCluster, metav1.Condition{
+			Type:               infrav2.HCloudRateLimitExceededCondition,
 			Status:             metav1.ConditionTrue,
-			Reason:             infrav1.HCloudRateLimitExceededV1Beta2Reason,
+			Reason:             infrav2.HCloudRateLimitExceededReason,
 			LastTransitionTime: metav1.NewTime(time.Now().Add(-time.Hour)),
 		})
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 		// Condition must be deleted (not just set to False) so the next API call
 		// determines the real rate-limit status instead of assuming it is gone.
-		Expect(v1beta2conditions.Has(hetznerCluster, infrav1.HCloudRateLimitExceededV1Beta2Condition)).To(BeFalse())
+		Expect(conditions.Has(hetznerCluster, infrav2.HCloudRateLimitExceededCondition)).To(BeFalse())
 	})
 })
 
 func TestSetControlPlaneEndpoint(t *testing.T) {
 	t.Run("return false and don't make changes to ControlPlaneEndpoint if load balancer is not enabled and ControlPlaneEndpoint is nil", func(t *testing.T) {
-		hetznerCluster := &infrav1.HetznerCluster{
-			Spec: infrav1.HetznerClusterSpec{
-				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+		hetznerCluster := &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
 					Enabled: false,
 				},
-				ControlPlaneEndpoint: nil,
+				ControlPlaneEndpoint: infrav2.APIEndpoint{},
 			},
 		}
 
 		processControlPlaneEndpoint(hetznerCluster)
 
-		if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
+		if hetznerCluster.Spec.ControlPlaneEndpoint != (infrav2.APIEndpoint{}) {
 			t.Fatalf("ControlPlaneEndpoint must be nil")
 		}
 
-		if hetznerCluster.Status.Ready != false {
+		if isHetznerClusterProvisioned(hetznerCluster) != false {
 			t.Fatal("return value should be false")
 		}
 	})
 
 	t.Run("return true and don't make changes to ControlPlaneEndpoint if load balancer is not enabled and ControlPlaneEndpoint is not nil", func(t *testing.T) {
-		hetznerCluster := &infrav1.HetznerCluster{
-			Spec: infrav1.HetznerClusterSpec{
-				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+		hetznerCluster := &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
 					Enabled: false,
 				},
-				ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{
+				ControlPlaneEndpoint: infrav2.APIEndpoint{
 					Host: "xyz",
 					Port: 1234,
 				},
@@ -1646,7 +1742,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 
 		processControlPlaneEndpoint(hetznerCluster)
 
-		if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
+		if hetznerCluster.Spec.ControlPlaneEndpoint == (infrav2.APIEndpoint{}) {
 			t.Fatalf("ControlPlaneEndpoint must not be nil")
 		}
 
@@ -1658,21 +1754,21 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Value of Port should not change. Got: %d, Want: 1234", hetznerCluster.Spec.ControlPlaneEndpoint.Port)
 		}
 
-		if hetznerCluster.Status.Ready != true {
+		if isHetznerClusterProvisioned(hetznerCluster) != true {
 			t.Fatalf("return value should be true")
 		}
 	})
 
 	t.Run("return false if load balancer is enabled and IPv4 is '<nil>'. ControlPlaneEndpoint should not change", func(t *testing.T) {
-		hetznerCluster := &infrav1.HetznerCluster{
-			Spec: infrav1.HetznerClusterSpec{
-				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+		hetznerCluster := &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
 					Enabled: true,
 				},
-				ControlPlaneEndpoint: nil,
+				ControlPlaneEndpoint: infrav2.APIEndpoint{},
 			},
-			Status: infrav1.HetznerClusterStatus{
-				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+			Status: infrav2.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{
 					IPv4: "<nil>",
 				},
 			},
@@ -1680,35 +1776,35 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 
 		processControlPlaneEndpoint(hetznerCluster)
 
-		if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
+		if hetznerCluster.Spec.ControlPlaneEndpoint != (infrav2.APIEndpoint{}) {
 			t.Fatalf("ControlPlaneEndpoint should not change. It should remain nil")
 		}
 
-		if hetznerCluster.Status.Ready != false {
+		if isHetznerClusterProvisioned(hetznerCluster) != false {
 			t.Fatalf("return value should be false")
 		}
 
-		if !v1beta1conditions.Has(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition) {
+		if !deprecatedv1beta1conditions.Has(hetznerCluster, infrav2.ControlPlaneEndpointSetV1Beta1Condition) {
 			t.Fatalf("ControlPlaneEndpointSetCondition should exist")
 		}
 
-		condition := v1beta1conditions.Get(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
+		condition := deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.ControlPlaneEndpointSetV1Beta1Condition)
 		if condition.Status != corev1.ConditionFalse {
 			t.Fatalf("condition status should be false")
 		}
 	})
 
 	t.Run("return true if load balancer is enabled, IPv4 is not nil, and ControlPlaneEndpoint is nil. Values of ControlPlaneEndpoint.Host and ControlPlaneEndpoint.Port will get updated", func(t *testing.T) {
-		hetznerCluster := &infrav1.HetznerCluster{
-			Spec: infrav1.HetznerClusterSpec{
-				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+		hetznerCluster := &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
 					Enabled: true,
 					Port:    11,
 				},
-				ControlPlaneEndpoint: nil,
+				ControlPlaneEndpoint: infrav2.APIEndpoint{},
 			},
-			Status: infrav1.HetznerClusterStatus{
-				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+			Status: infrav2.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{
 					IPv4: "xyz",
 				},
 			},
@@ -1720,7 +1816,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong input for hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4. Got: %s, Want: 'xyz'", hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4)
 		}
 
-		if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
+		if hetznerCluster.Spec.ControlPlaneEndpoint == (infrav2.APIEndpoint{}) {
 			t.Fatal("Value of ControlPlaneEndpoint should have been changed. It should not remain nil")
 		}
 
@@ -1734,25 +1830,25 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 		}
 
-		if hetznerCluster.Status.Ready != true {
+		if isHetznerClusterProvisioned(hetznerCluster) != true {
 			t.Fatalf("return value should be true")
 		}
 	})
 
 	t.Run("return true if load balancer is enabled and IPv4 is not nil, ControlPlaneEndpoint.Host is an empty string and ControlPlaneEndpoint.Port is 0. Values of ControlPlaneEndpoint.Host and ControlPlaneEndpoint.Port should update", func(t *testing.T) {
-		hetznerCluster := &infrav1.HetznerCluster{
-			Spec: infrav1.HetznerClusterSpec{
-				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+		hetznerCluster := &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
 					Enabled: true,
 					Port:    21,
 				},
-				ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{
+				ControlPlaneEndpoint: infrav2.APIEndpoint{
 					Host: "",
 					Port: 0,
 				},
 			},
-			Status: infrav1.HetznerClusterStatus{
-				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+			Status: infrav2.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{
 					IPv4: "xyz",
 				},
 			},
@@ -1768,25 +1864,25 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 		}
 
-		if hetznerCluster.Status.Ready != true {
+		if isHetznerClusterProvisioned(hetznerCluster) != true {
 			t.Fatalf("return value should be true")
 		}
 	})
 
 	t.Run("return true if load balancer is enabled and IPv4 is not nil, ControlPlaneEndpoint.Host is 'xyz' and ControlPlaneEndpoint.Port is 0. Value of ControlPlaneEndpoint.Host will not change and ControlPlaneEndpoint.Port should update", func(t *testing.T) {
-		hetznerCluster := &infrav1.HetznerCluster{
-			Spec: infrav1.HetznerClusterSpec{
-				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+		hetznerCluster := &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
 					Enabled: true,
 					Port:    21,
 				},
-				ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{
+				ControlPlaneEndpoint: infrav2.APIEndpoint{
 					Host: "xyz",
 					Port: 0,
 				},
 			},
-			Status: infrav1.HetznerClusterStatus{
-				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+			Status: infrav2.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{
 					IPv4: "xyz",
 				},
 			},
@@ -1802,25 +1898,25 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 		}
 
-		if hetznerCluster.Status.Ready != true {
+		if isHetznerClusterProvisioned(hetznerCluster) != true {
 			t.Fatalf("return value should be true")
 		}
 	})
 
 	t.Run("return true if load balancer is enabled and IPv4 is not nil, ControlPlaneEndpoint.Host is an empty string and ControlPlaneEndpoint.Port is 21. Value of ControlPlaneEndpoint.Host will change and ControlPlaneEndpoint.Port should remain same", func(t *testing.T) {
-		hetznerCluster := &infrav1.HetznerCluster{
-			Spec: infrav1.HetznerClusterSpec{
-				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+		hetznerCluster := &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
 					Enabled: true,
 					Port:    21,
 				},
-				ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{
+				ControlPlaneEndpoint: infrav2.APIEndpoint{
 					Host: "",
 					Port: 21,
 				},
 			},
-			Status: infrav1.HetznerClusterStatus{
-				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+			Status: infrav2.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{
 					IPv4: "xyz",
 				},
 			},
@@ -1836,25 +1932,25 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Port set. Got: %d, Want: 21", hetznerCluster.Spec.ControlPlaneEndpoint.Port)
 		}
 
-		if hetznerCluster.Status.Ready != true {
+		if isHetznerClusterProvisioned(hetznerCluster) != true {
 			t.Fatalf("return value should be true")
 		}
 	})
 
 	t.Run("return true if load balancer is enabled and IPv4 is not nil, ControlPlaneEndpoint.Host is 'xyz' and ControlPlaneEndpoint.Port is 21. Value of ControlPlaneEndpoint.Host and ControlPlaneEndpoint.Port should remain unchanged", func(t *testing.T) {
-		hetznerCluster := &infrav1.HetznerCluster{
-			Spec: infrav1.HetznerClusterSpec{
-				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+		hetznerCluster := &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
 					Enabled: true,
 					Port:    21,
 				},
-				ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{
+				ControlPlaneEndpoint: infrav2.APIEndpoint{
 					Host: "xyz",
 					Port: 21,
 				},
 			},
-			Status: infrav1.HetznerClusterStatus{
-				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+			Status: infrav2.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{
 					IPv4: "xyz",
 				},
 			},
@@ -1870,7 +1966,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Port set. Got: %d, Want: 21", hetznerCluster.Spec.ControlPlaneEndpoint.Port)
 		}
 
-		if hetznerCluster.Status.Ready != true {
+		if isHetznerClusterProvisioned(hetznerCluster) != true {
 			t.Fatalf("return value should be true")
 		}
 	})

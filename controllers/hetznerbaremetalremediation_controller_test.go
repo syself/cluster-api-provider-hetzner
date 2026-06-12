@@ -131,7 +131,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 				},
 				Labels: map[string]string{clusterv1.ClusterNameLabel: capiCluster.Name},
 			},
-			Spec: getDefaultHetznerClusterSpec(),
+			Spec: getDefaultHetznerClusterV1Beta1Spec(),
 		}
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
@@ -265,7 +265,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						return isPresentAndFalseWithReasonV2(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
+						return isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
 					}, timeout).Should(BeTrue())
 				})
 
@@ -281,7 +281,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						return isPresentAndFalseWithReasonV2(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
+						return isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
 					}, timeout).Should(BeTrue())
 				})
 			})
@@ -376,7 +376,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						}
 
 						return hetznerBareMetalRemediation.Status.Phase == infrav1.PhaseDeleting &&
-							isPresentAndFalseWithReasonV2(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
+							isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
 					}, timeout).Should(BeTrue())
 				})
 			})
@@ -416,7 +416,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						return false
 					}
 
-					return isPresentAndFalseWithReasonV2(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
+					return isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
 				}, timeout).Should(BeTrue())
 			})
 		})

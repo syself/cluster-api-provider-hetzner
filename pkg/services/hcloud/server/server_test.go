@@ -101,11 +101,9 @@ var _ = DescribeTable("createLabels",
 
 		service := Service{
 			scope: &scope.MachineScope{
-				HCloudMachine: &hcloudMachine,
-				Machine:       &capiMachine,
-				ClusterScope: scope.ClusterScope{
-					HetznerCluster: &hetznerCluster,
-				},
+				HCloudMachine:    &hcloudMachine,
+				Machine:          &capiMachine,
+				HetznerCluster:   &hetznerCluster,
 				SSHClientFactory: testEnv.HCloudSSHClientFactory,
 			},
 		}
@@ -568,7 +566,7 @@ var _ = Describe("getSSHKeys", func() {
 
 	BeforeEach(func() {
 		hcloudClient = mocks.NewClient(GinkgoT())
-		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
+		machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
 			Client:       testEnv.GetClient(),
 			APIReader:    testEnv.GetAPIReader(),
 			HCloudClient: hcloudClient,
@@ -596,6 +594,13 @@ var _ = Describe("getSSHKeys", func() {
 				},
 			},
 
+			HCloudMachine: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-machine",
+					Namespace: "default",
+				},
+			},
+
 			HetznerSecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "secretname",
@@ -605,20 +610,18 @@ var _ = Describe("getSSHKeys", func() {
 					"hcloud-ssh-key-name": []byte("sshKey1"),
 				},
 			},
+			Machine: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-machine",
+					Namespace: "default",
+				},
+			},
+			SSHClientFactory: testEnv.HCloudSSHClientFactory,
 		})
 		Expect(err).To(BeNil())
 
 		service = &Service{
-			scope: &scope.MachineScope{
-				ClusterScope: *clusterScope,
-				HCloudMachine: &infrav1.HCloudMachine{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "my-machine",
-						Namespace: "default",
-					},
-				},
-				SSHClientFactory: testEnv.HCloudSSHClientFactory,
-			},
+			scope: machineScope,
 		}
 	})
 
@@ -846,57 +849,48 @@ var _ = Describe("Reconcile", func() {
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "server-reconcile")
 		Expect(err).To(BeNil())
 
-		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-			Client:       testEnv.GetClient(),
-			APIReader:    testEnv.GetAPIReader(),
-			HCloudClient: hcloudClient,
-			Logger:       GinkgoLogr,
-
-			Cluster: &clusterv1.Cluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "clustername",
-					Namespace: testNs.Name,
-				},
+		cluster := &clusterv1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "clustername",
+				Namespace: testNs.Name,
 			},
+		}
 
-			HetznerCluster: &infrav1.HetznerCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "clustername",
-					Namespace: testNs.Name,
-				},
-				Spec: infrav1.HetznerClusterSpec{
-					HetznerSecret: infrav1.HetznerSecretRef{
-						Name: "secretname",
-						Key: infrav1.HetznerSecretKeyRef{
-							SSHKey: "hcloud-ssh-key-name",
-						},
+		hetznerCluster := &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "clustername",
+				Namespace: testNs.Name,
+			},
+			Spec: infrav1.HetznerClusterSpec{
+				HetznerSecret: infrav1.HetznerSecretRef{
+					Name: "secretname",
+					Key: infrav1.HetznerSecretKeyRef{
+						SSHKey: "hcloud-ssh-key-name",
 					},
-					SSHKeys: infrav1.HetznerSSHKeys{
-						HCloud: []infrav1.SSHKey{},
-						RobotRescueSecretRef: infrav1.SSHSecretRef{
-							Name: "rescue-ssh-secret",
-							Key: infrav1.SSHSecretKeyRef{
-								Name:       "sshkey-name",
-								PublicKey:  "public-key",
-								PrivateKey: "private-key",
-							},
+				},
+				SSHKeys: infrav1.HetznerSSHKeys{
+					HCloud: []infrav1.SSHKey{},
+					RobotRescueSecretRef: infrav1.SSHSecretRef{
+						Name: "rescue-ssh-secret",
+						Key: infrav1.SSHSecretKeyRef{
+							Name:       "sshkey-name",
+							PublicKey:  "public-key",
+							PrivateKey: "private-key",
 						},
 					},
 				},
 			},
+		}
 
-			HetznerSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "secretname",
-					Namespace: testNs.Name,
-				},
-				Data: map[string][]byte{
-					"hcloud-ssh-key-name": []byte("sshKey1"),
-				},
+		hetznerSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "secretname",
+				Namespace: testNs.Name,
 			},
-		})
-
-		Expect(err).To(BeNil())
+			Data: map[string][]byte{
+				"hcloud-ssh-key-name": []byte("sshKey1"),
+			},
+		}
 
 		err = testEnv.Create(ctx, helpers.GetDefaultSSHSecret("rescue-ssh-secret", testNs.Name))
 		Expect(err).To(BeNil())
@@ -950,14 +944,21 @@ var _ = Describe("Reconcile", func() {
 		err = controllerutil.SetOwnerReference(capiMachine, hcloudMachine, testEnv.Scheme())
 		Expect(err).ShouldNot(HaveOccurred())
 
-		service = &Service{
-			scope: &scope.MachineScope{
-				ClusterScope:     *clusterScope,
-				Machine:          capiMachine,
-				HCloudMachine:    hcloudMachine,
-				SSHClientFactory: testEnv.HCloudSSHClientFactory,
-			},
-		}
+		machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
+			Client:           testEnv.GetClient(),
+			APIReader:        testEnv.GetAPIReader(),
+			HCloudClient:     hcloudClient,
+			Logger:           GinkgoLogr,
+			Cluster:          cluster,
+			HetznerCluster:   hetznerCluster,
+			HetznerSecret:    hetznerSecret,
+			Machine:          capiMachine,
+			HCloudMachine:    hcloudMachine,
+			SSHClientFactory: testEnv.HCloudSSHClientFactory,
+		})
+		Expect(err).To(BeNil())
+
+		service = &Service{scope: machineScope}
 		service.scope.Client = testEnv.Client
 
 		Eventually(func() error {
@@ -1429,6 +1430,61 @@ var _ = Describe("Reconcile", func() {
 		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
 		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
+	})
+
+	It("keeps a ready machine in Ready state when GetServer returns a rate-limit error", func() {
+		// The reconcilement for a provisioned HCloudMachine with ready state should be a no-op
+		// when it encounters a rate-limit error.
+		By("setting the bootstrap data")
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		By("setting the ProviderID on the HCloudMachine and marking it as fully provisioned")
+		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://1234567")
+		err = testEnv.Update(ctx, service.scope.HCloudMachine)
+		Expect(err).To(BeNil())
+		service.scope.HCloudMachine.Status.Ready = true
+		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateOperatingSystemRunning
+		// Setting HCloudTokenAvailableV1Beta2Condition here so the summary condition can be computed.
+		v1beta2conditions.Set(service.scope.HCloudMachine, metav1.Condition{
+			Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
+		})
+
+		By("making GetServer return a rate-limit error")
+		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(nil, hcloud.Error{
+			Code:    hcloud.ErrorCodeRateLimitExceeded,
+			Message: "rate limit exceeded for ip 48.49.48.49",
+		}).Once()
+
+		By("calling reconcile")
+		_, err = service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("ensuring the machine remains Ready with its BootState intact")
+		Expect(service.scope.HCloudMachine.Status.Ready).To(BeTrue())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
+
+		By("ensuring the summary conditions are True, meaning no error condition was set")
+		// The summary condition is actually set by scope.Close() function which the controller
+		// calls after service.Reconcile() returns. In tests we call service.Reconcile() directly,
+		// so scope.Close() never runs and the summary is never computed. That's why we call the set summary
+		// functions manually.
+		v1beta1conditions.SetSummary(service.scope.HCloudMachine)
+		Expect(v1beta1conditions.IsTrue(service.scope.HCloudMachine, clusterv1beta1.ReadyCondition)).To(BeTrue())
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, clusterv1beta1.ReadyV1Beta2Condition, metav1.ConditionTrue, clusterv1beta1.ReadyV1Beta2Reason)).To(BeTrue())
 	})
 
 	It("does not create a server when the image-url-command is not available on disk", func() {

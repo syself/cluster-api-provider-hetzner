@@ -139,7 +139,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 	// if server has never been remediated, then do that now
 	if s.scope.HCloudRemediation.Status.LastRemediated == nil {
 		if err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "RebootServer")
+			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HCloudMachine, err, "RebootServer")
 			record.Warn(s.scope.HCloudRemediation, "FailedRebootServer", err.Error())
 			return reconcile.Result{}, fmt.Errorf("failed to reboot server %s with ID %d: %w", server.Name, server.ID, err)
 		}
@@ -167,7 +167,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 
 	// remediate now
 	if err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "RebootServer")
+		hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HCloudMachine, err, "RebootServer")
 		record.Warn(s.scope.HCloudRemediation, "FailedRebootServer", err.Error())
 		return reconcile.Result{}, fmt.Errorf("failed to reboot server %s with ID %d: %w", server.Name, server.ID, err)
 	}
@@ -219,7 +219,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 
 	server, err := s.scope.HCloudClient.GetServer(ctx, serverID)
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "GetServer")
+		hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HCloudMachine, err, "GetServer")
 		return nil, fmt.Errorf("failed to get server: %w", err)
 	}
 
