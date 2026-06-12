@@ -106,9 +106,7 @@ func NewControllerResetter(
 	hcloudRemediationReconciler *HCloudRemediationReconciler,
 	hetznerBareMetalRemediationReconciler *HetznerBareMetalRemediationReconciler,
 ) *ControllerResetter {
-	// Create the stable SSH factory once and wire it into the reconcilers that need it.
-	// ResetAndInitNamespace will call SetClients on every test reset without touching
-	// the factory pointer itself, so in-flight goroutines always read through a valid factory.
+	// One factory shared across resets so in-flight goroutines always hold a valid pointer.
 	f := &mocks.SSHFactory{}
 	hcloudMachineReconciler.SSHClientFactory = f
 	hetznerBareMetalHostReconciler.SSHClientFactory = f
