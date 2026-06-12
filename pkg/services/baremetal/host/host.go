@@ -720,7 +720,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
 			Message: infrav1.ErrorMessageMissingRootDeviceHints,
 		})
-		record.Warn(s.scope.HetznerBareMetalHost, "RootDeviceHintsValidationFailed", infrav1.ErrorMessageMissingRootDeviceHints)
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason, infrav1.ErrorMessageMissingRootDeviceHints)
 		return s.recordActionFailure(infrav1.RegistrationError, infrav1.ErrorMessageMissingRootDeviceHints)
 	}
 	errMsg := s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.IsValidWithMessage()
@@ -739,7 +739,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
 			Message: errMsg,
 		})
-		record.Warn(s.scope.HetznerBareMetalHost, "RootDeviceHintsValidationFailed", errMsg)
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason, errMsg)
 		return s.recordActionFailure(infrav1.RegistrationError, errMsg)
 	}
 
@@ -759,7 +759,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
 			Message: err.Error(),
 		})
-		record.Warn(s.scope.HetznerBareMetalHost, "RootDeviceHintsValidationFailed", err.Error())
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason, err.Error())
 		return s.recordActionFailure(infrav1.RegistrationError, err.Error())
 	}
 
@@ -793,7 +793,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
 			Message: msg,
 		})
-		record.Warn(s.scope.HetznerBareMetalHost, "RootDeviceHintsValidationFailed", msg)
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason, msg)
 		return s.recordActionFailure(infrav1.FatalError, msg)
 	}
 
@@ -1778,7 +1778,7 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 			Reason:  infrav1.HetznerBareMetalHostImageSpecInvalidV1Beta2Reason,
 			Message: errorMessage,
 		})
-		record.Warn(s.scope.HetznerBareMetalHost, "infrav1.HetznerBareMetalHostImageSpecInvalidV1Beta2Reason", errorMessage)
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostImageSpecInvalidV1Beta2Reason, errorMessage)
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, errorMessage)
 	}
 	if needsDownload {
@@ -2253,7 +2253,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		if rebootDesired {
 			s.scope.Error(errors.New(msg), "")
 			s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
-			record.Warn(s.scope.HetznerBareMetalHost, "EmptyNodeRef", msg)
+			record.Warn(s.scope.HetznerBareMetalHost, "NodeRefEmpty", msg)
 			return actionStop{}
 		}
 
@@ -2305,7 +2305,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// When no reboot is requested the boot ID is non-critical; requeue and wait for kubelet to populate it.
 		if rebootDesired {
 			s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
-			record.Warn(s.scope.HetznerBareMetalHost, "EmptyBootID", msg)
+			record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostBootIDEmptyV1Beta2Reason, msg)
 			return actionStop{}
 		}
 
