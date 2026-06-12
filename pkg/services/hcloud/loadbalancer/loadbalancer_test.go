@@ -17,20 +17,17 @@ limitations under the License.
 package loadbalancer
 
 import (
-	"errors"
-
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 var _ = Describe("Loadbalancer", func() {
 	Context("hcloud cluster has network attached", func() {
-		var sts *infrav1.LoadBalancerStatus
+		var sts *infrav2.LoadBalancerStatus
 		BeforeEach(func() {
 			sts = statusFromHCloudLB(lb, true, logr.Discard())
 		})
@@ -50,7 +47,7 @@ var _ = Describe("Loadbalancer", func() {
 		})
 	})
 	Context("hcloud cluster has no network attached", func() {
-		var sts *infrav1.LoadBalancerStatus
+		var sts *infrav2.LoadBalancerStatus
 		BeforeEach(func() {
 			sts = statusFromHCloudLB(lb, false, logr.Discard())
 		})
@@ -72,7 +69,7 @@ var _ = Describe("Loadbalancer", func() {
 })
 
 var _ = Describe("createOptsFromSpec", func() {
-	var hetznerCluster *infrav1.HetznerCluster
+	var hetznerCluster *infrav2.HetznerCluster
 	var wantCreateOpts hcloud.LoadBalancerCreateOpts
 	BeforeEach(func() {
 		lbType := "lb11"
@@ -81,19 +78,19 @@ var _ = Describe("createOptsFromSpec", func() {
 		lbPort := 6443
 		var networkID int64 = 42
 
-		hetznerCluster = &infrav1.HetznerCluster{
-			Spec: infrav1.HetznerClusterSpec{
-				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+		hetznerCluster = &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
 					Name:      nil,
-					Algorithm: infrav1.LoadBalancerAlgorithmTypeLeastConnections,
+					Algorithm: infrav2.LoadBalancerAlgorithmTypeLeastConnections,
 					Type:      lbType,
-					Region:    infrav1.Region(lbRegion),
+					Region:    infrav2.Region(lbRegion),
 					Port:      lbPort,
 				},
-				ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{Port: int32(controlPlaneEndpointPort)},
+				ControlPlaneEndpoint: infrav2.APIEndpoint{Port: int32(controlPlaneEndpointPort)},
 			},
-			Status: infrav1.HetznerClusterStatus{
-				Network: &infrav1.NetworkStatus{ID: networkID},
+			Status: infrav2.HetznerClusterStatus{
+				Network: &infrav2.NetworkStatus{ID: networkID},
 			},
 		}
 		hetznerCluster.Name = "hetzner-cluster"
@@ -107,7 +104,7 @@ var _ = Describe("createOptsFromSpec", func() {
 			Algorithm:        &hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeLeastConnections},
 			Location:         &hcloud.Location{Name: lbRegion},
 			Network:          &hcloud.Network{ID: networkID},
-			Labels:           map[string]string{hetznerCluster.ClusterTagKey(): string(infrav1.ResourceLifecycleOwned)},
+			Labels:           map[string]string{hetznerCluster.ClusterTagKey(): string(infrav2.ResourceLifecycleOwned)},
 			PublicInterface:  &publicInterface,
 			Services: []hcloud.LoadBalancerCreateOptsService{
 				{
@@ -124,8 +121,7 @@ var _ = Describe("createOptsFromSpec", func() {
 		hetznerCluster.Status.Network = nil
 		wantCreateOpts.Network = nil
 
-		createOpts, err := createOptsFromSpec(hetznerCluster)
-		Expect(err).To(BeNil())
+		createOpts := createOptsFromSpec(hetznerCluster)
 
 		// ignore random name
 		createOpts.Name = ""
@@ -134,8 +130,7 @@ var _ = Describe("createOptsFromSpec", func() {
 	})
 
 	It("creates specs for cluster with network", func() {
-		createOpts, err := createOptsFromSpec(hetznerCluster)
-		Expect(err).To(BeNil())
+		createOpts := createOptsFromSpec(hetznerCluster)
 
 		// ignore random name
 		createOpts.Name = ""
@@ -146,8 +141,7 @@ var _ = Describe("createOptsFromSpec", func() {
 	It("creates specs for cluster without load balancer name set", func() {
 		hetznerCluster.Spec.ControlPlaneLoadBalancer.Name = nil
 
-		createOpts, err := createOptsFromSpec(hetznerCluster)
-		Expect(err).To(BeNil())
+		createOpts := createOptsFromSpec(hetznerCluster)
 
 		// should generate correct name
 		Expect(createOpts.Name).To(HavePrefix("hetzner-cluster-kube-apiserver-"))
@@ -158,10 +152,11 @@ var _ = Describe("createOptsFromSpec", func() {
 		Expect(createOpts).To(Equal(wantCreateOpts))
 	})
 
-	It("returns ErrControlPlaneEndpointNotSet", func() {
-		hetznerCluster.Spec.ControlPlaneEndpoint = nil
+	It("uses a zero listen port until the control plane endpoint is filled in", func() {
+		hetznerCluster.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{}
 
-		_, err := createOptsFromSpec(hetznerCluster)
-		Expect(errors.Is(err, ErrControlPlaneEndpointNotSet)).To(BeTrue())
+		createOpts := createOptsFromSpec(hetznerCluster)
+
+		Expect(*createOpts.Services[0].ListenPort).To(Equal(0))
 	})
 })
