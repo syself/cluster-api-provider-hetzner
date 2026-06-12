@@ -79,7 +79,15 @@ func TestControllers(t *testing.T) {
 }
 
 type ControllerResetter struct {
-	debug                                 bool
+	debug bool
+	// reconcileGate serializes mock-client setup against in-flight reconciles.
+	// ResetAndInitNamespace holds the write lock while swapping clients/mocks.
+	// HetznerBareMetalHostReconciler and HCloudMachineReconciler hold the read lock during each
+	// Reconcile call via their ReconcileGate pointer. This ensures no Reconcile is active while
+	// clients/mocks are being swapped between tests. Without this, tests can fail randomly
+	// because an in-flight Reconcile may observe inconsistent state during the swap.
+	reconcileGate                         sync.RWMutex
+	baremetalSSHClientFactory             *mocks.SSHFactory
 	HetznerClusterReconciler              *HetznerClusterReconciler
 	HCloudMachineReconciler               *HCloudMachineReconciler
 	HCloudMachineTemplateReconciler       *HCloudMachineTemplateReconciler
@@ -98,7 +106,13 @@ func NewControllerResetter(
 	hcloudRemediationReconciler *HCloudRemediationReconciler,
 	hetznerBareMetalRemediationReconciler *HetznerBareMetalRemediationReconciler,
 ) *ControllerResetter {
-	return &ControllerResetter{
+	// One factory shared across resets so in-flight goroutines always hold a valid pointer.
+	f := &mocks.SSHFactory{}
+	hcloudMachineReconciler.SSHClientFactory = f
+	hetznerBareMetalHostReconciler.SSHClientFactory = f
+
+	r := &ControllerResetter{
+		baremetalSSHClientFactory:             f,
 		HetznerClusterReconciler:              hetznerClusterReconciler,
 		HCloudMachineReconciler:               hcloudMachineReconciler,
 		HCloudMachineTemplateReconciler:       hcloudMachineTemplateReconciler,
@@ -108,13 +122,27 @@ func NewControllerResetter(
 		HetznerBareMetalRemediationReconciler: hetznerBareMetalRemediationReconciler,
 		debug:                                 os.Getenv("DEBUG") != "",
 	}
+
+	// The reconcileGate ensures that mock setup is serialized with in-flight reconciles. The
+	// mock setup waits via a write-lock until all reconciles are finished (by releasing the
+	// read-lock).
+	hetznerBareMetalHostReconciler.ReconcileGate = &r.reconcileGate
+	hcloudMachineReconciler.ReconcileGate = &r.reconcileGate
+
+	return r
 }
 
 var _ helpers.Resetter = &ControllerResetter{}
 
 // ResetAndInitNamespace implements Resetter.ResetAndInitNamespace(). Documentation is on the
 // interface.
-func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
+func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) func() {
+	// Acquire the write lock. This blocks until all in-flight Reconcile calls (which hold
+	// the read lock) finish, so no reconcile from the previous test is running when we
+	// swap the mock clients. The returned func releases it once all On() expectations
+	// have been registered by the caller's BeforeEach (via defer).
+	r.reconcileGate.Lock()
+
 	rescueSSHClient := &sshmock.Client{}
 	// Register Testify helpers so failed expectations are reported against this test instance.
 	rescueSSHClient.Test(t)
@@ -134,12 +162,9 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	hcloudClientFactory := fakehcloudclient.NewHCloudClientFactory()
 
 	robotClientFactory := mocks.NewRobotFactory(robotClient)
-	baremetalSSHClientFactory := mocks.NewSSHFactory(rescueSSHClient,
-		osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
 
 	// Reset clients used by the test code
-	testEnv.BaremetalSSHClientFactory = mocks.NewSSHFactory(rescueSSHClient,
-		osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
+	testEnv.BaremetalSSHClientFactory = r.baremetalSSHClientFactory
 	testEnv.HCloudSSHClientFactory = mockedsshclient.NewSSHFactory(hcloudSSHClient)
 	testEnv.RescueSSHClient = rescueSSHClient
 	testEnv.OSSSHClientAfterInstallImage = osSSHClientAfterInstallImage
@@ -153,14 +178,12 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	r.HetznerClusterReconciler.Namespace = namespace
 
 	r.HCloudMachineReconciler.HCloudClientFactory = hcloudClientFactory
-	r.HCloudMachineReconciler.SSHClientFactory = baremetalSSHClientFactory
 	r.HCloudMachineReconciler.Namespace = namespace
 
 	r.HCloudMachineTemplateReconciler.HCloudClientFactory = hcloudClientFactory
 	r.HCloudMachineTemplateReconciler.Namespace = namespace
 
 	r.HetznerBareMetalHostReconciler.RobotClientFactory = robotClientFactory
-	r.HetznerBareMetalHostReconciler.SSHClientFactory = baremetalSSHClientFactory
 	r.HetznerBareMetalHostReconciler.Namespace = namespace
 	r.HetznerBareMetalHostReconciler.WorkloadClusterClientFactory = newFakeWorkloadClusterClientFactory()
 
@@ -174,6 +197,11 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 
 	if r.debug {
 		testEnv.GetLogger().Info("Starting test: ===> ===> ===> ===> ===> ===> ===> " + t.Name())
+	}
+
+	return func() {
+		r.baremetalSSHClientFactory.SetClients(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
+		r.reconcileGate.Unlock()
 	}
 }
 

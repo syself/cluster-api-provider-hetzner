@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -69,6 +70,12 @@ type HCloudMachineReconciler struct {
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
+
+	// ReconcileGate, when non-nil, is held as a read lock for the full duration of each Reconcile
+	// call. Tests set this to a shared write lock that they acquire during mock setup, so no
+	// reconcile can observe an incompletely configured mock. Before setting up mocks (in tests
+	// only), we want to ensure that all Reconcile() calls are finished.
+	ReconcileGate *sync.RWMutex
 }
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
@@ -80,6 +87,11 @@ type HCloudMachineReconciler struct {
 
 // Reconcile manages the lifecycle of an HCloud machine object.
 func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
+	if r.ReconcileGate != nil {
+		r.ReconcileGate.RLock()
+		defer r.ReconcileGate.RUnlock()
+	}
+
 	log := ctrl.LoggerFrom(ctx)
 
 	if r.Namespace != "" && req.Namespace != r.Namespace {
