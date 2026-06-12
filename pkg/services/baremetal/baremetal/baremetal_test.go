@@ -1003,7 +1003,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 			},
 		}
 
-		// It should fallback to adding the load balancer target via Hetzner API.
+		// It should add the load balancer target via Hetzner API.
 		// But it should not call the Hetzner API to list load balancers, instead it should utilize
 		// the HetznerCluster.Status to find out which targets should be added to the load balancer.
 		hcloudClient.On(
