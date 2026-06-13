@@ -40,6 +40,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -925,6 +926,8 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		Expect(requeueErr.GetRequeueAfter()).To(Equal(requeueAfter))
 		Expect(v1beta1conditions.IsFalse(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
 		Expect(v1beta1conditions.GetReason(bareMetalMachine, infrav1.ServerAvailableCondition)).To(Equal("WaitingForAPIServer"))
+		Expect(v1beta2conditions.IsFalse(bareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition)).To(BeTrue())
+		Expect(v1beta2conditions.Get(bareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition).Reason).To(Equal(infrav1.HetznerBareMetalMachineWaitingForAPIServerV1Beta2Reason))
 		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "AddIPTargetToLoadBalancer", mock.Anything, mock.Anything, mock.Anything)).To(BeTrue())
 	})
 
@@ -1094,6 +1097,8 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
 		Expect(*bareMetalMachine.Spec.ProviderID).NotTo(BeEmpty())
 		Expect(isPresentAndFalseWithReason(bareMetalMachine, infrav1.ServerAvailableCondition, "WaitingForAPIServer")).To(BeTrue())
+		Expect(v1beta2conditions.IsFalse(bareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition)).To(BeTrue())
+		Expect(v1beta2conditions.Get(bareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition).Reason).To(Equal(infrav1.HetznerBareMetalMachineWaitingForAPIServerV1Beta2Reason))
 	})
 
 	It("does not requeue on the happy path and marks ServerAvailableCondition=True", func() {
@@ -1115,6 +1120,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		Expect(bareMetalMachine.Status.Ready).To(BeTrue())
 		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
 		Expect(v1beta1conditions.IsTrue(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+		Expect(v1beta2conditions.IsTrue(bareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition)).To(BeTrue())
 	})
 
 	It("marks ServerAvailableCondition=True for worker nodes without touching the load balancer", func() {
@@ -1130,6 +1136,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		Expect(bareMetalMachine.Status.Ready).To(BeTrue())
 		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
 		Expect(v1beta1conditions.IsTrue(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+		Expect(v1beta2conditions.IsTrue(bareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition)).To(BeTrue())
 	})
 })
 

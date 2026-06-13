@@ -178,6 +178,11 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// Worker nodes have no further blocking step, so mark the condition true here.
 	if !s.scope.IsControlPlane() {
 		v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
+		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+			Type:   infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Reason,
+		})
 		return res, nil
 	}
 
@@ -190,6 +195,11 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	}
 
 	v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
+	v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+		Type:   infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Reason,
+	})
 	return res, nil
 }
 
@@ -663,6 +673,12 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 			clusterv1beta1.ConditionSeverityInfo,
 			"reconcile LoadBalancer: apiserver pod not healthy yet.",
 		)
+		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalMachineWaitingForAPIServerV1Beta2Reason,
+			Message: "reconcile LoadBalancer: apiserver pod not healthy yet.",
+		})
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 	}
 

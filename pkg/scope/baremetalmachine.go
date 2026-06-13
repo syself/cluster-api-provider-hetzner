@@ -144,6 +144,7 @@ func bareMetalMachinePatchOpts() []v1beta1patch.Option {
 			infrav1.HetznerAPIReachableCondition,
 			infrav1.HostAssociateSucceededCondition,
 			infrav1.HostReadyCondition,
+			infrav1.ServerAvailableCondition,
 		}},
 		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
 			clusterv1beta1.ReadyV1Beta2Condition,
@@ -152,6 +153,7 @@ func bareMetalMachinePatchOpts() []v1beta1patch.Option {
 			infrav1.HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
 			infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
 			infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
+			infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
 		}},
 	}
 }
