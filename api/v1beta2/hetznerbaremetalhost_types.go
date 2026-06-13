@@ -21,10 +21,13 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/cluster-api/util/record"
 )
 
 const (
@@ -102,37 +105,37 @@ type Raid struct {
 	WWN []string `json:"wwn,omitempty"`
 }
 
-// ErrorType indicates the class of problem that has caused the Host resource
-// to enter an error state.
-type ErrorType string
+// OperationalState indicates the host's current operational state, which may be a transient state the
+// controller is driving (a triggered reboot, a connection retry) or a genuine failure.
+type OperationalState string
 
 const (
-	// ErrorTypeSSHRebootTriggered is an error condition that triggers the SSH reboot.
-	ErrorTypeSSHRebootTriggered ErrorType = "ssh reboot triggered"
-	// ErrorTypeSoftwareRebootTriggered is an error condition that triggers the software reboot.
-	ErrorTypeSoftwareRebootTriggered ErrorType = "software reboot triggered"
-	// ErrorTypeHardwareRebootTriggered is an error condition that triggers the hardware reboot.
-	ErrorTypeHardwareRebootTriggered ErrorType = "hardware reboot triggered"
+	// OperationalStateSSHRebootTriggered indicates that a reboot via SSH has been triggered.
+	OperationalStateSSHRebootTriggered OperationalState = "ssh reboot triggered"
+	// OperationalStateSoftwareRebootTriggered indicates that a software (API) reboot has been triggered.
+	OperationalStateSoftwareRebootTriggered OperationalState = "software reboot triggered"
+	// OperationalStateHardwareRebootTriggered indicates that a hardware reboot has been triggered.
+	OperationalStateHardwareRebootTriggered OperationalState = "hardware reboot triggered"
 
-	// ErrorTypeConnectionError ErrorType is an error condition indicating that the SSH command returned a connection refused error.
-	ErrorTypeConnectionError ErrorType = "connection refused error of SSH command"
+	// OperationalStateConnectionError indicates a transient connection refused error from the SSH command, which the controller retries.
+	OperationalStateConnectionError OperationalState = "connection refused error of SSH command"
 
-	// RegistrationError is an error condition occurring when the
+	// OperationalStateRegistrationError is an error condition occurring when the
 	// controller is unable to retrieve information on a specific server via robot.
-	RegistrationError ErrorType = "registration error"
+	OperationalStateRegistrationError OperationalState = "registration error"
 
-	// PreparationError is an error condition occurring when something fails while preparing host reconciliation.
-	PreparationError ErrorType = "preparation error"
+	// OperationalStatePreparationError is an error condition occurring when something fails while preparing host reconciliation.
+	OperationalStatePreparationError OperationalState = "preparation error"
 
-	// ProvisioningError is an error condition occurring when the controller
+	// OperationalStateProvisioningError is an error condition occurring when the controller
 	// fails to provision or deprovision the Host.
-	ProvisioningError ErrorType = "provisioning error"
+	OperationalStateProvisioningError OperationalState = "provisioning error"
 
-	// FatalError is a fatal error that triggers a failureMessage in the bm machine.
-	FatalError ErrorType = "fatal error"
+	// OperationalStateFatalError is a fatal error that triggers a failureMessage in the bm machine.
+	OperationalStateFatalError OperationalState = "fatal error"
 
-	// PermanentError is like a fatal error but stays on the host machine.
-	PermanentError ErrorType = "permanent error"
+	// OperationalStatePermanentError is like a fatal error but stays on the host machine.
+	OperationalStatePermanentError OperationalState = "permanent error"
 )
 
 const (
@@ -291,9 +294,10 @@ type HetznerBareMetalHostStatus struct {
 	// +optional
 	SSHStatus SSHStatus `json:"sshStatus,omitempty"`
 
-	// errorType indicates the type of failure encountered.
+	// operationalState indicates the host's current operational state, which may be a transient state the
+	// controller is driving (a triggered reboot, a connection retry) or a genuine failure.
 	// +optional
-	ErrorType ErrorType `json:"errorType,omitempty"`
+	OperationalState OperationalState `json:"operationalState,omitempty"`
 
 	// provisioningState is the current state tracked by the provisioner.
 	// +optional
@@ -355,7 +359,7 @@ func (sts HetznerBareMetalHostStatus) GetIPAddress() string {
 
 // HasFatalError returns true, if the corresponding capi machine should get deleted.
 func (sts HetznerBareMetalHostStatus) HasFatalError() bool {
-	return sts.ErrorType == FatalError || sts.ErrorType == PermanentError
+	return sts.OperationalState == OperationalStateFatalError || sts.OperationalState == OperationalStatePermanentError
 }
 
 // GetConditions returns the conditions for the HetznerBareMetalHost object.
@@ -385,6 +389,78 @@ func (host *HetznerBareMetalHost) SetV1Beta1Conditions(conditions clusterv1.Cond
 		host.Status.Deprecated.V1Beta1 = &HetznerBareMetalHostV1Beta1DeprecatedStatus{}
 	}
 	host.Status.Deprecated.V1Beta1.Conditions = conditions
+}
+
+// HetznerBareMetalHostSummaryOpts returns the summary options for a HetznerBareMetalHost.
+// It is the single source of truth for which conditions contribute to the Ready summary,
+// used both by the scope and by early-exit error paths that bypass the scope.
+//
+// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
+// when multiple conditions are unhealthy, the summary lists all of them in priority
+// order (highest-priority first). Credentials and provisioning problems must outrank
+// Deleting, since deletion may itself need credentials to succeed.
+//  1. RobotCredentialsAvailable - invalid Robot credentials block every Robot API call.
+//  2. RobotRateLimitExceeded    - rate-limit issues (negative polarity).
+//  3. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
+//  4. RootDeviceHintsValidated  - device hints must validate before provisioning.
+//  5. ProvisionSucceeded        - provisioning state (rescue -> image -> OS).
+//  6. RebootSucceeded           - post-provision reboot via annotation.
+//  7. NodeBootIDRetrieved       - workload-cluster Node check after provisioning.
+//  8. Deleting                  - deletion state (negative polarity).
+func HetznerBareMetalHostSummaryOpts() []conditions.SummaryOption {
+	return []conditions.SummaryOption{
+		// ForConditionTypes lists every condition that contributes to Ready, in
+		// priority order. When multiple conditions are unhealthy the summary
+		// surfaces them in this order, so the most important issue is listed first.
+		conditions.ForConditionTypes{
+			HetznerBareMetalHostRobotCredentialsAvailableCondition,
+			HetznerBareMetalHostRobotRateLimitExceededCondition,
+			HetznerBareMetalHostSSHKeysAvailableCondition,
+			HetznerBareMetalHostRootDeviceHintsValidatedCondition,
+			HetznerBareMetalHostProvisionSucceededCondition,
+			HetznerBareMetalHostRebootSucceededCondition,
+			HetznerBareMetalHostNodeBootIDRetrievedCondition,
+			HetznerBareMetalHostDeletingCondition,
+		},
+		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
+		// listed condition as Unknown. Several reconcile paths exit before every
+		// condition has been set (for example, before Robot credentials are
+		// checked or before the host has been provisioned), and we don't want
+		// those early exits to flip Ready to Unknown.
+		conditions.IgnoreTypesIfMissing{
+			HetznerBareMetalHostSSHKeysAvailableCondition,
+			HetznerBareMetalHostRootDeviceHintsValidatedCondition,
+			HetznerBareMetalHostProvisionSucceededCondition,
+			HetznerBareMetalHostRebootSucceededCondition,
+			HetznerBareMetalHostNodeBootIDRetrievedCondition,
+			HetznerBareMetalHostDeletingCondition,
+			HetznerBareMetalHostRobotRateLimitExceededCondition,
+		},
+		// CustomMergeStrategy is used only to override the merge reasons, so
+		// the Ready summary uses CAPI's standard Ready reasons (Ready /
+		// NotReady / ReadyUnknown) instead of the generic merge defaults
+		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
+		conditions.CustomMergeStrategy{
+			MergeStrategy: conditions.DefaultMergeStrategy(
+				conditions.GetPriorityFunc(conditions.GetDefaultMergePriorityFunc(
+					// conditions with negative polarity
+					HetznerBareMetalHostRobotRateLimitExceededCondition,
+					HetznerBareMetalHostDeletingCondition,
+				)),
+				conditions.ComputeReasonFunc(conditions.GetDefaultComputeMergeReasonFunc(
+					clusterv1.NotReadyReason,
+					clusterv1.ReadyUnknownReason,
+					clusterv1.ReadyReason,
+				)),
+			),
+		},
+	}
 }
 
 // SSHStatus contains all status information about SSHStatus.
@@ -601,6 +677,90 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 		}
 	}
 	return false
+}
+
+// SetOperationalState records the host's current operational state on status.operationalState and surfaces it
+// on the ActionCompleted condition with a matching status, reason, and message. This covers both the transient
+// states the controller is driving (a triggered reboot, a connection retry), which report status True, and
+// genuine failures, which report status False. The condition is never removed here; only ClearOperationalState
+// removes it, once the state is resolved.
+func (host *HetznerBareMetalHost) SetOperationalState(operationalState OperationalState, message string) {
+	host.Status.OperationalState = operationalState
+
+	if operationalState == OperationalStatePermanentError {
+		if host.Annotations == nil {
+			host.Annotations = make(map[string]string, 1)
+		}
+		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
+		record.Warnf(host, "PermanentErrorSet", "Remove annotation %q, if you want the controller to use the hbmh again.",
+			PermanentErrorAnnotation)
+	}
+	conditions.Set(host, metav1.Condition{
+		Type:    HetznerBareMetalHostActionCompletedCondition,
+		Status:  statusForOperationalState(operationalState),
+		Reason:  reasonForOperationalState(operationalState),
+		Message: message,
+	})
+}
+
+// ClearOperationalState clears the operational state from the status and deletes the ActionCompleted
+// condition. The condition is deleted only here, and not in SetOperationalState, because reaching this
+// point means the previous stage completed successfully, so there is no operational state left to surface.
+func (host *HetznerBareMetalHost) ClearOperationalState() {
+	host.Status.OperationalState = ""
+	conditions.Delete(host, HetznerBareMetalHostActionCompletedCondition)
+}
+
+// ErrorMessage returns the error text of the host. It is carried on the ActionCompleted condition;
+// it used to live in the dropped errorMessage field.
+func (host *HetznerBareMetalHost) ErrorMessage() string {
+	condition := conditions.Get(host, HetznerBareMetalHostActionCompletedCondition)
+	if condition == nil {
+		return ""
+	}
+	return condition.Message
+}
+
+// reasonForOperationalState maps an OperationalState to the reason used on the ActionCompleted
+// condition. It covers both the transient states (triggered reboots, a connection retry) and the genuine
+// failures; an unrecognized type falls back to UnknownError so a state is never silently swallowed.
+func reasonForOperationalState(errType OperationalState) string {
+	switch errType {
+	case OperationalStateSSHRebootTriggered:
+		return HetznerBareMetalHostSSHRebootTriggeredReason
+	case OperationalStateSoftwareRebootTriggered:
+		return HetznerBareMetalHostSoftwareRebootTriggeredReason
+	case OperationalStateHardwareRebootTriggered:
+		return HetznerBareMetalHostHardwareRebootTriggeredReason
+	case OperationalStateConnectionError:
+		return HetznerBareMetalHostSSHConnectionRefusedReason
+	case OperationalStateRegistrationError:
+		return HetznerBareMetalHostRegistrationErrorReason
+	case OperationalStatePreparationError:
+		return HetznerBareMetalHostPreparationErrorReason
+	case OperationalStateProvisioningError:
+		return HetznerBareMetalHostProvisioningErrorReason
+	case OperationalStateFatalError:
+		return HetznerBareMetalHostFatalErrorReason
+	case OperationalStatePermanentError:
+		return HetznerBareMetalHostPermanentErrorReason
+	}
+	return HetznerBareMetalHostUnknownErrorReason
+}
+
+// statusForOperationalState maps an OperationalState to the status used on the ActionCompleted condition.
+// The genuine failures report False; everything else reports True, including the transient states the
+// controller is driving (a triggered reboot, a connection retry) and any unrecognized state.
+func statusForOperationalState(operationalState OperationalState) metav1.ConditionStatus {
+	switch operationalState {
+	case OperationalStateRegistrationError,
+		OperationalStatePreparationError,
+		OperationalStateProvisioningError,
+		OperationalStateFatalError,
+		OperationalStatePermanentError:
+		return metav1.ConditionFalse
+	}
+	return metav1.ConditionTrue
 }
 
 // HasRebootAnnotation checks for the existence of reboot annotations and returns true if at least one exists.

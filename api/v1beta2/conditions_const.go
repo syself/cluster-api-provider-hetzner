@@ -501,10 +501,33 @@ const (
 )
 
 const (
-	// HetznerBareMetalHostActionCompletedCondition surfaces the host's current provisioning or operational
-	// action. It is present only while an action is in progress or the host is stuck (carrying the reason and
-	// message for that state) and is removed once the action clears; it has no steady-state True.
+	// HetznerBareMetalHostActionCompletedCondition surfaces the host's current operational state: either a
+	// transient state the controller is driving (a triggered reboot, a connection retry) or a genuine
+	// failure. Transient states report status True, genuine failures report status False. It carries the
+	// reason and message for that state, is present only while the host is in such a state, and is removed
+	// once the state clears.
 	HetznerBareMetalHostActionCompletedCondition = "ActionCompleted"
+
+	// HetznerBareMetalHostSSHRebootTriggeredReason indicates that a reboot via SSH has been triggered.
+	HetznerBareMetalHostSSHRebootTriggeredReason = "SSHRebootTriggered"
+	// HetznerBareMetalHostSoftwareRebootTriggeredReason indicates that a software (API) reboot has been triggered.
+	HetznerBareMetalHostSoftwareRebootTriggeredReason = "SoftwareRebootTriggered"
+	// HetznerBareMetalHostHardwareRebootTriggeredReason indicates that a hardware reboot has been triggered.
+	HetznerBareMetalHostHardwareRebootTriggeredReason = "HardwareRebootTriggered"
+
+	// HetznerBareMetalHostRegistrationErrorReason indicates an error while registering the host.
+	HetznerBareMetalHostRegistrationErrorReason = "RegistrationError"
+	// HetznerBareMetalHostPreparationErrorReason indicates an error while preparing the host.
+	HetznerBareMetalHostPreparationErrorReason = "PreparationError"
+	// HetznerBareMetalHostProvisioningErrorReason indicates an error while provisioning or deprovisioning the host.
+	HetznerBareMetalHostProvisioningErrorReason = "ProvisioningError"
+	// HetznerBareMetalHostFatalErrorReason indicates a fatal error. The consuming machine gets deleted.
+	HetznerBareMetalHostFatalErrorReason = "FatalError"
+	// HetznerBareMetalHostPermanentErrorReason indicates a permanent error that stays on the host until the
+	// permanent-error annotation is removed.
+	HetznerBareMetalHostPermanentErrorReason = "PermanentError"
+	// HetznerBareMetalHostUnknownErrorReason indicates an error of an unknown type.
+	HetznerBareMetalHostUnknownErrorReason = "UnknownError"
 )
 
 // HetznerBareMetalMachine's v1beta2 conditions.

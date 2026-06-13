@@ -270,7 +270,7 @@ func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
 	if dst.Status.IPv4 != "1.2.3.4" || dst.Status.IPv6 != "2001:db8::1" {
 		t.Fatalf("status addresses not moved to the subresource: %#v", dst.Status)
 	}
-	if dst.Status.ProvisioningState != infrav2.StateProvisioned || dst.Status.ErrorType != infrav2.FatalError {
+	if dst.Status.ProvisioningState != infrav2.StateProvisioned || dst.Status.OperationalState != infrav2.OperationalStateFatalError {
 		t.Fatalf("status fields not moved to the subresource: %#v", dst.Status)
 	}
 	if dst.Status.NodeBootID != "boot-id" {
