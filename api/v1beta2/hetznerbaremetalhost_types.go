@@ -21,10 +21,13 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/cluster-api/util/record"
 )
 
 const (
@@ -292,6 +295,7 @@ type HetznerBareMetalHostStatus struct {
 	SSHStatus SSHStatus `json:"sshStatus,omitempty"`
 
 	// errorType indicates the type of failure encountered.
+	// TODO: Refactor status.errorType in a later PR. It currently keeps the v1beta1 shape.
 	// +optional
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
@@ -385,6 +389,78 @@ func (host *HetznerBareMetalHost) SetV1Beta1Conditions(conditions clusterv1.Cond
 		host.Status.Deprecated.V1Beta1 = &HetznerBareMetalHostV1Beta1DeprecatedStatus{}
 	}
 	host.Status.Deprecated.V1Beta1.Conditions = conditions
+}
+
+// HetznerBareMetalHostSummaryOpts returns the summary options for a HetznerBareMetalHost.
+// It is the single source of truth for which conditions contribute to the Ready summary,
+// used both by the scope and by early-exit error paths that bypass the scope.
+//
+// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
+// when multiple conditions are unhealthy, the summary lists all of them in priority
+// order (highest-priority first). Credentials and provisioning problems must outrank
+// Deleting, since deletion may itself need credentials to succeed.
+//  1. RobotCredentialsAvailable - invalid Robot credentials block every Robot API call.
+//  2. RobotRateLimitExceeded    - rate-limit issues (negative polarity).
+//  3. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
+//  4. RootDeviceHintsValidated  - device hints must validate before provisioning.
+//  5. ProvisionSucceeded        - provisioning state (rescue -> image -> OS).
+//  6. RebootSucceeded           - post-provision reboot via annotation.
+//  7. NodeBootIDRetrieved       - workload-cluster Node check after provisioning.
+//  8. Deleting                  - deletion state (negative polarity).
+func HetznerBareMetalHostSummaryOpts() []conditions.SummaryOption {
+	return []conditions.SummaryOption{
+		// ForConditionTypes lists every condition that contributes to Ready, in
+		// priority order. When multiple conditions are unhealthy the summary
+		// surfaces them in this order, so the most important issue is listed first.
+		conditions.ForConditionTypes{
+			HetznerBareMetalHostRobotCredentialsAvailableCondition,
+			HetznerBareMetalHostRobotRateLimitExceededCondition,
+			HetznerBareMetalHostSSHKeysAvailableCondition,
+			HetznerBareMetalHostRootDeviceHintsValidatedCondition,
+			HetznerBareMetalHostProvisionSucceededCondition,
+			HetznerBareMetalHostRebootSucceededCondition,
+			HetznerBareMetalHostNodeBootIDRetrievedCondition,
+			HetznerBareMetalHostDeletingCondition,
+		},
+		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
+		// listed condition as Unknown. Several reconcile paths exit before every
+		// condition has been set (for example, before Robot credentials are
+		// checked or before the host has been provisioned), and we don't want
+		// those early exits to flip Ready to Unknown.
+		conditions.IgnoreTypesIfMissing{
+			HetznerBareMetalHostSSHKeysAvailableCondition,
+			HetznerBareMetalHostRootDeviceHintsValidatedCondition,
+			HetznerBareMetalHostProvisionSucceededCondition,
+			HetznerBareMetalHostRebootSucceededCondition,
+			HetznerBareMetalHostNodeBootIDRetrievedCondition,
+			HetznerBareMetalHostDeletingCondition,
+			HetznerBareMetalHostRobotRateLimitExceededCondition,
+		},
+		// CustomMergeStrategy is used only to override the merge reasons, so
+		// the Ready summary uses CAPI's standard Ready reasons (Ready /
+		// NotReady / ReadyUnknown) instead of the generic merge defaults
+		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
+		conditions.CustomMergeStrategy{
+			MergeStrategy: conditions.DefaultMergeStrategy(
+				conditions.GetPriorityFunc(conditions.GetDefaultMergePriorityFunc(
+					// conditions with negative polarity
+					HetznerBareMetalHostRobotRateLimitExceededCondition,
+					HetznerBareMetalHostDeletingCondition,
+				)),
+				conditions.ComputeReasonFunc(conditions.GetDefaultComputeMergeReasonFunc(
+					clusterv1.NotReadyReason,
+					clusterv1.ReadyUnknownReason,
+					clusterv1.ReadyReason,
+				)),
+			),
+		},
+	}
 }
 
 // SSHStatus contains all status information about SSHStatus.
@@ -601,6 +677,28 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 		}
 	}
 	return false
+}
+
+// SetError records the host's current error type on status.errorType. The error-message argument is
+// not persisted: v1beta2 status keeps only errorType (errorCount and errorMessage were dropped in the
+// shape migration). It is kept to mirror the v1beta1 SetError signature so the later status.errorType
+// refactor can persist it.
+func (host *HetznerBareMetalHost) SetError(errorType ErrorType, _ string) {
+	host.Status.ErrorType = errorType
+
+	if errorType == PermanentError {
+		if host.Annotations == nil {
+			host.Annotations = make(map[string]string, 1)
+		}
+		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
+		record.Warnf(host, "PermanentErrorSet", "Remove annotation %q, if you want the controller to use the hbmh again.",
+			PermanentErrorAnnotation)
+	}
+}
+
+// ClearError clears the error type.
+func (host *HetznerBareMetalHost) ClearError() {
+	host.Status.ErrorType = ""
 }
 
 // HasRebootAnnotation checks for the existence of reboot annotations and returns true if at least one exists.

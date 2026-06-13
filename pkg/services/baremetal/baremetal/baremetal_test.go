@@ -45,6 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
 )
@@ -53,188 +54,177 @@ var _ = Describe("chooseHost", func() {
 	const defaultNamespace = "default"
 
 	bmMachine := &infrav1.HetznerBareMetalMachine{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "HetznerBareMetalMachine",
+			APIVersion: infrav1.GroupVersion.String(),
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "bm-machine",
 			Namespace: defaultNamespace,
 		},
 	}
 
-	hostWithCorrectConsumerRef := infrav1.HetznerBareMetalHost{
+	hostWithCorrectConsumerRef := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithCorrectConsumerRef",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
-			ConsumerRef: &corev1.ObjectReference{
-				Name:      "bm-machine",
-				Namespace: defaultNamespace,
+		Spec: infrav2.HetznerBareMetalHostSpec{
+			ConsumerRef: &infrav2.HetznerBareMetalHostConsumerReference{
+				Name:     "bm-machine",
+				Kind:     "HetznerBareMetalMachine",
+				APIGroup: infrav1.GroupVersion.Group,
 			},
-			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateNone,
-			},
+		},
+		Status: infrav2.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav2.StateNone,
 		},
 	}
 
-	hostWithIncorrectConsumerRef := infrav1.HetznerBareMetalHost{
+	hostWithIncorrectConsumerRef := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithIncorrectConsumerRef",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
-			ConsumerRef: &corev1.ObjectReference{
-				Name:       "bm-machine-other",
-				Namespace:  defaultNamespace,
-				Kind:       "HetznerBareMetalMachine",
-				APIVersion: infrav1.GroupVersion.String(),
+		Spec: infrav2.HetznerBareMetalHostSpec{
+			ConsumerRef: &infrav2.HetznerBareMetalHostConsumerReference{
+				Name:     "bm-machine-other",
+				Kind:     "HetznerBareMetalMachine",
+				APIGroup: infrav1.GroupVersion.Group,
 			},
-			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateNone,
-			},
+		},
+		Status: infrav2.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav2.StateNone,
 		},
 	}
 
 	maintenanceMode := true
-	hostInMaintenanceMode := infrav1.HetznerBareMetalHost{
+	hostInMaintenanceMode := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostInMaintenanceMode",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
+		Spec: infrav2.HetznerBareMetalHostSpec{
 			MaintenanceMode: &maintenanceMode,
-			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateNone,
-			},
+		},
+		Status: infrav2.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav2.StateNone,
 		},
 	}
 
 	now := metav1.Now()
-	hostWithDeletionTimeStamp := infrav1.HetznerBareMetalHost{
+	hostWithDeletionTimeStamp := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "hostWithDeletionTimeStamp",
 			Namespace:         defaultNamespace,
 			DeletionTimestamp: &now,
 			Finalizers:        []string{"finalizer"},
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
-			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateNone,
-			},
+		Status: infrav2.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav2.StateNone,
 		},
 	}
 
-	hostWithErrorMessage := infrav1.HetznerBareMetalHost{
+	hostWithError := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "hostWithErrorMessage",
+			Name:      "hostWithError",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
-			Status: infrav1.ControllerGeneratedStatus{
-				ErrorMessage:      "some error",
-				ProvisioningState: infrav1.StateNone,
-			},
+		Status: infrav2.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav2.StateNone,
 		},
 	}
+	hostWithError.SetError(infrav2.PreparationError, "")
 
-	hostWithStateRegistering := infrav1.HetznerBareMetalHost{
+	hostWithStateRegistering := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithStateRegistering",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
-			Status: infrav1.ControllerGeneratedStatus{
-				ErrorMessage:      "some error",
-				ProvisioningState: infrav1.StateRegistering,
-			},
+		Status: infrav2.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav2.StateRegistering,
 		},
 	}
 
-	hostWithOtherLabel := infrav1.HetznerBareMetalHost{
+	hostWithOtherLabel := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithOtherLabel",
 			Namespace: defaultNamespace,
 			Labels:    map[string]string{"wrong": "label"},
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
-			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateNone,
-			},
+		Status: infrav2.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav2.StateNone,
 		},
 	}
 
-	hostWithOtherNamespace := infrav1.HetznerBareMetalHost{
+	hostWithOtherNamespace := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithOtherNamespace",
 			Namespace: "other-ns",
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
-			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateNone,
-			},
+		Status: infrav2.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav2.StateNone,
 		},
 	}
 
-	host := infrav1.HetznerBareMetalHost{
+	host := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "host",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
-			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateNone,
-			},
+		Status: infrav2.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav2.StateNone,
 		},
 	}
 
-	hostWithRaidWwnConfig := infrav1.HetznerBareMetalHost{
+	hostWithRaidWwnConfig := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithRaidWwnConfig",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
-			RootDeviceHints: &infrav1.RootDeviceHints{
+		Spec: infrav2.HetznerBareMetalHostSpec{
+			RootDeviceHints: &infrav2.RootDeviceHints{
 				WWN: "",
-				Raid: infrav1.Raid{
+				Raid: infrav2.Raid{
 					WWN: []string{"wwnRaid1", "wwnRaid2"},
 				},
 			},
 		},
 	}
-	hostWithNonRaidWwnConfig := infrav1.HetznerBareMetalHost{
+	hostWithNonRaidWwnConfig := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithNonRaidWwnConfig",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
-			RootDeviceHints: &infrav1.RootDeviceHints{
+		Spec: infrav2.HetznerBareMetalHostSpec{
+			RootDeviceHints: &infrav2.RootDeviceHints{
 				WWN: "wwnNoRaid",
 			},
 		},
 	}
 
-	hostWithLabel := infrav1.HetznerBareMetalHost{
+	hostWithLabel := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithLabel",
 			Namespace: defaultNamespace,
 			Labels:    map[string]string{"key": "value"},
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
-			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateNone,
-			},
+		Status: infrav2.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav2.StateNone,
 		},
 	}
 
-	hostWithLabelAndMaintenanceMode := infrav1.HetznerBareMetalHost{
+	hostWithLabelAndMaintenanceMode := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithLabelAndMaintenanceMode",
 			Namespace: defaultNamespace,
 			Labels:    map[string]string{"key": "value"},
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
+		Spec: infrav2.HetznerBareMetalHostSpec{
 			MaintenanceMode: &maintenanceMode,
-			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateNone,
-			},
+		},
+		Status: infrav2.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav2.StateNone,
 		},
 	}
 
@@ -242,17 +232,17 @@ var _ = Describe("chooseHost", func() {
 		Hosts            []client.Object
 		HostSelector     infrav1.HostSelector
 		ExpectedHostName string
-		RootDeviceHints  infrav1.RootDeviceHints
+		RootDeviceHints  infrav2.RootDeviceHints
 	}
 	DescribeTable("chooseHost",
 		func(tc testCaseChooseHost) {
 			scheme := runtime.NewScheme()
-			utilruntime.Must(infrav1.AddToScheme(scheme))
+			utilruntime.Must(infrav2.AddToScheme(scheme))
 			c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(tc.Hosts...).Build()
 			bmMachine.Spec.HostSelector = tc.HostSelector
 			service := newTestService(bmMachine, c)
 
-			hosts := &infrav1.HetznerBareMetalHostList{}
+			hosts := &infrav2.HetznerBareMetalHostList{}
 			err := service.scope.Client.List(context.TODO(), hosts,
 				client.InNamespace(service.scope.BareMetalMachine.Namespace))
 			Expect(err).To(Succeed())
@@ -277,9 +267,9 @@ var _ = Describe("chooseHost", func() {
 				Hosts:            []client.Object{&hostWithDeletionTimeStamp, &host},
 				ExpectedHostName: "host",
 			}),
-		Entry("No host with error message",
+		Entry("No host with error in status",
 			testCaseChooseHost{
-				Hosts:            []client.Object{&hostWithErrorMessage, &host},
+				Hosts:            []client.Object{&hostWithError, &host},
 				ExpectedHostName: "host",
 			}),
 		Entry("No host with incorrect consumer ref",
@@ -328,7 +318,7 @@ var _ = Describe("chooseHost", func() {
 	DescribeTable("chooseHost(): Test with reason, because RAID config does not match.",
 		func(tc testCaseChooseHostWithReason) {
 			scheme := runtime.NewScheme()
-			utilruntime.Must(infrav1.AddToScheme(scheme))
+			utilruntime.Must(infrav2.AddToScheme(scheme))
 			c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(tc.hosts...).Build()
 			bmMachine := &infrav1.HetznerBareMetalMachine{
 				TypeMeta:   metav1.TypeMeta{},
@@ -341,7 +331,7 @@ var _ = Describe("chooseHost", func() {
 			}
 			service := newTestService(bmMachine, c)
 
-			hosts := &infrav1.HetznerBareMetalHostList{}
+			hosts := &infrav2.HetznerBareMetalHostList{}
 			err := service.scope.Client.List(context.TODO(), hosts,
 				client.InNamespace(service.scope.BareMetalMachine.Namespace))
 			Expect(err).To(Succeed())
@@ -369,11 +359,11 @@ var _ = Describe("chooseHost", func() {
 })
 
 var _ = Describe("Test NodeAddresses", func() {
-	nic1 := infrav1.NIC{
+	nic1 := infrav2.NIC{
 		IP: "192.168.1.1",
 	}
 
-	nic2 := infrav1.NIC{
+	nic2 := infrav2.NIC{
 		IP: "172.0.20.2",
 	}
 
@@ -400,7 +390,7 @@ var _ = Describe("Test NodeAddresses", func() {
 	type testCaseNodeAddress struct {
 		Machine               clusterv1.Machine
 		BareMetalMachine      infrav1.HetznerBareMetalMachine
-		Host                  *infrav1.HetznerBareMetalHost
+		Host                  *infrav2.HetznerBareMetalHost
 		ExpectedNodeAddresses []clusterv1beta1.MachineAddress
 	}
 
@@ -412,24 +402,20 @@ var _ = Describe("Test NodeAddresses", func() {
 			}
 		},
 		Entry("One NIC", testCaseNodeAddress{
-			Host: &infrav1.HetznerBareMetalHost{
-				Spec: infrav1.HetznerBareMetalHostSpec{
-					Status: infrav1.ControllerGeneratedStatus{
-						HardwareDetails: &infrav1.HardwareDetails{
-							NIC: []infrav1.NIC{nic1},
-						},
+			Host: &infrav2.HetznerBareMetalHost{
+				Status: infrav2.HetznerBareMetalHostStatus{
+					HardwareDetails: &infrav2.HardwareDetails{
+						NIC: []infrav2.NIC{nic1},
 					},
 				},
 			},
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr3, addr4},
 		}),
 		Entry("Two NICs", testCaseNodeAddress{
-			Host: &infrav1.HetznerBareMetalHost{
-				Spec: infrav1.HetznerBareMetalHostSpec{
-					Status: infrav1.ControllerGeneratedStatus{
-						HardwareDetails: &infrav1.HardwareDetails{
-							NIC: []infrav1.NIC{nic1, nic2},
-						},
+			Host: &infrav2.HetznerBareMetalHost{
+				Status: infrav2.HetznerBareMetalHostStatus{
+					HardwareDetails: &infrav2.HardwareDetails{
+						NIC: []infrav2.NIC{nic1, nic2},
 					},
 				},
 			},
@@ -440,7 +426,7 @@ var _ = Describe("Test NodeAddresses", func() {
 
 var _ = Describe("Test consumerRefMatches", func() {
 	type testCaseConsumerRefMatches struct {
-		Consumer       *corev1.ObjectReference
+		Consumer       *infrav2.HetznerBareMetalHostConsumerReference
 		ExpectedResult bool
 	}
 
@@ -451,55 +437,45 @@ var _ = Describe("Test consumerRefMatches", func() {
 		},
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "HetznerBareMetalMachine",
-			APIVersion: "v1beta1",
+			APIVersion: infrav1.GroupVersion.String(),
 		},
 	}
+
+	// The consumer ref has no namespace anymore. The host and the consuming machine always live
+	// in the same namespace, so there is no entry for a namespace mismatch.
 	DescribeTable("Test consumerRefMatches",
 		func(tc testCaseConsumerRefMatches) {
 			Expect(consumerRefMatches(tc.Consumer, bmMachine)).To(Equal(tc.ExpectedResult))
 		},
 		Entry("Matching consumer", testCaseConsumerRefMatches{
-			Consumer: &corev1.ObjectReference{
-				Name:       "bm-machine",
-				Namespace:  "default",
-				Kind:       "HetznerBareMetalMachine",
-				APIVersion: "v1beta1",
+			Consumer: &infrav2.HetznerBareMetalHostConsumerReference{
+				Name:     "bm-machine",
+				Kind:     "HetznerBareMetalMachine",
+				APIGroup: infrav1.GroupVersion.Group,
 			},
 			ExpectedResult: true,
 		}),
 		Entry("No matching name", testCaseConsumerRefMatches{
-			Consumer: &corev1.ObjectReference{
-				Name:       "other-bm-machine",
-				Namespace:  "default",
-				Kind:       "HetznerBareMetalMachine",
-				APIVersion: "v1beta1",
-			},
-			ExpectedResult: false,
-		}),
-		Entry("No matching namespace", testCaseConsumerRefMatches{
-			Consumer: &corev1.ObjectReference{
-				Name:       "bm-machine",
-				Namespace:  "other",
-				Kind:       "HetznerBareMetalMachine",
-				APIVersion: "v1beta1",
+			Consumer: &infrav2.HetznerBareMetalHostConsumerReference{
+				Name:     "other-bm-machine",
+				Kind:     "HetznerBareMetalMachine",
+				APIGroup: infrav1.GroupVersion.Group,
 			},
 			ExpectedResult: false,
 		}),
 		Entry("No matching kind", testCaseConsumerRefMatches{
-			Consumer: &corev1.ObjectReference{
-				Name:       "bm-machine",
-				Namespace:  "default",
-				Kind:       "OtherBareMetalMachine",
-				APIVersion: "v1beta1",
+			Consumer: &infrav2.HetznerBareMetalHostConsumerReference{
+				Name:     "bm-machine",
+				Kind:     "OtherBareMetalMachine",
+				APIGroup: infrav1.GroupVersion.Group,
 			},
 			ExpectedResult: false,
 		}),
-		Entry("No matching apiversion", testCaseConsumerRefMatches{
-			Consumer: &corev1.ObjectReference{
-				Name:       "bm-machine",
-				Namespace:  "default",
-				Kind:       "HetznerBareMetalMachine",
-				APIVersion: "hetzner/v1beta",
+		Entry("No matching API group", testCaseConsumerRefMatches{
+			Consumer: &infrav2.HetznerBareMetalHostConsumerReference{
+				Name:     "bm-machine",
+				Kind:     "HetznerBareMetalMachine",
+				APIGroup: "other-group.example.com",
 			},
 			ExpectedResult: false,
 		}),
@@ -617,7 +593,7 @@ var _ = Describe("Test ensureMachineAnnotation", func() {
 			}
 			service := newTestService(bmMachine, nil)
 
-			host := infrav1.HetznerBareMetalHost{
+			host := infrav2.HetznerBareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hostName",
 					Namespace: "default",
@@ -629,19 +605,19 @@ var _ = Describe("Test ensureMachineAnnotation", func() {
 		},
 		Entry("List of one non-matching entry", testCaseEnsureMachineyyAnnotation{
 			Annotations:         map[string]string{"key1": "val1"},
-			ExpectedAnnotations: map[string]string{"key1": "val1", infrav1.HostAnnotation: "default/hostName"},
+			ExpectedAnnotations: map[string]string{"key1": "val1", infrav2.HostAnnotation: "default/hostName"},
 		}),
 		Entry("Empty list", testCaseEnsureMachineyyAnnotation{
 			Annotations:         map[string]string{},
-			ExpectedAnnotations: map[string]string{infrav1.HostAnnotation: "default/hostName"},
+			ExpectedAnnotations: map[string]string{infrav2.HostAnnotation: "default/hostName"},
 		}),
 		Entry("Nil list", testCaseEnsureMachineyyAnnotation{
 			Annotations:         nil,
-			ExpectedAnnotations: map[string]string{infrav1.HostAnnotation: "default/hostName"},
+			ExpectedAnnotations: map[string]string{infrav2.HostAnnotation: "default/hostName"},
 		}),
 		Entry("List of one non-matching and one matching entry", testCaseEnsureMachineyyAnnotation{
-			Annotations:         map[string]string{"key1": "val1", infrav1.HostAnnotation: "default/hostName"},
-			ExpectedAnnotations: map[string]string{"key1": "val1", infrav1.HostAnnotation: "default/hostName"},
+			Annotations:         map[string]string{"key1": "val1", infrav2.HostAnnotation: "default/hostName"},
+			ExpectedAnnotations: map[string]string{"key1": "val1", infrav2.HostAnnotation: "default/hostName"},
 		}),
 	)
 })
@@ -661,19 +637,19 @@ var _ = Describe("Test updateHostAnnotation", func() {
 		},
 		Entry("List of one non-matching entry", testCaseUpdateHostAnnotation{
 			Annotations:         map[string]string{"key1": "val1"},
-			ExpectedAnnotations: map[string]string{"key1": "val1", infrav1.HostAnnotation: hostKey},
+			ExpectedAnnotations: map[string]string{"key1": "val1", infrav2.HostAnnotation: hostKey},
 		}),
 		Entry("Empty list", testCaseUpdateHostAnnotation{
 			Annotations:         map[string]string{},
-			ExpectedAnnotations: map[string]string{infrav1.HostAnnotation: hostKey},
+			ExpectedAnnotations: map[string]string{infrav2.HostAnnotation: hostKey},
 		}),
 		Entry("Nil list", testCaseUpdateHostAnnotation{
 			Annotations:         nil,
-			ExpectedAnnotations: map[string]string{infrav1.HostAnnotation: hostKey},
+			ExpectedAnnotations: map[string]string{infrav2.HostAnnotation: hostKey},
 		}),
 		Entry("List of one non-matching and one matching entry", testCaseUpdateHostAnnotation{
-			Annotations:         map[string]string{"key1": "val1", infrav1.HostAnnotation: hostKey},
-			ExpectedAnnotations: map[string]string{"key1": "val1", infrav1.HostAnnotation: hostKey},
+			Annotations:         map[string]string{"key1": "val1", infrav2.HostAnnotation: hostKey},
+			ExpectedAnnotations: map[string]string{"key1": "val1", infrav2.HostAnnotation: hostKey},
 		}),
 	)
 })
@@ -688,7 +664,7 @@ var _ = Describe("Test ensureClusterLabel", func() {
 
 	DescribeTable("Test ensureClusterLabel",
 		func(tc testCaseEnsureClusterLabel) {
-			host := &infrav1.HetznerBareMetalHost{}
+			host := &infrav2.HetznerBareMetalHost{}
 			host.Labels = tc.labels
 
 			ensureClusterLabel(host, clusterName)
@@ -711,7 +687,7 @@ var _ = Describe("Test ensureClusterLabel", func() {
 })
 
 var _ = Describe("Test hostKey", func() {
-	host := &infrav1.HetznerBareMetalHost{}
+	host := &infrav2.HetznerBareMetalHost{}
 	host.Namespace = "namespace"
 	host.Name = "name"
 
@@ -884,13 +860,13 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		}
 	}
 
-	newHost := func(ipv4 string) *infrav1.HetznerBareMetalHost {
-		return &infrav1.HetznerBareMetalHost{
-			Spec: infrav1.HetznerBareMetalHostSpec{
+	newHost := func(ipv4 string) *infrav2.HetznerBareMetalHost {
+		return &infrav2.HetznerBareMetalHost{
+			Spec: infrav2.HetznerBareMetalHostSpec{
 				ServerID: 42,
-				Status: infrav1.ControllerGeneratedStatus{
-					IPv4: ipv4,
-				},
+			},
+			Status: infrav2.HetznerBareMetalHostStatus{
+				IPv4: ipv4,
 			},
 		}
 	}
@@ -978,17 +954,18 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 	) {
 		scheme := runtime.NewScheme()
 		utilruntime.Must(infrav1.AddToScheme(scheme))
+		utilruntime.Must(infrav2.AddToScheme(scheme))
 		utilruntime.Must(clusterv1.AddToScheme(scheme))
 		utilruntime.Must(corev1.AddToScheme(scheme))
 
-		host := &infrav1.HetznerBareMetalHost{
+		host := &infrav2.HetznerBareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{Name: testHostName, Namespace: testNamespace},
-			Spec: infrav1.HetznerBareMetalHostSpec{
+			Spec: infrav2.HetznerBareMetalHostSpec{
 				ServerID: 42,
-				Status: infrav1.ControllerGeneratedStatus{
-					IPv4:              "192.0.2.10",
-					ProvisioningState: infrav1.StateProvisioned,
-				},
+			},
+			Status: infrav2.HetznerBareMetalHostStatus{
+				IPv4:              "192.0.2.10",
+				ProvisioningState: infrav2.StateProvisioned,
 			},
 		}
 
@@ -997,7 +974,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 				Name:      testBMMName,
 				Namespace: testNamespace,
 				Annotations: map[string]string{
-					infrav1.HostAnnotation: testNamespace + "/" + testHostName,
+					infrav2.HostAnnotation: testNamespace + "/" + testHostName,
 				},
 			},
 		}

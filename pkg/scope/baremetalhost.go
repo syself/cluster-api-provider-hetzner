@@ -26,13 +26,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -42,8 +42,9 @@ import (
 type BareMetalHostScopeParams struct {
 	Client                  client.Client
 	Logger                  logr.Logger
-	HetznerBareMetalHost    *infrav1.HetznerBareMetalHost
+	HetznerBareMetalHost    *infrav2.HetznerBareMetalHost
 	HetznerBareMetalMachine *infrav1.HetznerBareMetalMachine
+	Machine                 *clusterv1.Machine
 	HetznerCluster          *infrav1.HetznerCluster
 	Cluster                 *clusterv1.Cluster
 	RobotClient             robotclient.Client
@@ -96,6 +97,7 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		Cluster:                 params.Cluster,
 		HetznerBareMetalHost:    params.HetznerBareMetalHost,
 		HetznerBareMetalMachine: params.HetznerBareMetalMachine,
+		Machine:                 params.Machine,
 		OSSSHSecret:             params.OSSSHSecret,
 		RescueSSHSecret:         params.RescueSSHSecret,
 		SecretManager:           params.SecretManager,
@@ -117,12 +119,17 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 // BareMetalHostScope defines the basic context for an actuator to operate upon.
 type BareMetalHostScope struct {
 	logr.Logger
-	Client                       client.Client
-	SecretManager                *secretutil.SecretManager
-	RobotClient                  robotclient.Client
-	SSHClientFactory             sshclient.Factory
-	HetznerBareMetalHost         *infrav1.HetznerBareMetalHost
-	HetznerBareMetalMachine      *infrav1.HetznerBareMetalMachine
+	Client               client.Client
+	SecretManager        *secretutil.SecretManager
+	RobotClient          robotclient.Client
+	SSHClientFactory     sshclient.Factory
+	HetznerBareMetalHost *infrav2.HetznerBareMetalHost
+	// HetznerBareMetalMachine is the machine that consumes the host. It is nil when the host has no
+	// consumer or the machine no longer exists.
+	HetznerBareMetalMachine *infrav1.HetznerBareMetalMachine
+	// Machine is the CAPI machine that owns the HetznerBareMetalMachine. It is nil when there is no
+	// consuming machine or the owner machine is not set yet.
+	Machine                      *clusterv1.Machine
 	HetznerCluster               *infrav1.HetznerCluster
 	Cluster                      *clusterv1.Cluster
 	OSSSHSecret                  *corev1.Secret
@@ -143,11 +150,11 @@ func (s *BareMetalHostScope) Namespace() string {
 
 // GetRawBootstrapData returns the bootstrap data from the secret in the Machine's bootstrap.dataSecretName.
 func (s *BareMetalHostScope) GetRawBootstrapData(ctx context.Context) ([]byte, error) {
-	if s.HetznerBareMetalHost.Spec.Status.UserData == nil {
-		return nil, errors.New("no user data in host spec")
+	if s.Machine == nil || s.Machine.Spec.Bootstrap.DataSecretName == nil {
+		return nil, errors.New("no bootstrap data secret name on the machine")
 	}
 
-	key := types.NamespacedName{Namespace: s.HetznerBareMetalHost.Spec.Status.UserData.Namespace, Name: s.HetznerBareMetalHost.Spec.Status.UserData.Name}
+	key := types.NamespacedName{Namespace: s.HetznerBareMetalHost.Namespace, Name: *s.Machine.Spec.Bootstrap.DataSecretName}
 	secret, err := s.SecretManager.AcquireSecret(ctx, key, s.HetznerBareMetalHost, false, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to acquire secret: %w", err)
@@ -164,70 +171,78 @@ func (s *BareMetalHostScope) GetRawBootstrapData(ctx context.Context) ([]byte, e
 // Hostname returns the desired host name.
 func (s *BareMetalHostScope) Hostname() (hostname string) {
 	if s.hasConstantHostname() {
-		hostname = fmt.Sprintf("%s%s-%v", infrav1.BareMetalHostNamePrefix, s.Cluster.Name, s.HetznerBareMetalHost.Spec.ServerID)
+		hostname = fmt.Sprintf("%s%s-%v", infrav2.BareMetalHostNamePrefix, s.Cluster.Name, s.HetznerBareMetalHost.Spec.ServerID)
 	} else {
-		hostname = infrav1.BareMetalHostNamePrefix + s.HetznerBareMetalHost.Spec.ConsumerRef.Name
+		hostname = infrav2.BareMetalHostNamePrefix + s.HetznerBareMetalHost.Spec.ConsumerRef.Name
 	}
 
 	return hostname
 }
 
 func (s *BareMetalHostScope) hasConstantHostname() bool {
-	return s.Cluster.GetAnnotations()[infrav1.ConstantBareMetalHostnameAnnotation] == "true" ||
-		s.HetznerBareMetalMachine != nil && s.HetznerBareMetalMachine.GetAnnotations()[infrav1.ConstantBareMetalHostnameAnnotation] == "true"
+	return s.Cluster.GetAnnotations()[infrav2.ConstantBareMetalHostnameAnnotation] == "true" ||
+		s.HetznerBareMetalMachine != nil && s.HetznerBareMetalMachine.GetAnnotations()[infrav2.ConstantBareMetalHostnameAnnotation] == "true"
 }
 
 // SSHAfterInstallImageEnabled returns the effective SSH-after-installimage setting for the host.
+// When the consuming machine no longer exists, there is no SSH spec to connect with, so SSH access
+// is treated as disabled.
 func (s *BareMetalHostScope) SSHAfterInstallImageEnabled() bool {
-	return !s.HetznerBareMetalHost.Spec.Status.SSHSpec.NoSSHAfterInstallImage
+	if s.HetznerBareMetalMachine == nil {
+		return false
+	}
+	return !s.HetznerBareMetalMachine.Spec.SSHSpec.NoSSHAfterInstallImage
 }
 
-// SetHetznerBareMetalHostV1Beta2ReadySummary computes and sets the Ready v1beta2 summary
-// condition on the HetznerBareMetalHost. It is the single source of truth for computing the
-// summary and is called from both the controller defer block and any early-exit paths that
-// bypass it.
+// SetHetznerBareMetalHostReadySummary computes and sets the Ready summary condition on the
+// HetznerBareMetalHost. It is the single source of truth for computing the summary and is called
+// from both the controller defer block and any early-exit paths that bypass it.
 //
 // If the summary cannot be computed, Ready is set to Unknown with InternalError reason so the
 // summary is never silently omitted.
-func SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost *infrav1.HetznerBareMetalHost) {
-	readyCondition, err := v1beta2conditions.NewSummaryCondition(
-		bmHost, clusterv1beta1.ReadyV1Beta2Condition,
-		infrav1.HetznerBareMetalHostV1Beta2SummaryOpts()...,
+func SetHetznerBareMetalHostReadySummary(bmHost *infrav2.HetznerBareMetalHost) {
+	readyCondition, err := conditions.NewSummaryCondition(
+		bmHost, clusterv1.ReadyCondition,
+		infrav2.HetznerBareMetalHostSummaryOpts()...,
 	)
 	if err != nil {
-		v1beta2conditions.Set(bmHost, metav1.Condition{
-			Type:    clusterv1beta1.ReadyV1Beta2Condition,
+		conditions.Set(bmHost, metav1.Condition{
+			Type:    clusterv1.ReadyCondition,
 			Status:  metav1.ConditionUnknown,
-			Reason:  clusterv1beta1.InternalErrorV1Beta2Reason,
+			Reason:  clusterv1.InternalErrorReason,
 			Message: err.Error(),
 		})
 		return
 	}
-	v1beta2conditions.Set(bmHost, *readyCondition)
+	conditions.Set(bmHost, *readyCondition)
 }
 
-// BareMetalHostPatchOpts returns the patch options declaring both v1beta1 and v1beta2 owned
-// conditions for HetznerBareMetalHost so the patch helper does not strip them on three-way merge.
-func BareMetalHostPatchOpts() []v1beta1patch.Option {
-	return []v1beta1patch.Option{
-		v1beta1patch.WithOwnedConditions{Conditions: []clusterv1beta1.ConditionType{
-			clusterv1beta1.ReadyCondition,
-			infrav1.CredentialsAvailableCondition,
-			infrav1.RobotCredentialsAvailableCondition,
-			infrav1.RootDeviceHintsValidatedCondition,
-			infrav1.ProvisionSucceededCondition,
-			infrav1.HetznerAPIReachableCondition,
+// BareMetalHostPatchOpts returns the patch options declaring both the deprecated v1beta1 and the
+// current owned conditions for HetznerBareMetalHost so the patch helper does not strip them on
+// three-way merge.
+func BareMetalHostPatchOpts() []patch.Option {
+	return []patch.Option{
+		// owned deprecated v1beta1 conditions. Kept identical to the pre-migration list so the
+		// v1beta1 conditions behave exactly as before.
+		patch.WithOwnedV1Beta1Conditions{Conditions: []clusterv1.ConditionType{
+			clusterv1.ReadyV1Beta1Condition,
+			infrav2.CredentialsAvailableV1Beta1Condition,
+			infrav2.RobotCredentialsAvailableV1Beta1Condition,
+			infrav2.RootDeviceHintsValidatedV1Beta1Condition,
+			infrav2.ProvisionSucceededV1Beta1Condition,
+			infrav2.HetznerAPIReachableV1Beta1Condition,
 		}},
-		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
-			clusterv1beta1.ReadyV1Beta2Condition,
-			infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
-			infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
-			infrav1.HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
-			infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
-			infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
-			infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
-			infrav1.HetznerBareMetalHostDeletingV1Beta2Condition,
-			infrav1.HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+		// owned conditions.
+		patch.WithOwnedConditions{Conditions: []string{
+			clusterv1.ReadyCondition,
+			infrav2.HetznerBareMetalHostSSHKeysAvailableCondition,
+			infrav2.HetznerBareMetalHostRobotCredentialsAvailableCondition,
+			infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition,
+			infrav2.HetznerBareMetalHostProvisionSucceededCondition,
+			infrav2.HetznerBareMetalHostNodeBootIDRetrievedCondition,
+			infrav2.HetznerBareMetalHostRebootSucceededCondition,
+			infrav2.HetznerBareMetalHostDeletingCondition,
+			infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition,
 		}},
 	}
 }
