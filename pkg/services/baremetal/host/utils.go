@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 type autoSetupInput struct {
@@ -32,7 +33,7 @@ type autoSetupInput struct {
 	image     string
 }
 
-func buildAutoSetup(installImageSpec *infrav1.InstallImage, asi autoSetupInput) string {
+func buildAutoSetup(installImageSpec infrav1.InstallImage, asi autoSetupInput) string {
 	var drives string
 	for i, osDevice := range asi.osDevices {
 		if i > 0 {
@@ -110,7 +111,7 @@ func splitHostKey(key string) (namespace, name string) {
 // GetAssociatedHost gets the associated host by looking for an annotation on the machine that
 // contains a reference to the host. Returns nil if no annotation exist or the referenced hbmh is
 // not found.
-func GetAssociatedHost(ctx context.Context, crClient client.Client, hbmm *infrav1.HetznerBareMetalMachine) (*infrav1.HetznerBareMetalHost, error) {
+func GetAssociatedHost(ctx context.Context, crClient client.Client, hbmm *infrav1.HetznerBareMetalMachine) (*infrav2.HetznerBareMetalHost, error) {
 	annotations := hbmm.GetAnnotations()
 	// if no annotations exist on machine, no host can be associated
 	if annotations == nil {
@@ -118,7 +119,7 @@ func GetAssociatedHost(ctx context.Context, crClient client.Client, hbmm *infrav
 	}
 
 	// check if host annotation is set and return if not
-	hostKey, ok := annotations[infrav1.HostAnnotation]
+	hostKey, ok := annotations[infrav2.HostAnnotation]
 	if !ok {
 		return nil, nil
 	}
@@ -126,7 +127,7 @@ func GetAssociatedHost(ctx context.Context, crClient client.Client, hbmm *infrav
 	// find associated host object and return it
 	_, hostName := splitHostKey(hostKey)
 
-	host := &infrav1.HetznerBareMetalHost{}
+	host := &infrav2.HetznerBareMetalHost{}
 	key := client.ObjectKey{
 		Name:      hostName,
 		Namespace: hbmm.Namespace,

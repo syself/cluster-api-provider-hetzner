@@ -61,6 +61,23 @@ func reconcileRateLimit(cluster *infrav2.HetznerCluster, rateLimitWaitTime time.
 	return false
 }
 
+// reconcileRobotRateLimit is the HetznerBareMetalHost counterpart of reconcileRateLimit. It checks
+// the Robot API rate limit on the host and, when the wait is over, clears the rate-limit conditions
+// (HetznerAPIReachable marked reachable again, RobotRateLimitExceeded deleted, since we cannot know
+// the limit is gone until the next API call).
+func reconcileRobotRateLimit(bmHost *infrav2.HetznerBareMetalHost, rateLimitWaitTime time.Duration) bool {
+	condition := conditions.Get(bmHost, infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition)
+	if condition != nil && condition.Status == metav1.ConditionTrue {
+		if time.Now().Before(condition.LastTransitionTime.Add(rateLimitWaitTime)) {
+			return true
+		}
+		deprecatedv1beta1conditions.MarkTrue(bmHost, infrav2.HetznerAPIReachableV1Beta1Condition)
+		conditions.Delete(bmHost, infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition)
+	}
+
+	return false
+}
+
 // getAndValidateHCloudToken acquires the Hetzner secret referenced by the cluster and returns the
 // HCloud token from it. It returns a *ResolveSecretRefError if the secret is missing and a
 // *HCloudTokenValidationError if the token is empty, which the hcloudTokenErrorResult helpers map to

@@ -28,11 +28,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2/textlogger"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
@@ -69,14 +71,14 @@ var (
 	timeout    = timeoutError{errTimeout}
 )
 
-func newTestHostStateMachine(host *infrav1.HetznerBareMetalHost, service *Service) *hostStateMachine {
+func newTestHostStateMachine(host *infrav2.HetznerBareMetalHost, service *Service) *hostStateMachine {
 	return newHostStateMachine(host, service, log)
 }
 
 var fakeBootID = "1234321"
 
 func newTestService(
-	host *infrav1.HetznerBareMetalHost,
+	host *infrav2.HetznerBareMetalHost,
 	robotClient robotclient.Client,
 	sshClientFactory sshclient.Factory,
 	osSSHSecret *corev1.Secret,
@@ -84,6 +86,7 @@ func newTestService(
 ) *Service {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(infrav1.AddToScheme(scheme))
+	utilruntime.Must(infrav2.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(host).Build()
@@ -97,6 +100,11 @@ func newTestService(
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Machine",
 			APIVersion: clusterv1.GroupVersion.String(),
+		},
+		Spec: clusterv1.MachineSpec{
+			Bootstrap: clusterv1.Bootstrap{
+				DataSecretName: ptr.To("bootstrap-secret"),
+			},
 		},
 		Status: clusterv1.MachineStatus{
 			NodeRef: clusterv1.MachineNodeReference{Name: host.Name},
@@ -127,6 +135,9 @@ func newTestService(
 			Name:      host.Name,
 			Namespace: host.Namespace,
 		},
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			SSHSpec: helpers.BareMetalMachineSSHSpec(22),
+		},
 	}
 
 	// controller-runtime v0.22's fake client strips TypeMeta on Create (matching the
@@ -152,6 +163,7 @@ func newTestService(
 			RobotClient:             robotClient,
 			HetznerBareMetalHost:    host,
 			HetznerBareMetalMachine: hbmm,
+			Machine:                 capiMachine,
 			HetznerCluster: &infrav1.HetznerCluster{
 				Spec: helpers.GetDefaultHetznerClusterSpec(),
 			},

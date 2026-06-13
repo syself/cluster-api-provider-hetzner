@@ -378,7 +378,7 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 	if err := Convert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(&in.SSHStatus, &out.SSHStatus, s); err != nil {
 		return err
 	}
-	out.ErrorType = infrav2.ErrorType(in.ErrorType)
+	out.OperationalState = infrav2.OperationalState(in.ErrorType)
 	out.ProvisioningState = infrav2.ProvisioningState(in.ProvisioningState)
 	out.Rebooted = in.Rebooted
 	out.NodeBootID = in.NodeBootID
@@ -425,7 +425,7 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedSt
 	if err := Convert_v1beta2_SSHStatus_To_v1beta1_SSHStatus(&in.SSHStatus, &out.SSHStatus, s); err != nil {
 		return err
 	}
-	out.ErrorType = ErrorType(in.ErrorType)
+	out.ErrorType = ErrorType(in.OperationalState)
 	out.ProvisioningState = ProvisioningState(in.ProvisioningState)
 	out.Rebooted = in.Rebooted
 	out.NodeBootID = in.NodeBootID

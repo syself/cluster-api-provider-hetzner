@@ -25,7 +25,7 @@ import (
 
 var _ = Describe("buildAutoSetup", func() {
 	type testCaseBuildAutoSetup struct {
-		installImageSpec *infrav1.InstallImage
+		installImageSpec infrav1.InstallImage
 		asi              autoSetupInput
 		expectedOutput   string
 	}
@@ -34,7 +34,7 @@ var _ = Describe("buildAutoSetup", func() {
 			Expect(buildAutoSetup(tc.installImageSpec, tc.asi)).Should(Equal(tc.expectedOutput))
 		},
 		Entry("multiple entries", testCaseBuildAutoSetup{
-			installImageSpec: &infrav1.InstallImage{
+			installImageSpec: infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -100,7 +100,7 @@ SUBVOL btrfs.1 @/usr /usr
 IMAGE my-image`,
 		}),
 		Entry("single entries", testCaseBuildAutoSetup{
-			installImageSpec: &infrav1.InstallImage{
+			installImageSpec: infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -147,7 +147,7 @@ SUBVOL btrfs.1 @ /
 IMAGE my-image`,
 		}),
 		Entry("multiple drives", testCaseBuildAutoSetup{
-			installImageSpec: &infrav1.InstallImage{
+			installImageSpec: infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -194,7 +194,7 @@ SUBVOL btrfs.1 @ /
 IMAGE my-image`,
 		}),
 		Entry("proper response", testCaseBuildAutoSetup{
-			installImageSpec: &infrav1.InstallImage{
+			installImageSpec: infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
