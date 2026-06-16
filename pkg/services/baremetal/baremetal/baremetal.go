@@ -671,13 +671,13 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 			infrav1.ServerAvailableCondition,
 			"WaitingForAPIServer",
 			clusterv1beta1.ConditionSeverityInfo,
-			"reconcile LoadBalancer: apiserver pod not healthy yet.",
+			"Waiting for API server pod to become healthy before attaching to load balancer",
 		)
 		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
 			Type:    infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
 			Reason:  infrav1.HetznerBareMetalMachineWaitingForAPIServerV1Beta2Reason,
-			Message: "reconcile LoadBalancer: apiserver pod not healthy yet.",
+			Message: "Waiting for API server pod to become healthy before attaching to load balancer",
 		})
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 	}
