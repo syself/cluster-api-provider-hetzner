@@ -452,7 +452,7 @@ spec:
                   conditions:
                     description: |-
                       conditions represents the observations of a HetznerBareMetalMachine's current state.
-                      Known condition types are Ready, HCloudTokenAvailable, HostAssociated and HostReady.
+                      Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady and ServerAvailable.
                     items:
                       description: Condition contains details for one aspect of the
                         current state of this API Resource.
@@ -876,7 +876,7 @@ spec:
               conditions:
                 description: |-
                   conditions represents the observations of a HetznerBareMetalMachine's current state.
-                  Known condition types are Ready, HCloudTokenAvailable, HostAssociated and HostReady.
+                  Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady and ServerAvailable.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

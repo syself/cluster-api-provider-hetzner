@@ -316,7 +316,7 @@ type LVMDefinition struct {
 // HetznerBareMetalMachineStatus defines the observed state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineStatus struct {
 	// conditions represents the observations of a HetznerBareMetalMachine's current state.
-	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated and HostReady.
+	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady and ServerAvailable.
 	// +optional
 	// +listType=map
 	// +listMapKey=type

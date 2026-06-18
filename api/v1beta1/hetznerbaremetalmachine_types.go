@@ -366,7 +366,7 @@ type HetznerBareMetalMachineStatus struct {
 // HetznerBareMetalMachineV1Beta2Status groups all the fields that will be added or modified in HetznerBareMetalMachine with the V1Beta2 version.
 type HetznerBareMetalMachineV1Beta2Status struct {
 	// conditions represents the observations of a HetznerBareMetalMachine's current state.
-	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated and HostReady.
+	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady and ServerAvailable.
 	// +optional
 	// +listType=map
 	// +listMapKey=type
@@ -434,6 +434,7 @@ func (hbmm *HetznerBareMetalMachine) SetV1Beta2Conditions(conditions []metav1.Co
 //  2. HostAssociated       - host association precedes host readiness; bootstrap readiness is folded in as a reason.
 //  3. Deleting             - deletion progress, which should be surfaced before host readiness.
 //  4. HostReady            - underlying HetznerBareMetalHost readiness.
+//  5. ServerAvailable      - the bare metal machine is fully available; for control planes this is also gated on load balancer attachment.
 func HetznerBareMetalMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
 	return []v1beta2conditions.SummaryOption{
 		// ForConditionTypes lists every condition that contributes to Ready, in
@@ -444,6 +445,7 @@ func HetznerBareMetalMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOpti
 			HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
 			HetznerBareMetalMachineDeletingV1Beta2Condition,
 			HetznerBareMetalMachineHostReadyV1Beta2Condition,
+			HetznerBareMetalMachineServerAvailableV1Beta2Condition,
 		},
 		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
 		// listed condition as Unknown. Some reconcile paths exit before every
@@ -455,6 +457,7 @@ func HetznerBareMetalMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOpti
 			HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
 			HetznerBareMetalMachineDeletingV1Beta2Condition,
 			HetznerBareMetalMachineHostReadyV1Beta2Condition,
+			HetznerBareMetalMachineServerAvailableV1Beta2Condition,
 		},
 		// CustomMergeStrategy is used only to override the merge reasons, so
 		// the Ready summary uses CAPI's standard Ready reasons (Ready /
