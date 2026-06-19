@@ -1221,7 +1221,7 @@ func TestHCloudMachineRoundTripPreservesFalseProvisionedIntent(t *testing.T) {
 }
 
 // TestHCloudMachineFailureFieldsAreDropped verifies that the deprecated status.failureReason and
-// status.failureMessage, which CAPH never populates, are dropped on conversio.
+// status.failureMessage, which CAPH never populates, are dropped on conversion.
 func TestHCloudMachineFailureFieldsAreDropped(t *testing.T) {
 	src := &HCloudMachine{
 		Status: HCloudMachineStatus{

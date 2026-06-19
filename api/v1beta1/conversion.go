@@ -619,7 +619,6 @@ func Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus(in *HClo
 //   - status.instanceState changes back to *hcloud.ServerStatus (the empty value maps to a nil pointer).
 //   - status.lastRemediatedAt moves from a value to a pointer (zero time -> nil).
 //   - status.initialization.provisioned maps back to status.ready.
-//   - status.failureReason and status.failureMessage are promoted back from status.deprecated.v1beta1.
 func Convert_v1beta2_HCloudMachineStatus_To_v1beta1_HCloudMachineStatus(in *infrav2.HCloudMachineStatus, out *HCloudMachineStatus, s apiconversion.Scope) error {
 	// Demote the v1beta2 conditions back to the staged v1beta1 status.v1beta2.conditions.
 	if len(in.Conditions) > 0 {
