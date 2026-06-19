@@ -1190,7 +1190,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		// HetznerBareMetalRemediation v1beta2 status: nil and non-positive retryCount both
 		// down-convert to the v1beta1 zero value.
-		func(in *infrav1.HetznerBareMetalRemediationStatus, c randfill.Continue) {
+		func(in *infrav2.HetznerBareMetalRemediationStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.RetryCount != nil && *in.RetryCount <= 0 {
 				in.RetryCount = nil

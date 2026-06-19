@@ -655,7 +655,7 @@ func Convert_v1beta2_HCloudRemediationStatus_To_v1beta1_HCloudRemediationStatus(
 // hand-written (the type is tagged +k8s:conversion-gen=false) because the retry counter and the
 // last-remediated timestamp change shape between versions. It maps retryCount and lastRemediated to
 // their v1beta2 forms.
-func Convert_v1beta1_HetznerBareMetalRemediationStatus_To_v1beta2_HetznerBareMetalRemediationStatus(in *HetznerBareMetalRemediationStatus, out *infrav1.HetznerBareMetalRemediationStatus, _ apiconversion.Scope) error {
+func Convert_v1beta1_HetznerBareMetalRemediationStatus_To_v1beta2_HetznerBareMetalRemediationStatus(in *HetznerBareMetalRemediationStatus, out *infrav2.HetznerBareMetalRemediationStatus, _ apiconversion.Scope) error {
 	var err error
 	out.Phase = in.Phase
 	out.RetryCount, err = remediationRetryToPointer(in.RetryCount)
@@ -670,7 +670,7 @@ func Convert_v1beta1_HetznerBareMetalRemediationStatus_To_v1beta2_HetznerBareMet
 
 // Convert_v1beta2_HetznerBareMetalRemediationStatus_To_v1beta1_HetznerBareMetalRemediationStatus restores
 // the v1beta1 retry counter and last-remediated pointer from their v1beta2 forms.
-func Convert_v1beta2_HetznerBareMetalRemediationStatus_To_v1beta1_HetznerBareMetalRemediationStatus(in *infrav1.HetznerBareMetalRemediationStatus, out *HetznerBareMetalRemediationStatus, _ apiconversion.Scope) error {
+func Convert_v1beta2_HetznerBareMetalRemediationStatus_To_v1beta1_HetznerBareMetalRemediationStatus(in *infrav2.HetznerBareMetalRemediationStatus, out *HetznerBareMetalRemediationStatus, _ apiconversion.Scope) error {
 	out.Phase = in.Phase
 	out.RetryCount = remediationRetryFromPointer(in.RetryCount)
 	if !in.LastRemediated.IsZero() {
