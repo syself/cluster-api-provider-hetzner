@@ -28,11 +28,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 )
 
 // workloadClientConfigFromKubeconfigSecret creates a kubernetes client config from kubeconfig secret.
-func workloadClientConfigFromKubeconfigSecret(ctx context.Context, logger logr.Logger, cl client.Client, apiReader client.Reader, cluster *clusterv1.Cluster, hetznerCluster *infrav1.HetznerCluster) (clientcmd.ClientConfig, error) {
+func workloadClientConfigFromKubeconfigSecret(ctx context.Context, logger logr.Logger, cl client.Client, apiReader client.Reader, cluster *clusterv1.Cluster, hetznerCluster *infrav2.HetznerCluster) (clientcmd.ClientConfig, error) {
+	secretKey := client.ObjectKey{
+		Name:      fmt.Sprintf("%s-%s", cluster.Name, secret.Kubeconfig),
+		Namespace: cluster.Namespace,
+	}
+
+	secretManager := secretutil.NewSecretManager(logger, cl, apiReader)
+	kubeconfigSecret, err := secretManager.AcquireSecret(ctx, secretKey, hetznerCluster, false, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire secret: %w", err)
+	}
+	kubeconfigBytes, ok := kubeconfigSecret.Data[secret.KubeconfigDataName]
+	if !ok {
+		return nil, fmt.Errorf("missing key %q in secret data (WorkloadClientConfigFromKubeconfigSecret)", secret.KubeconfigDataName)
+	}
+	return clientcmd.NewClientConfigFromBytes(kubeconfigBytes)
+}
+
+// workloadClientConfigFromKubeconfigSecretV1Beta1 is the still-v1beta1 counterpart of
+// workloadClientConfigFromKubeconfigSecret.
+func workloadClientConfigFromKubeconfigSecretV1Beta1(ctx context.Context, logger logr.Logger, cl client.Client, apiReader client.Reader, cluster *clusterv1.Cluster, hetznerCluster *infrav1.HetznerCluster) (clientcmd.ClientConfig, error) {
 	secretKey := client.ObjectKey{
 		Name:      fmt.Sprintf("%s-%s", cluster.Name, secret.Kubeconfig),
 		Namespace: cluster.Namespace,
@@ -65,7 +86,7 @@ type realWorkloadClusterClientFactory struct {
 }
 
 func (f *realWorkloadClusterClientFactory) NewWorkloadClient(ctx context.Context) (client.Client, error) {
-	wlConfig, err := workloadClientConfigFromKubeconfigSecret(ctx, f.logger,
+	wlConfig, err := workloadClientConfigFromKubeconfigSecretV1Beta1(ctx, f.logger,
 		f.client, f.client, f.cluster, f.hetznerCluster)
 	if err != nil {
 		return nil, fmt.Errorf("actionProvisioned (Reboot via Annotation),WorkloadClientConfigFromKubeconfigSecret failed: %w",

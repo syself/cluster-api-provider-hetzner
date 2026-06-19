@@ -589,6 +589,17 @@ const (
 	HetznerBareMetalMachineHostNotReadyV1Beta2Reason = "NotReady"
 )
 
+const (
+	// HetznerBareMetalMachineServerAvailableV1Beta2Condition is true when the bare metal server is available.
+	HetznerBareMetalMachineServerAvailableV1Beta2Condition = "ServerAvailable"
+
+	// HetznerBareMetalMachineServerAvailableV1Beta2Reason surfaces when the bare metal server is available.
+	HetznerBareMetalMachineServerAvailableV1Beta2Reason = clusterv1beta1.AvailableV1Beta2Reason
+
+	// HetznerBareMetalMachineWaitingForAPIServerV1Beta2Reason indicates the server is waiting for the API server to be healthy before load balancer attachment.
+	HetznerBareMetalMachineWaitingForAPIServerV1Beta2Reason = "WaitingForAPIServer"
+)
+
 // HetznerBareMetalHost's v1beta2 conditions.
 
 const (

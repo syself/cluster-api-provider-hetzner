@@ -275,7 +275,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(bmHost, r.RateLimitWaitTime); wait {
+	if wait := reconcileRateLimitV1Beta1(bmHost, r.RateLimitWaitTime); wait {
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 

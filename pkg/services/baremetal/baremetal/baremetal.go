@@ -178,6 +178,11 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// Worker nodes have no further blocking step, so mark the condition true here.
 	if !s.scope.IsControlPlane() {
 		v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
+		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+			Type:   infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Reason,
+		})
 		return res, nil
 	}
 
@@ -190,6 +195,11 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	}
 
 	v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
+	v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+		Type:   infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Reason,
+	})
 	return res, nil
 }
 
@@ -661,8 +671,14 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 			infrav1.ServerAvailableCondition,
 			"WaitingForAPIServer",
 			clusterv1beta1.ConditionSeverityInfo,
-			"reconcile LoadBalancer: apiserver pod not healthy yet.",
+			"Waiting for API server pod to become healthy before attaching to load balancer",
 		)
+		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalMachineWaitingForAPIServerV1Beta2Reason,
+			Message: "Waiting for API server pod to become healthy before attaching to load balancer",
+		})
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 	}
 
@@ -682,7 +698,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		}
 
 		if err := s.scope.HCloudClient.AddIPTargetToLoadBalancer(ctx, opts, lb); err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "AddIPTargetToLoadBalancer")
+			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, err, "AddIPTargetToLoadBalancer")
 			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
 				return nil
 			}
@@ -705,7 +721,7 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 	// remove host IPv4 as target
 	if host.Spec.Status.IPv4 != "" {
 		if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(host.Spec.Status.IPv4)); err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
+			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
 			// ignore not found errors
 			if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
 				return fmt.Errorf("failed to remove IPv4 %v as target of load balancer: %w", host.Spec.Status.IPv4, err)
@@ -722,7 +738,7 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 	// remove host IPv6 as target
 	if host.Spec.Status.IPv6 != "" {
 		if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(host.Spec.Status.IPv6)); err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
+			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
 			// ignore not found errors
 			if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
 				return fmt.Errorf("failed to remove IPv6 %v as target of load balancer: %w", host.Spec.Status.IPv6, err)
