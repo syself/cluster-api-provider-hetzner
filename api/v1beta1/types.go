@@ -213,6 +213,11 @@ type LoadBalancerSpec struct {
 
 	// Region contains the name of the HCloud location where the load balancer is running.
 	Region Region `json:"region,omitempty"`
+
+	// EnableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
+	// See the v1beta2 field for full documentation.
+	// +optional
+	EnableProxyProtocol bool `json:"enableProxyProtocol,omitempty"`
 }
 
 // LoadBalancerServiceSpec defines a load balancer Target.

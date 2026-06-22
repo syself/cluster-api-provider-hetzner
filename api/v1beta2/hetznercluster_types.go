@@ -91,15 +91,6 @@ type HetznerClusterSpec struct {
 	// run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
 	// +optional
 	SkipCreatingHetznerSecretInWorkloadCluster bool `json:"skipCreatingHetznerSecretInWorkloadCluster,omitempty"`
-
-	// EnableProxyProtocolForControlPlaneLoadBalancer enables proxy protocol on the kube-apiserver
-	// load balancer service. When true, CAPH checks whether all control-plane nodes in the
-	// workload cluster carry the annotation
-	// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" (set by an external
-	// service). Proxy protocol is activated on the LB only once every CP node has that annotation,
-	// ensuring the backend is prepared before the LB starts sending PROXY-protocol headers.
-	// +optional
-	EnableProxyProtocolForControlPlaneLoadBalancer bool `json:"enableProxyProtocolForControlPlaneLoadBalancer,omitempty"`
 }
 
 // APIEndpoint represents a reachable Kubernetes API endpoint.

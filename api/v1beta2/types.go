@@ -221,6 +221,15 @@ type LoadBalancerSpec struct {
 
 	// Region contains the name of the HCloud location where the load balancer is running.
 	Region Region `json:"region,omitempty"`
+
+	// EnableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
+	// When true, CAPH checks whether all control-plane nodes in the workload cluster carry the
+	// annotation capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" (set by an
+	// external service). Proxy protocol is activated on the LB only once every CP node has that
+	// annotation, ensuring the backend is prepared before the LB starts sending PROXY-protocol
+	// headers. Enabling proxy protocol is a one-way operation — it is never turned back off.
+	// +optional
+	EnableProxyProtocol bool `json:"enableProxyProtocol,omitempty"`
 }
 
 // LoadBalancerServiceSpec defines a load balancer Target.

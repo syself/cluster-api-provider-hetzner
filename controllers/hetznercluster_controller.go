@@ -311,7 +311,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 
 // computeEffectiveProxyProtocol sets clusterScope.EffectiveProxyProtocolForControlPlane.
 // The effective value is true only when BOTH conditions hold:
-//  1. HetznerClusterSpec.EnableProxyProtocolForControlPlaneLoadBalancer is true.
+//  1. HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol is true.
 //  2. Every control-plane node in the workload cluster carries the annotation
 //     capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true"
 //     (the annotation is written by an external service, not by CAPH).
@@ -321,7 +321,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 // retried on the next reconcile.
 func computeEffectiveProxyProtocol(ctx context.Context, clusterScope *scope.ClusterScope) error {
 	// Fast path: feature flag off — no need to reach the workload cluster.
-	if !clusterScope.HetznerCluster.Spec.EnableProxyProtocolForControlPlaneLoadBalancer {
+	if !clusterScope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol {
 		clusterScope.EffectiveProxyProtocolForControlPlane = false
 		return nil
 	}
