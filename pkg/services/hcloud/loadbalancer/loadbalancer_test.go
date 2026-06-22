@@ -121,7 +121,7 @@ var _ = Describe("createOptsFromSpec", func() {
 		hetznerCluster.Status.Network = nil
 		wantCreateOpts.Network = nil
 
-		createOpts := createOptsFromSpec(hetznerCluster, false)
+		createOpts := createOptsFromSpec(hetznerCluster)
 
 		// ignore random name
 		createOpts.Name = ""
@@ -130,7 +130,7 @@ var _ = Describe("createOptsFromSpec", func() {
 	})
 
 	It("creates specs for cluster with network", func() {
-		createOpts := createOptsFromSpec(hetznerCluster, false)
+		createOpts := createOptsFromSpec(hetznerCluster)
 
 		// ignore random name
 		createOpts.Name = ""
@@ -141,7 +141,7 @@ var _ = Describe("createOptsFromSpec", func() {
 	It("creates specs for cluster without load balancer name set", func() {
 		hetznerCluster.Spec.ControlPlaneLoadBalancer.Name = nil
 
-		createOpts := createOptsFromSpec(hetznerCluster, false)
+		createOpts := createOptsFromSpec(hetznerCluster)
 
 		// should generate correct name
 		Expect(createOpts.Name).To(HavePrefix("hetzner-cluster-kube-apiserver-"))
@@ -155,7 +155,7 @@ var _ = Describe("createOptsFromSpec", func() {
 	It("uses a zero listen port until the control plane endpoint is filled in", func() {
 		hetznerCluster.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{}
 
-		createOpts := createOptsFromSpec(hetznerCluster, false)
+		createOpts := createOptsFromSpec(hetznerCluster)
 
 		Expect(*createOpts.Services[0].ListenPort).To(Equal(0))
 	})

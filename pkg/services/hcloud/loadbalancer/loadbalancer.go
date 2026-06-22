@@ -293,43 +293,32 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 
 	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, haveServiceListenPorts)
 
-	// Detect proxy protocol drift on existing kube-API service: if it already exists on the LB
-	// but the proxy protocol setting no longer matches the desired state, schedule a delete+recreate.
+	// Enabling proxy protocol is a one-way operation. Once all CP nodes carry the annotation the
+	// kube-API service is recreated with proxy protocol on; it is never turned back off.
 	if kubeAPIServicePort != 0 {
 		if existing, ok := haveServiceMap[kubeAPIServicePort]; ok {
-			if existing.Proxyprotocol != proxyProtocolEnabled {
+			if proxyProtocolEnabled && !existing.Proxyprotocol {
 				toDelete = append(toDelete, kubeAPIServicePort)
 				toCreate = append(toCreate, kubeAPIServicePort)
 			}
 		}
 	}
 
-	// delete services which are registered for lb but are not in specs (or need recreation)
+	// delete services that are no longer in the spec, or the kube-API service being recreated
+	// to enable proxy protocol
 	var multierr error
 
 	for _, listenPort := range toDelete {
-		if _, ok := wantServiceListenPortsMap[listenPort]; !ok {
-			// service is gone from spec – just delete
-			if err := s.scope.HCloudClient.DeleteServiceFromLoadBalancer(ctx, lb, listenPort); err != nil {
-				hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteServiceFromLoadBalancer")
-				multierr = errors.Join(multierr, fmt.Errorf("failed to delete service from load balancer: %w", err))
-				if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-					return multierr
-				}
-			}
-		} else {
-			// service is in spec but needs proxy protocol update – delete before recreating
-			if err := s.scope.HCloudClient.DeleteServiceFromLoadBalancer(ctx, lb, listenPort); err != nil {
-				hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteServiceFromLoadBalancer")
-				multierr = errors.Join(multierr, fmt.Errorf("failed to delete service from load balancer for recreation: %w", err))
-				if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-					return multierr
-				}
+		if err := s.scope.HCloudClient.DeleteServiceFromLoadBalancer(ctx, lb, listenPort); err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteServiceFromLoadBalancer")
+			multierr = errors.Join(multierr, fmt.Errorf("failed to delete service from load balancer: %w", err))
+			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				return multierr
 			}
 		}
 	}
 
-	// create services which are in specs and not yet in API (or were deleted for recreation)
+	// create services that are in the spec but not yet on the LB
 	for i, listenPort := range toCreate {
 		// proxy protocol is only enabled for the kube-API service, never for extra services
 		proxyProtocol := proxyProtocolEnabled && listenPort == kubeAPIServicePort
@@ -352,7 +341,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 }
 
 func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, error) {
-	opts := createOptsFromSpec(s.scope.HetznerCluster, s.scope.EffectiveProxyProtocolForControlPlane)
+	opts := createOptsFromSpec(s.scope.HetznerCluster)
 	lb, err := s.scope.HCloudClient.CreateLoadBalancer(ctx, opts)
 	if err != nil {
 		err = fmt.Errorf("failed to create load balancer: %w", err)
@@ -382,14 +371,14 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 	return lb, nil
 }
 
-func createOptsFromSpec(hc *infrav2.HetznerCluster, effectiveProxyProtocol bool) hcloud.LoadBalancerCreateOpts {
+func createOptsFromSpec(hc *infrav2.HetznerCluster) hcloud.LoadBalancerCreateOpts {
 	// gather algorithm type
 	algorithmType := hc.Spec.ControlPlaneLoadBalancer.Algorithm.HCloudAlgorithmType()
 
 	// Set name
 	name := utils.GenerateName(nil, fmt.Sprintf("%s-kube-apiserver-", hc.Name))
 
-	proxyprotocol := effectiveProxyProtocol
+	proxyprotocol := false
 
 	var network *hcloud.Network
 	if hc.Status.Network != nil {
