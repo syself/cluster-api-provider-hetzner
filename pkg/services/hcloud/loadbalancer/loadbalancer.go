@@ -21,6 +21,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -262,14 +264,11 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	extraServicesSpec := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices
 	proxyProtocolEnabled := s.scope.EffectiveProxyProtocolForControlPlane
 
-	// build slices and maps to make diffs
-	haveServiceListenPorts := make([]int, 0, len(lb.Services))
 	wantServiceListenPorts := make([]int, 0, len(extraServicesSpec)+1)
 	wantServiceListenPortsMap := make(map[int]infrav2.LoadBalancerServiceSpec, len(extraServicesSpec)+1)
 
 	existingServicesByPort := make(map[int]hcloud.LoadBalancerService, len(lb.Services))
 	for _, service := range lb.Services {
-		haveServiceListenPorts = append(haveServiceListenPorts, service.ListenPort)
 		existingServicesByPort[service.ListenPort] = service
 	}
 
@@ -290,7 +289,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		}
 	}
 
-	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, haveServiceListenPorts)
+	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, slices.Collect(maps.Keys(existingServicesByPort)))
 
 	// Enabling proxy protocol is a one-way operation. Once all CP nodes carry the annotation the
 	// kube-API service is recreated with proxy protocol on; it is never turned back off.
