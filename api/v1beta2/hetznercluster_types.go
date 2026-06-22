@@ -50,6 +50,10 @@ const (
 	// plane load balancer. The annotation is set by an external service (e.g. a node-configuration
 	// daemonset) once the node is ready to receive PROXY-protocol connections. CAPH reads this
 	// annotation — it never writes it.
+	//
+	// Requiring every CP node to carry the annotation enables a safe automated transition: if proxy
+	// protocol were enabled on the LB before all backends support it, nodes still expecting plain
+	// TCP would receive malformed PROXY-protocol headers and the control plane would break.
 	ProxyProtocolForControlPlaneLoadBalancerAnnotation = "capi.syself.com/proxy-protocol-for-controlplane-loadbalancer"
 )
 

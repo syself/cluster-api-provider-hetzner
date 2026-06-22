@@ -314,7 +314,11 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 //  1. HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol is true.
 //  2. Every control-plane node in the workload cluster carries the annotation
 //     capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true"
-//     (the annotation is written by an external service, not by CAPH).
+//     (set by an external service, never by CAPH).
+//
+// Requiring all CP nodes to signal readiness enables a safe automated transition: if the LB were
+// switched to proxy protocol before every backend supports it, nodes still expecting plain TCP
+// would receive malformed PROXY-protocol headers and the control plane would break.
 //
 // If the workload cluster is not yet reachable or has no control-plane nodes,
 // the effective value is false and no error is returned — the check will be
