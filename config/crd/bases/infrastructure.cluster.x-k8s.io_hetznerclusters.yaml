@@ -183,6 +183,11 @@ spec:
                   - sin
                   type: string
                 type: array
+              enableProxyProtocolForControlPlaneLoadBalancer:
+                description: |-
+                  EnableProxyProtocolForControlPlaneLoadBalancer enables proxy protocol on the kube-apiserver
+                  load balancer service. See the v1beta2 field for full documentation.
+                type: boolean
               hcloudNetwork:
                 description: HCloudNetwork defines details about the private Network
                   for Hetzner Cloud. If left empty, no private Network is configured.
@@ -776,10 +781,11 @@ spec:
               enableProxyProtocolForControlPlaneLoadBalancer:
                 description: |-
                   EnableProxyProtocolForControlPlaneLoadBalancer enables proxy protocol on the kube-apiserver
-                  load balancer service. When true, the Hetzner LB forwards the original client IP via the
-                  PROXY protocol header to the backend. CAPH also sets the annotation
-                  capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" on all control-plane
-                  nodes in the workload cluster so that other components can detect the configuration.
+                  load balancer service. When true, CAPH checks whether all control-plane nodes in the
+                  workload cluster carry the annotation
+                  capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" (set by an external
+                  service). Proxy protocol is activated on the LB only once every CP node has that annotation,
+                  ensuring the backend is prepared before the LB starts sending PROXY-protocol headers.
                 type: boolean
               hcloudNetwork:
                 description: HCloudNetwork defines details about the private Network
