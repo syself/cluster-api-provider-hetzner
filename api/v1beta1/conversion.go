@@ -79,31 +79,13 @@ func (dst *HetznerCluster) ConvertFrom(srcRaw conversion.Hub) error {
 // ConvertTo converts this HetznerClusterTemplate to the Hub version (v1beta2).
 func (src *HetznerClusterTemplate) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*infrav2.HetznerClusterTemplate)
-	if err := Convert_v1beta1_HetznerClusterTemplate_To_v1beta2_HetznerClusterTemplate(src, dst, nil); err != nil {
-		return err
-	}
-
-	// Restore v1beta2-only fields from the marshaled annotation so the round-trip is lossless.
-	restored := &infrav2.HetznerClusterTemplate{}
-	ok, err := utilconversion.UnmarshalData(src, restored)
-	if err != nil {
-		return err
-	}
-	if ok {
-		dst.Spec.Template.Spec.EnableProxyProtocolForControlPlaneLoadBalancer = restored.Spec.Template.Spec.EnableProxyProtocolForControlPlaneLoadBalancer
-	}
-	return nil
+	return Convert_v1beta1_HetznerClusterTemplate_To_v1beta2_HetznerClusterTemplate(src, dst, nil)
 }
 
 // ConvertFrom converts the Hub version (v1beta2) to this HetznerClusterTemplate.
 func (dst *HetznerClusterTemplate) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*infrav2.HetznerClusterTemplate)
-	if err := Convert_v1beta2_HetznerClusterTemplate_To_v1beta1_HetznerClusterTemplate(src, dst, nil); err != nil {
-		return err
-	}
-	// Preserve the whole hub (v1beta2) object in a data annotation. ConvertTo reads it back to restore
-	// values v1beta1 cannot represent, keeping the round trip lossless.
-	return utilconversion.MarshalData(src, dst)
+	return Convert_v1beta2_HetznerClusterTemplate_To_v1beta1_HetznerClusterTemplate(src, dst, nil)
 }
 
 // ConvertTo converts this HCloudMachine to the Hub version (v1beta2).
