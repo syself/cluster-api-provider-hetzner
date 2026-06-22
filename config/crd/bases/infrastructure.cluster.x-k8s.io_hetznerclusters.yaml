@@ -697,11 +697,13 @@ spec:
                   enableProxyProtocol:
                     description: |-
                       EnableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
-                      When true, CAPH checks whether all control-plane nodes in the workload cluster carry the
+                      Only the kube-apiserver service is affected; extra services are never given proxy protocol.
+                      When true, CAPH waits until all control-plane nodes in the workload cluster carry the
                       annotation capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" (set by an
-                      external service). Proxy protocol is activated on the LB only once every CP node has that
-                      annotation, ensuring the backend is prepared before the LB starts sending PROXY-protocol
-                      headers. Enabling proxy protocol is a one-way operation — it is never turned back off.
+                      external service, never by CAPH) before switching the LB service. This ensures a safe
+                      automated transition: enabling proxy protocol on the LB before all backends support it would
+                      cause nodes still expecting plain TCP to receive malformed PROXY-protocol headers, breaking
+                      the control plane. Enabling proxy protocol is a one-way operation — it is never turned back off.
                     type: boolean
                   enabled:
                     default: true
