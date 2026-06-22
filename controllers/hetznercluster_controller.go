@@ -232,6 +232,13 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 
 	emptyResult := reconcile.Result{}
 
+	// Determine whether the effective proxy protocol should be enabled on the CP LB.
+	// This is true only when the spec flag is set AND every CP node in the workload cluster
+	// already carries the proxy-protocol annotation (set by an external service).
+	if err := computeEffectiveProxyProtocol(ctx, clusterScope); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to compute effective proxy protocol: %w", err)
+	}
+
 	// reconcile the load balancers
 	res, err := loadbalancer.NewService(clusterScope).Reconcile(ctx)
 	if res != emptyResult {
@@ -300,6 +307,69 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	})
 
 	return reconcile.Result{}, nil
+}
+
+// computeEffectiveProxyProtocol sets clusterScope.EffectiveProxyProtocolForControlPlane.
+// The effective value is true only when BOTH conditions hold:
+//  1. HetznerClusterSpec.EnableProxyProtocolForControlPlaneLoadBalancer is true.
+//  2. Every control-plane node in the workload cluster carries the annotation
+//     capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true"
+//     (the annotation is written by an external service, not by CAPH).
+//
+// If the workload cluster is not yet reachable or has no control-plane nodes,
+// the effective value is false and no error is returned — the check will be
+// retried on the next reconcile.
+func computeEffectiveProxyProtocol(ctx context.Context, clusterScope *scope.ClusterScope) error {
+	// Fast path: feature flag off — no need to reach the workload cluster.
+	if !clusterScope.HetznerCluster.Spec.EnableProxyProtocolForControlPlaneLoadBalancer {
+		clusterScope.EffectiveProxyProtocolForControlPlane = false
+		return nil
+	}
+
+	wlClientConfig, err := clusterScope.ClientConfig(ctx)
+	if err != nil {
+		clusterScope.V(1).Info("proxy protocol not yet effective: workload cluster kubeconfig not available")
+		clusterScope.EffectiveProxyProtocolForControlPlane = false
+		return nil //nolint:nilerr
+	}
+	if err := scope.IsControlPlaneReady(ctx, wlClientConfig); err != nil {
+		clusterScope.V(1).Info("proxy protocol not yet effective: workload cluster control plane not ready")
+		clusterScope.EffectiveProxyProtocolForControlPlane = false
+		return nil //nolint:nilerr
+	}
+
+	restConfig, err := wlClientConfig.ClientConfig()
+	if err != nil {
+		return fmt.Errorf("failed to get workload cluster rest config: %w", err)
+	}
+	wlClient, err := client.New(restConfig, client.Options{})
+	if err != nil {
+		return fmt.Errorf("failed to create workload cluster client: %w", err)
+	}
+
+	nodeList := &corev1.NodeList{}
+	if err := wlClient.List(ctx, nodeList, client.MatchingLabels{"node-role.kubernetes.io/control-plane": ""}); err != nil {
+		return fmt.Errorf("failed to list control-plane nodes in workload cluster: %w", err)
+	}
+
+	// Require at least one CP node and every one must have the annotation.
+	if len(nodeList.Items) == 0 {
+		clusterScope.V(1).Info("proxy protocol not yet effective: no control-plane nodes found")
+		clusterScope.EffectiveProxyProtocolForControlPlane = false
+		return nil
+	}
+	for _, node := range nodeList.Items {
+		if node.Annotations[infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
+			clusterScope.V(1).Info("proxy protocol not yet effective: node missing annotation",
+				"node", node.Name,
+				"annotation", infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation)
+			clusterScope.EffectiveProxyProtocolForControlPlane = false
+			return nil
+		}
+	}
+
+	clusterScope.EffectiveProxyProtocolForControlPlane = true
+	return nil
 }
 
 func processControlPlaneEndpoint(hetznerCluster *infrav2.HetznerCluster) {

@@ -101,6 +101,13 @@ type ClusterScope struct {
 
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav2.HetznerCluster
+
+	// EffectiveProxyProtocolForControlPlane is computed by the HetznerCluster controller before
+	// the load balancer reconciliation runs. It is true only when both:
+	// (a) HetznerClusterSpec.EnableProxyProtocolForControlPlaneLoadBalancer is true, and
+	// (b) every control-plane node in the workload cluster carries the annotation
+	//     capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true".
+	EffectiveProxyProtocolForControlPlane bool
 }
 
 // Name returns the HetznerCluster name.

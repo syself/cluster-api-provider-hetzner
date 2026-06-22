@@ -44,6 +44,13 @@ const (
 	// format to use for baremetal nodes. If "true" "hrobot://" will be used. If not set or empty,
 	// then the old format ("hcloud://bm-") gets used.
 	UseHrobotProviderIDForBaremetalAnnotation = "capi.syself.com/use-hrobot-provider-id-for-baremetal"
+
+	// ProxyProtocolForControlPlaneLoadBalancerAnnotation must be present with value "true" on ALL
+	// control-plane nodes in the workload cluster before CAPH enables proxy protocol on the control
+	// plane load balancer. The annotation is set by an external service (e.g. a node-configuration
+	// daemonset) once the node is ready to receive PROXY-protocol connections. CAPH reads this
+	// annotation — it never writes it.
+	ProxyProtocolForControlPlaneLoadBalancerAnnotation = "capi.syself.com/proxy-protocol-for-controlplane-loadbalancer"
 )
 
 // HetznerClusterSpec defines the desired state of HetznerCluster.
@@ -84,6 +91,15 @@ type HetznerClusterSpec struct {
 	// run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
 	// +optional
 	SkipCreatingHetznerSecretInWorkloadCluster bool `json:"skipCreatingHetznerSecretInWorkloadCluster,omitempty"`
+
+	// EnableProxyProtocolForControlPlaneLoadBalancer enables proxy protocol on the kube-apiserver
+	// load balancer service. When true, CAPH checks whether all control-plane nodes in the
+	// workload cluster carry the annotation
+	// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" (set by an external
+	// service). Proxy protocol is activated on the LB only once every CP node has that annotation,
+	// ensuring the backend is prepared before the LB starts sending PROXY-protocol headers.
+	// +optional
+	EnableProxyProtocolForControlPlaneLoadBalancer bool `json:"enableProxyProtocolForControlPlaneLoadBalancer,omitempty"`
 }
 
 // APIEndpoint represents a reachable Kubernetes API endpoint.
