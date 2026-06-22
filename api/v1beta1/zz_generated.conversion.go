@@ -2261,6 +2261,7 @@ func autoConvert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in *He
 		return err
 	}
 	out.SkipCreatingHetznerSecretInWorkloadCluster = in.SkipCreatingHetznerSecretInWorkloadCluster
+	out.EnableProxyProtocolForControlPlaneLoadBalancer = in.EnableProxyProtocolForControlPlaneLoadBalancer
 	return nil
 }
 
@@ -2281,7 +2282,7 @@ func autoConvert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in *v1
 		return err
 	}
 	out.SkipCreatingHetznerSecretInWorkloadCluster = in.SkipCreatingHetznerSecretInWorkloadCluster
-	// WARNING: in.EnableProxyProtocolForControlPlaneLoadBalancer requires manual conversion: does not exist in peer-type
+	out.EnableProxyProtocolForControlPlaneLoadBalancer = in.EnableProxyProtocolForControlPlaneLoadBalancer
 	return nil
 }
 

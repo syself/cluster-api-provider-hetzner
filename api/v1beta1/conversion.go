@@ -61,12 +61,6 @@ func (src *HetznerCluster) ConvertTo(dstRaw conversion.Hub) error {
 	// ready becomes nil, matching the one-time provisioning signal semantics.
 	clusterv1.Convert_bool_To_Pointer_bool(src.Status.Ready, ok, restored.Status.Initialization.Provisioned, &dst.Status.Initialization.Provisioned)
 
-	// EnableProxyProtocolForControlPlaneLoadBalancer only exists in v1beta2; restore it from the
-	// marshaled annotation so the round-trip is lossless.
-	if ok {
-		dst.Spec.EnableProxyProtocolForControlPlaneLoadBalancer = restored.Spec.EnableProxyProtocolForControlPlaneLoadBalancer
-	}
-
 	return nil
 }
 

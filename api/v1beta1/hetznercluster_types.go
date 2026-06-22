@@ -80,6 +80,11 @@ type HetznerClusterSpec struct {
 	// run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
 	// +optional
 	SkipCreatingHetznerSecretInWorkloadCluster bool `json:"skipCreatingHetznerSecretInWorkloadCluster,omitempty"`
+
+	// EnableProxyProtocolForControlPlaneLoadBalancer enables proxy protocol on the kube-apiserver
+	// load balancer service. See the v1beta2 field for full documentation.
+	// +optional
+	EnableProxyProtocolForControlPlaneLoadBalancer bool `json:"enableProxyProtocolForControlPlaneLoadBalancer,omitempty"`
 }
 
 // HetznerClusterStatus defines the observed state of HetznerCluster.
