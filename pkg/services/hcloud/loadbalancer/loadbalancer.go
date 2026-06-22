@@ -275,10 +275,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		haveServiceMap[service.ListenPort] = service
 	}
 
-	var kubeAPIServicePort int
-	if hc.Spec.ControlPlaneEndpoint.Port != 0 {
-		kubeAPIServicePort = int(hc.Spec.ControlPlaneEndpoint.Port)
-	}
+	kubeAPIServicePort := int(hc.Spec.ControlPlaneEndpoint.Port)
 
 	for _, serviceInSpec := range extraServicesSpec {
 		wantServiceListenPorts = append(wantServiceListenPorts, serviceInSpec.ListenPort)
