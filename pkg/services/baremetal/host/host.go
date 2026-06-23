@@ -1494,11 +1494,12 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 	// CheckDisk before accessing the disk
 	info, err := sshClient.CheckDisk(ctx, s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN())
 	if err != nil {
-		_, ok := s.scope.HetznerBareMetalHost.Annotations[infrav1.IgnoreCheckDiskAnnotation]
-		if !ok {
-			// The annotation is not set. This is a permanent error.
+		_, annotationOk := s.scope.HetznerBareMetalHost.Annotations[infrav1.IgnoreCheckDiskAnnotation]
+		machineIgnoresCheckDisk := s.scope.HetznerBareMetalMachine != nil && s.scope.HetznerBareMetalMachine.Spec.IgnoreCheckDisk
+		if !annotationOk && !machineIgnoresCheckDisk {
+			// Neither the annotation nor the machine spec field is set. This is a permanent error.
 			msg := fmt.Sprintf(
-				"CheckDisk failed (permanent error): %s (set annotation %q on hbmh to continue anyway)",
+				"CheckDisk failed (permanent error): %s (set annotation %q on hbmh or ignoreCheckDisk on HetznerBareMetalMachine to continue anyway)",
 				err.Error(), infrav1.IgnoreCheckDiskAnnotation)
 			v1beta1conditions.MarkFalse(
 				s.scope.HetznerBareMetalHost,
@@ -1518,9 +1519,9 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 			s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
 			return actionStop{}
 		}
-		// The annotation was set. Just create a warning and move on.
+		// The annotation or machine spec field was set. Just create a warning and move on.
 		record.Warnf(s.scope.HetznerBareMetalHost, infrav1.CheckDiskFailedReason,
-			"CheckDisk failed. Continue anyway because %q is set: %s",
+			"CheckDisk failed. Continue anyway because %q is set or ignoreCheckDisk is true on HetznerBareMetalMachine: %s",
 			infrav1.IgnoreCheckDiskAnnotation,
 			err.Error())
 	} else {
