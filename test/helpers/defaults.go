@@ -23,8 +23,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 const (
@@ -43,14 +45,14 @@ var defaultPlacementGroupName = "caph-placement-group"
 var globalServerIDCounter int32
 
 // BareMetalHost returns a bare metal host given options.
-func BareMetalHost(name, namespace string, opts ...HostOpts) *infrav1.HetznerBareMetalHost {
+func BareMetalHost(name, namespace string, opts ...HostOpts) *infrav2.HetznerBareMetalHost {
 	serverID := atomic.AddInt32(&globalServerIDCounter, 1)
-	host := &infrav1.HetznerBareMetalHost{
+	host := &infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
+		Spec: infrav2.HetznerBareMetalHostSpec{
 			ServerID: int(serverID),
 		},
 	}
@@ -61,35 +63,33 @@ func BareMetalHost(name, namespace string, opts ...HostOpts) *infrav1.HetznerBar
 }
 
 // HostOpts define options to customize the host spec.
-type HostOpts func(*infrav1.HetznerBareMetalHost)
+type HostOpts func(*infrav2.HetznerBareMetalHost)
 
-// WithError gives the option to define a host with error in spec.status.
-func WithError(errorType infrav1.ErrorType, errorMessage string, errorCount int) HostOpts {
-	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.Status.ErrorType = errorType
-		host.Spec.Status.ErrorMessage = errorMessage
-		host.Spec.Status.ErrorCount = errorCount
+// WithError gives the option to define a host with an error in the status.
+func WithError(errorType infrav2.ErrorType, errorMessage string) HostOpts {
+	return func(host *infrav2.HetznerBareMetalHost) {
+		host.SetError(errorType, errorMessage)
 	}
 }
 
 // WithRebootTriggeredAt gives the option to define a host with a reboot timestamp set.
 func WithRebootTriggeredAt(t metav1.Time) HostOpts {
-	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.Status.RebootTriggeredAt = &t
+	return func(host *infrav2.HetznerBareMetalHost) {
+		host.Status.RebootTriggeredAt = t
 	}
 }
 
 // WithRebootTypes gives the option to define a host with custom reboot types.
-func WithRebootTypes(rebootTypes []infrav1.RebootType) HostOpts {
-	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.Status.RebootTypes = rebootTypes
+func WithRebootTypes(rebootTypes []infrav2.RebootType) HostOpts {
+	return func(host *infrav2.HetznerBareMetalHost) {
+		host.Status.RebootTypes = rebootTypes
 	}
 }
 
 // WithRootDeviceHintWWN gives the option to define a host with root device hints.
 func WithRootDeviceHintWWN() HostOpts {
-	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
+	return func(host *infrav2.HetznerBareMetalHost) {
+		host.Spec.RootDeviceHints = &infrav2.RootDeviceHints{
 			WWN: DefaultWWN,
 		}
 	}
@@ -97,62 +97,33 @@ func WithRootDeviceHintWWN() HostOpts {
 
 // WithRootDeviceHintRaid gives the option to define a host with root device hints.
 func WithRootDeviceHintRaid() HostOpts {
-	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
-			Raid: infrav1.Raid{WWN: []string{DefaultWWN, DefaultWWN2}},
+	return func(host *infrav2.HetznerBareMetalHost) {
+		host.Spec.RootDeviceHints = &infrav2.RootDeviceHints{
+			Raid: infrav2.Raid{WWN: []string{DefaultWWN, DefaultWWN2}},
 		}
 	}
 }
 
-// WithHetznerClusterRef gives the option to define a host with cluster ref.
-func WithHetznerClusterRef(hetznerClusterRef string) HostOpts {
-	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.Status.HetznerClusterRef = hetznerClusterRef
-	}
-}
-
-// WithSSHSpec gives the option to define a host with ssh spec.
-func WithSSHSpec() HostOpts {
-	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.Status.SSHSpec = &infrav1.SSHSpec{
-			SecretRef: infrav1.SSHSecretRef{
-				Name: defaultOSSSHKeyName,
-				Key: infrav1.SSHSecretKeyRef{
-					Name:       "sshkey-name",
-					PublicKey:  "public-key",
-					PrivateKey: "private-key",
-				},
-			},
+// WithClusterNameLabel gives the option to define a host with the cluster-name label. The host
+// controller finds the Cluster through this label.
+func WithClusterNameLabel(clusterName string) HostOpts {
+	return func(host *infrav2.HetznerBareMetalHost) {
+		if host.Labels == nil {
+			host.Labels = make(map[string]string)
 		}
-	}
-}
-
-// WithSSHSpecInclPorts gives the option to define a host with ssh spec incl. ports.
-func WithSSHSpecInclPorts(portAfterInstallImage int) HostOpts {
-	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.Status.SSHSpec = &infrav1.SSHSpec{
-			SecretRef: infrav1.SSHSecretRef{
-				Name: defaultOSSSHKeyName,
-				Key: infrav1.SSHSecretKeyRef{
-					Name:       "sshkey-name",
-					PublicKey:  "public-key",
-					PrivateKey: "private-key",
-				},
-			},
-			PortAfterInstallImage: portAfterInstallImage,
-		}
+		host.Labels[clusterv1.ClusterNameLabel] = clusterName
 	}
 }
 
 // WithSSHStatus gives the option to define a host with ssh status.
 func WithSSHStatus() HostOpts {
-	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.Status.SSHStatus = infrav1.SSHStatus{
-			OSKey: &infrav1.SSHKey{
+	return func(host *infrav2.HetznerBareMetalHost) {
+		host.Status.SSHStatus = infrav2.SSHStatus{
+			OSKey: &infrav2.SSHKey{
 				Name:        defaultOSSSHKeyName,
 				Fingerprint: sshFingerprint,
 			},
-			RescueKey: &infrav1.SSHKey{
+			RescueKey: &infrav2.SSHKey{
 				Name:        defaultRescueSSHKeyName,
 				Fingerprint: sshFingerprint,
 			},
@@ -162,19 +133,36 @@ func WithSSHStatus() HostOpts {
 
 // WithIPv4 gives the option to define a host with IP.
 func WithIPv4() HostOpts {
-	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.Status.IPv4 = "1.2.3.4"
+	return func(host *infrav2.HetznerBareMetalHost) {
+		host.Status.IPv4 = "1.2.3.4"
 	}
 }
 
 // WithConsumerRef gives the option to define a host with consumer ref.
 func WithConsumerRef() HostOpts {
-	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.ConsumerRef = &corev1.ObjectReference{
-			Name:      "bm-machine",
-			Namespace: "default",
-			Kind:      "HetznerBareMetalMachine",
+	return func(host *infrav2.HetznerBareMetalHost) {
+		host.Spec.ConsumerRef = &infrav2.HetznerBareMetalHostConsumerReference{
+			Name:     "bm-machine",
+			Kind:     "HetznerBareMetalMachine",
+			APIGroup: infrav1.GroupVersion.Group,
 		}
+	}
+}
+
+// BareMetalMachineSSHSpec returns the SSH spec for a HetznerBareMetalMachine that consumes a test
+// host. The key names match the data of GetDefaultSSHSecret. The host reads the SSH spec live from
+// the machine.
+func BareMetalMachineSSHSpec(portAfterInstallImage int) infrav1.SSHSpec {
+	return infrav1.SSHSpec{
+		SecretRef: infrav1.SSHSecretRef{
+			Name: defaultOSSSHKeyName,
+			Key: infrav1.SSHSecretKeyRef{
+				Name:       "sshkey-name",
+				PublicKey:  "public-key",
+				PrivateKey: "private-key",
+			},
+		},
+		PortAfterInstallImage: portAfterInstallImage,
 	}
 }
 

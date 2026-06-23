@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 )
 
@@ -82,7 +83,7 @@ var _ = Describe("Test AddRebootAnnotation", func() {
 		expectAnnotations map[string]string
 	}
 
-	rebootAnnotationArguments := infrav1.RebootAnnotationArguments{Type: infrav1.RebootTypeHardware}
+	rebootAnnotationArguments := infrav2.RebootAnnotationArguments{Type: infrav2.RebootTypeHardware}
 
 	b, err := json.Marshal(rebootAnnotationArguments)
 	Expect(err).To(BeNil())
@@ -98,15 +99,15 @@ var _ = Describe("Test AddRebootAnnotation", func() {
 		},
 		Entry("nil annotations", testCaseAddRebootAnnotation{
 			annotations:       nil,
-			expectAnnotations: map[string]string{infrav1.RebootAnnotation: rebootAnnotationString},
+			expectAnnotations: map[string]string{infrav2.RebootAnnotation: rebootAnnotationString},
 		}),
 		Entry("existing annotations", testCaseAddRebootAnnotation{
 			annotations:       map[string]string{"key": "value"},
-			expectAnnotations: map[string]string{"key": "value", infrav1.RebootAnnotation: rebootAnnotationString},
+			expectAnnotations: map[string]string{"key": "value", infrav2.RebootAnnotation: rebootAnnotationString},
 		}),
 		Entry("reboot annotation already present", testCaseAddRebootAnnotation{
-			annotations:       map[string]string{"key": "value", infrav1.RebootAnnotation: rebootAnnotationString},
-			expectAnnotations: map[string]string{"key": "value", infrav1.RebootAnnotation: rebootAnnotationString},
+			annotations:       map[string]string{"key": "value", infrav2.RebootAnnotation: rebootAnnotationString},
+			expectAnnotations: map[string]string{"key": "value", infrav2.RebootAnnotation: rebootAnnotationString},
 		}),
 	)
 })

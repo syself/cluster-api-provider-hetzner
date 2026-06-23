@@ -17,20 +17,10 @@ limitations under the License.
 package host
 
 import (
-	"crypto/rand"
-	"fmt"
-	"math"
-	"math/big"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
-
-// This is an upper limit for the ErrorCount, so that the max backoff
-// timeout will not exceed (roughly) 8 hours.
-const maxBackOffCount = 9
 
 // actionResult is an interface that encapsulates the result of a Reconcile
 // call, as returned by the action corresponding to the current state.
@@ -94,44 +84,5 @@ func (r actionError) Result() (result reconcile.Result, err error) {
 type actionStop struct{}
 
 func (r actionStop) Result() (result reconcile.Result, err error) {
-	return result, err
-}
-
-// actionFailed is a result indicating that the current action has failed,
-// and that the resource should be marked as in error.
-type actionFailed struct {
-	ErrorType  infrav1.ErrorType
-	errorCount int
-}
-
-// CalculateBackoff calculates the reconciliation backoff.
-// Distribution sample for errorCount values:
-// 1  [1m, 2m]
-// 2  [2m, 4m]
-// 3  [4m, 8m]
-// 4  [8m, 16m]
-// 5  [16m, 32m]
-// 6  [32m, 1h4m]
-// 7  [1h4m, 2h8m]
-// 8  [2h8m, 4h16m]
-// 9  [4h16m, 8h32m].
-func CalculateBackoff(errorCount int) (time.Duration, error) {
-	if errorCount > maxBackOffCount {
-		errorCount = maxBackOffCount
-	}
-
-	base := math.Exp2(float64(errorCount))
-	randInt, err := rand.Int(rand.Reader, big.NewInt(1<<53))
-	if err != nil {
-		return 0, fmt.Errorf("failed to create random number: %w", err)
-	}
-	randFloat := float64(randInt.Int64()) / (1 << 53)
-	backOff := base - (randFloat * base * 0.5)
-	backOffDuration := time.Duration(float64(time.Minute) * backOff)
-	return backOffDuration, nil
-}
-
-func (r actionFailed) Result() (result reconcile.Result, err error) {
-	result.RequeueAfter, err = CalculateBackoff(r.errorCount)
 	return result, err
 }
