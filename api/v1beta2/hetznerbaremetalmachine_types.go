@@ -87,10 +87,10 @@ type HetznerBareMetalMachineSpec struct {
 	// SSHSpec gives a reference on the secret where SSH details are specified as well as ports for SSH.
 	SSHSpec SSHSpec `json:"sshSpec,omitempty"`
 
-	// IgnoreCheckDisk allows provisioning to continue even if CheckDisk fails.
+	// SkipCheckDisk skips the CheckDisk step during provisioning.
 	// This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
 	// +optional
-	IgnoreCheckDisk bool `json:"ignoreCheckDisk,omitempty"`
+	SkipCheckDisk bool `json:"skipCheckDisk,omitempty"`
 }
 
 // HostSelector specifies matching criteria for labels on BareMetalHosts.

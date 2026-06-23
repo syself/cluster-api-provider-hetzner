@@ -98,11 +98,6 @@ spec:
                               labels that must exist on a chosen BareMetalHost.
                             type: object
                         type: object
-                      ignoreCheckDisk:
-                        description: |-
-                          IgnoreCheckDisk allows provisioning to continue even if CheckDisk fails.
-                          This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
-                        type: boolean
                       installImage:
                         description: InstallImage is the configuration that is used
                           for the autosetup configuration for installing an OS via
@@ -259,6 +254,11 @@ spec:
                           `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
                           `"true"`.
                         type: string
+                      skipCheckDisk:
+                        description: |-
+                          SkipCheckDisk skips the CheckDisk step during provisioning.
+                          This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
+                        type: boolean
                       sshSpec:
                         description: SSHSpec gives a reference on the secret where
                           SSH details are specified as well as ports for SSH.
@@ -410,11 +410,6 @@ spec:
                               labels that must exist on a chosen BareMetalHost.
                             type: object
                         type: object
-                      ignoreCheckDisk:
-                        description: |-
-                          IgnoreCheckDisk allows provisioning to continue even if CheckDisk fails.
-                          This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
-                        type: boolean
                       installImage:
                         description: InstallImage is the configuration that is used
                           for the autosetup configuration for installing an OS via
@@ -574,6 +569,11 @@ spec:
                           `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
                           `"true"`.
                         type: string
+                      skipCheckDisk:
+                        description: |-
+                          SkipCheckDisk skips the CheckDisk step during provisioning.
+                          This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
+                        type: boolean
                       sshSpec:
                         description: SSHSpec gives a reference on the secret where
                           SSH details are specified as well as ports for SSH.
