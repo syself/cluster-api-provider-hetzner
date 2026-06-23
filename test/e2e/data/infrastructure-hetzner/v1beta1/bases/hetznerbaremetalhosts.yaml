@@ -12,7 +12,7 @@ spec:
   maintenanceMode: false
   description: Test Machine 1670788
 ---
-# Feb 2026: worked.
+# 2026-06-23: Disabled after hardware reboot into rescue mode timed out (CI run 27964284038).
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
@@ -24,7 +24,7 @@ spec:
   serverID: 1716772 # ip: 136.243.69.24
   rootDeviceHints:
     wwn: "0x5002538d41d70a46"
-  maintenanceMode: false
+  maintenanceMode: true
   description: Test Machine 1716772
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
