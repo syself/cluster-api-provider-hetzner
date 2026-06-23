@@ -1,3 +1,7 @@
+## CI always uses this file from the main branch, so disabling a server here takes effect for all
+## PRs immediately — no rebase required. See the `Use hbmh list from main branch` step in
+## .github/workflows/pr-e2e.yaml and .github/workflows/e2e-basic-baremetal.yaml.
+##
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
