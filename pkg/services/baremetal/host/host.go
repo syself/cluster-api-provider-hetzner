@@ -1495,7 +1495,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 	info, err := sshClient.CheckDisk(ctx, s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN())
 	if err != nil {
 		_, annotationOk := s.scope.HetznerBareMetalHost.Annotations[infrav1.IgnoreCheckDiskAnnotation]
-		machineSkipsCheckDisk := s.scope.HetznerBareMetalMachine != nil && s.scope.HetznerBareMetalMachine.Spec.SkipCheckDisk
+		machineSkipsCheckDisk := s.scope.HetznerBareMetalMachine.Spec.SkipCheckDisk
 		if !annotationOk && !machineSkipsCheckDisk {
 			// Neither the annotation nor the machine spec field is set. This is a permanent error.
 			msg := fmt.Sprintf(
