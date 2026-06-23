@@ -50,12 +50,12 @@ func NewSSHFactory(
 	return f
 }
 
-// SetClients atomically replaces the mock clients returned by NewClient. It is called by
-// ControllerResetter.CommitMockSetup after all On() expectations are registered, so any
-// goroutine that calls NewClient after this returns sees a fully-configured mock. The
-// internal mutex protects concurrent NewClient calls but is no longer the primary
-// mechanism for serialising mock setup with reconciles — the ReconcileGate write lock
-// in the affected reconcilers now handles that.
+// SetClients atomically replaces the mock clients returned by NewClient (defined below). The
+// finish() func returned by ResetAndInitNamespace calls this after all On() expectations are
+// registered, so any goroutine that calls NewClient after this returns sees a fully-configured
+// mock. f.mu guards only the SSHFactory fields against data races between SetClients and
+// NewClient; the ReconcileGate in the reconcilers is what prevents Reconcile from running
+// while mocks are being swapped between tests.
 func (f *SSHFactory) SetClients(
 	rescue *sshmock.Client,
 	osAfterInstallImage *sshmock.Client,
@@ -68,7 +68,8 @@ func (f *SSHFactory) SetClients(
 	f.osClientAfterCloudInit = osAfterCloudInit
 }
 
-// NewClient implements sshclient.Factory.
+// NewClient implements sshclient.Factory. f.mu.RLock allows multiple goroutines to call
+// NewClient concurrently while guarding the client fields against a concurrent SetClients write.
 func (f *SSHFactory) NewClient(in sshclient.Input) sshclient.Client {
 	f.mu.RLock()
 	defer f.mu.RUnlock()

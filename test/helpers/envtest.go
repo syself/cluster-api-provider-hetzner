@@ -289,15 +289,18 @@ func (t *TestEnvironment) Cleanup(ctx context.Context, objs ...client.Object) er
 	return kerrors.NewAggregate(errs)
 }
 
-// ResetAndCreateNamespace creates a namespace.
+// ResetAndCreateNamespace creates a namespace and initializes fresh mock clients for the next test.
 //
-// The second return value is a finish func that the caller must defer immediately:
+// The second return value is a finish func that the caller MUST defer immediately:
 //
 //	testNs, finish, err := testEnv.ResetAndCreateNamespace(ctx, "my-reconciler")
 //	defer finish()
 //
-// Deferring finish() ensures that mock clients are activated (SetClients) and
-// the reconcile gate is released even if BeforeEach panics mid-setup.
+// Between this call and finish(), the reconcile gate is held as a write lock, blocking new
+// Reconcile calls. The caller uses this window to register On() mock expectations. finish()
+// then installs the configured mocks (via SetClients) and releases the gate so reconciles can
+// proceed. Deferring — rather than calling directly — ensures finish() runs even if BeforeEach
+// panics mid-setup, which would otherwise leave the gate permanently locked.
 func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateName string) (*corev1.Namespace, func(), error) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

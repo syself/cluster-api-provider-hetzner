@@ -80,12 +80,10 @@ func TestControllers(t *testing.T) {
 
 type ControllerResetter struct {
 	debug bool
-	// reconcileGate serializes mock-client setup against in-flight reconciles.
-	// ResetAndInitNamespace holds the write lock while swapping clients/mocks.
-	// HetznerBareMetalHostReconciler and HCloudMachineReconciler hold the read lock during each
-	// Reconcile call via their ReconcileGate pointer. This ensures no Reconcile is active while
-	// clients/mocks are being swapped between tests. Without this, tests can fail randomly
-	// because an in-flight Reconcile may observe inconsistent state during the swap.
+	// reconcileGate ensures no Reconcile is running while mock clients are being replaced between tests.
+	// Each Reconcile call holds it as a read lock (via ReconcileGate); test setup holds it as a write
+	// lock. Because a write lock waits for all read lock holders to finish, mock setup can only proceed
+	// once all in-flight reconciles from the previous test have completed.
 	reconcileGate                         sync.RWMutex
 	baremetalSSHClientFactory             *mocks.SSHFactory
 	HetznerClusterReconciler              *HetznerClusterReconciler
@@ -123,9 +121,9 @@ func NewControllerResetter(
 		debug:                                 os.Getenv("DEBUG") != "",
 	}
 
-	// The reconcileGate ensures that mock setup is serialized with in-flight reconciles. The
-	// mock setup waits via a write-lock until all reconciles are finished (by releasing the
-	// read-lock).
+	// Give both reconcilers access to the shared gate. Each Reconcile call holds it as a read lock,
+	// and test setup in ResetAndInitNamespace holds it as a write lock — which blocks until all
+	// in-flight reconciles (read lock holders) finish before mock clients are swapped.
 	hetznerBareMetalHostReconciler.ReconcileGate = &r.reconcileGate
 	hcloudMachineReconciler.ReconcileGate = &r.reconcileGate
 
