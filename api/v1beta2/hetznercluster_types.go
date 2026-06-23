@@ -45,15 +45,15 @@ const (
 	// then the old format ("hcloud://bm-") gets used.
 	UseHrobotProviderIDForBaremetalAnnotation = "capi.syself.com/use-hrobot-provider-id-for-baremetal"
 
-	// ProxyProtocolForControlPlaneLoadBalancerAnnotation must be present with value "true" on ALL
-	// control-plane nodes in the workload cluster before CAPH enables proxy protocol on the control
-	// plane load balancer. The annotation is set by an external service (e.g. a node-configuration
-	// daemonset) once the node is ready to receive PROXY-protocol connections. CAPH reads this
-	// annotation — it never writes it.
+	// ProxyProtocolForControlPlaneLoadBalancerAnnotation is used only when enabling proxy protocol
+	// on an EXISTING cluster (migration path). It must be present with value "true" on ALL
+	// control-plane nodes before CAPH recreates the LB service with proxy protocol enabled.
+	// The annotation is set by an external service (e.g. a node-configuration daemonset) once the
+	// node is ready to receive PROXY-protocol connections. CAPH reads this annotation — it never
+	// writes it.
 	//
-	// Requiring every CP node to carry the annotation enables a safe automated transition: if proxy
-	// protocol were enabled on the LB before all backends support it, nodes still expecting plain
-	// TCP would receive malformed PROXY-protocol headers and the control plane would break.
+	// For NEW clusters created with EnableProxyProtocol: true, this annotation is never read:
+	// the LB service is created with proxy protocol from the start, so no migration is needed.
 	ProxyProtocolForControlPlaneLoadBalancerAnnotation = "capi.syself.com/proxy-protocol-for-controlplane-loadbalancer"
 )
 

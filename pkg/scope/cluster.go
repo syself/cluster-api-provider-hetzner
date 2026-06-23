@@ -103,10 +103,13 @@ type ClusterScope struct {
 	HetznerCluster *infrav2.HetznerCluster
 
 	// EffectiveProxyProtocolForControlPlane is computed by the HetznerCluster controller before
-	// the load balancer reconciliation runs. It is true only when both:
+	// load balancer reconciliation. It is used only for the migration path (existing clusters
+	// enabling proxy protocol after the fact). It is true only when both:
 	// (a) HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol is true, and
 	// (b) every control-plane node in the workload cluster carries the annotation
 	//     capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true".
+	// For new clusters the kube-API LB service is created directly from the spec value, so this
+	// flag is not consulted (see reconcileServices in the loadbalancer package).
 	EffectiveProxyProtocolForControlPlane bool
 }
 

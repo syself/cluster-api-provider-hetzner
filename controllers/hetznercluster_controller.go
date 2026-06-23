@@ -310,13 +310,17 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 }
 
 // computeEffectiveProxyProtocol sets clusterScope.EffectiveProxyProtocolForControlPlane.
+// This value is only used for the MIGRATION path (existing clusters enabling proxy protocol after
+// the fact). For NEW clusters the kube-API LB service is created directly from the spec value
+// without consulting this flag — see reconcileServices in the loadbalancer package.
+//
 // The effective value is true only when BOTH conditions hold:
 //  1. HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol is true.
 //  2. Every control-plane node in the workload cluster carries the annotation
 //     capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true"
 //     (set by an external service, never by CAPH).
 //
-// Requiring all CP nodes to signal readiness enables a safe automated transition: if the LB were
+// Requiring all CP nodes to signal readiness prevents a partially-migrated state: if the LB were
 // switched to proxy protocol before every backend supports it, nodes still expecting plain TCP
 // would receive malformed PROXY-protocol headers and the control plane would break.
 //

@@ -291,6 +291,12 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 
 	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, slices.Collect(maps.Keys(existingServicesByPort)))
 
+	// Track whether the kube-API service already exists on the LB.
+	// New cluster: service absent → create immediately with EnableProxyProtocol from spec (no annotation check).
+	// Existing cluster migration: service present without proxy protocol → wait for all CP nodes to carry the
+	// annotation before recreating, to avoid sending malformed PROXY-protocol headers to unprepared backends.
+	_, kubeAPIServiceExists := existingServicesByPort[kubeAPIServicePort]
+
 	// Enabling proxy protocol is a one-way operation. Once all CP nodes carry the annotation the
 	// kube-API service is recreated with proxy protocol on; it is never turned back off.
 	if kubeAPIServicePort != 0 {
@@ -318,8 +324,18 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 
 	// create services that are in the spec but not yet on the LB
 	for i, listenPort := range toCreate {
-		// proxy protocol is only enabled for the kube-API service, never for extra services
-		proxyProtocol := proxyProtocolEnabled && listenPort == kubeAPIServicePort
+		var proxyProtocol bool
+		if listenPort == kubeAPIServicePort {
+			if kubeAPIServiceExists {
+				// Migration path: kube-API service existed without proxy protocol; require all CP nodes
+				// to carry the annotation before enabling (proxyProtocolEnabled already encodes that check).
+				proxyProtocol = proxyProtocolEnabled
+			} else {
+				// New cluster: kube-API service is being created for the first time; use the spec value
+				// directly — there are no existing backends that could receive unexpected proxy-protocol headers.
+				proxyProtocol = s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
+			}
+		}
 		destinationPort := wantServiceListenPortsMap[listenPort].DestinationPort
 		serviceOpts := hcloud.LoadBalancerAddServiceOpts{
 			Protocol:        hcloud.LoadBalancerServiceProtocol(wantServiceListenPortsMap[listenPort].Protocol),
