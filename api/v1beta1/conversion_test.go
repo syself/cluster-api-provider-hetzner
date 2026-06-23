@@ -1134,6 +1134,19 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 				in.V1Beta2 = nil
 			}
 		},
+		// HetznerBareMetalRemediation v1beta1 status: keep retryCount in the non-negative v1beta2
+		// int32 range and collapse a zero lastRemediated to nil so the round trip matches.
+		func(in *HetznerBareMetalRemediationStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.RetryCount = int(int32(in.RetryCount)) //nolint:gosec // keep fuzz input in the int32 range accepted by conversion
+			if in.RetryCount < 0 {
+				in.RetryCount = 0
+			}
+
+			if in.LastRemediated != nil && in.LastRemediated.IsZero() {
+				in.LastRemediated = nil
+			}
+		},
 		// HetznerCluster v1beta1 status: collapse empty condition slices to nil, and drop the V1Beta2
 		// wrapper unless it carries conditions, so the bare v1beta2 status.conditions round trips.
 		func(in *HetznerClusterStatus, c randfill.Continue) {
@@ -1173,6 +1186,14 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 			if in.Deprecated != nil && (in.Deprecated.V1Beta1 == nil || len(in.Deprecated.V1Beta1.Conditions) == 0) {
 				in.Deprecated = nil
+			}
+		},
+		// HetznerBareMetalRemediation v1beta2 status: nil and non-positive retryCount both
+		// down-convert to the v1beta1 zero value.
+		func(in *infrav2.HetznerBareMetalRemediationStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.RetryCount != nil && *in.RetryCount <= 0 {
+				in.RetryCount = nil
 			}
 		},
 		// RemediationStrategy v1beta2: nil and non-positive retryLimit both down-convert to
