@@ -1791,6 +1791,7 @@ func autoConvert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetal
 	if err := Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(&in.SSHSpec, &out.SSHSpec, s); err != nil {
 		return err
 	}
+	out.SkipCheckDisk = in.SkipCheckDisk
 	return nil
 }
 
@@ -1810,6 +1811,7 @@ func autoConvert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetal
 	if err := Convert_v1beta2_SSHSpec_To_v1beta1_SSHSpec(&in.SSHSpec, &out.SSHSpec, s); err != nil {
 		return err
 	}
+	out.SkipCheckDisk = in.SkipCheckDisk
 	return nil
 }
 
