@@ -262,7 +262,6 @@ func (s *Service) reconcileLBProperties(ctx context.Context, lb *hcloud.LoadBala
 
 func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer) error {
 	extraServicesSpec := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices
-	proxyProtocolEnabled := s.scope.EffectiveProxyProtocolForControlPlane
 
 	wantServiceListenPorts := make([]int, 0, len(extraServicesSpec)+1)
 	wantServiceListenPortsMap := make(map[int]infrav2.LoadBalancerServiceSpec, len(extraServicesSpec)+1)
@@ -297,11 +296,21 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	// annotation before recreating, to avoid sending malformed PROXY-protocol headers to unprepared backends.
 	_, kubeAPIServiceExists := existingServicesByPort[kubeAPIServicePort]
 
-	// Enabling proxy protocol is a one-way operation. Once all CP nodes carry the annotation the
-	// kube-API service is recreated with proxy protocol on; it is never turned back off.
-	if kubeAPIServicePort != 0 {
-		if existing, ok := existingServicesByPort[kubeAPIServicePort]; ok {
-			if proxyProtocolEnabled && !existing.Proxyprotocol {
+	// proxyProtocolEnabled is only computed (and only contacts the workload cluster) when the spec
+	// wants proxy protocol but the LB kube-API service doesn't have it yet — the migration window.
+	// Once the service already has proxy protocol, or for new clusters (service doesn't exist yet),
+	// no workload cluster call is made.
+	var proxyProtocolEnabled bool
+	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && kubeAPIServicePort != 0 {
+		if existing, ok := existingServicesByPort[kubeAPIServicePort]; ok && !existing.Proxyprotocol {
+			var err error
+			proxyProtocolEnabled, err = s.scope.AllControlPlaneNodesReadyForProxyProtocol(ctx)
+			if err != nil {
+				return err
+			}
+			// Enabling proxy protocol is a one-way operation: delete the existing service and
+			// recreate it with proxy protocol on once all CP nodes signal readiness.
+			if proxyProtocolEnabled {
 				toDelete = append(toDelete, kubeAPIServicePort)
 				toCreate = append(toCreate, kubeAPIServicePort)
 			}

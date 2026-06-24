@@ -102,15 +102,6 @@ type ClusterScope struct {
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav2.HetznerCluster
 
-	// EffectiveProxyProtocolForControlPlane is computed by the HetznerCluster controller before
-	// load balancer reconciliation. It is used only for the migration path (existing clusters
-	// enabling proxy protocol after the fact). It is true only when both:
-	// (a) HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol is true, and
-	// (b) every control-plane node in the workload cluster carries the annotation
-	//     capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true".
-	// For new clusters the kube-API LB service is created directly from the spec value, so this
-	// flag is not consulted (see reconcileServices in the loadbalancer package).
-	EffectiveProxyProtocolForControlPlane bool
 }
 
 // Name returns the HetznerCluster name.
@@ -276,4 +267,48 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 
 	_, err = clientSet.Discovery().RESTClient().Get().AbsPath("/readyz").DoRaw(ctx)
 	return err
+}
+
+// AllControlPlaneNodesReadyForProxyProtocol returns true when every control-plane node
+// in the workload cluster carries the annotation
+// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true".
+// Returns false (no error) when the workload cluster is not yet reachable or has no nodes.
+func (s *ClusterScope) AllControlPlaneNodesReadyForProxyProtocol(ctx context.Context) (bool, error) {
+	wlClientConfig, err := s.ClientConfig(ctx)
+	if err != nil {
+		s.V(1).Info("proxy protocol: workload cluster kubeconfig not available")
+		return false, nil //nolint:nilerr
+	}
+	if err := IsControlPlaneReady(ctx, wlClientConfig); err != nil {
+		s.V(1).Info("proxy protocol: workload cluster control plane not ready")
+		return false, nil //nolint:nilerr
+	}
+
+	restConfig, err := wlClientConfig.ClientConfig()
+	if err != nil {
+		return false, fmt.Errorf("failed to get workload cluster rest config: %w", err)
+	}
+	wlClient, err := client.New(restConfig, client.Options{})
+	if err != nil {
+		return false, fmt.Errorf("failed to create workload cluster client: %w", err)
+	}
+
+	nodeList := &corev1.NodeList{}
+	if err := wlClient.List(ctx, nodeList, client.MatchingLabels{"node-role.kubernetes.io/control-plane": ""}); err != nil {
+		return false, fmt.Errorf("failed to list control-plane nodes in workload cluster: %w", err)
+	}
+
+	if len(nodeList.Items) == 0 {
+		s.V(1).Info("proxy protocol: no control-plane nodes found")
+		return false, nil
+	}
+	for _, node := range nodeList.Items {
+		if node.Annotations[infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
+			s.V(1).Info("proxy protocol: node missing annotation",
+				"node", node.Name,
+				"annotation", infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation)
+			return false, nil
+		}
+	}
+	return true, nil
 }
