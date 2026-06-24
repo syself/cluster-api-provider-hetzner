@@ -106,8 +106,13 @@ CAPH only reads two top-level fields:
 
 | Field     | Required               | Values                                                                  | Purpose                                    |
 |-----------|------------------------|-------------------------------------------------------------------------|--------------------------------------------|
-| `status`  | yes (to set condition) | `"Succeeded"` or `"Failed"` (any other value is treated as `"Failed"`)  | Sets `NodeProvisioningSucceeded` condition |
+| `status`  | yes (to set condition) | `"Succeeded"`, `"Failed"`, or any other string                          | Sets `NodeProvisioningSucceeded` condition |
 | `message` | no                     | free-form string                                                        | Included in the condition message          |
+
+While the command is **running**, any `status` value is valid — it only updates the
+`NodeProvisioningSucceeded` condition and provisioning continues.
+Once `IMAGE_URL_DONE` appears in stdout (command finished), only `"Succeeded"` allows
+provisioning to proceed; any other value cancels it.
 
 Minimal success example:
 
