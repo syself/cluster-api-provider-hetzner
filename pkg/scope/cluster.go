@@ -271,7 +271,7 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 // AllControlPlaneNodesReadyForProxyProtocol returns true when every control-plane node
 // in the workload cluster carries the annotation
 // capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true".
-// Returns false (no error) when the workload cluster is not yet reachable or has no nodes.
+// Returns false (no error) when the workload cluster has no control-plane nodes yet.
 func (s *ClusterScope) AllControlPlaneNodesReadyForProxyProtocol(ctx context.Context) (bool, error) {
 	wlClientConfig, err := s.ClientConfig(ctx)
 	if err != nil {
@@ -279,8 +279,7 @@ func (s *ClusterScope) AllControlPlaneNodesReadyForProxyProtocol(ctx context.Con
 		return false, nil //nolint:nilerr
 	}
 	if err := IsControlPlaneReady(ctx, wlClientConfig); err != nil {
-		s.V(1).Info("proxy protocol: workload cluster control plane not ready")
-		return false, nil //nolint:nilerr
+		return false, fmt.Errorf("workload cluster control plane not ready: %w", err)
 	}
 
 	restConfig, err := wlClientConfig.ClientConfig()
