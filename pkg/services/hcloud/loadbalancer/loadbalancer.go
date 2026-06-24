@@ -117,7 +117,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile network attachment: %w", err)
 	}
 
-	if err := s.reconcileServices(ctx, lb); err != nil {
+	if res, err := s.reconcileServices(ctx, lb); err != nil {
 		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav2.LoadBalancerReadyV1Beta1Condition,
@@ -135,6 +135,8 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		})
 
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile services: %w", err)
+	} else if res != (reconcile.Result{}) {
+		return res, nil
 	}
 
 	deprecatedv1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav2.LoadBalancerReadyV1Beta1Condition)
@@ -260,7 +262,7 @@ func (s *Service) reconcileLBProperties(ctx context.Context, lb *hcloud.LoadBala
 	return multierr
 }
 
-func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer) error {
+func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer) (reconcile.Result, error) {
 	extraServicesSpec := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices
 
 	wantServiceListenPorts := make([]int, 0, len(extraServicesSpec)+1)
@@ -305,7 +307,11 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		var err error
 		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneNodesReadyForProxyProtocol(ctx)
 		if err != nil {
-			return err
+			return reconcile.Result{}, err
+		}
+		if !proxyProtocolShouldGetEnabled {
+			s.scope.V(1).Info("proxy protocol: not all CP nodes ready yet, requeueing")
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 	}
 	// Enabling proxy protocol is a one-way operation: delete the existing service and
@@ -333,7 +339,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteServiceFromLoadBalancer")
 			multierr = errors.Join(multierr, fmt.Errorf("failed to delete service from load balancer: %w", err))
 			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-				return multierr
+				return reconcile.Result{}, multierr
 			}
 		}
 	}
@@ -357,11 +363,11 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "AddServiceToLoadBalancer")
 			multierr = errors.Join(multierr, fmt.Errorf("failed to add service to load balancer: %w", err))
 			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-				return multierr
+				return reconcile.Result{}, multierr
 			}
 		}
 	}
-	return multierr
+	return reconcile.Result{}, multierr
 }
 
 func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, error) {

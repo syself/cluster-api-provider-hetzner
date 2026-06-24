@@ -64,7 +64,7 @@ func TestReconcileServices_KubeAPIPortZero_NoChanges(t *testing.T) {
 	mockClient := &mocks.Client{}
 	svc := newTestService(t, hetznerCluster, mockClient)
 
-	err := svc.reconcileServices(context.Background(), &hcloud.LoadBalancer{})
+	_, err := svc.reconcileServices(context.Background(), &hcloud.LoadBalancer{})
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
@@ -82,7 +82,7 @@ func TestReconcileServices_NewCluster_AddsKubeAPIServiceWithoutProxyProtocol(t *
 		}).
 		Return(nil)
 
-	err := svc.reconcileServices(context.Background(), hcloudLB)
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
 	require.Equal(t, testKubeAPIListenPort, *capturedOpts.ListenPort)
 	require.Equal(t, testLBDestPort, *capturedOpts.DestinationPort)
@@ -106,7 +106,7 @@ func TestReconcileServices_NewCluster_EnableProxyProtocol_AddsServiceWithProxyPr
 		}).
 		Return(nil)
 
-	err := svc.reconcileServices(context.Background(), hcloudLB)
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
 	require.True(t, *capturedOpts.Proxyprotocol)
 	mockClient.AssertExpectations(t)
@@ -122,7 +122,7 @@ func TestReconcileServices_KubeAPIServiceAlreadyExists_NoChanges(t *testing.T) {
 		},
 	}
 
-	err := svc.reconcileServices(context.Background(), hcloudLB)
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
@@ -151,7 +151,7 @@ func TestReconcileServices_ExtraServiceMissing_AddsIt(t *testing.T) {
 		}).
 		Return(nil)
 
-	err := svc.reconcileServices(context.Background(), hcloudLB)
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
 	require.Equal(t, extraListenPort, *capturedOpts.ListenPort)
 	require.Equal(t, extraDestPort, *capturedOpts.DestinationPort)
@@ -174,7 +174,7 @@ func TestReconcileServices_StaleServiceOnLB_DeletesIt(t *testing.T) {
 	mockClient.On("DeleteServiceFromLoadBalancer", mock.Anything, hcloudLB, stalePort).
 		Return(nil)
 
-	err := svc.reconcileServices(context.Background(), hcloudLB)
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
@@ -191,7 +191,7 @@ func TestReconcileServices_ProxyProtocolAlreadyActive_NoChanges(t *testing.T) {
 		},
 	}
 
-	err := svc.reconcileServices(context.Background(), hcloudLB)
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
@@ -220,7 +220,7 @@ func TestReconcileServices_ProxyProtocolMigration_NodesNotReady(t *testing.T) {
 	svc.scope.APIReader = fakeK8sClient
 	svc.scope.Cluster = &clusterv1.Cluster{}
 
-	err := svc.reconcileServices(context.Background(), hcloudLB)
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
