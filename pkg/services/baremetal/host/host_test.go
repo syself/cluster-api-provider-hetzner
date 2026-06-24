@@ -240,6 +240,22 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(v1beta1conditions.IsFalse(host, infrav1.NodeProvisioningSucceededCondition)).To(BeTrue())
 	})
 
+	It("aborts provisioning when IMAGE_URL_DONE is present but output.json has an unexpected status", func() {
+		host := newBaseHost()
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
+		sshMock.On("ReadOutputJSON", mock.Anything).Return(`{"status":"UnexpectedValue"}`, nil).Once()
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
+		Expect(sshMock.AssertNotCalled(GinkgoT(), "Reboot", mock.Anything)).To(BeTrue())
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(ContainSubstring("UnexpectedValue"))
+	})
+
 	It("starts the command on NotStarted and continues", func() {
 		host := newBaseHost()
 		// set UserData secret ref and create the secret the scope's SecretManager will fetch

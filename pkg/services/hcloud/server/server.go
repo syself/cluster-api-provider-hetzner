@@ -1056,10 +1056,10 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 
 		imageurlcommand.ApplyNodeProvisioningConditions(hm, output)
 
-		if output.Status == imageurlcommand.OutputJSONFailed {
+		if output.Status != imageurlcommand.OutputJSONSucceeded {
 			msg := output.Message
 			if msg == "" {
-				msg = "output.json reports status Failed"
+				msg = fmt.Sprintf("output.json reports status %q", output.Status)
 			}
 			record.Warn(hm, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)

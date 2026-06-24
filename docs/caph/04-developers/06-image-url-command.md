@@ -84,7 +84,7 @@ provisioning.
 | :------------------------: | :------------------: | :-----------------------: | ------ |
 | yes | no | — | **success**, `NodeProvisioningSucceeded` condition set to True |
 | yes | yes | `"Succeeded"` | **success**, `NodeProvisioningSucceeded` condition set to True |
-| yes | yes | any other string | **success**, `NodeProvisioningSucceeded` condition set to Unknown |
+| yes | yes | any other string | **failure**, provisioning cancelled |
 | yes | yes | `"Failed"` | **failure**, provisioning cancelled |
 | no | any | any | **failure**, provisioning cancelled |
 
@@ -104,10 +104,10 @@ condition message.
 
 CAPH only reads two top-level fields:
 
-| Field     | Required               | Values                                         | Purpose                                       |
-|-----------|------------------------|------------------------------------------------|-----------------------------------------------|
-| `status`  | yes (to set condition) | `"Succeeded"`, `"Failed"`, or any other string | Sets `NodeProvisioningSucceeded` condition    |
-| `message` | no                     | free-form string                               | Included in the condition message             |
+| Field     | Required               | Values                                                                  | Purpose                                    |
+|-----------|------------------------|-------------------------------------------------------------------------|--------------------------------------------|
+| `status`  | yes (to set condition) | `"Succeeded"` or `"Failed"` (any other value is treated as `"Failed"`)  | Sets `NodeProvisioningSucceeded` condition |
+| `message` | no                     | free-form string                                                        | Included in the condition message          |
 
 Minimal success example:
 

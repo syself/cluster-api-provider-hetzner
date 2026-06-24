@@ -1370,10 +1370,10 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		}
 
 		imageurlcommand.ApplyNodeProvisioningConditions(host, output)
-		if output.Status == imageurlcommand.OutputJSONFailed {
+		if output.Status != imageurlcommand.OutputJSONSucceeded {
 			msg := output.Message
 			if msg == "" {
-				msg = "output.json reports status Failed"
+				msg = fmt.Sprintf("output.json reports status %q", output.Status)
 			}
 			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
