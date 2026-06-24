@@ -64,8 +64,11 @@ spec:
             description: HCloudMachineTemplateSpec defines the desired state of HCloudMachineTemplate.
             properties:
               template:
-                description: HCloudMachineTemplateResource describes the data needed
-                  to create am HCloudMachine from a template.
+                description: |-
+                  HCloudMachineTemplateResource describes the data needed to create am HCloudMachine from a template.
+
+                  In v1beta2 the template metadata changes type from clusterv1beta1.ObjectMeta to clusterv1.ObjectMeta,
+                  so conversion-gen cannot map it. The conversion is hand written in conversion.go.
                 properties:
                   metadata:
                     description: Standard object's metadata.
@@ -397,6 +400,7 @@ spec:
                 properties:
                   metadata:
                     description: Standard object's metadata.
+                    minProperties: 1
                     properties:
                       annotations:
                         additionalProperties:
@@ -504,6 +508,9 @@ spec:
                           - name
                           type: object
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       type:
                         description: |-
                           Type is the HCloud Machine Type for this machine. It defines the desired server type of
@@ -547,8 +554,10 @@ spec:
               conditions:
                 description: Conditions defines current service state of the HCloudMachineTemplate.
                 items:
-                  description: Condition defines an observation of a Cluster API resource
-                    operational state.
+                  description: |-
+                    Condition defines an observation of a Cluster API resource operational state.
+
+                    Deprecated: This type is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
                   properties:
                     lastTransitionTime:
                       description: |-

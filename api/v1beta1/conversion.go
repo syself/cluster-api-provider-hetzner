@@ -28,6 +28,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiconversion "k8s.io/apimachinery/pkg/conversion"
@@ -91,13 +92,36 @@ func (dst *HetznerClusterTemplate) ConvertFrom(srcRaw conversion.Hub) error {
 // ConvertTo converts this HCloudMachine to the Hub version (v1beta2).
 func (src *HCloudMachine) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*infrav2.HCloudMachine)
-	return Convert_v1beta1_HCloudMachine_To_v1beta2_HCloudMachine(src, dst, nil)
+	if err := Convert_v1beta1_HCloudMachine_To_v1beta2_HCloudMachine(src, dst, nil); err != nil {
+		return err
+	}
+
+	// Read back the v1beta2 object that ConvertFrom stored in the annotation, so the values v1beta1
+	// cannot represent can be restored below. This keeps the round trip lossless.
+	restored := &infrav2.HCloudMachine{}
+	ok, err := utilconversion.UnmarshalData(src, restored)
+	if err != nil {
+		return err
+	}
+
+	// status.ready (bool) maps to status.initialization.provisioned (*bool). The CAPI helper only
+	// produces *false when the value was intentionally *false before (restored); otherwise a false
+	// ready becomes nil, matching the one-time provisioning signal semantics.
+	clusterv1.Convert_bool_To_Pointer_bool(src.Status.Ready, ok, restored.Status.Initialization.Provisioned, &dst.Status.Initialization.Provisioned)
+
+	return nil
 }
 
 // ConvertFrom converts the Hub version (v1beta2) to this HCloudMachine.
 func (dst *HCloudMachine) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*infrav2.HCloudMachine)
-	return Convert_v1beta2_HCloudMachine_To_v1beta1_HCloudMachine(src, dst, nil)
+	if err := Convert_v1beta2_HCloudMachine_To_v1beta1_HCloudMachine(src, dst, nil); err != nil {
+		return err
+	}
+
+	// Preserve the whole hub (v1beta2) object in a data annotation. ConvertTo reads it back to restore
+	// values v1beta1 cannot represent, like provisioned nil vs false, keeping the round trip lossless.
+	return utilconversion.MarshalData(src, dst)
 }
 
 // ConvertTo converts this HCloudMachineTemplate to the Hub version (v1beta2).
@@ -517,9 +541,161 @@ func restoreV1Beta1OnlyStatus(from, to *ControllerGeneratedStatus) {
 }
 
 // Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus converts the v1beta1
-// HCloudMachineStatus to v1beta2, dropping the V1Beta2 field.
+// HCloudMachineStatus to v1beta2. The v1beta1 status.conditions (old clusterv1beta1.Conditions) and
+// the v1beta2 status.conditions ([]metav1.Condition) share a field name but not a type and do not
+// correspond, so HCloudMachineStatus is excluded from conversion-gen (+k8s:conversion-gen=false) and
+// converted fully by hand here:
+//   - status.v1beta2.conditions is promoted to status.conditions.
+//   - status.conditions is demoted to status.deprecated.v1beta1.conditions (the old core/v1beta1
+//     conditions are converted to the structurally identical core/v1beta2 deprecated conditions).
+//   - status.addresses elements change from clusterv1beta1.MachineAddress to clusterv1.MachineAddress.
+//   - status.instanceState changes from *hcloud.ServerStatus to the CAPH owned InstanceState value type.
+//   - status.lastRemediatedAt moves from a pointer to a value.
+//   - status.failureReason and status.failureMessage are dropped: they are deprecated and never
+//     populated by CAPH, so they are not carried over to v1beta2.
+//   - status.ready maps to status.initialization.provisioned at the object level
+//     (HCloudMachine.ConvertTo), because that lossy bool -> *bool mapping needs the restored hub data.
 func Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus(in *HCloudMachineStatus, out *infrav2.HCloudMachineStatus, s apiconversion.Scope) error {
-	return autoConvert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus(in, out, s)
+	// Promote the staged v1beta2 conditions to the v1beta2 status.conditions.
+	if in.V1Beta2 != nil {
+		out.Conditions = in.V1Beta2.Conditions
+	}
+
+	// Demote the old v1beta1 conditions to status.deprecated.v1beta1.conditions.
+	if len(in.Conditions) > 0 {
+		out.Deprecated = &infrav2.HCloudMachineDeprecatedStatus{
+			V1Beta1: &infrav2.HCloudMachineV1Beta1DeprecatedStatus{
+				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
+			},
+		}
+	}
+
+	// Addresses change element type from the deprecated clusterv1beta1.MachineAddress to clusterv1.MachineAddress.
+	if in.Addresses != nil {
+		out.Addresses = make([]clusterv1.MachineAddress, len(in.Addresses))
+		for i := range in.Addresses {
+			if err := clusterv1beta1.Convert_v1beta1_MachineAddress_To_v1beta2_MachineAddress(&in.Addresses[i], &out.Addresses[i], s); err != nil {
+				return err
+			}
+		}
+	}
+
+	out.Region = infrav2.Region(in.Region)
+
+	if in.SSHKeys != nil {
+		out.SSHKeys = make([]infrav2.SSHKey, len(in.SSHKeys))
+		for i := range in.SSHKeys {
+			if err := Convert_v1beta1_SSHKey_To_v1beta2_SSHKey(&in.SSHKeys[i], &out.SSHKeys[i], s); err != nil {
+				return err
+			}
+		}
+	}
+
+	// instanceState changes from *hcloud.ServerStatus to the CAPH owned InstanceState; a nil pointer maps to the empty value.
+	if in.InstanceState != nil {
+		out.InstanceState = infrav2.InstanceState(*in.InstanceState)
+	}
+
+	out.BootState = infrav2.HCloudBootState(in.BootState)
+	out.BootStateSince = in.BootStateSince
+
+	if err := Convert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStatusExternalIDs(&in.ExternalIDs, &out.ExternalIDs, s); err != nil {
+		return err
+	}
+
+	// lastRemediatedAt moves from a pointer to a value; a nil pointer maps to the zero time.
+	if in.LastRemediatedAt != nil {
+		out.LastRemediatedAt = *in.LastRemediatedAt
+	}
+
+	return nil
+}
+
+// Convert_v1beta2_HCloudMachineStatus_To_v1beta1_HCloudMachineStatus converts the v1beta2
+// HCloudMachineStatus back to v1beta1. It is the inverse of the function above:
+//   - status.conditions is demoted to the staged status.v1beta2.conditions.
+//   - status.deprecated.v1beta1.conditions is promoted back to status.conditions.
+//   - status.addresses elements change back to clusterv1beta1.MachineAddress.
+//   - status.instanceState changes back to *hcloud.ServerStatus (the empty value maps to a nil pointer).
+//   - status.lastRemediatedAt moves from a value to a pointer (zero time -> nil).
+//   - status.initialization.provisioned maps back to status.ready.
+func Convert_v1beta2_HCloudMachineStatus_To_v1beta1_HCloudMachineStatus(in *infrav2.HCloudMachineStatus, out *HCloudMachineStatus, s apiconversion.Scope) error {
+	// Demote the v1beta2 conditions back to the staged v1beta1 status.v1beta2.conditions.
+	if len(in.Conditions) > 0 {
+		out.V1Beta2 = &HCloudMachineV1Beta2Status{
+			Conditions: in.Conditions,
+		}
+	}
+
+	// Promote the deprecated v1beta1 conditions back to the old status.conditions.
+	if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil {
+		out.Conditions = convertDeprecatedConditionsToV1Beta1(in.Deprecated.V1Beta1.Conditions)
+	}
+
+	if in.Addresses != nil {
+		out.Addresses = make([]clusterv1beta1.MachineAddress, len(in.Addresses))
+		for i := range in.Addresses {
+			if err := clusterv1beta1.Convert_v1beta2_MachineAddress_To_v1beta1_MachineAddress(&in.Addresses[i], &out.Addresses[i], s); err != nil {
+				return err
+			}
+		}
+	}
+
+	out.Region = Region(in.Region)
+
+	if in.SSHKeys != nil {
+		out.SSHKeys = make([]SSHKey, len(in.SSHKeys))
+		for i := range in.SSHKeys {
+			if err := Convert_v1beta2_SSHKey_To_v1beta1_SSHKey(&in.SSHKeys[i], &out.SSHKeys[i], s); err != nil {
+				return err
+			}
+		}
+	}
+
+	// instanceState changes back from the CAPH owned InstanceState to *hcloud.ServerStatus; the empty value maps to a nil pointer.
+	if in.InstanceState != "" {
+		instanceState := hcloud.ServerStatus(in.InstanceState)
+		out.InstanceState = &instanceState
+	}
+
+	out.BootState = HCloudBootState(in.BootState)
+	out.BootStateSince = in.BootStateSince
+
+	if err := Convert_v1beta2_HCloudMachineStatusExternalIDs_To_v1beta1_HCloudMachineStatusExternalIDs(&in.ExternalIDs, &out.ExternalIDs, s); err != nil {
+		return err
+	}
+
+	// lastRemediatedAt moves from a value to a pointer; the zero time maps to a nil pointer.
+	if !in.LastRemediatedAt.IsZero() {
+		lastRemediatedAt := in.LastRemediatedAt
+		out.LastRemediatedAt = &lastRemediatedAt
+	}
+
+	// status.initialization.provisioned maps back to status.ready during the compatibility window.
+	out.Ready = ptr.Deref(in.Initialization.Provisioned, false)
+
+	return nil
+}
+
+// Convert_v1beta1_HCloudMachineTemplateResource_To_v1beta2_HCloudMachineTemplateResource converts the
+// v1beta1 HCloudMachineTemplateResource to v1beta2. The template metadata changes type from the
+// deprecated clusterv1beta1.ObjectMeta to clusterv1.ObjectMeta, which carry the same labels and
+// annotations, so those are copied by hand and the spec uses the generated converter. The resource is
+// excluded from conversion-gen (+k8s:conversion-gen=false) so this pass does not depend on a shared
+// ObjectMeta converter introduced by another v1beta2 resource pass.
+func Convert_v1beta1_HCloudMachineTemplateResource_To_v1beta2_HCloudMachineTemplateResource(in *HCloudMachineTemplateResource, out *infrav2.HCloudMachineTemplateResource, s apiconversion.Scope) error {
+	out.ObjectMeta.Labels = in.ObjectMeta.Labels
+	out.ObjectMeta.Annotations = in.ObjectMeta.Annotations
+	return Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(&in.Spec, &out.Spec, s)
+}
+
+// Convert_v1beta2_HCloudMachineTemplateResource_To_v1beta1_HCloudMachineTemplateResource converts the
+// v1beta2 HCloudMachineTemplateResource back to v1beta1, mapping the clusterv1.ObjectMeta labels and
+// annotations back to the deprecated clusterv1beta1.ObjectMeta.
+func Convert_v1beta2_HCloudMachineTemplateResource_To_v1beta1_HCloudMachineTemplateResource(in *infrav2.HCloudMachineTemplateResource, out *HCloudMachineTemplateResource, s apiconversion.Scope) error {
+	out.ObjectMeta.Labels = in.ObjectMeta.Labels
+	out.ObjectMeta.Annotations = in.ObjectMeta.Annotations
+	return Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(&in.Spec, &out.Spec, s)
 }
 
 // Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus converts
