@@ -360,7 +360,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 // The workload cluster is only contacted when the spec wants proxy protocol but the LB
 // service doesn't have it yet. For new clusters or when already active, no call is made.
 func (s *Service) proxyProtocolState(ctx context.Context, existingServicesByPort map[int]hcloud.LoadBalancerService, kubeAPIServicePort int) (shouldGetEnabled, alreadyActive bool, err error) {
-	if !s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol || kubeAPIServicePort == 0 {
+	if !s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol {
 		return false, false, nil
 	}
 	existing, ok := existingServicesByPort[kubeAPIServicePort]
