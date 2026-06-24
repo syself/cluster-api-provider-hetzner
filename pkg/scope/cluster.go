@@ -101,7 +101,6 @@ type ClusterScope struct {
 
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav2.HetznerCluster
-
 }
 
 // Name returns the HetznerCluster name.
