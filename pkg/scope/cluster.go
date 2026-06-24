@@ -293,7 +293,7 @@ func (s *ClusterScope) AllControlPlaneNodesReadyForProxyProtocol(ctx context.Con
 	}
 
 	nodeList := &corev1.NodeList{}
-	if err := wlClient.List(ctx, nodeList, client.MatchingLabels{"node-role.kubernetes.io/control-plane": ""}); err != nil {
+	if err := wlClient.List(ctx, nodeList, client.MatchingLabels{clusterv1.NodeRoleLabelPrefix + "/control-plane": ""}); err != nil {
 		return false, fmt.Errorf("failed to list control-plane nodes in workload cluster: %w", err)
 	}
 
