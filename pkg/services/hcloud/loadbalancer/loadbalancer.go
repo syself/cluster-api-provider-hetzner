@@ -334,6 +334,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	for i, listenPort := range toCreate {
 		var proxyProtocol bool
 		if listenPort == kubeAPIServicePort {
+			// Proxy protocol is only relevant for the kube-apiserver port (default 6443).
 			if kubeAPIServiceExists {
 				// Migration path: kube-API service existed without proxy protocol; require all CP nodes
 				// to carry the annotation before enabling.
