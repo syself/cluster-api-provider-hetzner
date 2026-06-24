@@ -290,28 +290,22 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 
 	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, slices.Collect(maps.Keys(existingServicesByPort)))
 
-	// Track whether the kube-API service already exists on the LB.
+	// kubeAPIServiceExists: whether the kube-API service already exists on the LB.
 	// New cluster: service absent → create immediately with EnableProxyProtocol from spec (no annotation check).
 	// Existing cluster migration: service present without proxy protocol → wait for all CP nodes to carry the
 	// annotation before recreating, to avoid sending malformed PROXY-protocol headers to unprepared backends.
-	_, kubeAPIServiceExists := existingServicesByPort[kubeAPIServicePort]
+	existingKubeAPIService, kubeAPIServiceExists := existingServicesByPort[kubeAPIServicePort]
+	proxyProtocolAlreadyActive := kubeAPIServiceExists && existingKubeAPIService.Proxyprotocol
 
 	// proxyProtocolShouldGetEnabled: whether proxy protocol should get enabled now.
-	// proxyProtocolAlreadyActive: whether it is already active on the existing LB service.
 	// The workload cluster is only contacted when the spec wants proxy protocol but the LB
 	// service doesn't have it yet. For new clusters or when already active, no call is made.
-	var proxyProtocolShouldGetEnabled, proxyProtocolAlreadyActive bool
-	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol {
-		if existing, ok := existingServicesByPort[kubeAPIServicePort]; ok {
-			if existing.Proxyprotocol {
-				proxyProtocolAlreadyActive = true
-			} else {
-				var err error
-				proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneNodesReadyForProxyProtocol(ctx)
-				if err != nil {
-					return err
-				}
-			}
+	var proxyProtocolShouldGetEnabled bool
+	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && kubeAPIServiceExists && !proxyProtocolAlreadyActive {
+		var err error
+		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneNodesReadyForProxyProtocol(ctx)
+		if err != nil {
+			return err
 		}
 	}
 	// Enabling proxy protocol is a one-way operation: delete the existing service and
