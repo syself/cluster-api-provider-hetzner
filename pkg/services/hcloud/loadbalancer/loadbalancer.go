@@ -315,6 +315,14 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		toCreate = append(toCreate, kubeAPIServicePort)
 	}
 
+	// kubeAPIProxyProtocol: the proxy protocol value to use when creating the kube-API service.
+	// For existing clusters, wait for CP nodes to signal readiness before enabling.
+	// For new clusters, use the spec value directly.
+	kubeAPIProxyProtocol := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
+	if kubeAPIServiceExists {
+		kubeAPIProxyProtocol = proxyProtocolShouldGetEnabled
+	}
+
 	// delete services that are no longer in the spec, or the kube-API service being recreated
 	// to enable proxy protocol
 	var multierr error
@@ -335,15 +343,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		var proxyProtocol bool
 		if listenPort == kubeAPIServicePort {
 			// Proxy protocol is only relevant for the kube-apiserver port (default 6443).
-			if kubeAPIServiceExists {
-				// Migration path: kube-API service existed without proxy protocol; require all CP nodes
-				// to carry the annotation before enabling.
-				proxyProtocol = proxyProtocolShouldGetEnabled
-			} else {
-				// New cluster: kube-API service is being created for the first time; use the spec value
-				// directly — there are no existing backends that could receive unexpected proxy-protocol headers.
-				proxyProtocol = s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
-			}
+			proxyProtocol = kubeAPIProxyProtocol
 		}
 		destinationPort := wantServiceListenPortsMap[listenPort].DestinationPort
 		serviceOpts := hcloud.LoadBalancerAddServiceOpts{
