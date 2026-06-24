@@ -296,9 +296,23 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	// annotation before recreating, to avoid sending malformed PROXY-protocol headers to unprepared backends.
 	_, kubeAPIServiceExists := existingServicesByPort[kubeAPIServicePort]
 
-	proxyProtocolShouldGetEnabled, proxyProtocolAlreadyActive, err := s.proxyProtocolState(ctx, existingServicesByPort, kubeAPIServicePort)
-	if err != nil {
-		return err
+	// proxyProtocolShouldGetEnabled: whether proxy protocol should get enabled now.
+	// proxyProtocolAlreadyActive: whether it is already active on the existing LB service.
+	// The workload cluster is only contacted when the spec wants proxy protocol but the LB
+	// service doesn't have it yet. For new clusters or when already active, no call is made.
+	var proxyProtocolShouldGetEnabled, proxyProtocolAlreadyActive bool
+	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol {
+		if existing, ok := existingServicesByPort[kubeAPIServicePort]; ok {
+			if existing.Proxyprotocol {
+				proxyProtocolAlreadyActive = true
+			} else {
+				var err error
+				proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneNodesReadyForProxyProtocol(ctx)
+				if err != nil {
+					return err
+				}
+			}
+		}
 	}
 	// Enabling proxy protocol is a one-way operation: delete the existing service and
 	// recreate it with proxy protocol on once all CP nodes signal readiness.
@@ -353,25 +367,6 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		}
 	}
 	return multierr
-}
-
-// proxyProtocolState returns whether proxy protocol should get enabled now (shouldGetEnabled)
-// and whether it is already active on the existing LB service (alreadyActive).
-// The workload cluster is only contacted when the spec wants proxy protocol but the LB
-// service doesn't have it yet. For new clusters or when already active, no call is made.
-func (s *Service) proxyProtocolState(ctx context.Context, existingServicesByPort map[int]hcloud.LoadBalancerService, kubeAPIServicePort int) (shouldGetEnabled, alreadyActive bool, err error) {
-	if !s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol {
-		return false, false, nil
-	}
-	existing, ok := existingServicesByPort[kubeAPIServicePort]
-	if !ok {
-		return false, false, nil
-	}
-	if existing.Proxyprotocol {
-		return false, true, nil
-	}
-	shouldGetEnabled, err = s.scope.AllControlPlaneNodesReadyForProxyProtocol(ctx)
-	return shouldGetEnabled, false, err
 }
 
 func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, error) {
