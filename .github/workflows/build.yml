@@ -4,6 +4,7 @@ on: # yamllint disable-line rule:truthy
   push:
     branches:
       - main
+      - allow-forks-to-publish-images
   # If the cache was cleaned we should re-build the cache with the latest commit
   workflow_run:
     workflows:
@@ -14,7 +15,7 @@ on: # yamllint disable-line rule:truthy
       - completed
 env:
   IMAGE_NAME: caph-staging
-  REGISTRY: ghcr.io/syself
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
   metadata_flavor: latest=true
   metadata_tags: type=sha,prefix=sha-,format=short
 permissions:
@@ -118,24 +119,24 @@ jobs:
 
       - name: Sign Container Images
         run: |
-          cosign sign --yes ghcr.io/syself/caph-staging@${{ steps.docker_build_release.outputs.digest }}
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Generate SBOM
         shell: bash
         # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
         run: |
           bom generate --format=json -o sbom_caph_staging_${{ steps.meta.outputs.version }}-spdx.json \
-          --image=ghcr.io/syself/caph-staging:${{ steps.meta.outputs.version }}
+          --image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
 
       - name: Attach SBOM to Container Images
         run: |
-          cosign attest --yes --type=spdxjson --predicate sbom_caph_staging_${{ steps.meta.outputs.version }}-spdx.json ghcr.io/syself/caph-staging@${{ steps.docker_build_release.outputs.digest }}
+          cosign attest --yes --type=spdxjson --predicate sbom_caph_staging_${{ steps.meta.outputs.version }}-spdx.json ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Image Releases digests
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "ghcr.io/syself/caph-staging:${{ steps.meta.outputs.tags }}@${{ steps.docker_build_release.outputs.digest }}" >> image-digest/caph.txt
+          echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tags }}@${{ steps.docker_build_release.outputs.digest }}" >> image-digest/caph.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
