@@ -128,10 +128,17 @@ type Resetter interface {
 	//
 	// t: g.GinkgoT()
 	//
-	// The returned func must be deferred by the caller immediately after
-	// ResetAndCreateNamespace returns. It calls SetClients with the fully
-	// configured mocks and releases the reconcile gate, and is safe to call
-	// multiple times (subsequent calls are no-ops).
+	// The returned func must be deferred by the caller immediately after ResetAndCreateNamespace
+	// returns. It calls SetClients with the fully configured mocks and releases the reconcile gate
+	// (write lock), and is safe to call multiple times (subsequent calls are no-ops). Example:
+	//
+	//  BeforeEach(func() {
+	//      var err error
+	//      var finish func()
+	//      testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-reconciler")
+	//      defer finish()
+	//      // ... register On() mock expectations here ...
+	//  })
 	ResetAndInitNamespace(namespace string, testEnv *TestEnvironment, t g.FullGinkgoTInterface) func()
 }
 
@@ -293,8 +300,13 @@ func (t *TestEnvironment) Cleanup(ctx context.Context, objs ...client.Object) er
 //
 // The second return value is a finish func that the caller MUST defer immediately:
 //
-//	testNs, finish, err := testEnv.ResetAndCreateNamespace(ctx, "my-reconciler")
-//	defer finish()
+//	BeforeEach(func() {
+//	    var err error
+//	    var finish func()
+//	    testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-reconciler")
+//	    defer finish()
+//	    // ... register On() mock expectations here ...
+//	})
 //
 // Between this call and finish(), the reconcile gate is held as a write lock, blocking new
 // Reconcile calls. The caller uses this window to register On() mock expectations. finish()
