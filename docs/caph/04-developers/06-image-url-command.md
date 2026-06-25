@@ -113,9 +113,9 @@ CAPH only reads two top-level fields:
 | `status`  | yes (to set condition) | `"Succeeded"`, `"Failed"`, `"InProgress"`, or any other string  | Sets `NodeProvisioningSucceeded` condition |
 | `message` | no                     | free-form string                                                | Included in the condition message          |
 
-While the command is **running**, write `"InProgress"` to keep the `NodeProvisioningSucceeded`
-condition as Unknown and signal that provisioning is still in progress. Any other unrecognised
-string is also treated as in-progress.
+While the command is **running**, write `"InProgress"` to set the `NodeProvisioningSucceeded`
+condition to False (provisioning has not succeeded yet). Any other unrecognised string is also
+treated as in-progress.
 Once `IMAGE_URL_DONE` appears in stdout (command finished), only `"Succeeded"` allows
 provisioning to proceed; any other value cancels it.
 

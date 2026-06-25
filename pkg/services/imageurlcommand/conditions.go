@@ -72,11 +72,12 @@ func ApplyNodeProvisioningConditions(obj conditionSetter, output Output) {
 		} else {
 			message = output.Message
 		}
-		v1beta1conditions.MarkUnknown(obj, infrav1.NodeProvisioningSucceededCondition,
-			infrav1.NodeProvisioningInProgressReason, "%s", message)
+		v1beta1conditions.MarkFalse(obj, infrav1.NodeProvisioningSucceededCondition,
+			infrav1.NodeProvisioningInProgressReason, clusterv1beta1.ConditionSeverityInfo,
+			"%s", message)
 		v1beta2conditions.Set(obj, metav1.Condition{
 			Type:    infrav1.NodeProvisioningSucceededV1Beta2Condition,
-			Status:  metav1.ConditionUnknown,
+			Status:  metav1.ConditionFalse,
 			Reason:  infrav1.NodeProvisioningInProgressV1Beta2Reason,
 			Message: message,
 		})
