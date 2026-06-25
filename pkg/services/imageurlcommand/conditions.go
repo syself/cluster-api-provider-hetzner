@@ -33,7 +33,7 @@ import (
 const (
 	OutputJSONSucceeded  = "Succeeded"
 	OutputJSONFailed     = "Failed"
-	OutputJSONProcessing = "Processing"
+	OutputJSONInProgress = "InProgress"
 )
 
 // conditionSetter accepts objects that implement both v1beta1 and v1beta2 condition setters.
@@ -63,6 +63,8 @@ func ApplyNodeProvisioningConditions(obj conditionSetter, output Output) {
 			Reason:  infrav1.NodeProvisioningFailedV1Beta2Reason,
 			Message: output.Message,
 		})
+	case OutputJSONInProgress:
+		fallthrough
 	default:
 		var message string
 		if output.Message == "" {

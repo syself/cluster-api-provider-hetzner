@@ -88,8 +88,8 @@ provisioning.
 | :------------------------: | :------------------: | :-----------------------: | ------ |
 | yes | no | — | **success**, `NodeProvisioningSucceeded` condition set to True |
 | yes | yes | `"Succeeded"` | **success**, `NodeProvisioningSucceeded` condition set to True |
-| yes | yes | any other string | **failure**, provisioning cancelled |
 | yes | yes | `"Failed"` | **failure**, provisioning cancelled |
+| yes | yes | any other string | **failure**, provisioning cancelled |
 | no | any | any | **failure**, provisioning cancelled |
 
 Implemented in `handleBootStateRunningImageCommand` (hcloud) and
@@ -108,13 +108,14 @@ condition message.
 
 CAPH only reads two top-level fields:
 
-| Field     | Required               | Values                                                                  | Purpose                                    |
-|-----------|------------------------|-------------------------------------------------------------------------|--------------------------------------------|
-| `status`  | yes (to set condition) | `"Succeeded"`, `"Failed"`, or any other string                          | Sets `NodeProvisioningSucceeded` condition |
-| `message` | no                     | free-form string                                                        | Included in the condition message          |
+| Field     | Required               | Values                                                          | Purpose                                    |
+|-----------|------------------------|-----------------------------------------------------------------|--------------------------------------------|
+| `status`  | yes (to set condition) | `"Succeeded"`, `"Failed"`, `"InProgress"`, or any other string  | Sets `NodeProvisioningSucceeded` condition |
+| `message` | no                     | free-form string                                                | Included in the condition message          |
 
-While the command is **running**, any `status` value is valid — it only updates the
-`NodeProvisioningSucceeded` condition and provisioning continues.
+While the command is **running**, write `"InProgress"` to keep the `NodeProvisioningSucceeded`
+condition as Unknown and signal that provisioning is still in progress. Any other unrecognised
+string is also treated as in-progress.
 Once `IMAGE_URL_DONE` appears in stdout (command finished), only `"Succeeded"` allows
 provisioning to proceed; any other value cancels it.
 

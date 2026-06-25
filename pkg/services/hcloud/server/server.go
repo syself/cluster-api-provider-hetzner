@@ -1025,7 +1025,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 
 		output := imageurlcommand.Output{}
 		if outputJSON == "" {
-			output.Status = imageurlcommand.OutputJSONProcessing
+			output.Status = imageurlcommand.OutputJSONInProgress
 			output.Message = "still running"
 		} else {
 			output, err = imageurlcommand.Parse(outputJSON)
