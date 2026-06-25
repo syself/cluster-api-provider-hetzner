@@ -96,6 +96,7 @@ type ControllerResetter struct {
 }
 
 func NewControllerResetter(
+	sshFactory *mocks.SSHFactory,
 	hetznerClusterReconciler *HetznerClusterReconciler,
 	hcloudMachineReconciler *HCloudMachineReconciler,
 	hcloudMachineTemplateReconciler *HCloudMachineTemplateReconciler,
@@ -104,13 +105,8 @@ func NewControllerResetter(
 	hcloudRemediationReconciler *HCloudRemediationReconciler,
 	hetznerBareMetalRemediationReconciler *HetznerBareMetalRemediationReconciler,
 ) *ControllerResetter {
-	// One factory shared across resets so in-flight goroutines always hold a valid pointer.
-	f := &mocks.SSHFactory{}
-	hcloudMachineReconciler.SSHClientFactory = f
-	hetznerBareMetalHostReconciler.SSHClientFactory = f
-
 	r := &ControllerResetter{
-		baremetalSSHClientFactory:             f,
+		baremetalSSHClientFactory:             sshFactory,
 		HetznerClusterReconciler:              hetznerClusterReconciler,
 		HCloudMachineReconciler:               hcloudMachineReconciler,
 		HCloudMachineTemplateReconciler:       hcloudMachineTemplateReconciler,
@@ -285,7 +281,13 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(hetznerBareMetalRemediationReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
-	testEnv.Resetter = NewControllerResetter(hetznerClusterReconciler, hcloudMachineReconciler,
+	// One factory shared across resets so in-flight goroutines always hold a valid pointer.
+	sshFactory := &mocks.SSHFactory{}
+	hcloudMachineReconciler.SSHClientFactory = sshFactory
+	hetznerBareMetalHostReconciler.SSHClientFactory = sshFactory
+
+	testEnv.Resetter = NewControllerResetter(
+		sshFactory, hetznerClusterReconciler, hcloudMachineReconciler,
 		hcloudMachineTemplateReconciler, hetznerBareMetalHostReconciler,
 		hetznerBareMetalMachineReconciler, hcloudRemediationReconciler,
 		hetznerBareMetalRemediationReconciler)
