@@ -72,9 +72,9 @@ The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the co
 The command must end with the last line on stdout containing `IMAGE_URL_DONE`. Otherwise the
 execution is considered to have failed.
 
-Implementation detail: CAPH executes the command in the rescue system via `ssh` and `nohup`. Stdout
-and stderr are redirected to a file. CAPH continuously connects to the rescue system to see if the
-process is still running.
+  Implementation detail: CAPH executes the command in the rescue system via `ssh` and `nohup`. Stdout
+  and stderr are redirected to a file. CAPH continuously connects to the rescue system to see if the
+  process is still running.
 
 The controller uses url.ParseRequestURI (Go function) to validate the imageURL.
 
