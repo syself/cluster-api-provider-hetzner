@@ -150,14 +150,14 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
 					InstallImage: infrav2.InstallImage{
-						ImageURLCommand: "my-command.sh",
+						ImageURLCommand: "1bad-command",
 						Image: infrav2.Image{
 							URL: "oci://ghcr.io/example/ubuntu:v1",
 						},
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), "my-command.sh", "must match the regex ^image-url-command-[a-z0-9][a-z0-9._-]*$"),
+			want: field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), "1bad-command", "must match the regex ^[a-z][a-z0-9._-]*$"),
 		},
 		{
 			name: "Invalid Image URL Command With Dot Dot",
