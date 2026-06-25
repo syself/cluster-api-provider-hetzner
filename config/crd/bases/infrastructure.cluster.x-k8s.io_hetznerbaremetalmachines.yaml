@@ -202,7 +202,6 @@ spec:
                     description: |-
                       Partitions define the additional Partitions to be created in installimage.
                       Must be non-empty when imageURLCommand is not set.
-                      Must be empty when imageURLCommand is set.
                     items:
                       description: Partition defines the additional Partitions to
                         be created.
@@ -721,7 +720,6 @@ spec:
                     description: |-
                       Partitions define the additional Partitions to be created in installimage.
                       Must be non-empty when imageURLCommand is not set.
-                      Must be empty when imageURLCommand is set.
                     items:
                       description: Partition defines the additional Partitions to
                         be created.
