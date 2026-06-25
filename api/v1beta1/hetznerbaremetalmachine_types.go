@@ -186,7 +186,6 @@ type InstallImage struct {
 
 	// Partitions define the additional Partitions to be created in installimage.
 	// Must be non-empty when imageURLCommand is not set.
-	// Must be empty when imageURLCommand is set.
 	// +optional
 	Partitions []Partition `json:"partitions,omitempty"`
 

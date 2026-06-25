@@ -68,12 +68,6 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav1.HetznerBareMetalMach
 			)
 		}
 
-		if len(installImage.Partitions) > 0 {
-			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "installImage", "partitions"), installImage.Partitions,
-					"partitions must be empty when imageURLCommand is set"),
-			)
-		}
 	} else {
 		if (image.Name == "" || image.URL == "") && image.Path == "" {
 			allErrs = append(allErrs,

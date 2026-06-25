@@ -304,23 +304,6 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			want: field.Required(field.NewPath("spec", "installImage", "partitions"),
 				"partitions must be set when imageURLCommand is not set"),
 		},
-		{
-			name: "Partitions must be empty when imageURLCommand is set",
-			args: args{
-				spec: infrav1.HetznerBareMetalMachineSpec{
-					InstallImage: infrav1.InstallImage{
-						ImageURLCommand: "image-url-command-bm-test.sh",
-						Image: infrav1.Image{
-							URL: "oci://ghcr.io/example/ubuntu:v1",
-						},
-						Partitions: []infrav1.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
-					},
-				},
-			},
-			want: field.Invalid(field.NewPath("spec", "installImage", "partitions"),
-				[]infrav1.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
-				"partitions must be empty when imageURLCommand is set"),
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
