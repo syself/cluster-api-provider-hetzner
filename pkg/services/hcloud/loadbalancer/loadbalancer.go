@@ -303,6 +303,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	// The workload cluster is only contacted when the spec wants proxy protocol but the LB
 	// service doesn't have it yet. For new clusters or when already active, no call is made.
 	var proxyProtocolShouldGetEnabled bool
+	var requeueForProxyProtocol bool
 	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && kubeAPIServiceExists && !proxyProtocolAlreadyActive {
 		var err error
 		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneNodesReadyForProxyProtocol(ctx)
@@ -311,7 +312,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		}
 		if !proxyProtocolShouldGetEnabled {
 			s.scope.V(1).Info("proxy protocol: not all CP nodes ready yet, requeueing")
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+			requeueForProxyProtocol = true
 		}
 	}
 	// Enabling proxy protocol is a one-way operation: delete the existing service and
@@ -346,7 +347,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 
 	// create services that are in the spec but not yet on the LB
 	for i, listenPort := range toCreate {
-		var proxyProtocol bool
+		proxyProtocol := false
 		if listenPort == kubeAPIServicePort {
 			// Proxy protocol is only relevant for the kube-apiserver port (default 6443).
 			proxyProtocol = kubeAPIProxyProtocol
@@ -366,6 +367,9 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 				return reconcile.Result{}, multierr
 			}
 		}
+	}
+	if requeueForProxyProtocol {
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, multierr
 	}
 	return reconcile.Result{}, multierr
 }

@@ -224,3 +224,49 @@ func TestReconcileServices_ProxyProtocolMigration_NodesNotReady(t *testing.T) {
 	require.NoError(t, err)
 	mockClient.AssertExpectations(t)
 }
+
+// TestReconcileServices_ProxyProtocolMigration_NodesNotReady_StillReconcilesExtraServices
+// verifies that when proxy protocol migration is waiting (CP nodes not ready), the function
+// still reconciles extraServices instead of returning early.
+func TestReconcileServices_ProxyProtocolMigration_NodesNotReady_StillReconcilesExtraServices(t *testing.T) {
+	const extraListenPort = 8080
+	const extraDestPort = 8081
+
+	hetznerCluster := newTestHetznerCluster()
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices = []infrav2.LoadBalancerServiceSpec{
+		{Protocol: "tcp", ListenPort: extraListenPort, DestinationPort: extraDestPort},
+	}
+
+	mockClient := &mocks.Client{}
+	svc := newTestService(t, hetznerCluster, mockClient)
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{ListenPort: testKubeAPIListenPort, Proxyprotocol: false}, // kube-API exists without proxy protocol
+			// extraService is missing from the LB — should be added even while waiting for proxy protocol
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	fakeK8sClient := fakeclient.NewClientBuilder().WithScheme(scheme).Build()
+	svc.scope.Client = fakeK8sClient
+	svc.scope.APIReader = fakeK8sClient
+	svc.scope.Cluster = &clusterv1.Cluster{}
+
+	// The extra service must be added even though proxy protocol migration is pending.
+	var capturedOpts hcloud.LoadBalancerAddServiceOpts
+	mockClient.On("AddServiceToLoadBalancer", mock.Anything, hcloudLB, mock.Anything).
+		Run(func(args mock.Arguments) {
+			capturedOpts = args.Get(2).(hcloud.LoadBalancerAddServiceOpts)
+		}).
+		Return(nil)
+
+	result, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t) // fails here if AddServiceToLoadBalancer was never called
+	require.NotNil(t, capturedOpts.ListenPort, "AddServiceToLoadBalancer should have been called for extra service")
+	require.Equal(t, extraListenPort, *capturedOpts.ListenPort)
+	require.Equal(t, extraDestPort, *capturedOpts.DestinationPort)
+	require.NotZero(t, result.RequeueAfter, "should requeue while waiting for proxy protocol migration")
+}
