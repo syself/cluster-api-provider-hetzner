@@ -67,7 +67,6 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav2.HetznerBareMetalMach
 					err.Error()),
 			)
 		}
-
 	} else {
 		if (image.Name == "" || image.URL == "") && image.Path == "" {
 			allErrs = append(allErrs,
