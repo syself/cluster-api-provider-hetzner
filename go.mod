@@ -8,7 +8,7 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/go-cmp v0.7.0
-	github.com/guettli/check-conditions v0.0.33
+	github.com/guettli/check-conditions v0.0.45
 	github.com/hetznercloud/hcloud-go/v2 v2.32.0
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/onsi/ginkgo/v2 v2.28.3
