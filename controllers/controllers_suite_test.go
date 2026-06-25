@@ -84,7 +84,7 @@ type ControllerResetter struct {
 	// Each Reconcile call holds it as a read lock (via ReconcileGate); test setup holds it as a write
 	// lock. Because a write lock waits for all read lock holders to finish, mock setup can only proceed
 	// once all in-flight reconciles from the previous test have completed.
-	reconcileGate                         sync.RWMutex
+	reconcileGate                         *sync.RWMutex
 	baremetalSSHClientFactory             *mocks.SSHFactory
 	HetznerClusterReconciler              *HetznerClusterReconciler
 	HCloudMachineReconciler               *HCloudMachineReconciler
@@ -96,6 +96,7 @@ type ControllerResetter struct {
 }
 
 func NewControllerResetter(
+	reconcileGate *sync.RWMutex,
 	sshFactory *mocks.SSHFactory,
 	hetznerClusterReconciler *HetznerClusterReconciler,
 	hcloudMachineReconciler *HCloudMachineReconciler,
@@ -105,7 +106,8 @@ func NewControllerResetter(
 	hcloudRemediationReconciler *HCloudRemediationReconciler,
 	hetznerBareMetalRemediationReconciler *HetznerBareMetalRemediationReconciler,
 ) *ControllerResetter {
-	r := &ControllerResetter{
+	return &ControllerResetter{
+		reconcileGate:                         reconcileGate,
 		baremetalSSHClientFactory:             sshFactory,
 		HetznerClusterReconciler:              hetznerClusterReconciler,
 		HCloudMachineReconciler:               hcloudMachineReconciler,
@@ -116,14 +118,6 @@ func NewControllerResetter(
 		HetznerBareMetalRemediationReconciler: hetznerBareMetalRemediationReconciler,
 		debug:                                 os.Getenv("DEBUG") != "",
 	}
-
-	// Give both reconcilers access to the shared gate. Each Reconcile call holds it as a read lock,
-	// and test setup in ResetAndInitNamespace holds it as a write lock — which blocks until all
-	// in-flight reconciles (read lock holders) finish before mock clients are swapped.
-	hetznerBareMetalHostReconciler.ReconcileGate = &r.reconcileGate
-	hcloudMachineReconciler.ReconcileGate = &r.reconcileGate
-
-	return r
 }
 
 var _ helpers.Resetter = &ControllerResetter{}
@@ -286,8 +280,15 @@ var _ = BeforeSuite(func() {
 	hcloudMachineReconciler.SSHClientFactory = sshFactory
 	hetznerBareMetalHostReconciler.SSHClientFactory = sshFactory
 
+	// reconcileGate is shared by the two reconcilers and the resetter: reconcilers hold a read lock
+	// for the duration of each Reconcile call; the resetter holds the write lock while swapping mock
+	// clients between tests, which blocks until all in-flight reconciles finish.
+	reconcileGate := &sync.RWMutex{}
+	hetznerBareMetalHostReconciler.ReconcileGate = reconcileGate
+	hcloudMachineReconciler.ReconcileGate = reconcileGate
+
 	testEnv.Resetter = NewControllerResetter(
-		sshFactory, hetznerClusterReconciler, hcloudMachineReconciler,
+		reconcileGate, sshFactory, hetznerClusterReconciler, hcloudMachineReconciler,
 		hcloudMachineTemplateReconciler, hetznerBareMetalHostReconciler,
 		hetznerBareMetalMachineReconciler, hcloudRemediationReconciler,
 		hetznerBareMetalRemediationReconciler)
