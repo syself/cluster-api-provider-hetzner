@@ -47,6 +47,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
+						Partitions: []infrav2.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 				},
 			},
@@ -60,6 +61,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 						Image: infrav2.Image{
 							Path: "path/to/image.tar.gz",
 						},
+						Partitions: []infrav2.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 				},
 			},
@@ -84,7 +86,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
 					InstallImage: infrav2.InstallImage{
-						Image: infrav2.Image{},
+						Image:      infrav2.Image{},
+						Partitions: []infrav2.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 				},
 			},
@@ -99,6 +102,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.invalid",
 						},
+						Partitions: []infrav2.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 				},
 			},
@@ -182,6 +186,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
+						Partitions: []infrav2.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 					HostSelector: infrav2.HostSelector{
 						MatchLabels: map[string]string{
@@ -201,6 +206,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
+						Partitions: []infrav2.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 					HostSelector: infrav2.HostSelector{
 						MatchExpressions: []infrav2.HostSelectorRequirement{
@@ -224,6 +230,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
+						Partitions: []infrav2.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 					HostSelector: infrav2.HostSelector{
 						MatchExpressions: []infrav2.HostSelectorRequirement{
@@ -257,6 +264,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
+						Partitions: []infrav2.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 					HostSelector: infrav2.HostSelector{
 						MatchExpressions: []infrav2.HostSelectorRequirement{
@@ -280,6 +288,38 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 				},
 				`invalid match expression: key: Invalid value: "": name part must be non-empty; name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')`,
 			),
+		},
+		{
+			name: "Partitions required without imageURLCommand",
+			args: args{
+				spec: infrav2.HetznerBareMetalMachineSpec{
+					InstallImage: infrav2.InstallImage{
+						Image: infrav2.Image{
+							Name: "ubuntu-24.04",
+							URL:  "https://example.com/ubuntu-24.04.tar.gz",
+						},
+					},
+				},
+			},
+			want: field.Required(field.NewPath("spec", "installImage", "partitions"),
+				"partitions must be set when imageURLCommand is not set"),
+		},
+		{
+			name: "Partitions must be empty when imageURLCommand is set",
+			args: args{
+				spec: infrav2.HetznerBareMetalMachineSpec{
+					InstallImage: infrav2.InstallImage{
+						ImageURLCommand: "image-url-command-bm-test.sh",
+						Image: infrav2.Image{
+							URL: "oci://ghcr.io/example/ubuntu:v1",
+						},
+						Partitions: []infrav2.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
+					},
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "installImage", "partitions"),
+				[]infrav2.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
+				"partitions must be empty when imageURLCommand is set"),
 		},
 	}
 	for _, tt := range tests {

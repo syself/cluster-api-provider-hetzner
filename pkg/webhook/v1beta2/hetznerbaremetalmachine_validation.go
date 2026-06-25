@@ -67,6 +67,13 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav2.HetznerBareMetalMach
 					err.Error()),
 			)
 		}
+
+		if len(installImage.Partitions) > 0 {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "partitions"), installImage.Partitions,
+					"partitions must be empty when imageURLCommand is set"),
+			)
+		}
 	} else {
 		if (image.Name == "" || image.URL == "") && image.Path == "" {
 			allErrs = append(allErrs,
@@ -82,6 +89,13 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav2.HetznerBareMetalMach
 						"unknown image type in URL"),
 				)
 			}
+		}
+
+		if len(installImage.Partitions) == 0 {
+			allErrs = append(allErrs,
+				field.Required(field.NewPath("spec", "installImage", "partitions"),
+					"partitions must be set when imageURLCommand is not set"),
+			)
 		}
 	}
 
