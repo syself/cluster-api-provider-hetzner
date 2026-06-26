@@ -1550,6 +1550,43 @@ var _ = Describe("actionRegistering check RAID", func() {
 	})
 })
 
+var _ = Describe("actionRegistering emits event on hardwareDetails change", func() {
+	const storageStdOut = `NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
+NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`
+
+	ctx := context.Background()
+
+	It("emits HardwareDetails Changed event when existing details differ", func() {
+		// drain events from previous tests
+		for len(testEventRecorder.Events) > 0 {
+			<-testEventRecorder.Events
+		}
+
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{}
+		host.Spec.Status.HardwareDetails = &infrav1.HardwareDetails{
+			CPU: infrav1.CPU{Model: "old-model"},
+		}
+
+		sshMock := registeringSSHMock(storageStdOut)
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		service.actionRegistering(ctx)
+
+		var events []string
+		for len(testEventRecorder.Events) > 0 {
+			events = append(events, <-testEventRecorder.Events)
+		}
+		Expect(events).To(ContainElement(ContainSubstring("HardwareDetails Changed")))
+	})
+})
+
 var _ = Describe("getImageDetails", func() {
 	type testCaseGetImageDetails struct {
 		image                 infrav1.Image
