@@ -1339,10 +1339,11 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			return actionContinue{delay: 10 * time.Second}
 		}
 
-		err = imageurlcommand.ParseAndApply(host, outputJSON)
+		output, err := imageurlcommand.Parse(outputJSON)
 		if err != nil {
-			return actionError{err: fmt.Errorf("ParseAndApply failed: %w", err)}
+			return actionError{err: fmt.Errorf("failed to parse image URL command output: %w", err)}
 		}
+		imageurlcommand.ApplyNodeProvisioningConditions(host, output)
 		return actionContinue{delay: 10 * time.Second}
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:

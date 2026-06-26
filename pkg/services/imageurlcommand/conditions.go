@@ -96,13 +96,3 @@ func Parse(content string) (Output, error) {
 	return output, nil
 }
 
-// ParseAndApply unmarshals content into Output and updates conditions on obj.
-// Returns an error if content is not valid JSON or has no status field.
-func ParseAndApply(obj conditionSetter, content string) error {
-	output, err := Parse(content)
-	if err != nil {
-		return err
-	}
-	ApplyNodeProvisioningConditions(obj, output)
-	return nil
-}
