@@ -1343,12 +1343,31 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		if err != nil {
 			return actionError{err: fmt.Errorf("failed to parse image URL command output: %w", err)}
 		}
-		imageurlcommand.Apply(host, output,
-			infrav1.ProvisionSucceededCondition,
-			infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
-			"ImageURLCommandFailed",
-			infrav1.HetznerBareMetalHostProvisioningV1Beta2Reason,
-		)
+		switch output.Status {
+		case imageurlcommand.OutputJSONFailed:
+			msg := output.Message
+			v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
+				"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityError, "%s", msg)
+			v1beta2conditions.Set(host, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "ImageURLCommandFailed",
+				Message: msg,
+			})
+		default:
+			msg := output.Message
+			if msg == "" {
+				msg = "imageURLCommand running"
+			}
+			v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
+				infrav1.HetznerBareMetalHostProvisioningV1Beta2Reason, clusterv1beta1.ConditionSeverityInfo, "%s", msg)
+			v1beta2conditions.Set(host, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostProvisioningV1Beta2Reason,
+				Message: msg,
+			})
+		}
 		return actionContinue{delay: 10 * time.Second}
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:

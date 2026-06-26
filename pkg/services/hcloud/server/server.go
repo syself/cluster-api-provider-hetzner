@@ -1033,12 +1033,31 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 				return reconcile.Result{}, fmt.Errorf("ReadOutputJSON: %w", err)
 			}
 		}
-		imageurlcommand.Apply(hm, output,
-			infrav1.ServerProvisionedCondition,
-			infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
-			infrav1.HCloudMachineImageURLCommandFailedV1Beta2Reason,
-			infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason,
-		)
+		switch output.Status {
+		case imageurlcommand.OutputJSONFailed:
+			msg := output.Message
+			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+				infrav1.HCloudMachineImageURLCommandFailedV1Beta2Reason, clusterv1beta1.ConditionSeverityError, "%s", msg)
+			v1beta2conditions.Set(hm, metav1.Condition{
+				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HCloudMachineImageURLCommandFailedV1Beta2Reason,
+				Message: msg,
+			})
+		default:
+			msg := output.Message
+			if msg == "" {
+				msg = "imageURLCommand running"
+			}
+			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+				infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason, clusterv1beta1.ConditionSeverityInfo, "%s", msg)
+			v1beta2conditions.Set(hm, metav1.Condition{
+				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason,
+				Message: msg,
+			})
+		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
