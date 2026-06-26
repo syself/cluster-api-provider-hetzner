@@ -1925,9 +1925,156 @@ func verifyConnectionRefused(ctx context.Context, sshClient sshclient.Client, po
 func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult) {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned)
 
+	// If hardware reboot was triggered, then move to Step-2 i.e. ensuring host is booted into the desired OS.
+	// Otherwise, move to Step-1 i.e. check if the host is still in rescue mode.
+	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType != infrav1.ErrorTypeHardwareRebootTriggered {
+		if ar := s.checkRescueAndTriggerReboot(ctx); ar != nil {
+			return ar
+		}
+	}
+
+	// Step-2
+	return s.verifyProvisionedOS(ctx)
+}
+
+// checkRescueAndTriggerReboot checks if the host is still in rescue mode, if it is still in rescue mode
+// it triggers a reboot. First a software reboot and if it fails then a hardware reboot.
+func (s *Service) checkRescueAndTriggerReboot(ctx context.Context) actionResult {
+	// If software reboot has timed out, escalate to hardware reboot immediately. No need to
+	// confirm rescue reachability, the host may be in a state where neither the rescue mode nor
+	// the desired OS might be reachable.
+	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSoftwareRebootTriggered &&
+		hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt, softwareResetTimeout) {
+		// Ensure that rescue mode is disabled for the next reboot.
+		if err := s.unsetRescueIfActive(); err != nil {
+			return actionError{err: fmt.Errorf("failed to ensure that rescue mode is disabled for the next boot: %w", err)}
+		}
+
+		// trigger a hardware reboot.
+		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
+			s.handleRobotRateLimitExceeded(err, rebootServerStr)
+			return actionError{err: fmt.Errorf(errMsgFailedReboot, err)}
+		}
+
+		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
+		msg := createRebootEvent(ctx, s.scope.HetznerBareMetalHost, infrav1.RebootTypeHardware, "Software reboot timed out, triggered a hardware reboot.")
+		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeHardwareRebootTriggered, msg)
+
+		// move to step-2
+		return nil
+	}
+
+	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
+	in := sshclient.Input{
+		PrivateKey: creds.PrivateKey,
+		Port:       rescuePort,
+		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
+	}
+	sshClient := s.scope.SSHClientFactory.NewClient(in)
+
+	// Check hostname with sshClient.
+	out := sshClient.GetHostName(ctx)
+	if out.Err != nil || out.StdErr != "" {
+		// Rescue system is not reachable, we can move to step-2 i.e. verifying if host is booted into provisioned OS.
+		return nil
+	}
+
+	hostname := trimLineBreak(out.StdOut)
+	if hostname != rescue {
+		// Host is not in rescue mode, we can move to step-2 i.e. verifying if host is booted into provisioned OS.
+		//
+		// NOTE: We are not analyzing the SSH errors because in this step we only need to detect if the host is in rescue mode.
+		// Any SSH error would mean that we cannot confirm if the host is in rescue mode so we fall through to step-2.
+		// connection-refused/timeout: host is between boots or already in the OS (step-2 will verify).
+		// auth failed: host rebooted into OS, so rescue key is no longer valied (step-2 will verify).
+		// non-rescue hostname: host booted into OS (step-2 will verify).
+
+		return nil
+	}
+
+	// Host is in rescue mode.
+
+	// If it was not rebooted in the last 15s then we should trigger a reboot.
+	if s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt != nil &&
+		!hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt, rebootWaitTime) {
+		// reboot was recently triggered (possibly from image-installing), give it some time.
+		return actionContinue{delay: 5 * time.Second}
+	}
+
+	// Ensure that rescue mode is disabled for the next reboot.
+	if err := s.unsetRescueIfActive(); err != nil {
+		return actionError{err: fmt.Errorf("failed to ensure that rescue mode is disabled for the next boot: %w", err)}
+	}
+
+	// Check which reboot was triggered previously, if a software reboot was triggered in the previous run
+	// and it has timed out now then trigger a hardware reboot.
+	var emptyErrorType infrav1.ErrorType
+	switch s.scope.HetznerBareMetalHost.Spec.Status.ErrorType {
+	case emptyErrorType:
+		// pick the available reboot type (software or hardware) and trigger it (preferred order software > hardware).
+		rebootType, errorType := rebootAndErrorTypeAfterTimeout(s.scope.HetznerBareMetalHost)
+		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
+			s.handleRobotRateLimitExceeded(err, rebootServerStr)
+			return actionError{err: fmt.Errorf(errMsgFailedReboot, err)}
+		}
+
+		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
+		msg := createRebootEvent(ctx, s.scope.HetznerBareMetalHost, rebootType, "Rebooting out of rescue mode into the provisioned OS.")
+		s.scope.HetznerBareMetalHost.SetError(errorType, msg)
+
+		// if the hardware reboot was triggered then move to step-2, otherwise reque with delay.
+		if rebootType == infrav1.RebootTypeHardware {
+			return nil
+		}
+
+		return actionContinue{delay: 5 * time.Second}
+
+	case infrav1.ErrorTypeSoftwareRebootTriggered:
+		// If the software reboot timed out, then trigger a hardware reboot, otherwise reque.
+		if !hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt, softwareResetTimeout) {
+			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned, "waiting for software reboot to complete")
+			return actionContinue{delay: 5 * time.Second}
+		}
+
+		// trigger a hardware reboot.
+		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
+			s.handleRobotRateLimitExceeded(err, rebootServerStr)
+			return actionError{err: fmt.Errorf(errMsgFailedReboot, err)}
+		}
+
+		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
+		msg := createRebootEvent(ctx, s.scope.HetznerBareMetalHost, infrav1.RebootTypeHardware, "Software reboot timed out, triggered a hardware reboot.")
+		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeHardwareRebootTriggered, msg)
+
+		// move to step-2
+		return nil
+	}
+
+	return nil
+}
+
+// unsetRescueIfActive checks whether rescue boot is currently set for the next boot and unsets it if so.
+func (s *Service) unsetRescueIfActive() error {
+	rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
+	if err != nil {
+		s.handleRobotRateLimitExceeded(err, "GetBootRescue")
+		return fmt.Errorf("failed to get boot rescue: %w", err)
+	}
+	if rescue.Active {
+		if _, err := s.scope.RobotClient.DeleteBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID); err != nil {
+			s.handleRobotRateLimitExceeded(err, "DeleteBootRescue")
+			return fmt.Errorf("failed to delete boot rescue: %w", err)
+		}
+	}
+	return nil
+}
+
+// verifyProvisionedOS verifies that the host has booted into the provisioned OS.
+func (s *Service) verifyProvisionedOS(ctx context.Context) actionResult {
+	// If SSHAfterInstallImage is disabled, we cannot SSH into the host and verify the OS.
+	// Therefore move to the next state.
 	if !s.scope.SSHAfterInstallImageEnabled() {
-		// SSH after installimage is disabled for this machine, so we skip the verification phase.
-		record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned ('ensure-provisioned' was skipped)")
+		record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned (verification was skipped)")
 		v1beta1conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 			Type:   infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
@@ -1945,54 +2092,37 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 	})
 
-	// Check hostname with sshClient
-	wantHostName := s.scope.Hostname()
-
+	// Check hostname with sshClient.
+	desiredHostName := s.scope.Hostname()
 	out := sshClient.GetHostName(ctx)
 	hostname := trimLineBreak(out.StdOut)
-	if hostname != wantHostName {
-		// give the reboot some time until it takes effect
+
+	if hostname != desiredHostName {
+		// if the host was just rebooted, give it some time.
 		if s.hasJustRebooted() {
 			s.scope.Info("ensureProvisioned: hasJustRebooted. Retrying...", "hostname", hostname)
-			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
-				infrav1.StateEnsureProvisioned, "host has just rebooted")
-			return actionContinue{delay: 2 * time.Second}
+			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned, "host has just rebooted")
+			return actionContinue{delay: 5 * time.Second}
 		}
 
-		isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
-		if err != nil {
-			if errors.Is(err, errUnexpectedHostName) {
-				// One possible reason: The machine gets used by a second wl-cluster.
-				record.Warnf(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
-					"EnsureProvision: wanted %q. %s", wantHostName, err.Error())
+		// If the hardware reboot was triggered and it timed-out, then set a permanent error on the host.
+		// Otherwise reque.
+		if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeHardwareRebootTriggered &&
+			hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt, hardwareResetTimeout) {
+			msg := fmt.Sprintf("hostname %q does not match expected %q after reboot", hostname, desiredHostName)
+
+			if sshclient.IsConnectionRefusedError(out.Err) || os.IsTimeout(out.Err) || sshclient.IsTimeoutError(out.Err) {
+				msg = fmt.Sprintf("hardware reboot timed out: OS unreachable via SSH after %s", hardwareResetTimeout)
 			}
-			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
-				infrav1.StateEnsureProvisioned, err.Error())
-			return actionError{err: fmt.Errorf("failed to handle incomplete boot - actionEnsureProvisioned: %w", err)}
+
+			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned, msg)
+			return s.recordActionFailure(infrav1.PermanentError, msg)
 		}
 
-		failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
-		if failed {
-			msg := "reboot handling failed"
-			if err != nil {
-				msg = err.Error()
-			}
-			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
-				infrav1.StateEnsureProvisioned, msg)
-			return s.recordActionFailure(infrav1.ProvisioningError, msg)
-		}
-		if err != nil {
-			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
-				infrav1.StateEnsureProvisioned, err.Error())
-			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
-		}
-		markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
-			infrav1.StateEnsureProvisioned, "will retry")
-		return actionContinue{delay: 10 * time.Second}
+		return actionContinue{delay: 5 * time.Second}
 	}
 
-	// from now on we know that the machine is reachable and
-	// is no longer in the rescue system.
+	// Hostname matches, host is in the provisioned OS.
 
 	s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = nil
 
