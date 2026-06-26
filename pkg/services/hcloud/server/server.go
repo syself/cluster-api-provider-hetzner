@@ -1033,7 +1033,12 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 				return reconcile.Result{}, fmt.Errorf("ReadOutputJSON: %w", err)
 			}
 		}
-		imageurlcommand.ApplyNodeProvisioningConditions(hm, output)
+		imageurlcommand.Apply(hm, output,
+			infrav1.ServerProvisionedCondition,
+			infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+			infrav1.HCloudMachineImageURLCommandFailedV1Beta2Reason,
+			infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason,
+		)
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
@@ -1053,8 +1058,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 				return reconcile.Result{}, fmt.Errorf("parse: %w", err)
 			}
 		}
-
-		imageurlcommand.ApplyNodeProvisioningConditions(hm, output)
 
 		if output.Status != imageurlcommand.OutputJSONSucceeded {
 			msg := output.Message

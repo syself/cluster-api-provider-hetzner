@@ -25,8 +25,6 @@ import (
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
-
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 // Status values written by the image-url-command binary into output.json.
@@ -42,42 +40,34 @@ type conditionSetter interface {
 	v1beta2conditions.Setter
 }
 
-// ApplyNodeProvisioningConditions sets NodeProvisioningSucceededCondition based on
-// the top-level status field of the image-url-command output.json.
-func ApplyNodeProvisioningConditions(obj conditionSetter, output Output) {
+// Apply updates the given conditions based on the image-url-command output.json status.
+// On Succeeded: no-op; the caller handles final success state after post-install steps.
+// On Failed: marks the condition False with failedReason.
+// On InProgress/other: marks the condition False with progressReason.
+func Apply(obj conditionSetter, output Output, v1beta1Cond clusterv1beta1.ConditionType, v1beta2Cond, failedReason, progressReason string) {
 	switch output.Status {
 	case OutputJSONSucceeded:
-		v1beta1conditions.MarkTrue(obj, infrav1.NodeProvisioningSucceededCondition)
-		v1beta2conditions.Set(obj, metav1.Condition{
-			Type:   infrav1.NodeProvisioningSucceededV1Beta2Condition,
-			Status: metav1.ConditionTrue,
-			Reason: infrav1.NodeProvisioningSucceededV1Beta2Reason,
-		})
+		// no-op
 	case OutputJSONFailed:
-		v1beta1conditions.MarkFalse(obj, infrav1.NodeProvisioningSucceededCondition,
-			infrav1.NodeProvisioningFailedReason, clusterv1beta1.ConditionSeverityError,
-			"%s", output.Message)
+		msg := output.Message
+		v1beta1conditions.MarkFalse(obj, v1beta1Cond, failedReason, clusterv1beta1.ConditionSeverityError, "%s", msg)
 		v1beta2conditions.Set(obj, metav1.Condition{
-			Type:    infrav1.NodeProvisioningSucceededV1Beta2Condition,
+			Type:    v1beta2Cond,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.NodeProvisioningFailedV1Beta2Reason,
-			Message: output.Message,
+			Reason:  failedReason,
+			Message: msg,
 		})
 	default:
-		var message string
-		if output.Message == "" {
-			message = "provisioning in progress"
-		} else {
-			message = output.Message
+		msg := output.Message
+		if msg == "" {
+			msg = "imageURLCommand running"
 		}
-		v1beta1conditions.MarkFalse(obj, infrav1.NodeProvisioningSucceededCondition,
-			infrav1.NodeProvisioningInProgressReason, clusterv1beta1.ConditionSeverityInfo,
-			"%s", message)
+		v1beta1conditions.MarkFalse(obj, v1beta1Cond, progressReason, clusterv1beta1.ConditionSeverityInfo, "%s", msg)
 		v1beta2conditions.Set(obj, metav1.Condition{
-			Type:    infrav1.NodeProvisioningSucceededV1Beta2Condition,
+			Type:    v1beta2Cond,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.NodeProvisioningInProgressV1Beta2Reason,
-			Message: message,
+			Reason:  progressReason,
+			Message: msg,
 		})
 	}
 }

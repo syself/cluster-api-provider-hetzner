@@ -171,9 +171,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
-	It("sets NodeProvisioningSucceeded=False when ReadOutputJSON returns an error", func() {
-		// Regression test: previously the condition was never set when ReadOutputJSON
-		// returned an error (file absent, SSH error, incomplete JSON, etc.).
+	It("returns error when ReadOutputJSON fails during FinishedSuccessfully", func() {
 		host := newBaseHost()
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
@@ -188,7 +186,6 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionError{}))
-		Expect(v1beta1conditions.IsTrue(host, infrav1.NodeProvisioningSucceededCondition)).To(BeFalse())
 	})
 
 	It("returns error when command failed", func() {
@@ -205,7 +202,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(c.Message).To(ContainSubstring("image-url-command failed"))
 	})
 
-	It("sets NodeProvisioningSucceeded when output.json reports success", func() {
+	It("completes successfully when output.json reports success", func() {
 		host := newBaseHost()
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
@@ -220,7 +217,6 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
-		Expect(v1beta1conditions.IsTrue(host, infrav1.NodeProvisioningSucceededCondition)).To(BeTrue())
 	})
 
 	It("aborts provisioning when IMAGE_URL_DONE is present but output.json reports failure", func() {
@@ -237,7 +233,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(sshMock.AssertNotCalled(GinkgoT(), "Reboot", mock.Anything)).To(BeTrue())
 		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("disk full"))
-		Expect(v1beta1conditions.IsFalse(host, infrav1.NodeProvisioningSucceededCondition)).To(BeTrue())
+		Expect(v1beta1conditions.IsFalse(host, infrav1.ProvisionSucceededCondition)).To(BeTrue())
 	})
 
 	It("aborts provisioning when IMAGE_URL_DONE is present but output.json has an unexpected status", func() {

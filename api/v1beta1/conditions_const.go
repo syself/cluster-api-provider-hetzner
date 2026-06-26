@@ -271,27 +271,6 @@ const (
 	RebootSucceededCondition clusterv1beta1.ConditionType = "RebootSucceeded"
 )
 
-const (
-	// NodeProvisioningSucceededCondition reports the result of the image-url-command.
-	// True on success; False on permanent failure; Unknown while in progress.
-	NodeProvisioningSucceededCondition clusterv1beta1.ConditionType = "NodeProvisioningSucceeded"
-
-	// NodeProvisioningFailedReason indicates the image-url-command failed permanently.
-	NodeProvisioningFailedReason = "Failed"
-	// NodeProvisioningInProgressReason indicates the image-url-command has not yet completed.
-	NodeProvisioningInProgressReason = "InProgress"
-)
-
-const (
-	// NodeProvisioningSucceededV1Beta2Condition reports the result of the image-url-command.
-	NodeProvisioningSucceededV1Beta2Condition = "NodeProvisioningSucceeded"
-	// NodeProvisioningSucceededV1Beta2Reason indicates the image-url-command completed successfully.
-	NodeProvisioningSucceededV1Beta2Reason = "Succeeded"
-	// NodeProvisioningFailedV1Beta2Reason indicates the image-url-command failed permanently.
-	NodeProvisioningFailedV1Beta2Reason = "Failed"
-	// NodeProvisioningInProgressV1Beta2Reason indicates the image-url-command has not yet completed.
-	NodeProvisioningInProgressV1Beta2Reason = "InProgress"
-)
 
 const (
 	// RemediationSkippedCondition reports that remediation was skipped because

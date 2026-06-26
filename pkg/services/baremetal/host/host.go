@@ -1343,7 +1343,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		if err != nil {
 			return actionError{err: fmt.Errorf("failed to parse image URL command output: %w", err)}
 		}
-		imageurlcommand.ApplyNodeProvisioningConditions(host, output)
+		imageurlcommand.Apply(host, output,
+			infrav1.ProvisionSucceededCondition,
+			infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			"ImageURLCommandFailed",
+			infrav1.HetznerBareMetalHostProvisioningV1Beta2Reason,
+		)
 		return actionContinue{delay: 10 * time.Second}
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
@@ -1367,7 +1372,6 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			}
 		}
 
-		imageurlcommand.ApplyNodeProvisioningConditions(host, output)
 		if output.Status != imageurlcommand.OutputJSONSucceeded {
 			msg := output.Message
 			if msg == "" {
@@ -1426,7 +1430,6 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			if err != nil {
 				return actionError{err: fmt.Errorf("parse: %w", err)}
 			}
-			imageurlcommand.ApplyNodeProvisioningConditions(s.scope.HetznerBareMetalHost, output)
 			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 			if output.Message != "" {

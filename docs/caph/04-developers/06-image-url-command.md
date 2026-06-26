@@ -86,8 +86,8 @@ provisioning.
 
 | **`IMAGE_URL_DONE` in stdout** | **`output.json` exists** | **`status` in `output.json`** | **Result** |
 | :------------------------: | :------------------: | :-----------------------: | ------ |
-| yes | no | — | **success**, `NodeProvisioningSucceeded` condition set to True |
-| yes | yes | `"Succeeded"` | **success**, `NodeProvisioningSucceeded` condition set to True |
+| yes | no | — | **success** |
+| yes | yes | `"Succeeded"` | **success** |
 | yes | yes | `"Failed"` | **failure**, provisioning cancelled |
 | yes | yes | any other string | **failure**, provisioning cancelled |
 | no | any | any | **failure**, provisioning cancelled |
@@ -100,8 +100,8 @@ Implemented in `handleBootStateRunningImageCommand` (hcloud) and
 The command may write `/root/output.json` at any point during execution. If the file does not
 exist, provisioning still succeeds based on `IMAGE_URL_DONE` alone.
 
-CAPH reads the `status` field from this file to set the `NodeProvisioningSucceeded` condition on the
-machine (HCloudMachine or HetznerBareMetalHost). The `message` field is forwarded verbatim into the
+CAPH reads the `status` field from this file to update the provisioning condition on the machine
+(HCloudMachine or HetznerBareMetalHost). The `message` field is forwarded verbatim into the
 condition message.
 
 ### Fields CAPH reads
@@ -110,11 +110,11 @@ CAPH only reads two top-level fields:
 
 | Field     | Required               | Values                                                          | Purpose                                    |
 |-----------|------------------------|-----------------------------------------------------------------|--------------------------------------------|
-| `status`  | yes (to set condition) | `"Succeeded"`, `"Failed"`, `"InProgress"`, or any other string  | Sets `NodeProvisioningSucceeded` condition |
+| `status`  | yes (to set condition) | `"Succeeded"`, `"Failed"`, `"InProgress"`, or any other string  | Updates the provisioning condition         |
 | `message` | no                     | free-form string                                                | Included in the condition message          |
 
-While the command is **running**, write `"InProgress"` to set the `NodeProvisioningSucceeded`
-condition to False (provisioning has not succeeded yet). Any other unrecognised string is also
+While the command is **running**, write `"InProgress"` to update the provisioning condition
+(indicating provisioning has not succeeded yet). Any other unrecognised string is also
 treated as in-progress.
 Once `IMAGE_URL_DONE` appears in stdout (command finished), only `"Succeeded"` allows
 provisioning to proceed; any other value cancels it.
