@@ -19,7 +19,7 @@ package v1beta2
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 // HCloudMachineTemplateSpec defines the desired state of HCloudMachineTemplate.
@@ -37,7 +37,7 @@ type HCloudMachineTemplateStatus struct {
 
 	// Conditions defines current service state of the HCloudMachineTemplate.
 	// +optional
-	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 
 	// OwnerType is the type of object that owns the HCloudMachineTemplate.
 	// +optional
@@ -64,12 +64,12 @@ type HCloudMachineTemplate struct {
 }
 
 // GetConditions returns the observations of the operational state of the HCloudMachine resource.
-func (r *HCloudMachineTemplate) GetConditions() clusterv1beta1.Conditions {
+func (r *HCloudMachineTemplate) GetConditions() clusterv1.Conditions {
 	return r.Status.Conditions
 }
 
-// SetConditions sets the underlying service state of the HCloudMachine to the predescribed clusterv1beta1.Conditions.
-func (r *HCloudMachineTemplate) SetConditions(conditions clusterv1beta1.Conditions) {
+// SetConditions sets the underlying service state of the HCloudMachine.
+func (r *HCloudMachineTemplate) SetConditions(conditions clusterv1.Conditions) {
 	r.Status.Conditions = conditions
 }
 
@@ -86,7 +86,7 @@ type HCloudMachineTemplateList struct {
 type HCloudMachineTemplateResource struct {
 	// Standard object's metadata.
 	// +optional
-	ObjectMeta clusterv1beta1.ObjectMeta `json:"metadata,omitempty"`
+	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitempty,omitzero"`
 
 	// Spec is the specification of the desired behavior of the machine.
 	Spec HCloudMachineSpec `json:"spec"`

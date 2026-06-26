@@ -105,8 +105,10 @@ spec:
                 type: object
             type: object
           status:
-            description: HetznerBareMetalRemediationStatus defines the observed state
-              of HetznerBareMetalRemediation.
+            description: |-
+              HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation.
+              The v1beta2 status reshapes the retryCount and lastRemediated fields, so conversion is
+              hand-written in conversion.go instead of generated.
             properties:
               lastRemediated:
                 description: LastRemediated identifies when the host was last remediated
@@ -129,31 +131,40 @@ spec:
     subresources:
       status: {}
   - additionalPrinterColumns:
+    - description: Phase of the remediation
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    - description: Time duration since creation of the remediation
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     - description: Type of the remediation strategy
       jsonPath: .spec.strategy.type
       name: Strategy
+      priority: 1
       type: string
     - description: How many times remediation controller should attempt to remediate
         the host
       jsonPath: .spec.strategy.retryLimit
       name: Retry limit
+      priority: 1
       type: string
     - description: Timeout for the remediation
       jsonPath: .spec.strategy.timeoutSeconds
       name: Timeout
-      type: string
-    - description: Phase of the remediation
-      jsonPath: .status.phase
-      name: Phase
+      priority: 1
       type: string
     - description: Timestamp of the last remediation attempt
       jsonPath: .status.lastRemediated
       name: Last Remediated
+      priority: 1
       type: string
     - description: How many times remediation controller has tried to remediate the
         node
       jsonPath: .status.retryCount
       name: Retry count
+      priority: 1
       type: string
     name: v1beta2
     schema:
@@ -223,18 +234,21 @@ spec:
               of HetznerBareMetalRemediation.
             properties:
               lastRemediated:
-                description: LastRemediated identifies when the host was last remediated
+                description: |-
+                  LastRemediated identifies when the host was last remediated.
+                  A zero value is treated as absent.
                 format: date-time
                 type: string
               phase:
                 description: |-
                   Phase represents the current phase of machine remediation.
-                  E.g. Pending, Running, Done etc.
+                  E.g. Running, Waiting, Deleting machine, Succeeded.
                 type: string
               retryCount:
                 description: |-
-                  RetryCount can be used as a counter during the remediation.
-                  Field can hold number of reboots etc.
+                  RetryCount records how many times the remediation controller has tried to
+                  remediate the node, for example the number of reboots.
+                format: int32
                 type: integer
             type: object
         type: object

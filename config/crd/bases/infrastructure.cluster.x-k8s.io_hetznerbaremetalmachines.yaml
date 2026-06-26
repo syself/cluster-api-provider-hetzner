@@ -267,6 +267,11 @@ spec:
                   `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
                   `"true"`.
                 type: string
+              skipCheckDisk:
+                description: |-
+                  SkipCheckDisk skips the CheckDisk step during provisioning.
+                  This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
+                type: boolean
               sshSpec:
                 description: SSHSpec gives a reference on the secret where SSH details
                   are specified as well as ports for SSH.
@@ -452,7 +457,7 @@ spec:
                   conditions:
                     description: |-
                       conditions represents the observations of a HetznerBareMetalMachine's current state.
-                      Known condition types are Ready, HCloudTokenAvailable, HostAssociated and HostReady.
+                      Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady and ServerAvailable.
                     items:
                       description: Condition contains details for one aspect of the
                         current state of this API Resource.
@@ -781,6 +786,11 @@ spec:
                   `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
                   `"true"`.
                 type: string
+              skipCheckDisk:
+                description: |-
+                  SkipCheckDisk skips the CheckDisk step during provisioning.
+                  This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
+                type: boolean
               sshSpec:
                 description: SSHSpec gives a reference on the secret where SSH details
                   are specified as well as ports for SSH.
@@ -876,7 +886,7 @@ spec:
               conditions:
                 description: |-
                   conditions represents the observations of a HetznerBareMetalMachine's current state.
-                  Known condition types are Ready, HCloudTokenAvailable, HostAssociated and HostReady.
+                  Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady and ServerAvailable.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
