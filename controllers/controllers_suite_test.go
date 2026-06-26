@@ -118,6 +118,10 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	rescueSSHClient := &sshmock.Client{}
 	// Register Testify helpers so failed expectations are reported against this test instance.
 	rescueSSHClient.Test(t)
+	// Pre-configure the rescue client so stale reconciler events from a previous test
+	// (e.g. a BareMetalHost still in image-installing state during cleanup) do not panic
+	// when they call SSH methods on a fresh, unconfigured mock.
+	configureRescueSSHClient(rescueSSHClient)
 
 	osSSHClientAfterInstallImage := &sshmock.Client{}
 	osSSHClientAfterInstallImage.Test(t)

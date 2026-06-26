@@ -63,8 +63,6 @@ func ApplyNodeProvisioningConditions(obj conditionSetter, output Output) {
 			Reason:  infrav1.NodeProvisioningFailedV1Beta2Reason,
 			Message: output.Message,
 		})
-	case OutputJSONInProgress:
-		fallthrough
 	default:
 		var message string
 		if output.Message == "" {
@@ -95,4 +93,3 @@ func Parse(content string) (Output, error) {
 	}
 	return output, nil
 }
-
