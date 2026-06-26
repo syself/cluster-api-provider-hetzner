@@ -448,9 +448,6 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 			// A timeout error from SSH indicates that the server did not yet finish rebooting.
 			// As the server has no error set yet, set error message and return.
 			s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh timeout error - server has not restarted yet")
-			if s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt == nil {
-				s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
-			}
 			return false, nil
 		}
 
@@ -2712,11 +2709,6 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 // Imagine the controller triggers a reboot, and reconciles immediately. This would
 // mean the controller would do the same reboot immediately again.
 func (s *Service) hasJustRebooted() bool {
-	// If RebootTriggeredAt is nil, we cannot know when the reboot happened, so we treat it as not just rebooted.
-	// Without this guard, hasTimedOut(nil, ...) returns false, making this function return true indefinitely.
-	if s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt == nil {
-		return false
-	}
 	return (s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSSHRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSoftwareRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeHardwareRebootTriggered) &&
