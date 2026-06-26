@@ -1585,8 +1585,6 @@ NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJ
 		}
 		Expect(events).To(ContainElement(ContainSubstring("HardwareDetails Changed")))
 	})
-
-
 })
 
 var _ = Describe("getImageDetails", func() {
