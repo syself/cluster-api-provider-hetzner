@@ -271,7 +271,6 @@ const (
 	RebootSucceededCondition clusterv1beta1.ConditionType = "RebootSucceeded"
 )
 
-
 const (
 	// RemediationSkippedCondition reports that remediation was skipped because
 	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
