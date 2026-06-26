@@ -275,8 +275,7 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 func (s *ClusterScope) AllControlPlaneNodesReadyForProxyProtocol(ctx context.Context) (bool, error) {
 	wlClientConfig, err := s.ClientConfig(ctx)
 	if err != nil {
-		s.V(1).Info("proxy protocol: workload cluster kubeconfig not available")
-		return false, nil //nolint:nilerr
+		return false, fmt.Errorf("failed to get workload cluster client config: %w", err)
 	}
 	if err := IsControlPlaneReady(ctx, wlClientConfig); err != nil {
 		return false, fmt.Errorf("workload cluster control plane not ready: %w", err)
