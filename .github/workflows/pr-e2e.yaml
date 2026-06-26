@@ -30,6 +30,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Build and push manager image
         id: manager-image
@@ -47,6 +48,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Fix broken env var HOME
         uses: ./.github/actions/fixes
@@ -69,6 +72,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Run e2e Test
         id: e2e
         uses: ./.github/actions/e2e
@@ -94,6 +99,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Run e2e Test
         id: e2e-bm
         uses: ./.github/actions/e2e
