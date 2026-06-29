@@ -107,10 +107,10 @@ condition message.
 
 CAPH only reads two top-level fields:
 
-| Field     | Required               | Values                                                          | Purpose                                    |
-|-----------|------------------------|-----------------------------------------------------------------|--------------------------------------------|
-| `status`  | yes (to set condition) | `"Succeeded"`, `"Failed"`, `"InProgress"`, or any other string  | Updates the provisioning condition         |
-| `message` | no                     | free-form string                                                | Included in the condition message          |
+| Field     | Required               | Values                                    | Purpose                                    |
+|-----------|------------------------|-------------------------------------------|--------------------------------------------|
+| `status`  | yes (to set condition) | `"Succeeded"`, `"Failed"`, `"InProgress"` | Updates the provisioning condition         |
+| `message` | no                     | free-form string                          | Included in the condition message          |
 
 While the command is **running**, write `"InProgress"` to update the provisioning condition
 (indicating provisioning has not succeeded yet). Any other unrecognised string is also
