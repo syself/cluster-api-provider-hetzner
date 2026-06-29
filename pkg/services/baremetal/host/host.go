@@ -1424,6 +1424,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		case infrav1.DeviceStringTypeWWN:
 			deviceNames = s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN()
 			if len(deviceNames) == 0 {
+				// this is not expected, because it is already validated.
 				return actionError{err: fmt.Errorf("DeviceStringType is %q but no WWN is configured in rootDeviceHints", infrav1.DeviceStringTypeWWN)}
 			}
 		default:
