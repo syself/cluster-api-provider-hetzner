@@ -1645,7 +1645,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 		return actionRes
 	}
 
-	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalMachine.Spec.InstallImage, autoSetupInput)
+	autoSetup := buildAutoSetup(&s.scope.HetznerBareMetalMachine.Spec.InstallImage, autoSetupInput)
 
 	out = sshClient.CreateAutoSetup(ctx, autoSetup)
 	if out.Err != nil {
