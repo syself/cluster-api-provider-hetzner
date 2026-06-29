@@ -1381,6 +1381,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 		var output imageurlcommand.Output
 		if outputJSON == "" {
+			// output.json is optional. If it is missing, the existence of IMAGE_URL_DONE is
+			// enough to consider provisioning successful.
 			output = imageurlcommand.Output{
 				Status: imageurlcommand.OutputJSONSucceeded,
 			}
