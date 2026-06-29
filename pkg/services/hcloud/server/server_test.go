@@ -1632,6 +1632,53 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 	})
 })
 
+var _ = Describe("reconcileLoadBalancerAttachment", func() {
+	It("re-attaches server when live LB shows it absent but stale status claims it present", func() {
+		// Regression: the stale-cache loop that used to follow the live-LB if/else block
+		// would return early (nil) when HetznerCluster.Status listed the server as attached,
+		// even after the live LB check confirmed it was missing. This test would have failed
+		// with the old code because AddTargetServerToLoadBalancer was never called.
+		hcloudClient := mocks.NewClient(GinkgoT())
+		server := newTestServer()
+
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-machine", Namespace: "default"},
+			Spec:       infrav1.HCloudMachineSpec{ImageName: "ubuntu-24.04", Type: "cpx22"},
+		}
+		// ServerAvailableCondition is not set (not True) → else branch performs live LB lookup.
+
+		svc := newTestService(hcloudMachine, hcloudClient)
+		// newTestService leaves Cluster.Spec.ControlPlaneRef empty → IsDefined()=false →
+		// apiServerPodHealthy=true, so the apiserver health gate does not requeue.
+
+		const lbID = 42
+		// Stale status: server appears to be already attached (stale-positive).
+		svc.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
+			ID: lbID,
+			Target: []infrav1.LoadBalancerTarget{
+				{Type: infrav1.LoadBalancerTargetTypeServer, ServerID: server.ID},
+			},
+		}
+
+		// Live LB: server is NOT present as a target — the stale status is wrong.
+		hcloudClient.On("ListLoadBalancers", mock.Anything, mock.Anything).Return([]*hcloud.LoadBalancer{
+			{ID: lbID},
+		}, nil).Once()
+
+		// Attachment must proceed — the stale cache must not short-circuit it.
+		hcloudClient.On(
+			"AddTargetServerToLoadBalancer",
+			mock.Anything,
+			mock.Anything,
+			mock.MatchedBy(func(lb *hcloud.LoadBalancer) bool { return lb.ID == lbID }),
+		).Return(nil).Once()
+
+		_, err := svc.reconcileLoadBalancerAttachment(context.Background(), server)
+		Expect(err).To(Succeed())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+})
+
 func isPresentAndFalseWithReason(getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType, reason string) bool {
 	if !v1beta1conditions.Has(getter, condition) {
 		return false
