@@ -2477,6 +2477,7 @@ func autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, 
 		return err
 	}
 	out.ImageURLCommand = in.ImageURLCommand
+	out.DeviceStringType = v1beta2.DeviceStringType(in.DeviceStringType)
 	out.PostInstallScript = in.PostInstallScript
 	out.Partitions = *(*[]v1beta2.Partition)(unsafe.Pointer(&in.Partitions))
 	out.LVMDefinitions = *(*[]v1beta2.LVMDefinition)(unsafe.Pointer(&in.LVMDefinitions))
@@ -2496,6 +2497,7 @@ func autoConvert_v1beta2_InstallImage_To_v1beta1_InstallImage(in *v1beta2.Instal
 		return err
 	}
 	out.ImageURLCommand = in.ImageURLCommand
+	out.DeviceStringType = DeviceStringType(in.DeviceStringType)
 	out.PostInstallScript = in.PostInstallScript
 	out.Partitions = *(*[]Partition)(unsafe.Pointer(&in.Partitions))
 	out.LVMDefinitions = *(*[]LVMDefinition)(unsafe.Pointer(&in.LVMDefinitions))

@@ -62,8 +62,26 @@ and must start with `image-url-command-`.
 
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 
-If you want caph to send WWNs instead of short device names like `sda`, you can configure
-DeviceString to "wwn" in the infra machine spec.
+By default, CAPH passes short device names (e.g. `sda`) as the last argument to the command.
+For bare metal machines you can set `spec.installImage.deviceStringType` to control this:
+
+* `""` or `"short"` (default): passes the short device name, e.g. `sda`
+* `"wwn"`: passes the WWN from the `rootDeviceHints`, e.g. `eui.00253885910c8cec`
+
+Example:
+
+```yaml
+spec:
+  installImage:
+    imageURLCommand: image-url-command-install-foo.sh
+    deviceStringType: wwn
+    image:
+      url: oci://example.com/yourimage:v1
+```
+
+Using `deviceStringType: wwn` avoids fragile device-name lookups, because device names like `sda`
+can change across reboots while WWNs are stable identifiers. The `deviceStringType` field is not
+used for hcloud machines (hcloud VMs always boot from `sda` and disks have no WWN).
 
 The command must end with the last line containing IMAGE_URL_DONE. Otherwise the execution is
 considered to have failed.

@@ -1426,7 +1426,13 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		}
 
 		// get device names from storage device
-		deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storage)
+		var deviceNames []string
+		switch s.scope.HetznerBareMetalMachine.Spec.InstallImage.DeviceStringType {
+		case infrav1.DeviceStringTypeWWN:
+			deviceNames = s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN()
+		default: // "short" or ""
+			deviceNames = getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storage)
+		}
 
 		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, commandPath, s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.URL, data, s.scope.Hostname(), deviceNames)
 		if err != nil {

@@ -125,6 +125,13 @@ spec:
                               - volume
                               type: object
                             type: array
+                          deviceStringType:
+                            description: |-
+                              DeviceStringType instructs caph to either use the short device name, or the WWN when calling
+                              ImageURLCommand. It is not used when ImageURLCommand is not set. Allowed values are "short"
+                              or "wwn". Example: When "short" is used, ImageURLCommand receives "sda"; when "wwn" is
+                              used, it receives "eui.00253885910c8cec" or "0x500a07511bb48b25".
+                            type: string
                           image:
                             description: Image is the image to be provisioned. It
                               defines the image for baremetal machine.
@@ -438,6 +445,17 @@ spec:
                               type: object
                             type: array
                             x-kubernetes-list-type: atomic
+                          deviceStringType:
+                            description: |-
+                              DeviceStringType instructs caph to either use the short device name, or the WWN when calling
+                              ImageURLCommand. It is not used when ImageURLCommand is not set. Allowed values are "short"
+                              or "wwn". Example: When "short" is used, ImageURLCommand receives "sda"; when "wwn" is
+                              used, it receives "eui.00253885910c8cec" or "0x500a07511bb48b25".
+                            type: string
+                            x-kubernetes-validations:
+                            - message: DeviceStringType must be empty, 'short', or
+                                'wwn'
+                              rule: self == '' || self == 'short' || self == 'wwn'
                           image:
                             description: Image is the image to be provisioned. It
                               defines the image for baremetal machine.
