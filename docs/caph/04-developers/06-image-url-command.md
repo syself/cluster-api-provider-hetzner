@@ -84,11 +84,7 @@ can change across reboots while WWNs are stable identifiers. The `deviceStringTy
 used for hcloud machines (hcloud VMs always boot from `sda` and disks have no WWN).
 
 When multiple devices are configured (e.g. RAID via `rootDeviceHints.raid.wwn`), all device
-strings are passed as a single space-separated `$4` argument. Scripts should split on whitespace:
-
-```bash
-read -ra DEVICES <<< "$4"
-```
+strings are passed as a single space-separated `$4` argument. Scripts should split on whitespace.
 
 The command must end with the last line containing IMAGE_URL_DONE. Otherwise the execution is
 considered to have failed.
