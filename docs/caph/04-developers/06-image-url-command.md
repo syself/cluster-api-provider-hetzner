@@ -62,10 +62,9 @@ The image format — whole-disk image, root-filesystem tarball, or anything else
 your choice, as long as the `imageURLCommand` binary and the artifact at `imageURL` match each other.
 Both are user-configurable; you are responsible for keeping them in sync.
 
-The command must be accessible by the controller pod below `/shared`. You can use an initContainer to copy the
-command to a shared emptyDir.
-For both hcloud and bare metal, the command field is only the basename of a command below `/shared`
-and must start with `image-url-command-`.
+The command must be accessible by the controller pod below `/shared`. You can use an initContainer
+to copy the command to a shared emptyDir. For both hcloud and bare metal, the command field is only
+the basename of a command below `/shared`.
 
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 
