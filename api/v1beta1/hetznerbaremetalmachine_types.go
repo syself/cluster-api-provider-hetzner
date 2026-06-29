@@ -195,6 +195,7 @@ type InstallImage struct {
 	// ImageURLCommand. It is not used when ImageURLCommand is not set. Allowed values are "short"
 	// or "wwn". Example: When "short" is used, ImageURLCommand receives "sda"; when "wwn" is
 	// used, it receives "eui.00253885910c8cec" or "0x500a07511bb48b25".
+	// +kubebuilder:validation:XValidation:rule="self == '' || self == 'short' || self == 'wwn'",message="DeviceStringType must be empty, 'short', or 'wwn'"
 	// +optional
 	DeviceStringType DeviceStringType `json:"deviceStringType,omitempty"`
 
