@@ -1418,19 +1418,21 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			return actionStop{}
 		}
 
-		// get the information about storage devices again to have the latest names.
-		// Device names can change during restart.
-		storage, err := obtainHardwareDetailsStorage(ctx, sshClient)
-		if err != nil {
-			return actionError{err: fmt.Errorf("failed to obtain hardware details storage: %w", err)}
-		}
-
 		// get device names from storage device
 		var deviceNames []string
 		switch s.scope.HetznerBareMetalMachine.Spec.InstallImage.DeviceStringType {
 		case infrav1.DeviceStringTypeWWN:
 			deviceNames = s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN()
-		default: // "short" or ""
+			if len(deviceNames) == 0 {
+				return actionError{err: fmt.Errorf("DeviceStringType is %q but no WWN is configured in rootDeviceHints", infrav1.DeviceStringTypeWWN)}
+			}
+		default:
+			// Get the information about storage devices again to have the latest names.
+			// Device names can change during restart.
+			storage, err := obtainHardwareDetailsStorage(ctx, sshClient)
+			if err != nil {
+				return actionError{err: fmt.Errorf("failed to obtain hardware details storage: %w", err)}
+			}
 			deviceNames = getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storage)
 		}
 

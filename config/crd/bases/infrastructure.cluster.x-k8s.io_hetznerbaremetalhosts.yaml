@@ -377,8 +377,8 @@ spec:
                           used, it receives "eui.00253885910c8cec" or "0x500a07511bb48b25".
                         type: string
                         x-kubernetes-validations:
-                        - message: DeviceStringType must be empty, 'short', or 'wwn'
-                          rule: self == '' || self == 'short' || self == 'wwn'
+                        - message: DeviceStringType must be empty or 'wwn'
+                          rule: self == '' || self == 'wwn'
                       image:
                         description: Image is the image to be provisioned. It defines
                           the image for baremetal machine.
