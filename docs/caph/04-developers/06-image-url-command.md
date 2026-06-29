@@ -62,6 +62,9 @@ and must start with `image-url-command-`.
 
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 
+If you want caph to send WWNs instead of short device names like `sda`, you can configure
+DeviceString to "wwn" in the infra machine spec.
+
 The command must end with the last line containing IMAGE_URL_DONE. Otherwise the execution is
 considered to have failed.
 

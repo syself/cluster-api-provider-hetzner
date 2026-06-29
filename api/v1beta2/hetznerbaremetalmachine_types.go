@@ -181,6 +181,13 @@ type InstallImage struct {
 	// +optional
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`
 
+	// DeviceString instructs caph to either use the short device name, or the WWN  when calling
+	// ImageURLCommand. It is not used, when ImageURLCommand is not set. Allowed values are "short"
+	// or "wwn". Example: When "short" is used, then ImageURLCommand will receive a string like
+	// "sda", when "wwn" is used, it will be a string like "eui.00253885910c8cec" or
+	// "0x500a07511bb48b25".
+	DeviceString string `json:"deviceString,omitempty"`
+
 	// PostInstallScript (Bash) is used for configuring commands that should be executed after installimage.
 	// It is passed along with the installimage command.
 	PostInstallScript string `json:"postInstallScript,omitempty"`
