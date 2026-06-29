@@ -766,12 +766,12 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	// Check RAID for the second time.
 	// See "tworaidchecks" for the other place.
 	msg = ""
-	if s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Swraid != 0 &&
+	if s.scope.HetznerBareMetalMachine.Spec.InstallImage.Swraid != 0 &&
 		len(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.Raid.WWN) < 2 {
-		msg = "Invalid HetznerBareMetalHost: spec.status.installImage.swraid is active. Use at least two WWNs in spec.rootDevideHints.raid.wwn."
-	} else if s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Swraid == 0 &&
+		msg = "Invalid HetznerBareMetalMachine: spec.installImage.swraid is active. Use at least two WWNs in spec.rootDevideHints.raid.wwn."
+	} else if s.scope.HetznerBareMetalMachine.Spec.InstallImage.Swraid == 0 &&
 		s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN == "" {
-		msg = "Invalid HetznerBareMetalHost: spec.status.installImage.swraid is not active. Use spec.rootDevideHints.wwn and leave raid.wwn empty."
+		msg = "Invalid HetznerBareMetalMachine: spec.installImage.swraid is not active. Use spec.rootDevideHints.wwn and leave raid.wwn empty."
 	}
 	if msg != "" {
 		// This triggers a FailureMessage on the HetznerBareMetalMachine
@@ -1272,7 +1272,7 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 		return actionStop{}
 	}
 
-	if s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.UsesImageURLCommand() {
+	if s.scope.HetznerBareMetalMachine.Spec.InstallImage.UsesImageURLCommand() {
 		return s.actionImageInstallingImageURLCommand(ctx, sshClient)
 	}
 	state, err := sshClient.GetInstallImageState(ctx)
@@ -1380,7 +1380,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			return actionError{err: fmt.Errorf("baremetal GetRawBootstrapData failed: %w", err)}
 		}
 
-		command := s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.ImageURLCommand
+		command := s.scope.HetznerBareMetalMachine.Spec.InstallImage.ImageURLCommand
 		if command == "" {
 			err = errors.New("internal error: spec.status.installImage.imageURLCommand is not set")
 			s.scope.Error(err, "")
@@ -1428,7 +1428,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		// get device names from storage device
 		deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storage)
 
-		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, commandPath, s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.URL, data, s.scope.Hostname(), deviceNames)
+		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, commandPath, s.scope.HetznerBareMetalMachine.Spec.InstallImage.Image.URL, data, s.scope.Hostname(), deviceNames)
 		if err != nil {
 			err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
 			// This could be a temporary network error. Retry.
@@ -1645,7 +1645,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 		return actionRes
 	}
 
-	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalHost.Spec.Status.InstallImage, autoSetupInput)
+	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalMachine.Spec.InstallImage, autoSetupInput)
 
 	out = sshClient.CreateAutoSetup(ctx, autoSetup)
 	if out.Err != nil {
@@ -1657,7 +1657,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 	}
 
 	// create post install script
-	postInstallScript := s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.PostInstallScript
+	postInstallScript := s.scope.HetznerBareMetalMachine.Spec.InstallImage.PostInstallScript
 
 	if !strings.HasPrefix(postInstallScript, "#!/bin/bash") {
 		postInstallScript = fmt.Sprintf("#!/bin/bash\n%s", postInstallScript)
@@ -1694,7 +1694,7 @@ echo %q
 	}
 
 	record.Event(s.scope.HetznerBareMetalHost, "InstallingMachineImageStarted",
-		s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.String())
+		s.scope.HetznerBareMetalMachine.Spec.InstallImage.Image.String())
 
 	out = sshClient.UntarTGZ(ctx)
 	if out.Err != nil {
@@ -1702,7 +1702,7 @@ echo %q
 		return actionError{err: fmt.Errorf("UntarInstallimageTgzFailed: %w", out.Err)}
 	}
 	record.Event(s.scope.HetznerBareMetalHost, "ExecuteInstallImageStarted",
-		s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.String())
+		s.scope.HetznerBareMetalMachine.Spec.InstallImage.Image.String())
 
 	// Execute install image
 	out = sshClient.ExecuteInstallImage(ctx, postInstallScript != "")
@@ -1762,7 +1762,7 @@ func (s *Service) actionImageInstallingFinished(ctx context.Context, sshClient s
 }
 
 func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.Client) (autoSetupInput, actionResult) {
-	image := s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image
+	image := s.scope.HetznerBareMetalMachine.Spec.InstallImage.Image
 	imagePath, needsDownload, errorMessage := image.GetDetails()
 	if errorMessage != "" {
 		v1beta1conditions.MarkFalse(
