@@ -47,11 +47,15 @@ var errUnknownSuffix = errors.New("unknown suffix")
 type ImageType string
 
 // DeviceStringType controls what CAPH passes as the device argument to ImageURLCommand.
-// The zero value ("") passes the short device name (e.g. "sda"). Set to "wwn" to pass the WWN instead.
+// Allowed values are "" (same as "short"), "short", and "wwn".
 type DeviceStringType string
 
-// DeviceStringTypeWWN passes the WWN (e.g. "eui.00253885910c8cec") to ImageURLCommand.
-const DeviceStringTypeWWN DeviceStringType = "wwn"
+const (
+	// DeviceStringTypeShort passes the short device name (e.g. "sda") to ImageURLCommand.
+	DeviceStringTypeShort DeviceStringType = "short"
+	// DeviceStringTypeWWN passes the WWN (e.g. "eui.00253885910c8cec") to ImageURLCommand.
+	DeviceStringTypeWWN DeviceStringType = "wwn"
+)
 
 const (
 	// ImageTypeTar defines the image type for tar files.
@@ -187,11 +191,11 @@ type InstallImage struct {
 	// +optional
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`
 
-	// DeviceStringType instructs caph to pass the short device name (default, "") or the WWN when
-	// calling ImageURLCommand. It is not used when ImageURLCommand is not set. Example: when "" is
-	// used, ImageURLCommand receives "sda"; when "wwn" is used, it receives "eui.00253885910c8cec"
-	// or "0x500a07511bb48b25".
-	// +kubebuilder:validation:XValidation:rule="self == '' || self == 'wwn'",message="DeviceStringType must be empty or 'wwn'"
+	// DeviceStringType instructs caph to either use the short device name, or the WWN when calling
+	// ImageURLCommand. It is not used when ImageURLCommand is not set. Allowed values are "short"
+	// or "wwn". Example: When "short" is used, ImageURLCommand receives "sda"; when "wwn" is
+	// used, it receives "eui.00253885910c8cec" or "0x500a07511bb48b25".
+	// +kubebuilder:validation:XValidation:rule="self == '' || self == 'short' || self == 'wwn'",message="DeviceStringType must be empty, 'short', or 'wwn'"
 	// +optional
 	DeviceStringType DeviceStringType `json:"deviceStringType,omitempty"`
 
