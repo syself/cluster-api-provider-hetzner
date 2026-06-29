@@ -434,7 +434,6 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 	// ssh gave no connection refused error but it is still saved in host status - we can remove it
 	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
 		s.scope.HetznerBareMetalHost.ClearError()
-		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = nil
 	}
 
 	// Check whether there has been an error message already, meaning that the reboot did not finish in time.
@@ -447,9 +446,6 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 			// A timeout error from SSH indicates that the server did not yet finish rebooting.
 			// As the server has no error set yet, set error message and return.
 			s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh timeout error - server has not restarted yet")
-			if s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt == nil {
-				s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
-			}
 			return false, nil
 		}
 
@@ -687,7 +683,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	// we are in resuce mode i.e. reboot was successful, now clear the RebootTriggeredAt timestamp.
+	// we are in rescue mode i.e. reboot was successful, now clear the RebootTriggeredAt timestamp.
 	s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = nil
 
 	output := sshClient.GetHardwareDetailsDebug(ctx)
