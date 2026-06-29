@@ -1355,6 +1355,9 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				Message: msg,
 			})
 		default:
+			// imageURLCommand is still running. We treat this as "InProgress", even if the
+			// output.json contains "Succeeded". We wait until the Linux process in the rescue
+			// system has terminated.
 			msg := output.Message
 			if msg == "" {
 				msg = "imageURLCommand running"
