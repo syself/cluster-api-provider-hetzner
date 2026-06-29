@@ -1441,13 +1441,6 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		}
 	}
 
-	// if already attached do nothing
-	for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
-		if target.Type == infrav1.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
-			return reconcile.Result{}, nil
-		}
-	}
-
 	// we differentiate between private and public net
 	var hasPrivateIP bool
 	if len(server.PrivateNet) > 0 {

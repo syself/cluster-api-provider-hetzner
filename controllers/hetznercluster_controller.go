@@ -43,7 +43,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/annotations"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,7 +58,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -1088,16 +1086,16 @@ func (r *HetznerClusterReconciler) hcloudMachineToHetznerCluster(ctx context.Con
 func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldGetter, ok := e.ObjectOld.(v1beta1conditions.Getter)
+			oldGetter, ok := e.ObjectOld.(deprecatedv1beta1conditions.Getter)
 			if !ok {
 				return false
 			}
-			newGetter, ok := e.ObjectNew.(v1beta1conditions.Getter)
+			newGetter, ok := e.ObjectNew.(deprecatedv1beta1conditions.Getter)
 			if !ok {
 				return false
 			}
-			wasTrue := v1beta1conditions.IsTrue(oldGetter, infrav1.ServerAvailableCondition)
-			isTrue := v1beta1conditions.IsTrue(newGetter, infrav1.ServerAvailableCondition)
+			wasTrue := deprecatedv1beta1conditions.IsTrue(oldGetter, infrav2.ServerAvailableV1Beta1Condition)
+			isTrue := deprecatedv1beta1conditions.IsTrue(newGetter, infrav2.ServerAvailableV1Beta1Condition)
 			return !wasTrue && isTrue
 		},
 		CreateFunc:  func(_ event.CreateEvent) bool { return false },
