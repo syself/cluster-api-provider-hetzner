@@ -93,13 +93,6 @@ type HCloudMachineSpec struct {
 	// +optional
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`
 
-	// DeviceString instructs caph to either use the short device name, or the WWN when calling
-	// ImageURLCommand. It is not used, when ImageURLCommand is not set. Allowed values are "short"
-	// or "wwn". Example: When "short" is used, then ImageURLCommand will receive a string like
-	// "sda", when "wwn" is used, it will be a string like "eui.00253885910c8cec" or
-	// "0x500a07511bb48b25".
-	DeviceString string `json:"deviceString,omitempty"`
-
 	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
 	// +listType=map
