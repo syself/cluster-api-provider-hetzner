@@ -1395,12 +1395,11 @@ var _ = Describe("actionRegistering", func() {
 					helpers.WithConsumerRef(),
 				)
 			}
-			host.Spec.Status.InstallImage = &infrav1.InstallImage{}
-			if tc.swRaid {
-				host.Spec.Status.InstallImage.Swraid = 1
-			}
 			sshMock := registeringSSHMock(tc.storageStdOut)
 			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+			if tc.swRaid {
+				service.scope.HetznerBareMetalMachine.Spec.InstallImage.Swraid = 1
+			}
 
 			actResult := service.actionRegistering(ctx)
 			Expect(host.Spec.Status.HardwareDetails).ToNot(BeNil())
@@ -1528,25 +1527,23 @@ var _ = Describe("actionRegistering check RAID", func() {
 			helpers.WithConsumerRef(),
 		)
 		host.Spec.RootDeviceHints.WWN = "wwn1"
-		host.Spec.Status.InstallImage = &infrav1.InstallImage{
-			Swraid: 1,
-		}
 		service := newTestService(host, nil, bmmock.NewSSHFactory(
 			sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		service.scope.HetznerBareMetalMachine.Spec.InstallImage.Swraid = 1
 		actResult := service.actionRegistering(ctx)
 
 		_, err := actResult.Result()
 		Expect(err).Should(BeNil())
-		Expect(host.Spec.Status.ErrorMessage).Should(Equal("Invalid HetznerBareMetalHost: spec.status.installImage.swraid is active. Use at least two WWNs in spec.rootDevideHints.raid.wwn."))
+		Expect(host.Spec.Status.ErrorMessage).Should(Equal("Invalid HetznerBareMetalMachine: spec.installImage.swraid is active. Use at least two WWNs in spec.rootDevideHints.raid.wwn."))
 
-		host.Spec.Status.InstallImage.Swraid = 0
+		service.scope.HetznerBareMetalMachine.Spec.InstallImage.Swraid = 0
 		host.Spec.RootDeviceHints.WWN = ""
 		host.Spec.RootDeviceHints.Raid.WWN = []string{"wwn1", "wwn2"}
 		actResult = service.actionRegistering(ctx)
 
 		_, err = actResult.Result()
 		Expect(err).Should(BeNil())
-		Expect(host.Spec.Status.ErrorMessage).Should(Equal("Invalid HetznerBareMetalHost: spec.status.installImage.swraid is not active. Use spec.rootDevideHints.wwn and leave raid.wwn empty."))
+		Expect(host.Spec.Status.ErrorMessage).Should(Equal("Invalid HetznerBareMetalMachine: spec.installImage.swraid is not active. Use spec.rootDevideHints.wwn and leave raid.wwn empty."))
 	})
 })
 
