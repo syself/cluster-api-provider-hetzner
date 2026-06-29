@@ -65,7 +65,7 @@ The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the co
 By default, CAPH passes short device names (e.g. `sda`) as the last argument to the command.
 For bare metal machines you can set `spec.installImage.deviceStringType` to control this:
 
-* `""` (default): passes the short device name, e.g. `sda`
+* `"short"` (or empty): passes the short device name, e.g. `sda`
 * `"wwn"`: passes the WWN from the `rootDeviceHints`, e.g. `eui.00253885910c8cec`
 
 Example:
