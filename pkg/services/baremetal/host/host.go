@@ -1382,7 +1382,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 		command := s.scope.HetznerBareMetalMachine.Spec.InstallImage.ImageURLCommand
 		if command == "" {
-			err = errors.New("internal error: spec.status.installImage.imageURLCommand is not set")
+			err = errors.New("internal error in hbmm: spec.installImage.imageURLCommand is not set")
 			s.scope.Error(err, "")
 			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandMissing", err.Error())
 
