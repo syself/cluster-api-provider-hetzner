@@ -918,6 +918,18 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 			},
 		}
 
+		hcloudClient.On("ListLoadBalancers", mock.Anything, mock.Anything).Return([]*hcloud.LoadBalancer{
+			{
+				ID: 123,
+				Targets: []hcloud.LoadBalancerTarget{
+					{
+						Type: hcloud.LoadBalancerTargetTypeIP,
+						IP:   &hcloud.LoadBalancerTargetIP{IP: "192.0.2.9"},
+					},
+				},
+			},
+		}, nil).Once()
+
 		service := newServiceForLoadBalancerAttachment(machine, bareMetalMachine, newControlPlaneCluster(), hetznerCluster, hcloudClient)
 
 		err := service.reconcileLoadBalancerAttachment(context.Background(), newHost("192.0.2.10"))
@@ -950,6 +962,12 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 			},
 		}
 
+		hcloudClient.On("ListLoadBalancers", mock.Anything, mock.Anything).Return([]*hcloud.LoadBalancer{
+			{
+				ID: 123,
+			},
+		}, nil).Once()
+
 		hcloudClient.On(
 			"AddIPTargetToLoadBalancer",
 			mock.Anything,
@@ -966,6 +984,48 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHost("192.0.2.10"))).To(Succeed())
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
+
+	It("does not list LoadBalancers via Hetzner API, when ServerAvailable condition is marked true", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+		machine := &clusterv1.Machine{}
+		conditions.Set(machine, metav1.Condition{
+			Type:    controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  "PodNotHealthy",
+			Message: "kube-apiserver is still starting",
+		})
+
+		bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
+		v1beta1conditions.MarkTrue(bareMetalMachine, infrav1.ServerAvailableCondition)
+
+		hetznerCluster := &infrav1.HetznerCluster{
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+					ID: 123,
+				},
+			},
+		}
+
+		// It should add the load balancer target via Hetzner API.
+		// But it should not call the Hetzner API to list load balancers, instead it should utilize
+		// the HetznerCluster.Status to find out which targets should be added to the load balancer.
+		hcloudClient.On(
+			"AddIPTargetToLoadBalancer",
+			mock.Anything,
+			mock.MatchedBy(func(opts hcloud.LoadBalancerAddIPTargetOpts) bool {
+				return opts.IP.String() == "192.0.2.10"
+			}),
+			mock.MatchedBy(func(lb *hcloud.LoadBalancer) bool {
+				return lb.ID == 123
+			}),
+		).Return(nil).Once()
+
+		service := newServiceForLoadBalancerAttachment(machine, bareMetalMachine, newControlPlaneCluster(), hetznerCluster, hcloudClient)
+
+		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHost("192.0.2.10"))).To(Succeed())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "ListLoadBalancers", mock.Anything, mock.Anything)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
 })
 
 var _ = Describe("Reconcile with control-plane load balancer attachment", func() {
@@ -977,7 +1037,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 	)
 
 	buildService := func(lbTargets []infrav1.LoadBalancerTarget, apiServerHealthy, isControlPlane bool) (
-		*Service, *infrav1.HetznerBareMetalMachine,
+		*Service, *infrav1.HetznerBareMetalMachine, *mocks.Client,
 	) {
 		scheme := runtime.NewScheme()
 		utilruntime.Must(infrav1.AddToScheme(scheme))
@@ -1059,6 +1119,8 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 			WithObjects(host, bareMetalMachine, machine).
 			Build()
 
+		hcloudClient := mocks.NewClient(GinkgoT())
+
 		service := &Service{
 			scope: &scope.BareMetalMachineScope{
 				Logger:           log,
@@ -1067,11 +1129,11 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 				Machine:          machine,
 				BareMetalMachine: bareMetalMachine,
 				HetznerCluster:   hetznerCluster,
-				HCloudClient:     mocks.NewClient(GinkgoT()),
+				HCloudClient:     hcloudClient,
 			},
 		}
 
-		return service, bareMetalMachine
+		return service, bareMetalMachine, hcloudClient
 	}
 
 	It("keeps ProviderID and Ready set when reconcileLoadBalancerAttachment requeues for WaitingForAPIServer", func() {
@@ -1081,13 +1143,25 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		// still set Ready=true and ProviderID so CAPI can copy ProviderID onto
 		// the core Machine - otherwise MachineAPIServerPodHealthy never flips
 		// true and the attachment requeues forever (bootstrap deadlock).
-		service, bareMetalMachine := buildService(
+		service, bareMetalMachine, hcloudClient := buildService(
 			[]infrav1.LoadBalancerTarget{
 				{Type: infrav1.LoadBalancerTargetTypeIP, IP: "192.0.2.9"},
 			},
 			false,
 			true,
 		)
+
+		hcloudClient.On("ListLoadBalancers", mock.Anything, mock.Anything).Return([]*hcloud.LoadBalancer{
+			{
+				ID: 123,
+				Targets: []hcloud.LoadBalancerTarget{
+					{
+						Type: hcloud.LoadBalancerTargetTypeIP,
+						IP:   &hcloud.LoadBalancerTargetIP{IP: "192.0.2.9"},
+					},
+				},
+			},
+		}, nil).Once()
 
 		res, err := service.Reconcile(context.Background())
 		Expect(err).To(BeNil())
@@ -1105,13 +1179,25 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		// LB target list already contains this host's IPv4, so
 		// reconcileLoadBalancerAttachment returns no requeue and Reconcile
 		// marks the condition true.
-		service, bareMetalMachine := buildService(
+		service, bareMetalMachine, hcloudClient := buildService(
 			[]infrav1.LoadBalancerTarget{
 				{Type: infrav1.LoadBalancerTargetTypeIP, IP: "192.0.2.10"},
 			},
 			true,
 			true,
 		)
+
+		hcloudClient.On("ListLoadBalancers", mock.Anything, mock.Anything).Return([]*hcloud.LoadBalancer{
+			{
+				ID: 123,
+				Targets: []hcloud.LoadBalancerTarget{
+					{
+						Type: hcloud.LoadBalancerTargetTypeIP,
+						IP:   &hcloud.LoadBalancerTargetIP{IP: "192.0.2.10"},
+					},
+				},
+			},
+		}, nil).Once()
 
 		res, err := service.Reconcile(context.Background())
 		Expect(err).To(BeNil())
@@ -1127,7 +1213,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		// Worker nodes never hit reconcileLoadBalancerAttachment, but Reconcile
 		// must still mark the condition true so the condition is meaningful on
 		// non-control-plane HetznerBareMetalMachines too.
-		service, bareMetalMachine := buildService(nil, true, false)
+		service, bareMetalMachine, _ := buildService(nil, true, false)
 
 		res, err := service.Reconcile(context.Background())
 		Expect(err).To(BeNil())

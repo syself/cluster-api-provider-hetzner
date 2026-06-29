@@ -1566,6 +1566,20 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 		// handleOperatingSystemRunning, that condition would be overwritten to True.
 		// Ready must still flip to true so CAPI can propagate ProviderID and
 		// downstream controllers can observe the apiserver pod health.
+
+		// ServerAvailableCondition is not True yet, so reconcileLoadBalancerAttachment
+		// fetches live LB state. Seed the fake client with an LB so ListLoadBalancers
+		// returns it. The LB has no target for this server, so the health gate fires.
+		algo := hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeRoundRobin}
+		_, err := service.scope.HCloudClient.CreateLoadBalancer(context.Background(), hcloud.LoadBalancerCreateOpts{
+			Name:      "test-lb",
+			Algorithm: &algo,
+			Labels: map[string]string{
+				service.scope.HetznerCluster.ClusterTagKey(): string(infrav1.ResourceLifecycleOwned),
+			},
+		})
+		Expect(err).To(BeNil())
+
 		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
 			ID: 1,
 			Target: []infrav1.LoadBalancerTarget{
@@ -1592,6 +1606,29 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 
 		Expect(hcloudMachine.Status.Ready).To(BeTrue())
 		Expect(v1beta1conditions.IsTrue(hcloudMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+	})
+
+	It("does not call ListLoadBalancers when ServerAvailableCondition is already True", func() {
+		// Replace the fake client with a mock so we can assert the call is never made.
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service.scope.HCloudClient = hcloudClient
+
+		v1beta1conditions.MarkTrue(hcloudMachine, infrav1.ServerAvailableCondition)
+
+		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
+			ID: 1,
+			Target: []infrav1.LoadBalancerTarget{
+				{Type: infrav1.LoadBalancerTargetTypeServer, ServerID: server.ID},
+			},
+		}
+
+		res, err := service.handleOperatingSystemRunning(context.Background(), server)
+		Expect(err).To(Succeed())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(hcloudMachine.Status.Ready).To(BeTrue())
+		Expect(v1beta1conditions.IsTrue(hcloudMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "ListLoadBalancers", mock.Anything, mock.Anything)).To(BeTrue())
 	})
 })
 

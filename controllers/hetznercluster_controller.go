@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/annotations"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -58,6 +59,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -862,6 +864,16 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 			handler.EnqueueRequestsFromMapFunc(r.clusterToHetznerCluster),
 			builder.WithPredicates(IgnoreInsignificantClusterStatusUpdates(log)),
 		).
+		Watches(
+			&infrav2.HetznerBareMetalMachine{},
+			handler.EnqueueRequestsFromMapFunc(r.baremetalMachineToHetznerCluster),
+			builder.WithPredicates(controlPlaneMachineToHetznerClusterPredicate()),
+		).
+		Watches(
+			&infrav2.HCloudMachine{},
+			handler.EnqueueRequestsFromMapFunc(r.hcloudMachineToHetznerCluster),
+			builder.WithPredicates(controlPlaneMachineToHetznerClusterPredicate()),
+		).
 		Complete(r)
 	if err != nil {
 		return fmt.Errorf("error creating controller: %w", err)
@@ -1015,5 +1027,81 @@ func IgnoreInsignificantHetznerClusterStatusUpdates(logger logr.Logger) predicat
 		CreateFunc:  func(_ event.CreateEvent) bool { return true },
 		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
 		GenericFunc: func(_ event.GenericEvent) bool { return true },
+	}
+}
+
+// baremetalMachineToHetznerCluster maps an HetznerBareMetalMachine to the owning HetznerCluster.
+func (r *HetznerClusterReconciler) baremetalMachineToHetznerCluster(ctx context.Context, o client.Object) []reconcile.Request {
+	bm, ok := o.(*infrav2.HetznerBareMetalMachine)
+	if !ok {
+		return nil
+	}
+
+	clusterName := bm.Labels[clusterv1.ClusterNameLabel]
+	if clusterName == "" {
+		return nil
+	}
+
+	cluster := &clusterv1.Cluster{}
+	if err := r.Get(ctx, client.ObjectKey{Namespace: bm.Namespace, Name: clusterName}, cluster); err != nil {
+		return nil
+	}
+
+	if !cluster.Spec.InfrastructureRef.IsDefined() || cluster.Spec.InfrastructureRef.Kind != "HetznerCluster" {
+		return nil
+	}
+
+	return []reconcile.Request{{
+		NamespacedName: client.ObjectKey{Namespace: bm.Namespace, Name: cluster.Spec.InfrastructureRef.Name},
+	}}
+}
+
+// hcloudMachineToHetznerCluster maps an HCloudMachine to the owning HetznerCluster.
+func (r *HetznerClusterReconciler) hcloudMachineToHetznerCluster(ctx context.Context, o client.Object) []reconcile.Request {
+	hm, ok := o.(*infrav2.HCloudMachine)
+	if !ok {
+		return nil
+	}
+
+	clusterName := hm.Labels[clusterv1.ClusterNameLabel]
+	if clusterName == "" {
+		return nil
+	}
+
+	cluster := &clusterv1.Cluster{}
+	if err := r.Get(ctx, client.ObjectKey{Namespace: hm.Namespace, Name: clusterName}, cluster); err != nil {
+		return nil
+	}
+
+	if !cluster.Spec.InfrastructureRef.IsDefined() || cluster.Spec.InfrastructureRef.Kind != "HetznerCluster" {
+		return nil
+	}
+
+	return []reconcile.Request{{
+		NamespacedName: client.ObjectKey{Namespace: hm.Namespace, Name: cluster.Spec.InfrastructureRef.Name},
+	}}
+}
+
+// controlPlaneMachineToHetznerClusterPredicate returns a predicate that fires only when:
+//   - a machine is deleted (so the HetznerCluster can update its LB target status), or
+//   - ServerAvailableCondition transitions to True.
+func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldGetter, ok := e.ObjectOld.(v1beta1conditions.Getter)
+			if !ok {
+				return false
+			}
+			newGetter, ok := e.ObjectNew.(v1beta1conditions.Getter)
+			if !ok {
+				return false
+			}
+			wasTrue := v1beta1conditions.IsTrue(oldGetter, infrav1.ServerAvailableCondition)
+			isTrue := v1beta1conditions.IsTrue(newGetter, infrav1.ServerAvailableCondition)
+			return !wasTrue && isTrue
+		},
+		CreateFunc:  func(_ event.CreateEvent) bool { return false },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
 	}
 }
