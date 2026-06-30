@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 )
 
 var _ = Describe("Test update secret status", func() {
@@ -469,7 +470,7 @@ func mapKeys[K cmp.Ordered, V any](m map[K]V) []K {
 }
 
 func TestHetznerBareMetalHost_SetError(t *testing.T) {
-	// A PermanentError should add the PermanentErrorAnnotation
+	// A PermanentError should add the PermanentErrorAnnotation and set the ActionCompleted condition.
 	host := HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
@@ -479,8 +480,24 @@ func TestHetznerBareMetalHost_SetError(t *testing.T) {
 	}
 	host.SetError(PermanentError, "some error")
 	require.Equal(t, []string{PermanentErrorAnnotation, "other-annotation"}, mapKeys(host.Annotations))
+	actionCompletedCondition := v1beta2conditions.Get(&host, HetznerBareMetalHostActionCompletedV1Beta2Condition)
+	require.NotNil(t, actionCompletedCondition)
+	require.Equal(t, metav1.ConditionFalse, actionCompletedCondition.Status)
+	require.Equal(t, HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason, actionCompletedCondition.Reason)
+	require.Equal(t, "some error", actionCompletedCondition.Message)
+	require.Equal(t, 1, host.Spec.Status.ErrorCount)
 
-	// Other errors should not add the PermanentErrorAnnotation
+	// Calling SetError again with the same type and message (as happens on every reconcile while the
+	// annotation is present) must keep the condition stable and increment ErrorCount.
+	host.SetError(PermanentError, "some error")
+	actionCompletedCondition = v1beta2conditions.Get(&host, HetznerBareMetalHostActionCompletedV1Beta2Condition)
+	require.NotNil(t, actionCompletedCondition)
+	require.Equal(t, metav1.ConditionFalse, actionCompletedCondition.Status)
+	require.Equal(t, HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason, actionCompletedCondition.Reason)
+	require.Equal(t, "some error", actionCompletedCondition.Message)
+	require.Equal(t, 2, host.Spec.Status.ErrorCount)
+
+	// Other errors should not add the PermanentErrorAnnotation or set the ActionCompleted condition.
 	host = HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
@@ -490,4 +507,5 @@ func TestHetznerBareMetalHost_SetError(t *testing.T) {
 	}
 	host.SetError(ProvisioningError, "some error")
 	require.Equal(t, []string{"other-annotation"}, mapKeys(host.Annotations))
+	require.Nil(t, v1beta2conditions.Get(&host, HetznerBareMetalHostActionCompletedV1Beta2Condition))
 }

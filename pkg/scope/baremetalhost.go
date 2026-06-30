@@ -228,6 +228,7 @@ func BareMetalHostPatchOpts() []v1beta1patch.Option {
 			infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
 			infrav1.HetznerBareMetalHostDeletingV1Beta2Condition,
 			infrav1.HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+			infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition,
 		}},
 	}
 }

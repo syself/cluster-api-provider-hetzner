@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -1013,6 +1014,10 @@ var _ = Describe("actionPreparing", func() {
 		Expect(host.Spec.Status.ErrorMessage).To(ContainSubstring("no IPv4"))
 		Expect(host.Spec.Status.IPv4).To(BeEmpty())
 		Expect(host.Annotations).To(HaveKey(infrav1.PermanentErrorAnnotation))
+		actionCompletedCondition := v1beta2conditions.Get(host, infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition)
+		Expect(actionCompletedCondition).NotTo(BeNil())
+		Expect(actionCompletedCondition.Status).To(Equal(metav1.ConditionFalse))
+		Expect(actionCompletedCondition.Reason).To(Equal(infrav1.HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason))
 	})
 })
 
