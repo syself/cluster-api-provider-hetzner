@@ -2639,9 +2639,12 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 // Imagine the controller triggers a reboot, and reconciles immediately. This would
 // mean the controller would do the same reboot immediately again.
 func (s *Service) hasJustRebooted() bool {
-	// If RebootTriggeredAt is nil, we cannot know when the reboot happened, so we treat it as not just rebooted.
-	// Without this guard, hasTimedOut(nil, ...) returns false, making this function return true indefinitely.
+	// Safe guard: RebootTriggeredAt should not be nil, when hasJustRebooted() gets called. If
+	// RebootTriggeredAt is nil, we cannot know when the reboot happened, so we treat it as not just
+	// rebooted. Without this guard, hasTimedOut(nil, ...) returns false, making this function
+	// return true indefinitely.
 	if s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt == nil {
+		s.scope.Logger.Info("hasJustRebooted: s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt is nil. That is not expected")
 		return false
 	}
 	return (s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSSHRebootTriggered ||
