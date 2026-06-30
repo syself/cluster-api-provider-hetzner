@@ -1342,8 +1342,10 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 		output, err := imageurlcommand.Parse(outputJSON)
 		if err != nil {
-			return actionError{err: fmt.Errorf("failed to parse image URL command output: %w", err)}
+			s.scope.Logger.Error(err, "failed to parse image URL command output")
+			return actionContinue{delay: 10 * time.Second}
 		}
+
 		switch output.Status {
 		case imageurlcommand.OutputJSONFailed:
 			msg := output.Message
