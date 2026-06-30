@@ -363,6 +363,11 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 			err := logStatus(ctx, restConfig, c, ccmLogs)
 			if err != nil {
 				if errors.Is(err, errPermanentHBMH) || errors.Is(err, errNoAvailableHost) {
+					// Cancel the active spec's context so that WaitForControlPlaneToBeReady
+					// and similar blockers abort immediately instead of running to timeout.
+					specCancelMu.Lock()
+					specCancelFn()
+					specCancelMu.Unlock()
 					Fail(err.Error())
 				}
 				log(fmt.Sprintf("Error logging status: %v", err))
