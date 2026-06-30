@@ -46,6 +46,17 @@ var errUnknownSuffix = errors.New("unknown suffix")
 // ImageType defines the accepted image types.
 type ImageType string
 
+// DeviceStringType controls what CAPH passes as the device argument to ImageURLCommand.
+// Allowed values are "" (same as "short"), "short", and "wwn".
+type DeviceStringType string
+
+const (
+	// DeviceStringTypeShort passes the short device name (e.g. "sda") to ImageURLCommand.
+	DeviceStringTypeShort DeviceStringType = "short"
+	// DeviceStringTypeWWN passes the WWN (e.g. "eui.00253885910c8cec") to ImageURLCommand.
+	DeviceStringTypeWWN DeviceStringType = "wwn"
+)
+
 const (
 	// ImageTypeTar defines the image type for tar files.
 	ImageTypeTar ImageType = "tar"
@@ -179,6 +190,13 @@ type InstallImage struct {
 	// +kubebuilder:validation:Optional
 	// +optional
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`
+
+	// DeviceStringType instructs CAPH to either use the short device name, or the WWN when calling
+	// ImageURLCommand. It is not used when ImageURLCommand is not set. "" and "short" both pass
+	// the short device name (e.g. "sda"); "wwn" passes the WWN (e.g. "eui.00253885910c8cec").
+	// +kubebuilder:validation:Enum="";short;wwn
+	// +optional
+	DeviceStringType DeviceStringType `json:"deviceStringType,omitempty"`
 
 	// PostInstallScript (Bash) is used for configuring commands that should be executed after installimage.
 	// It is passed along with the installimage command.
