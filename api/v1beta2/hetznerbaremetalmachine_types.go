@@ -193,10 +193,9 @@ type InstallImage struct {
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`
 
 	// DeviceStringType instructs CAPH to either use the short device name, or the WWN when calling
-	// ImageURLCommand. It is not used when ImageURLCommand is not set. Allowed values are "",
-	// "short" (same as ""), and "wwn". Example: When "" or "short" is used, ImageURLCommand
-	// receives "sda"; when "wwn" is used, it receives "eui.00253885910c8cec" or "0x500a07511bb48b25".
-	// +kubebuilder:validation:XValidation:rule="self == '' || self == 'short' || self == 'wwn'",message="DeviceStringType must be empty, 'short', or 'wwn'"
+	// ImageURLCommand. It is not used when ImageURLCommand is not set. "" and "short" both pass
+	// the short device name (e.g. "sda"); "wwn" passes the WWN (e.g. "eui.00253885910c8cec").
+	// +kubebuilder:validation:Enum="";short;wwn
 	// +optional
 	DeviceStringType DeviceStringType `json:"deviceStringType,omitempty"`
 
