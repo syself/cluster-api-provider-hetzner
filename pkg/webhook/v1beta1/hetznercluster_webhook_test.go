@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta2
+package v1beta1
 
 import (
 	"context"
@@ -23,15 +23,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
-func validHetznerCluster(lb infrav2.LoadBalancerSpec) *infrav2.HetznerCluster {
-	return &infrav2.HetznerCluster{
-		Spec: infrav2.HetznerClusterSpec{
+func validHetznerCluster(lb infrav1.LoadBalancerSpec) *infrav1.HetznerCluster {
+	return &infrav1.HetznerCluster{
+		Spec: infrav1.HetznerClusterSpec{
 			ControlPlaneLoadBalancer: lb,
-			HetznerSecret: infrav2.HetznerSecretRef{
-				Key: infrav2.HetznerSecretKeyRef{
+			HetznerSecret: infrav1.HetznerSecretRef{
+				Key: infrav1.HetznerSecretKeyRef{
 					HCloudToken: "token",
 				},
 			},
@@ -44,32 +44,32 @@ func TestValidateUpdateProxyProtocol(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		oldLB       infrav2.LoadBalancerSpec
-		newLB       infrav2.LoadBalancerSpec
+		oldLB       infrav1.LoadBalancerSpec
+		newLB       infrav1.LoadBalancerSpec
 		expectError bool
 	}{
 		{
 			name:        "disabling proxy protocol is not allowed",
-			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: true},
-			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: false},
+			oldLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: true},
+			newLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: false},
 			expectError: true,
 		},
 		{
 			name:        "enabling proxy protocol is allowed",
-			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: false},
-			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: true},
+			oldLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: false},
+			newLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: true},
 			expectError: false,
 		},
 		{
 			name:        "keeping proxy protocol enabled is allowed",
-			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: true},
-			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: true},
+			oldLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: true},
+			newLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: true},
 			expectError: false,
 		},
 		{
 			name:        "keeping proxy protocol disabled is allowed",
-			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: false},
-			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: false},
+			oldLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: false},
+			newLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: false},
 			expectError: false,
 		},
 	}
