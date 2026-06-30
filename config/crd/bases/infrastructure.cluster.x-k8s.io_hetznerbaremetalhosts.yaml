@@ -430,8 +430,9 @@ spec:
                           type: object
                         type: array
                       partitions:
-                        description: Partitions define the additional Partitions to
-                          be created in installimage.
+                        description: |-
+                          Partitions define the additional Partitions to be created in installimage.
+                          Must be non-empty when imageURLCommand is not set.
                         items:
                           description: Partition defines the additional Partitions
                             to be created.
@@ -487,7 +488,6 @@ spec:
                         type: integer
                     required:
                     - image
-                    - partitions
                     type: object
                   ipv4:
                     description: IPv4 address of server.

@@ -185,7 +185,9 @@ type InstallImage struct {
 	PostInstallScript string `json:"postInstallScript,omitempty"`
 
 	// Partitions define the additional Partitions to be created in installimage.
-	Partitions []Partition `json:"partitions"`
+	// Must be non-empty when imageURLCommand is not set.
+	// +optional
+	Partitions []Partition `json:"partitions,omitempty"`
 
 	// LVMDefinitions defines the logical volume definitions to be created.
 	// +optional
