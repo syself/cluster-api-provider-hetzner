@@ -117,7 +117,7 @@ condition message.
 ## Outcome summary
 
 CAPH waits until the provisioning process in the rescue system has terminated. Then the captured
-stdout gets examined. If it does not contain `IMAGE_URL_DONE`, then process has failed. Optionally
+stdout gets examined. If it does not contain `IMAGE_URL_DONE`, then the process has failed. Optionally
 `output.json` can be created by the process.
 
 | **`IMAGE_URL_DONE` in stdout** | **`output.json` exists** | **`status` in `output.json`** | **Result** |
