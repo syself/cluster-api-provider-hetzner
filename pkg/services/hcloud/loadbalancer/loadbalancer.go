@@ -292,22 +292,23 @@ func (s *Service) reconcileLBProperties(ctx context.Context, lb *hcloud.LoadBala
 func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer) (reconcile.Result, error) {
 	extraServicesSpec := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices
 
+	wantServiceListenPorts := make([]int, 0, len(extraServicesSpec)+1)
+	wantServiceListenPortsMap := make(map[int]infrav1.LoadBalancerServiceSpec, len(extraServicesSpec)+1)
+
 	existingServicesByPort := make(map[int]hcloud.LoadBalancerService, len(lb.Services))
 	for _, service := range lb.Services {
 		existingServicesByPort[service.ListenPort] = service
 	}
 
-	wantServiceListenPorts := make([]int, 0, len(extraServicesSpec)+1)
-	wantServiceListenPortsMap := make(map[int]infrav1.LoadBalancerServiceSpec, len(extraServicesSpec)+1)
+	// ControlPlaneEndpoint is a pointer in v1beta1; zero-value port means unknown.
+	var kubeAPIServicePort int
+	if s.scope.HetznerCluster.Spec.ControlPlaneEndpoint != nil {
+		kubeAPIServicePort = int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)
+	}
 
 	for _, serviceInSpec := range extraServicesSpec {
 		wantServiceListenPorts = append(wantServiceListenPorts, serviceInSpec.ListenPort)
 		wantServiceListenPortsMap[serviceInSpec.ListenPort] = serviceInSpec
-	}
-
-	var kubeAPIServicePort int
-	if s.scope.HetznerCluster.Spec.ControlPlaneEndpoint != nil {
-		kubeAPIServicePort = int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)
 	}
 
 	// add kubeAPI service if the endpoint port is known
