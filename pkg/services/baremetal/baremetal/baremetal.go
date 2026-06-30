@@ -634,7 +634,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 	var foundIPv4 bool
 	var foundIPv6 bool
 
-	if v1beta1conditions.IsTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition) {
+	if v1beta2conditions.IsTrue(s.scope.BareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition) {
 		// The status may be slightly outdated but that is acceptable as this check
 		// is only a safeguard against unexpected changes (e.g. a user manually removing a target).
 		// In the vast majority of reconciles there is nothing to do, so we skip the extra API call

@@ -1086,16 +1086,16 @@ func (r *HetznerClusterReconciler) hcloudMachineToHetznerCluster(ctx context.Con
 func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldGetter, ok := e.ObjectOld.(deprecatedv1beta1conditions.Getter)
+			oldGetter, ok := e.ObjectOld.(conditions.Getter)
 			if !ok {
 				return false
 			}
-			newGetter, ok := e.ObjectNew.(deprecatedv1beta1conditions.Getter)
+			newGetter, ok := e.ObjectNew.(conditions.Getter)
 			if !ok {
 				return false
 			}
-			wasTrue := deprecatedv1beta1conditions.IsTrue(oldGetter, infrav2.ServerAvailableV1Beta1Condition)
-			isTrue := deprecatedv1beta1conditions.IsTrue(newGetter, infrav2.ServerAvailableV1Beta1Condition)
+			wasTrue := conditions.IsTrue(oldGetter, infrav2.HCloudMachineServerAvailableCondition)
+			isTrue := conditions.IsTrue(newGetter, infrav2.HCloudMachineServerAvailableCondition)
 			return !wasTrue && isTrue
 		},
 		CreateFunc:  func(_ event.CreateEvent) bool { return false },

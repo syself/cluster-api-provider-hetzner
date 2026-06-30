@@ -1613,7 +1613,11 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 		hcloudClient := mocks.NewClient(GinkgoT())
 		service.scope.HCloudClient = hcloudClient
 
-		v1beta1conditions.MarkTrue(hcloudMachine, infrav1.ServerAvailableCondition)
+		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+			Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HCloudMachineServerAvailableV1Beta2Reason,
+		})
 
 		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
 			ID: 1,
@@ -1627,7 +1631,7 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 		Expect(res).To(Equal(reconcile.Result{}))
 
 		Expect(hcloudMachine.Status.Ready).To(BeTrue())
-		Expect(v1beta1conditions.IsTrue(hcloudMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+		Expect(v1beta2conditions.IsTrue(hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition)).To(BeTrue())
 		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "ListLoadBalancers", mock.Anything, mock.Anything)).To(BeTrue())
 	})
 })
