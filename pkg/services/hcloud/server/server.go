@@ -1060,7 +1060,9 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		}
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
-	case sshclient.ImageURLCommandStateFinishedSuccessfully:
+	case sshclient.ImageURLCommandStateFinished:
+		// IMAGE_URL_DONE was found in the stdout. If no output.json exists, then provisioning was
+		// successful. If output.json exists, it depends on the status in that file.
 		outputJSON, err := hcloudSSHClient.ReadOutputJSON(ctx)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("ReadOutputJSON: %w", err)

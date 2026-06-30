@@ -1373,7 +1373,9 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		}
 		return actionContinue{delay: 10 * time.Second}
 
-	case sshclient.ImageURLCommandStateFinishedSuccessfully:
+	case sshclient.ImageURLCommandStateFinished:
+		// IMAGE_URL_DONE was found in the stdout. If no output.json exists, then provisioning was
+		// successful. If output.json exists, it depends on the status in that file.
 		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
 		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
 
