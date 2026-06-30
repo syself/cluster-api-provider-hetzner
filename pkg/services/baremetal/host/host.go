@@ -2644,7 +2644,7 @@ func (s *Service) hasJustRebooted() bool {
 	// rebooted. Without this guard, hasTimedOut(nil, ...) returns false, making this function
 	// return true indefinitely.
 	if s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt == nil {
-		s.scope.Logger.Info("hasJustRebooted: s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt is nil. That is not expected")
+		s.scope.Info("hasJustRebooted: s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt is nil. That is not expected")
 		return false
 	}
 	return (s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSSHRebootTriggered ||
