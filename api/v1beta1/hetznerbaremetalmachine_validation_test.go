@@ -78,6 +78,36 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			want: nil,
 		},
 		{
+			name: "Valid Image URL Command with DeviceStringType wwn",
+			args: args{
+				spec: HetznerBareMetalMachineSpec{
+					InstallImage: InstallImage{
+						ImageURLCommand:  "image-url-command-bm-test.sh",
+						DeviceStringType: DeviceStringTypeWWN,
+						Image: Image{
+							URL: "oci://ghcr.io/example/ubuntu:v1",
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "Invalid DeviceStringType wwn without imageURLCommand",
+			args: args{
+				spec: HetznerBareMetalMachineSpec{
+					InstallImage: InstallImage{
+						DeviceStringType: DeviceStringTypeWWN,
+						Image: Image{
+							Name: "ubuntu-24.04",
+							URL:  "https://example.com/ubuntu-24.04.tar.gz",
+						},
+					},
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "installImage", "deviceStringType"), DeviceStringTypeWWN, "deviceStringType is only valid when imageURLCommand is set"),
+		},
+		{
 			name: "Invalid Image",
 			args: args{
 				spec: HetznerBareMetalMachineSpec{
