@@ -2572,6 +2572,7 @@ func autoConvert_v1beta1_LoadBalancerSpec_To_v1beta2_LoadBalancerSpec(in *LoadBa
 	out.Port = in.Port
 	out.ExtraServices = *(*[]v1beta2.LoadBalancerServiceSpec)(unsafe.Pointer(&in.ExtraServices))
 	out.Region = v1beta2.Region(in.Region)
+	out.EnableProxyProtocol = in.EnableProxyProtocol
 	return nil
 }
 
@@ -2588,6 +2589,7 @@ func autoConvert_v1beta2_LoadBalancerSpec_To_v1beta1_LoadBalancerSpec(in *v1beta
 	out.Port = in.Port
 	out.ExtraServices = *(*[]LoadBalancerServiceSpec)(unsafe.Pointer(&in.ExtraServices))
 	out.Region = Region(in.Region)
+	out.EnableProxyProtocol = in.EnableProxyProtocol
 	return nil
 }
 
