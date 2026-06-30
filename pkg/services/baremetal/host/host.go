@@ -434,7 +434,6 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 	// ssh gave no connection refused error but it is still saved in host status - we can remove it
 	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
 		s.scope.HetznerBareMetalHost.ClearError()
-		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = nil
 	}
 
 	// Check whether there has been an error message already, meaning that the reboot did not finish in time.
@@ -684,7 +683,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	// we are in resuce mode i.e. reboot was successful, now clear the RebootTriggeredAt timestamp.
+	// we are in rescue mode i.e. reboot was successful, now clear the RebootTriggeredAt timestamp.
 	s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = nil
 
 	output := sshClient.GetHardwareDetailsDebug(ctx)
@@ -2640,6 +2639,14 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 // Imagine the controller triggers a reboot, and reconciles immediately. This would
 // mean the controller would do the same reboot immediately again.
 func (s *Service) hasJustRebooted() bool {
+	// Safe guard: RebootTriggeredAt should not be nil, when hasJustRebooted() gets called. If
+	// RebootTriggeredAt is nil, we cannot know when the reboot happened, so we treat it as not just
+	// rebooted. Without this guard, hasTimedOut(nil, ...) returns false, making this function
+	// return true indefinitely.
+	if s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt == nil {
+		s.scope.Info("hasJustRebooted: s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt is nil. That is not expected")
+		return false
+	}
 	return (s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSSHRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSoftwareRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeHardwareRebootTriggered) &&
