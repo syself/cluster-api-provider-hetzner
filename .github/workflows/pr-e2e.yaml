@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - v1.1.x
+      - "release-*"
       - "releases/**"
     paths-ignore:
       - "**/*.md"
