@@ -44,6 +44,11 @@ const (
 	// format to use for baremetal nodes. If "true" "hrobot://" will be used. If not set or empty,
 	// then the old format ("hcloud://bm-") gets used.
 	UseHrobotProviderIDForBaremetalAnnotation = "capi.syself.com/use-hrobot-provider-id-for-baremetal"
+
+	// ProxyProtocolForControlPlaneLoadBalancerAnnotation is set on control-plane nodes by an external
+	// service (e.g. a node-configuration daemonset) to signal that the node is ready to receive
+	// PROXY-protocol headers. CAPH reads this annotation but never writes it.
+	ProxyProtocolForControlPlaneLoadBalancerAnnotation = "capi.syself.com/proxy-protocol-for-controlplane-loadbalancer"
 )
 
 // HetznerClusterSpec defines the desired state of HetznerCluster.
