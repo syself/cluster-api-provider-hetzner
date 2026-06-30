@@ -105,7 +105,20 @@ A Kubernetes event will be created in both (success, failure) cases containing t
 and stderr) of the script. If the script takes longer than 7 minutes, the controller cancels the
 provisioning.
 
+## output.json (optional)
+
+The command may write `/root/output.json` at any point during execution. If the file does not
+exist, provisioning still succeeds based on `IMAGE_URL_DONE` alone.
+
+CAPH reads the `status` field from this file to update the provisioning condition on the machine
+(HCloudMachine or HetznerBareMetalHost). The `message` field is forwarded verbatim into the
+condition message.
+
 ## Outcome summary
+
+CAPH waits until the provisioning process in the rescue system has terminated. Then the captured
+stdout gets examined. If it does not contain `IMAGE_URL_DONE`, then process has failed. Optionally
+`output.json` can be created by the process.
 
 | **`IMAGE_URL_DONE` in stdout** | **`output.json` exists** | **`status` in `output.json`** | **Result** |
 | :------------------------: | :------------------: | :-----------------------: | ------ |
@@ -117,15 +130,6 @@ provisioning.
 
 Implemented in `handleBootStateRunningImageCommand` (hcloud) and
 `actionImageInstallingImageURLCommand` (baremetal).
-
-## output.json (optional)
-
-The command may write `/root/output.json` at any point during execution. If the file does not
-exist, provisioning still succeeds based on `IMAGE_URL_DONE` alone.
-
-CAPH reads the `status` field from this file to update the provisioning condition on the machine
-(HCloudMachine or HetznerBareMetalHost). The `message` field is forwarded verbatim into the
-condition message.
 
 ### Fields CAPH reads
 
