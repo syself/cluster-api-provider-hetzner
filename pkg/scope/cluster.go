@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -275,6 +276,10 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 func (s *ClusterScope) AllControlPlaneNodesReadyForProxyProtocol(ctx context.Context) (bool, error) {
 	wlClientConfig, err := s.ClientConfig(ctx)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			s.V(1).Info("proxy protocol: kubeconfig secret not found, cluster not yet provisioned")
+			return false, nil
+		}
 		return false, fmt.Errorf("failed to get workload cluster client config: %w", err)
 	}
 	if err := IsControlPlaneReady(ctx, wlClientConfig); err != nil {
