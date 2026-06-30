@@ -1025,6 +1025,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 
 		output := imageurlcommand.Output{}
 		if outputJSON == "" {
+			// imageURLCommand is still running. Either output.json was not created yet, or
+			// the command does not create it at all.
 			output.Status = imageurlcommand.OutputJSONInProgress
 			output.Message = "still running"
 		} else {
@@ -1070,6 +1072,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 
 		var output imageurlcommand.Output
 		if outputJSON == "" {
+			// output.json is optional. If it is missing, the existence of IMAGE_URL_DONE is
+			// enough to consider provisioning successful.
 			output = imageurlcommand.Output{
 				Status: imageurlcommand.OutputJSONSucceeded,
 			}

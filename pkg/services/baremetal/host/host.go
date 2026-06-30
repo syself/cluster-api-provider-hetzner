@@ -1335,6 +1335,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			return actionError{err: fmt.Errorf("ReadOutputJSON: %w", err)}
 		}
 		if outputJSON == "" {
+			// imageURLCommand is still running. Either output.json was not created yet, or
+			// the command does not create it at all.
 			return actionContinue{delay: 10 * time.Second}
 		}
 
