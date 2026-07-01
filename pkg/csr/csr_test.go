@@ -17,9 +17,13 @@ limitations under the License.
 package csr_test
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+	"net"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,5 +53,26 @@ var _ = Describe("Validate Kubelet CSR", func() {
 
 	It("should not fail", func() {
 		Expect(csr.ValidateKubeletCSR(cr, name, addresses)).To(Succeed())
+	})
+
+	It("should allow 127.0.0.1 even if not in machine addresses", func() {
+		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		Expect(err).To(BeNil())
+
+		username := "system:node:" + name
+		template := &x509.CertificateRequest{
+			DNSNames:    []string{name},
+			IPAddresses: []net.IP{net.ParseIP("195.201.236.66"), net.ParseIP("127.0.0.1")},
+		}
+		template.Subject.CommonName = username
+		template.Subject.Organization = []string{"system:nodes"}
+
+		csrBytes, err := x509.CreateCertificateRequest(rand.Reader, template, key)
+		Expect(err).To(BeNil())
+
+		cr127, err := x509.ParseCertificateRequest(csrBytes)
+		Expect(err).To(BeNil())
+
+		Expect(csr.ValidateKubeletCSR(cr127, name, addresses)).To(Succeed())
 	})
 })

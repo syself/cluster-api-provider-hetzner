@@ -81,6 +81,9 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, addres
 	}
 
 	for _, ip := range csr.IPAddresses {
+		if ip.IsLoopback() {
+			continue
+		}
 		if _, ok := allowedIPAddresses[ip.String()]; !ok {
 			multierr = errors.Join(fmt.Errorf("the IP address %q is not allowed", ip.String()))
 		}
