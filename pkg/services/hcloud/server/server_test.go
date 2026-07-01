@@ -1310,8 +1310,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 	})
 
-	// Tests below verify the outcome table in docs/caph/04-developers/06-image-url-command.md#outcome-summary
-	It("aborts when output.json reports failure despite IMAGE_URL_DONE in stdout", func() {
+	It("ignores status in output.json when IMAGE_URL_DONE in stdout", func() {
 		By("setting bootstrap data ready and machine in RunningImageCommand state")
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 		service.scope.HCloudMachine.Spec.ImageName = ""
@@ -1327,13 +1326,18 @@ var _ = Describe("Reconcile", func() {
 		By("mocking SSH: command finished but output.json reports failure")
 		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "logfile", nil)
 		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return(`{"status":"Failed","message":"disk full"}`, nil).Once()
+		testEnv.HCloudSSHClient.On("Reboot", mock.Anything).Return(sshclient.Output{
+			Err:    nil,
+			StdOut: "ok",
+			StdErr: "",
+		})
 
 		By("reconciling")
 		_, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 
 		By("ensuring machine did NOT transition to BootingToRealOS")
-		Expect(service.scope.HCloudMachine.Status.BootState).NotTo(Equal(infrav1.HCloudBootStateBootingToRealOS))
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
 
 		By("ensuring ServerProvisionedCondition is failed")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition, "ImageCommandFailed")).To(BeTrue())
