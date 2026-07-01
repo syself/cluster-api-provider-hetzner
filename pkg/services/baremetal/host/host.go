@@ -1418,11 +1418,11 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				Message: msg,
 			})
 			return s.recordActionFailure(infrav1.FatalError, msg)
-		} else {
-			// Succeeded
-			record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
-			record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
 		}
+
+		// Succeeded
+		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
+		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
 
 		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
 		s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
