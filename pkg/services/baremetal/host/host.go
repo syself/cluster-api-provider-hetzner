@@ -1413,7 +1413,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		if outputJSON != "" {
 			output, err := imageurlcommand.Parse(outputJSON)
 			if err != nil {
-				return actionError{err: fmt.Errorf("parse: %w", err)}
+				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
+				return actionError{err: fmt.Errorf("failed to parse: %w", err)}
 			}
 			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)

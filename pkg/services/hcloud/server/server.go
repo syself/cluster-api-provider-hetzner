@@ -1090,7 +1090,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		if outputJSON != "" {
 			output, err := imageurlcommand.Parse(outputJSON)
 			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("parse: %w", err)
+				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
+				return reconcile.Result{}, fmt.Errorf("failed to parse: %w", err)
 			}
 			record.Warn(hm, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
