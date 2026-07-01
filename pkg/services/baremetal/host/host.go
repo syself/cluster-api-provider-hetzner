@@ -1379,7 +1379,6 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 	case sshclient.ImageURLCommandStateFinished:
 		// IMAGE_URL_DONE was found in the stdout. If no output.json exists, then provisioning was
 		// successful. If output.json exists, it depends on the status in that file.
-		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
 		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
@@ -1402,11 +1401,13 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		}
 
 		if output.Status != imageurlcommand.OutputJSONSucceeded {
+			// Failed
 			msg := output.Message
 			if msg == "" {
 				msg = fmt.Sprintf("output.json reports status %q", output.Status)
 			}
 			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
+			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
 			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 			v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 				"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
@@ -1417,7 +1418,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				Message: msg,
 			})
 			return s.recordActionFailure(infrav1.FatalError, msg)
+		} else {
+			// Succeeded
+			record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
+			record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
 		}
+
 		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
 		s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 
