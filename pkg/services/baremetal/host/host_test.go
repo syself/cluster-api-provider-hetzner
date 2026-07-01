@@ -102,7 +102,6 @@ var _ = Describe("SetErrorMessage", func() {
 	)
 })
 
-// Tests below verify the outcome table in docs/caph/04-developers/06-image-url-command.md#outcome-summary.
 var _ = Describe("actionImageInstalling (image-url-command)", func() {
 	ctx := context.Background()
 
@@ -202,7 +201,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(c.Message).To(ContainSubstring("image-url-command failed"))
 	})
 
-	It("completes successfully when output.json reports success", func() {
+	It("completes successfully when ImageURLCommandStateFinishedSuccessfully", func() {
 		host := newBaseHost()
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
