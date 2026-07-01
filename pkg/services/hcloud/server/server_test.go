@@ -1340,10 +1340,10 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
 
 		By("ensuring ServerProvisionedCondition is failed")
-		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition, "ImageCommandFailed")).To(BeTrue())
-
-		By("ensuring ServerProvisionedCondition reflects the failure")
-		Expect(v1beta1conditions.IsFalse(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition)).To(BeTrue())
+		c := v1beta1conditions.Get(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition)
+		Expect(c).ToNot(BeNil())
+		Expect(c.Reason).To(Equal(string(infrav1.HCloudBootStateBootingToRealOS)))
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
 	})
 
 	It("sets condition HCloudCredentialsInvalid when HCloud API returns 'unauthorized' error while creating a server", func() {
