@@ -1013,18 +1013,18 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
 			s.scope.Error(err, "failed to read output.json")
-			return reconcile.Result{RequeueAfter: time.Second * 10}, nil
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 		if outputJSON == "" {
 			// imageURLCommand is still running. Either output.json was not created yet, or
 			// the command does not create it at all.
-			return reconcile.Result{RequeueAfter: time.Second * 10}, nil
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
 		output, err := imageurlcommand.Parse(outputJSON)
 		if err != nil {
 			s.scope.Error(err, "failed to parse image URL command output")
-			return reconcile.Result{RequeueAfter: time.Second * 10}, nil
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
 		// imageURLCommand is still running. CAPH wait until the Linux process in the rescue system
@@ -1041,7 +1041,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			Reason:  infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason,
 			Message: msg,
 		})
-		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		// IMAGE_URL_DONE was found in the stdout.
@@ -1051,7 +1051,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
 			s.scope.Error(err, "failed to read output.json")
-			return reconcile.Result{RequeueAfter: time.Second * 10}, nil
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
 		record.Event(hm, "ImageURLCommandOutputJSON", outputJSON)
@@ -1083,7 +1083,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
 			s.scope.Error(err, "failed to read output.json")
-			return reconcile.Result{RequeueAfter: time.Second * 10}, nil
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
 		msg := "image-url-command failed"
