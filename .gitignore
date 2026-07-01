@@ -91,4 +91,4 @@ watchall-output*
 
 .vscode
 
-test/e2e/ginkgo-log-*.txt
+/test/e2e/ginkgo-log-*.txt
