@@ -22,21 +22,11 @@ import (
 	"fmt"
 )
 
-// Status values written by the image-url-command binary into output.json.
-const (
-	OutputJSONSucceeded  = "Succeeded"
-	OutputJSONFailed     = "Failed"
-	OutputJSONInProgress = "InProgress"
-)
-
 // Parse unmarshals content into an Output struct without applying conditions.
 func Parse(content string) (Output, error) {
 	var output Output
 	if err := json.Unmarshal([]byte(content), &output); err != nil {
 		return Output{}, fmt.Errorf("output.json: %w", err)
-	}
-	if output.Status == "" {
-		return Output{}, fmt.Errorf("output.json: no status field")
 	}
 	return output, nil
 }

@@ -1007,104 +1007,53 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{}, nil
 	}
 
+	sshClient := hcloudSSHClient
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			s.scope.Error(err, "failed to read output.json")
+			return reconcile.Result{RequeueAfter: time.Second * 10}, nil
+		}
+		if outputJSON == "" {
+			// imageURLCommand is still running. Either output.json was not created yet, or
+			// the command does not create it at all.
+			return reconcile.Result{RequeueAfter: time.Second * 10}, nil
+		}
+
+		output, err := imageurlcommand.Parse(outputJSON)
+		if err != nil {
+			s.scope.Error(err, "failed to parse image URL command output")
+			return reconcile.Result{RequeueAfter: time.Second * 10}, nil
+		}
+
+		// imageURLCommand is still running. CAPH wait until the Linux process in the rescue system
+		// has terminated.
+		msg := output.Message
+		if msg == "" {
+			msg = "imageURLCommand running"
+		}
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"HCloudImageURLCommandRunning", clusterv1beta1.ConditionSeverityInfo,
-			"imageURLCommand running")
+			"HCloudImageURLCommandRunning", clusterv1beta1.ConditionSeverityInfo, "%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
 			Reason:  infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason,
-			Message: "imageURLCommand running",
+			Message: msg,
 		})
-		outputJSON, err := hcloudSSHClient.ReadOutputJSON(ctx)
+		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+
+	case sshclient.ImageURLCommandStateFinishedSuccessfully:
+		// IMAGE_URL_DONE was found in the stdout.
+		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
+		record.Event(hm, "ImageURLCommandOutput", logFile)
+
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("ReadOutputJSON: %w", err)
+			s.scope.Error(err, "failed to read output.json")
+			return reconcile.Result{RequeueAfter: time.Second * 10}, nil
 		}
 
-		output := imageurlcommand.Output{}
-		if outputJSON == "" {
-			// imageURLCommand is still running. Either output.json was not created yet, or
-			// the command does not create it at all.
-			output.Status = imageurlcommand.OutputJSONInProgress
-			output.Message = "still running"
-		} else {
-			output, err = imageurlcommand.Parse(outputJSON)
-			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("ReadOutputJSON: %w", err)
-			}
-		}
-		switch output.Status {
-		case imageurlcommand.OutputJSONFailed:
-			msg := output.Message
-			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-				infrav1.HCloudMachineImageURLCommandFailedV1Beta2Reason, clusterv1beta1.ConditionSeverityError, "%s", msg)
-			v1beta2conditions.Set(hm, metav1.Condition{
-				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineImageURLCommandFailedV1Beta2Reason,
-				Message: msg,
-			})
-		default:
-			msg := output.Message
-			if msg == "" {
-				msg = "imageURLCommand running"
-			}
-			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-				infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason, clusterv1beta1.ConditionSeverityInfo, "%s", msg)
-			v1beta2conditions.Set(hm, metav1.Condition{
-				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason,
-				Message: msg,
-			})
-		}
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-
-	case sshclient.ImageURLCommandStateFinished:
-		// IMAGE_URL_DONE was found in the stdout. If no output.json exists, then provisioning was
-		// successful. If output.json exists, it depends on the status in that file.
-		outputJSON, err := hcloudSSHClient.ReadOutputJSON(ctx)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("ReadOutputJSON: %w", err)
-		}
-
-		var output imageurlcommand.Output
-		if outputJSON == "" {
-			// output.json is optional. If it is missing, the existence of IMAGE_URL_DONE is
-			// enough to consider provisioning successful.
-			output = imageurlcommand.Output{
-				Status: imageurlcommand.OutputJSONSucceeded,
-			}
-		} else {
-			output, err = imageurlcommand.Parse(outputJSON)
-			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("parse: %w", err)
-			}
-		}
-
-		if output.Status != imageurlcommand.OutputJSONSucceeded {
-			msg := output.Message
-			if msg == "" {
-				msg = fmt.Sprintf("output.json reports status %q", output.Status)
-			}
-			record.Warn(hm, "ImageURLCommandOutputJSON", outputJSON)
-			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
-			s.scope.Error(errors.New(msg), "", "logFile", logFile)
-			if err := s.scope.SetErrorAndRemediate(ctx, msg); err != nil {
-				return reconcile.Result{}, err
-			}
-			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-				"ImageCommandFailed", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
-			v1beta2conditions.Set(hm, metav1.Condition{
-				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineImageURLCommandFailedV1Beta2Reason,
-				Message: msg,
-			})
-			return reconcile.Result{}, nil
-		}
 		record.Event(hm, "ImageURLCommandOutputJSON", outputJSON)
 		s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 
@@ -1128,11 +1077,16 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	case sshclient.ImageURLCommandStateFailed:
-		outputJSON, err := hcloudSSHClient.ReadOutputJSON(ctx)
+		record.Warn(hm, "InstallImageNotSuccessful", logFile)
+		s.scope.Error(nil, "image-url-command failed", "logFile", logFile)
+
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("ReadOutputJSON: %w", err)
+			s.scope.Error(err, "failed to read output.json")
+			return reconcile.Result{RequeueAfter: time.Second * 10}, nil
 		}
-		msg := "ImageURLCommand failed. Deleting machine"
+
+		msg := "image-url-command failed"
 		if outputJSON != "" {
 			output, err := imageurlcommand.Parse(outputJSON)
 			if err != nil {
@@ -1141,9 +1095,19 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			record.Warn(hm, "ImageURLCommandOutputJSON", outputJSON)
 			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 			if output.Message != "" {
-				msg += ": " + output.Message
+				msg = output.Message
 			}
 		}
+		v1beta1conditions.MarkFalse(hm, infrav1.ProvisionSucceededCondition,
+			"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
+			"%s", msg)
+		v1beta2conditions.Set(hm, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  "ImageURLCommandFailed",
+			Message: msg,
+		})
+
 		err = errors.New(msg)
 		s.scope.Error(err, "", "logFile", logFile)
 		err = s.scope.SetErrorAndRemediate(ctx, msg)
