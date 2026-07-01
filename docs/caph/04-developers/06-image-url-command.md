@@ -105,6 +105,22 @@ A Kubernetes event will be created in both (success, failure) cases containing t
 and stderr) of the script. If the script takes longer than 7 minutes, the controller cancels the
 provisioning.
 
+## Steps
+
+* CAPH copies the binary to the rescue system
+* The executable gets executed, the PID gets written to a file. Stdout and Stderr get redirected
+  into a file.
+* CAPH continuously reads /root/output.json (if present). The provisioner can write a message into
+  the file which will be in the corresponding condition, so that users can see the current state of
+  the process. This is optional.
+* When the process has terminated, CAPH checks if IMAGE_URL_DONE is in the last line of the output.
+  If not, the process is considered to have failed. The machine gets deprovisioned. Two Events
+  (level=Warning) get created: One containing the output of the process, one containing the
+  output.json file (if it exists).
+* When IMAGE_URL_DONE was found, the process is considered to have succeeded. Two Events
+  (level=Info) get created: One containing the output of the process, one containing the output.json
+  file (if it exists).
+
 ## output.json (optional)
 
 The command may write `/root/output.json` at any point during execution. If the file does not
