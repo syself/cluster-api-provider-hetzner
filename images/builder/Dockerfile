@@ -55,7 +55,7 @@ FROM docker.io/hadolint/hadolint:v2.14.0-alpine@sha256:7aba693c1442eb31c0b015c12
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.25-trixie@sha256:3140b898a3ec52ec5e8a7dc325a3dbdc732c35e0bde3fcc0e0d764c781d7da10
+FROM docker.io/library/golang:1.25-trixie@sha256:56a4d6ead4365cd569ca388003bdce672e7ca7286513f96b44b03d3b5e79d26f
 
 # Start of "we should move that to a previous Layer"
 # Note: We should keep the final layer clean. We could get most tools from wolfi.
