@@ -95,9 +95,9 @@ strings are passed as a single space-separated `$4` argument. Scripts should spl
 The command must end with the last line on stdout containing `IMAGE_URL_DONE`. Otherwise the
 execution is considered to have failed.
 
-  Implementation detail: CAPH executes the command in the rescue system via `ssh` and `nohup`. Stdout
-  and stderr are redirected to a file. CAPH continuously connects to the rescue system to see if the
-  process is still running.
+Implementation detail: CAPH executes the command in the rescue system via `ssh` and `nohup`. Stdout
+and stderr are redirected to a file. CAPH continuously connects to the rescue system to see if the
+process is still running.
 
 The controller uses url.ParseRequestURI (Go function) to validate the imageURL.
 
@@ -107,7 +107,7 @@ provisioning.
 
 ## Steps
 
-* CAPH copies the binary to the rescue system
+* CAPH copies the binary to the rescue system.
 * The executable gets executed, the PID gets written to a file. Stdout and Stderr get redirected
   into a file.
 * CAPH continuously reads /root/output.json (if present). The provisioner can write a message into
@@ -126,52 +126,24 @@ provisioning.
 The command may write `/root/output.json` at any point during execution. If the file does not
 exist, provisioning still succeeds based on `IMAGE_URL_DONE` alone.
 
-CAPH reads the `status` field from this file to update the provisioning condition on the machine
-(HCloudMachine or HetznerBareMetalHost). The `message` field is forwarded verbatim into the
+CAPH reads only the `message` field from this file to update the provisioning condition on the
+machine (HCloudMachine or HetznerBareMetalHost). The `message` field is forwarded verbatim into the
 condition message.
 
 ## Outcome summary
 
 CAPH waits until the provisioning process in the rescue system has terminated. Then the captured
-stdout gets examined. If it does not contain `IMAGE_URL_DONE`, then the process has failed. Optionally
-`output.json` can be created by the process.
-
-| **`IMAGE_URL_DONE` in stdout** | **`output.json` exists** | **`status` in `output.json`** | **Result** |
-| :------------------------: | :------------------: | :-----------------------: | ------ |
-| yes | no | — | **success** |
-| yes | yes | `"Succeeded"` | **success** |
-| yes | yes | `"Failed"` | **failure**, provisioning cancelled |
-| yes | yes | any other string | **failure**, provisioning cancelled |
-| no | any | any | **failure**, provisioning cancelled |
+stdout gets examined. If it does not contain `IMAGE_URL_DONE`, then the process has failed.
+Optionally `output.json` can be created by the process. The content of `output.json` does not change
+the final result (succeeded or failed).
 
 Implemented in `handleBootStateRunningImageCommand` (hcloud) and
 `actionImageInstallingImageURLCommand` (baremetal).
 
-### Fields CAPH reads
-
-CAPH only reads two top-level fields:
-
-| Field     | Required               | Values                                    | Purpose                                    |
-|-----------|------------------------|-------------------------------------------|--------------------------------------------|
-| `status`  | yes (to set condition) | `"Succeeded"`, `"Failed"`, `"InProgress"` | Updates the provisioning condition         |
-| `message` | no                     | free-form string                          | Included in the condition message          |
-
-While the command is **running**, write `"InProgress"` to update the provisioning condition
-(indicating provisioning has not succeeded yet). Any other unrecognised string is also
-treated as in-progress.
-Once `IMAGE_URL_DONE` appears in stdout (command finished), only `"Succeeded"` allows
-provisioning to proceed; any other value cancels it.
-
-Minimal success example:
+Minimal example:
 
 ```json
-{"status": "Succeeded"}
-```
-
-Minimal failure example:
-
-```json
-{"status": "Failed", "message": "failed to pull image: disk full"}
+{"message": "Downloading node image..."}
 ```
 
 Any other fields in the JSON are **ignored by CAPH** but are forwarded as-is via the Kubernetes
@@ -183,35 +155,6 @@ When the command finishes (success or failure), CAPH emits a Kubernetes event wi
 `ImageURLCommandOutputJSON` containing the **full JSON content** of the file. If the command
 failed, the event type is `Warning`; otherwise it is `Normal`. The content is also written to
 the controller log at key `outputJSON`.
-
-### Extended example
-
-Your command can include arbitrary extra fields for its own structured debug output. CAPH
-passes the whole JSON through untouched:
-
-```json
-{
-  "status": "Succeeded",
-  "phases": {
-    "Preparation": {
-      "status": "Succeeded",
-      "duration": "45.2s",
-      "steps": [
-        {"name": "VerifyTools",       "status": "Succeeded", "duration": "0.3s", "percentOfTimeout": 1},
-        {"name": "CheckDeviceExists", "status": "Succeeded", "duration": "0.1s", "percentOfTimeout": 0}
-      ]
-    },
-    "ImageDeployment": {
-      "status": "Succeeded",
-      "duration": "62.1s",
-      "steps": [
-        {"name": "PullImage",  "status": "Succeeded", "duration": "58.4s", "percentOfTimeout": 14},
-        {"name": "WriteImage", "status": "Succeeded", "duration": "3.5s",  "percentOfTimeout": 1}
-      ]
-    }
-  }
-}
-```
 
 ## Measured durations for hcloud
 
