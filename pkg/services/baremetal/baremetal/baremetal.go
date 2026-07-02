@@ -983,7 +983,7 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 			continue
 		}
 		address := clusterv1beta1.MachineAddress{
-			Type:    clusterv1beta1.MachineInternalIP,
+			Type:    machineAddressType(nic.IP),
 			Address: nic.IP,
 		}
 		addrs = append(addrs, address)
@@ -1003,6 +1003,17 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 	)
 
 	return addrs
+}
+
+// machineAddressType classifies a bare metal NIC address as external (public,
+// routable) or internal (private, e.g. RFC1918/ULA), mirroring the
+// distinction made for hcloud servers in pkg/services/hcloud/server/server.go.
+func machineAddressType(address string) clusterv1beta1.MachineAddressType {
+	ip := net.ParseIP(address)
+	if ip == nil || ip.IsPrivate() {
+		return clusterv1beta1.MachineInternalIP
+	}
+	return clusterv1beta1.MachineExternalIP
 }
 
 // consumerRefMatches returns a boolean based on whether the consumer reference and bare metal machine metadata match.

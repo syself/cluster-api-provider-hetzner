@@ -374,7 +374,11 @@ var _ = Describe("Test NodeAddresses", func() {
 	}
 
 	nic2 := infrav1.NIC{
-		IP: "172.0.20.2",
+		IP: "172.16.20.2",
+	}
+
+	nic3 := infrav1.NIC{
+		IP: "203.0.113.5",
 	}
 
 	addr1 := clusterv1beta1.MachineAddress{
@@ -384,7 +388,7 @@ var _ = Describe("Test NodeAddresses", func() {
 
 	addr2 := clusterv1beta1.MachineAddress{
 		Type:    clusterv1beta1.MachineInternalIP,
-		Address: "172.0.20.2",
+		Address: "172.16.20.2",
 	}
 
 	addr3 := clusterv1beta1.MachineAddress{
@@ -395,6 +399,11 @@ var _ = Describe("Test NodeAddresses", func() {
 	addr4 := clusterv1beta1.MachineAddress{
 		Type:    clusterv1beta1.MachineInternalDNS,
 		Address: "bm-machine",
+	}
+
+	addr5 := clusterv1beta1.MachineAddress{
+		Type:    clusterv1beta1.MachineExternalIP,
+		Address: "203.0.113.5",
 	}
 
 	type testCaseNodeAddress struct {
@@ -434,6 +443,18 @@ var _ = Describe("Test NodeAddresses", func() {
 				},
 			},
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr2, addr3, addr4},
+		}),
+		Entry("Public NIC IP is reported as ExternalIP", testCaseNodeAddress{
+			Host: &infrav1.HetznerBareMetalHost{
+				Spec: infrav1.HetznerBareMetalHostSpec{
+					Status: infrav1.ControllerGeneratedStatus{
+						HardwareDetails: &infrav1.HardwareDetails{
+							NIC: []infrav1.NIC{nic3},
+						},
+					},
+				},
+			},
+			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr5, addr3, addr4},
 		}),
 	)
 })
