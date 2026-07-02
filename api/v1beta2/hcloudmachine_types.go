@@ -70,7 +70,7 @@ type HCloudMachineSpec struct {
 	// the process is considered to have failed.
 	//
 	// A Kubernetes event will be created in both (success, failure) cases containing the output
-	// (stdout and stderr) of the script. If the script takes longer than 7 minutes, the
+	// (stdout and stderr) of the script. If the script takes longer than 20 minutes, the
 	// controller cancels the provisioning.
 	//
 	// Docs: https://syself.com/docs/caph/developers/image-url-command

@@ -92,7 +92,7 @@ considered to have failed.
 The controller uses url.ParseRequestURI (Go function) to validate the imageURL.
 
 A Kubernetes event will be created in both (success, failure) cases containing the output (stdout
-and stderr) of the script. If the script takes longer than 7 minutes, the controller cancels the
+and stderr) of the script. If the script takes longer than 20 minutes, the controller cancels the
 provisioning.
 
 We measured these durations for hcloud:
