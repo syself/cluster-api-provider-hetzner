@@ -1,0 +1,40 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 3.0.0
+    hooks:
+      - id: forbid-binary
+
+  - repo: local
+    hooks:
+      - id: make-generate
+        name: make generate
+        entry: make generate
+        language: system
+        pass_filenames: false
+        files: \.go$
+
+      - id: make-lint
+        name: make lint
+        entry: make lint
+        language: system
+        pass_filenames: false
+        files: \.go$
+
+      - id: make-test-unit-fast
+        name: make test-unit-fast
+        entry: make test-unit-fast
+        language: system
+        pass_filenames: false
+        files: \.go$

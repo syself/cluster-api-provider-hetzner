@@ -207,6 +207,9 @@ var (
 )
 
 func TestServer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping slow envtest-based server suite in -short mode")
+	}
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Server Suite")
 }

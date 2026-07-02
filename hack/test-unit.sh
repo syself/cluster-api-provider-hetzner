@@ -18,6 +18,26 @@
 trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
 set -Eeuo pipefail
 
+# TEST_SHORT=1 skips slow tests (envtest-based suites, the 10000-iteration fuzz
+# conversion test) that are marked with `if testing.Short() { t.Skip(...) }`.
+# Used by the pre-commit hook, which needs a fast feedback loop. None of the
+# remaining tests touch envtest, so we can skip resolving KUBEBUILDER_ASSETS
+# and run packages in parallel instead of the -p=1 the envtest suites need.
+mkdir -p .coverage
+mkdir -p tmp
+
+if [[ ${TEST_SHORT:-} == "1" ]]; then
+    hack/tools/bin/gotestsum \
+        --jsonfile=.reports/go-test-output.json \
+        --junitfile=.coverage/junit.xml \
+        --format testname -- \
+        -short -v -timeout 5m \
+        ./controllers/... ./pkg/... ./api/... |
+        tee tmp/test-unit-unfiltered.log |
+        ./hack/filter-caph-controller-manager-logs.py -
+    exit 0
+fi
+
 if [[ -n ${KUBEBUILDER_ASSETS:-} ]]; then
     echo "KUBEBUILDER_ASSETS=$KUBEBUILDER_ASSETS is set. Please do not do that -> This variable is managed by this script; unset it and re-run."
     echo "This env var gets set automatically"
@@ -45,10 +65,6 @@ if [[ ! -e $KUBEBUILDER_ASSETS ]]; then
 fi
 export KUBEBUILDER_ASSETS
 echo "using KUBEBUILDER_ASSETS=$KUBEBUILDER_ASSETS"
-
-mkdir -p .coverage
-
-mkdir -p tmp
 
 hack/tools/bin/gotestsum \
     --jsonfile=.reports/go-test-output.json \

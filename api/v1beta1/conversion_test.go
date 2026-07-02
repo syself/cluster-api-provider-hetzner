@@ -56,6 +56,9 @@ import (
 // Each sub test runs 10000 iterations per kind, so any field the converters drop, reorder, or
 // mistype will be caught here.
 func TestFuzzyConversion(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping slow 10000-iteration fuzz conversion test in -short mode")
+	}
 	scheme := runtime.NewScheme()
 	if err := AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add v1beta1 to scheme: %v", err)
