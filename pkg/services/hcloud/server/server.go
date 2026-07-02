@@ -966,8 +966,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	}
 
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
-	// Please keep the number (7) in sync with the docstring of ImageURL.
-	if durationOfState > 7*time.Minute {
+	// Please keep the number (20) in sync with the docstring of ImageURL.
+	if durationOfState > 20*time.Minute {
 		// timeout. Something has failed.
 		timeoutMsg := fmt.Sprintf("image URL command timed out, in this state since %s", durationOfState.Round(time.Second).String())
 
