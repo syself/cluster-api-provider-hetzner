@@ -128,8 +128,7 @@ give information from the node and to publish it as event. It's not about succes
 
 CAPH reads only the `message` field from this file to update the provisioning condition on the
 machine (HCloudMachine or HetznerBareMetalHost). The `message` field is forwarded verbatim into the
-condition message. It is read again and again to keep the condition in the Kubernetes object up to
-date.
+condition message. CAPH reads the file, and updates the condition (if needed) every ten seconds.
 
 ## Outcome summary
 
