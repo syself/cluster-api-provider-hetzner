@@ -448,6 +448,10 @@ test-unit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit and integration tests
 	echo  $(SETUP_ENVTEST) $(GOTESTSUM)
 	./hack/test-unit.sh
 
+.PHONY: test-unit-fast
+test-unit-fast: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit tests, skipping slow ones (for pre-commit)
+	TEST_SHORT=1 ./hack/test-unit.sh
+
 .PHONY: e2e-image
 e2e-image: ## Build the e2e manager image
 	./hack/ensure-env-variables.sh CAPH_CONTAINER_TAG

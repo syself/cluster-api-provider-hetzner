@@ -73,6 +73,9 @@ var (
 )
 
 func TestControllers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping slow envtest-based controller suite in -short mode")
+	}
 	secretErrorRetryDelay = 1 * time.Millisecond
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Controller Suite")
