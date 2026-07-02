@@ -39,6 +39,15 @@ const (
 
 	// BareMetalHostNamePrefix is a prefix for all hostNames of bare metal servers.
 	BareMetalHostNamePrefix = "bm-"
+
+	// UseExternalIPForBaremetalAnnotation on a HetznerBareMetalMachine controls how its NIC
+	// addresses are reported in Machine.Status.Addresses. If set to "true" (case-insensitive),
+	// the CIDR suffix is stripped from the NIC IP, and the address is classified as
+	// ExternalIP or InternalIP depending on whether it is a public or private IP. Set it to
+	// "false" (or leave it unset) for the old (invalid) behavior, where the NIC IP is reported
+	// verbatim (including any CIDR suffix) and always classified as InternalIP. Currently, the
+	// default (no annotation set) is the old behavior. We might switch the default in the future.
+	UseExternalIPForBaremetalAnnotation = "capi.syself.com/use-external-ip-for-baremetal"
 )
 
 var errUnknownSuffix = errors.New("unknown suffix")
