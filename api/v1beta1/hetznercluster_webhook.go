@@ -197,6 +197,13 @@ func (*hetznerClusterWebhook) ValidateUpdate(_ context.Context, oldC, r *Hetzner
 		)
 	}
 
+	if oldC.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && !r.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "controlPlaneLoadBalancer", "enableProxyProtocol"),
+				r.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol, "proxy protocol cannot be disabled once enabled"),
+		)
+	}
+
 	if err := r.validateHetznerSecretKey(); err != nil {
 		allErrs = append(allErrs, err)
 	}

@@ -1394,6 +1394,53 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		return reconcile.Result{}, nil
 	}
 
+	if v1beta1conditions.IsTrue(hm, infrav1.ServerAvailableCondition) {
+		// The status may be slightly outdated but that is acceptable as this check
+		// is only a safeguard against unexpected changes (e.g. a user manually removing a target).
+		// In the vast majority of reconciles there is nothing to do, so we skip the extra API call
+		// to fetch the live load-balancer targets.
+		for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
+			if target.Type == infrav1.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
+				return reconcile.Result{}, nil
+			}
+		}
+	} else {
+		clusterTagKey := s.scope.HetznerCluster.ClusterTagKey()
+		opts := hcloud.LoadBalancerListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: utils.LabelsToLabelSelector(map[string]string{
+					clusterTagKey: string(infrav1.ResourceLifecycleOwned),
+				}),
+			},
+		}
+
+		loadBalancers, err := s.scope.HCloudClient.ListLoadBalancers(ctx, opts)
+		if err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ListLoadBalancers")
+			return reconcile.Result{}, fmt.Errorf("failed to list load balancers: %w", err)
+		}
+
+		if len(loadBalancers) != 1 {
+			return reconcile.Result{}, fmt.Errorf("found %v loadbalancers in HCloud", len(loadBalancers))
+		}
+
+		lb := loadBalancers[0]
+
+		// This should never be the case: the label selector is cluster-scoped,
+		// so the only LB it can return is the one we own.
+		if lb.ID != s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID {
+			return reconcile.Result{}, fmt.Errorf("mismatch between the owned loadbalancer ID (%d) and the one specified in HetznerCluster.Status.ControlPlaneLoadBalancer.ID (%d)", lb.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+		}
+
+		for _, target := range lb.Targets {
+			if target.Type == hcloud.LoadBalancerTargetTypeServer &&
+				target.Server != nil && target.Server.Server != nil &&
+				target.Server.Server.ID == server.ID {
+				return reconcile.Result{}, nil
+			}
+		}
+	}
+
 	// if already attached do nothing
 	for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
 		if target.Type == infrav1.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
@@ -2063,8 +2110,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 				return nil, err
 			}
 
-			errMsg := fmt.Sprintf("failed to get server %d", serverID)
-			return nil, handleRateLimit(s.scope.HCloudMachine, err, "GetServer", errMsg)
+			return nil, fmt.Errorf("failed to get server %d: %w", serverID, err)
 		}
 
 		v1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)

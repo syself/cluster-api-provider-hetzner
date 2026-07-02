@@ -101,6 +101,23 @@ spec:
                       It could be round_robin or least_connection. The default value
                       is "round_robin".
                     type: string
+                  enableProxyProtocol:
+                    description: |-
+                      EnableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
+                      Only the kube-apiserver service is affected; extra services are never given proxy protocol.
+
+                      For new clusters the LB service is created with proxy protocol enabled immediately — no
+                      annotation check is performed because there are no existing backends that could receive
+                      unexpected PROXY-protocol headers.
+
+                      For existing clusters that want to enable proxy protocol after the fact, CAPH waits until
+                      every control-plane node carries the annotation
+                      capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" (set by an external
+                      service, never by CAPH) before recreating the LB service with proxy protocol. This prevents
+                      nodes still expecting plain TCP from receiving malformed PROXY-protocol headers.
+
+                      Enabling proxy protocol is a one-way operation — it is never turned back off.
+                    type: boolean
                   enabled:
                     default: true
                     description: Enabled specifies if a load balancer should be created.

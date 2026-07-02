@@ -1431,6 +1431,61 @@ var _ = Describe("Reconcile", func() {
 		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
 	})
 
+	It("keeps a ready machine in Ready state when GetServer returns a rate-limit error", func() {
+		// The reconcilement for a provisioned HCloudMachine with ready state should be a no-op
+		// when it encounters a rate-limit error.
+		By("setting the bootstrap data")
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		By("setting the ProviderID on the HCloudMachine and marking it as fully provisioned")
+		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://1234567")
+		err = testEnv.Update(ctx, service.scope.HCloudMachine)
+		Expect(err).To(BeNil())
+		service.scope.HCloudMachine.Status.Ready = true
+		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateOperatingSystemRunning
+		// Setting HCloudTokenAvailableV1Beta2Condition here so the summary condition can be computed.
+		v1beta2conditions.Set(service.scope.HCloudMachine, metav1.Condition{
+			Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
+		})
+
+		By("making GetServer return a rate-limit error")
+		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(nil, hcloud.Error{
+			Code:    hcloud.ErrorCodeRateLimitExceeded,
+			Message: "rate limit exceeded for ip 48.49.48.49",
+		}).Once()
+
+		By("calling reconcile")
+		_, err = service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("ensuring the machine remains Ready with its BootState intact")
+		Expect(service.scope.HCloudMachine.Status.Ready).To(BeTrue())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
+
+		By("ensuring the summary conditions are True, meaning no error condition was set")
+		// The summary condition is actually set by scope.Close() function which the controller
+		// calls after service.Reconcile() returns. In tests we call service.Reconcile() directly,
+		// so scope.Close() never runs and the summary is never computed. That's why we call the set summary
+		// functions manually.
+		v1beta1conditions.SetSummary(service.scope.HCloudMachine)
+		Expect(v1beta1conditions.IsTrue(service.scope.HCloudMachine, clusterv1beta1.ReadyCondition)).To(BeTrue())
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, clusterv1beta1.ReadyV1Beta2Condition, metav1.ConditionTrue, clusterv1beta1.ReadyV1Beta2Reason)).To(BeTrue())
+	})
+
 	It("does not create a server when the image-url-command is not available on disk", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
@@ -1510,6 +1565,20 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 		// handleOperatingSystemRunning, that condition would be overwritten to True.
 		// Ready must still flip to true so CAPI can propagate ProviderID and
 		// downstream controllers can observe the apiserver pod health.
+
+		// ServerAvailableCondition is not True yet, so reconcileLoadBalancerAttachment
+		// fetches live LB state. Seed the fake client with an LB so ListLoadBalancers
+		// returns it. The LB has no target for this server, so the health gate fires.
+		algo := hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeRoundRobin}
+		_, err := service.scope.HCloudClient.CreateLoadBalancer(context.Background(), hcloud.LoadBalancerCreateOpts{
+			Name:      "test-lb",
+			Algorithm: &algo,
+			Labels: map[string]string{
+				service.scope.HetznerCluster.ClusterTagKey(): string(infrav1.ResourceLifecycleOwned),
+			},
+		})
+		Expect(err).To(BeNil())
+
 		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
 			ID: 1,
 			Target: []infrav1.LoadBalancerTarget{
@@ -1536,6 +1605,29 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 
 		Expect(hcloudMachine.Status.Ready).To(BeTrue())
 		Expect(v1beta1conditions.IsTrue(hcloudMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+	})
+
+	It("does not call ListLoadBalancers when ServerAvailableCondition is already True", func() {
+		// Replace the fake client with a mock so we can assert the call is never made.
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service.scope.HCloudClient = hcloudClient
+
+		v1beta1conditions.MarkTrue(hcloudMachine, infrav1.ServerAvailableCondition)
+
+		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
+			ID: 1,
+			Target: []infrav1.LoadBalancerTarget{
+				{Type: infrav1.LoadBalancerTargetTypeServer, ServerID: server.ID},
+			},
+		}
+
+		res, err := service.handleOperatingSystemRunning(context.Background(), server)
+		Expect(err).To(Succeed())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(hcloudMachine.Status.Ready).To(BeTrue())
+		Expect(v1beta1conditions.IsTrue(hcloudMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "ListLoadBalancers", mock.Anything, mock.Anything)).To(BeTrue())
 	})
 })
 

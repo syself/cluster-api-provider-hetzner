@@ -31,17 +31,21 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/annotations"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -224,15 +228,16 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has no
 	// DeletionTimestamp set. But the hbmm could be in Deprovisioning.
 
+	if bmHost.Spec.Status.HetznerClusterRef == "" {
+		log.Info("bmHost.Spec.Status.HetznerClusterRef is empty. Looks like a stale cache read")
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
 	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
 		Namespace: bmHost.Namespace,
 		Name:      bmHost.Spec.Status.HetznerClusterRef,
-	}
-	if bmHost.Spec.Status.HetznerClusterRef == "" {
-		log.Info("bmHost.Spec.Status.HetznerClusterRef is empty. Looks like a stale cache read")
-		return reconcile.Result{Requeue: true}, nil
 	}
 	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
@@ -247,6 +252,11 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
+
+	if annotations.IsPaused(cluster, bmHost) {
+		log.Info("HetznerBareMetalHost or linked Cluster is marked as paused. Won't reconcile")
+		return reconcile.Result{}, nil
+	}
 
 	hetznerBareMetalMachine := &infrav1.HetznerBareMetalMachine{}
 
@@ -520,10 +530,17 @@ func hetznerSecretErrorResult(
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	log := ctrl.LoggerFrom(ctx)
+
+	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r, &infrav1.HetznerBareMetalHostList{}, mgr.GetScheme())
+	if err != nil {
+		return fmt.Errorf("failed to create mapper for Cluster to HetznerBareMetalHosts: %w", err)
+	}
+
+	err = ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HetznerBareMetalHost{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
 		WithEventFilter(
 			predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
@@ -564,7 +581,17 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 				},
 			}).
 		Owns(&corev1.Secret{}).
+		Watches(
+			&clusterv1.Cluster{},
+			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
+			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(mgr.GetScheme(), log)),
+		).
 		Complete(r)
+	if err != nil {
+		return fmt.Errorf("error creating controller: %w", err)
+	}
+
+	return nil
 }
 
 func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost,
