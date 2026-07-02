@@ -939,12 +939,12 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 
 	v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 		"HCloudImageURLCommandRunning", clusterv1beta1.ConditionSeverityInfo,
-		"imageURLCommand running")
+		"custom provisioner running")
 	v1beta2conditions.Set(hm, metav1.Condition{
 		Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 		Status:  metav1.ConditionFalse,
 		Reason:  infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason,
-		Message: "imageURLCommand running",
+		Message: "custom provisioner running",
 	})
 	hm.SetBootState(infrav1.HCloudBootStateRunningImageCommand)
 	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
@@ -1031,7 +1031,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		// has terminated.
 		msg := output.Message
 		if msg == "" {
-			msg = "imageURLCommand running"
+			msg = "custom provisioner running"
 		}
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 			"HCloudImageURLCommandRunning", clusterv1beta1.ConditionSeverityInfo, "%s", msg)

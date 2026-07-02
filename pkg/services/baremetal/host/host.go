@@ -1351,7 +1351,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		// has terminated.
 		msg := output.Message
 		if msg == "" {
-			msg = "imageURLCommand running"
+			msg = "custom provisioner running"
 		}
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			infrav1.HetznerBareMetalHostProvisioningV1Beta2Reason, clusterv1beta1.ConditionSeverityInfo, "%s", msg)
