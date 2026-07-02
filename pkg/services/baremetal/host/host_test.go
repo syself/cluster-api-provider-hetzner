@@ -325,15 +325,14 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(c.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
 	})
 
-	It("times out after 20 minutes", func() {
+	It("times out after 7 minutes", func() {
 		host := newBaseHost()
-		sevenPlus := metav1.NewTime(time.Now().Add(-21 * time.Minute))
+		sevenPlus := metav1.NewTime(time.Now().Add(-8 * time.Minute))
 		host.Spec.Status.RebootTriggeredAt = &sevenPlus
 
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateRunning, "", nil)
-		sshMock.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
