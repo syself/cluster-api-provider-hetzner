@@ -1347,7 +1347,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			return actionContinue{delay: 10 * time.Second}
 		}
 
-		// imageURLCommand is still running. CAPH wait until the Linux process in the rescue system
+		// imageURLCommand is still running. CAPH waits until the Linux process in the rescue system
 		// has terminated.
 		msg := output.Message
 		if msg == "" {

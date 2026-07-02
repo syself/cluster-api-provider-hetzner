@@ -1027,7 +1027,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
-		// imageURLCommand is still running. CAPH wait until the Linux process in the rescue system
+		// imageURLCommand is still running. CAPH waits until the Linux process in the rescue system
 		// has terminated.
 		msg := output.Message
 		if msg == "" {
