@@ -872,7 +872,11 @@ func (s *Service) setReferencesOnHost(host *infrav1.HetznerBareMetalHost) {
 }
 
 func (s *Service) updateMachineAddresses(host *infrav1.HetznerBareMetalHost) {
-	addrs := nodeAddresses(host, s.scope.Name())
+	useExternalIP := strings.EqualFold(
+		strings.TrimSpace(s.scope.BareMetalMachine.Annotations[infrav1.UseExternalIPForBaremetalAnnotation]),
+		"true",
+	)
+	addrs := nodeAddresses(host, s.scope.Name(), useExternalIP)
 
 	bareMetalMachineOld := s.scope.BareMetalMachine.DeepCopy()
 
@@ -970,7 +974,13 @@ func ensureClusterLabel(host *infrav1.HetznerBareMetalHost, clusterName string) 
 }
 
 // nodeAddresses returns a slice of clusterv1beta1.MachineAddress objects for a given host.
-func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string) []clusterv1beta1.MachineAddress {
+//
+// If useExternalIP is false, NIC IPs are reported verbatim (including any CIDR suffix from
+// `ip addr show`) and always classified as InternalIP, matching the historical behavior.
+// If useExternalIP is true (opted in via infrav1.UseExternalIPForBaremetalAnnotation on the
+// HetznerBareMetalMachine), the CIDR suffix is stripped and each address is classified as
+// ExternalIP or InternalIP depending on whether it is a public or private IP.
+func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string, useExternalIP bool) []clusterv1beta1.MachineAddress {
 	// if there are no hw details, return
 	if host.Spec.Status.HardwareDetails == nil {
 		return nil
@@ -982,11 +992,22 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 		if nic.IP == "" {
 			continue
 		}
-		address := clusterv1beta1.MachineAddress{
-			Type:    machineAddressType(nic.IP),
-			Address: nic.IP,
+
+		if !useExternalIP {
+			addrs = append(addrs, clusterv1beta1.MachineAddress{
+				Type:    clusterv1beta1.MachineInternalIP,
+				Address: nic.IP,
+			})
+			continue
 		}
-		addrs = append(addrs, address)
+
+		// `ip addr show` reports addresses in CIDR notation (e.g. "10.0.0.5/26").
+		// Machine.status.addresses is documented to hold a bare IP address, so drop the prefix length.
+		ip, _, _ := strings.Cut(nic.IP, "/")
+		addrs = append(addrs, clusterv1beta1.MachineAddress{
+			Type:    machineAddressType(ip),
+			Address: ip,
+		})
 	}
 
 	// Add hostname == bareMetalMachineName as well

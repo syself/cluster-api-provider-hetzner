@@ -66,7 +66,15 @@ You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overvie
 ### capi.syself.com/use-hrobot-provider-id-for-baremetal
 
 | **Resource**    | [HetznerCluster](/docs/caph/03-reference/02-hetzner-cluster.md)                                                                                                                  |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Description** | When set to `"true"`, then the ProviderID format `hrobot://NNNN` will be used. If not set or empty `hcloud://bm-NNNN` will be used.                                              |
 | **Value**       | `"true"` enables this feature.                                                                                                                                                   |
 | **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                                                                                |
+
+### capi.syself.com/use-external-ip-for-baremetal
+
+| **Resource**    | HetznerBareMetalMachine                                                                                                                                                                                                                                                                                                                 |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Description** | When set to `"true"`, the CIDR suffix (e.g. `/26`) is stripped from the bare-metal machine's NIC IP, and the address is reported as `ExternalIP` (public IP) or `InternalIP` (private IP) in `Machine.status.addresses`. If not set, the NIC IP is reported verbatim (including any CIDR suffix) and always classified as `InternalIP`. |
+| **Value**       | `"true"` enables this feature. All other strings are considered `"false"`.                                                                                                                                                                                                                                                              |
+| **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                                                                                                                                                                                                                                       |

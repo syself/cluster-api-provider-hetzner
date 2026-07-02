@@ -374,11 +374,11 @@ var _ = Describe("Test NodeAddresses", func() {
 	}
 
 	nic2 := infrav1.NIC{
-		IP: "172.16.20.2",
+		IP: "172.0.20.2",
 	}
 
 	nic3 := infrav1.NIC{
-		IP: "203.0.113.5",
+		IP: "203.0.113.5/26",
 	}
 
 	addr1 := clusterv1beta1.MachineAddress{
@@ -388,7 +388,7 @@ var _ = Describe("Test NodeAddresses", func() {
 
 	addr2 := clusterv1beta1.MachineAddress{
 		Type:    clusterv1beta1.MachineInternalIP,
-		Address: "172.16.20.2",
+		Address: "172.0.20.2",
 	}
 
 	addr3 := clusterv1beta1.MachineAddress{
@@ -406,16 +406,22 @@ var _ = Describe("Test NodeAddresses", func() {
 		Address: "203.0.113.5",
 	}
 
+	addr6 := clusterv1beta1.MachineAddress{
+		Type:    clusterv1beta1.MachineInternalIP,
+		Address: "203.0.113.5/26",
+	}
+
 	type testCaseNodeAddress struct {
 		Machine               clusterv1.Machine
 		BareMetalMachine      infrav1.HetznerBareMetalMachine
 		Host                  *infrav1.HetznerBareMetalHost
+		UseExternalIP         bool
 		ExpectedNodeAddresses []clusterv1beta1.MachineAddress
 	}
 
 	DescribeTable("Test NodeAddress",
 		func(tc testCaseNodeAddress) {
-			nodeAddresses := nodeAddresses(tc.Host, "bm-machine")
+			nodeAddresses := nodeAddresses(tc.Host, "bm-machine", tc.UseExternalIP)
 			for i, address := range tc.ExpectedNodeAddresses {
 				Expect(nodeAddresses[i]).To(Equal(address))
 			}
@@ -444,7 +450,7 @@ var _ = Describe("Test NodeAddresses", func() {
 			},
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr2, addr3, addr4},
 		}),
-		Entry("Public NIC IP is reported as ExternalIP", testCaseNodeAddress{
+		Entry("useExternalIP=false keeps CIDR suffix and always reports InternalIP", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
 				Spec: infrav1.HetznerBareMetalHostSpec{
 					Status: infrav1.ControllerGeneratedStatus{
@@ -454,7 +460,34 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
+			UseExternalIP:         false,
+			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr6, addr3, addr4},
+		}),
+		Entry("useExternalIP=true strips CIDR suffix and reports public IP as ExternalIP", testCaseNodeAddress{
+			Host: &infrav1.HetznerBareMetalHost{
+				Spec: infrav1.HetznerBareMetalHostSpec{
+					Status: infrav1.ControllerGeneratedStatus{
+						HardwareDetails: &infrav1.HardwareDetails{
+							NIC: []infrav1.NIC{nic3},
+						},
+					},
+				},
+			},
+			UseExternalIP:         true,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr5, addr3, addr4},
+		}),
+		Entry("useExternalIP=true keeps private IP as InternalIP", testCaseNodeAddress{
+			Host: &infrav1.HetznerBareMetalHost{
+				Spec: infrav1.HetznerBareMetalHostSpec{
+					Status: infrav1.ControllerGeneratedStatus{
+						HardwareDetails: &infrav1.HardwareDetails{
+							NIC: []infrav1.NIC{nic1},
+						},
+					},
+				},
+			},
+			UseExternalIP:         true,
+			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr3, addr4},
 		}),
 	)
 })

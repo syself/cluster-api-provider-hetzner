@@ -966,15 +966,11 @@ func obtainHardwareDetailsNics(ctx context.Context, sshClient sshclient.Client) 
 			return nil, fmt.Errorf("failed to parse int from string %s: %w", nic.SpeedMbps, err)
 		}
 
-		// `ip addr show` reports addresses in CIDR notation (e.g. "10.0.0.5/26").
-		// infrav1.NIC.IP is documented to hold a bare IP address, so drop the prefix length.
-		ip, _, _ := strings.Cut(nic.IP, "/")
-
 		nicsArray = append(nicsArray, infrav1.NIC{
 			Name:      nic.Name,
 			Model:     nic.Model,
 			MAC:       nic.MAC,
-			IP:        ip,
+			IP:        nic.IP,
 			SpeedMbps: speedMbps,
 		})
 
