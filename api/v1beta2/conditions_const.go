@@ -501,8 +501,6 @@ const (
 )
 
 const (
-	// HCloudMachineServerAvailableCondition reports on whether the HCloud server is available.
-	HCloudMachineServerAvailableCondition = "ServerAvailable"
 	// HCloudMachineServerAvailableReason surfaces when the HCloud server is available.
 	HCloudMachineServerAvailableReason = clusterv1.AvailableReason
 	// HCloudMachineServerNotFoundReason surfaces when the HCloud server cannot be found.

@@ -58,6 +58,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -1080,12 +1081,32 @@ func (r *HetznerClusterReconciler) hcloudMachineToHetznerCluster(ctx context.Con
 	}}
 }
 
-// controlPlaneMachineToHetznerClusterPredicate returns a predicate that fires only when:
-//   - a machine is deleted (so the HetznerCluster can update its LB target status), or
+// controlPlaneMachineToHetznerClusterPredicate returns a predicate that fires only for control plane
+// machines, and only when:
+//   - the machine is deleted (so the HetznerCluster can update its LB target status), or
 //   - ServerAvailableCondition transitions to True.
+//
+// CAPI propagates the owning Machine's labels (including clusterv1.MachineControlPlaneLabel) onto the
+// HCloudMachine/HetznerBareMetalMachine object at creation time, so the role can be read directly off the
+// watched object without an extra Get of the owning Machine — the same way clusterv1.ClusterNameLabel is
+// already read directly off these objects elsewhere in this file.
+//
+// The condition type is read via the v1beta1 constants (infrav1) rather than a v1beta2 (infrav2) one:
+// server.go and baremetal.go still set the condition through the v1beta1-typed scope, so infrav1 is the
+// actual source of truth today. Reading the same constant that's written keeps the two in sync by
+// construction, instead of relying on a separate v1beta2 constant that happens to hold the same string.
 func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
+	isControlPlaneMachine := func(o client.Object) bool {
+		_, ok := o.GetLabels()[clusterv1.MachineControlPlaneLabel]
+		return ok
+	}
+
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
+			if !isControlPlaneMachine(e.ObjectNew) {
+				return false
+			}
+
 			oldGetter, ok := e.ObjectOld.(conditions.Getter)
 			if !ok {
 				return false
@@ -1094,12 +1115,18 @@ func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 			if !ok {
 				return false
 			}
-			wasTrue := conditions.IsTrue(oldGetter, infrav2.HCloudMachineServerAvailableCondition)
-			isTrue := conditions.IsTrue(newGetter, infrav2.HCloudMachineServerAvailableCondition)
+
+			conditionType := string(infrav1.HCloudMachineServerAvailableV1Beta2Condition)
+			if _, ok := e.ObjectNew.(*infrav2.HetznerBareMetalMachine); ok {
+				conditionType = string(infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition)
+			}
+
+			wasTrue := conditions.IsTrue(oldGetter, conditionType)
+			isTrue := conditions.IsTrue(newGetter, conditionType)
 			return !wasTrue && isTrue
 		},
 		CreateFunc:  func(_ event.CreateEvent) bool { return false },
-		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return isControlPlaneMachine(e.Object) },
 		GenericFunc: func(_ event.GenericEvent) bool { return false },
 	}
 }
