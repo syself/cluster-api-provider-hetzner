@@ -123,8 +123,8 @@ provisioning.
 
 ## output.json (optional)
 
-The command may write `/root/output.json` at any point during execution. If the file does not
-exist, provisioning still succeeds based on `IMAGE_URL_DONE` alone.
+The command may write `/root/output.json` at any point during execution. The file is an option to
+give information from the node and to publish it as event. It's not about success or not.
 
 CAPH reads only the `message` field from this file to update the provisioning condition on the
 machine (HCloudMachine or HetznerBareMetalHost). The `message` field is forwarded verbatim into the
