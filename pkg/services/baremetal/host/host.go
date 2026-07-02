@@ -48,6 +48,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/imageurlcommand"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -1329,11 +1330,51 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			s.scope.Error(err, "failed to read output.json")
+			return actionContinue{delay: 10 * time.Second}
+		}
+		if outputJSON == "" {
+			// imageURLCommand is still running. Either output.json was not created yet, or
+			// the command does not create it at all.
+			return actionContinue{delay: 10 * time.Second}
+		}
+
+		output, err := imageurlcommand.Parse(outputJSON)
+		if err != nil {
+			s.scope.Error(err, "failed to parse image URL command output")
+			return actionContinue{delay: 10 * time.Second}
+		}
+
+		// imageURLCommand is still running. CAPH waits until the Linux process in the rescue system
+		// has terminated.
+		msg := output.Message
+		if msg == "" {
+			msg = "custom provisioner running"
+		}
+		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
+			infrav1.HetznerBareMetalHostProvisioningV1Beta2Reason, clusterv1beta1.ConditionSeverityInfo, "%s", msg)
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostProvisioningV1Beta2Reason,
+			Message: msg,
+		})
 		return actionContinue{delay: 10 * time.Second}
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
-		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
-		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
+		// IMAGE_URL_DONE was found in the stdout.
+		s.scope.Info("CustomProvisionerOutput", "logFile", logFile)
+		record.Event(s.scope.HetznerBareMetalHost, "CustomProvisionerOutput", logFile)
+
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			s.scope.Error(err, "failed to read output.json")
+			return actionContinue{delay: 10 * time.Second}
+		}
+		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
+		s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
 
 		// Update name in robot API
 		if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
@@ -1360,8 +1401,27 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 	case sshclient.ImageURLCommandStateFailed:
 		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", logFile)
+		s.scope.Error(nil, "image-url-command failed", "logFile", logFile)
+
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			s.scope.Error(err, "failed to read output.json")
+			return actionContinue{delay: 10 * time.Second}
+		}
+
 		msg := "image-url-command failed"
-		s.scope.Error(nil, msg, "logFile", logFile)
+		if outputJSON != "" {
+			output, err := imageurlcommand.Parse(outputJSON)
+			if err != nil {
+				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
+				return actionError{err: fmt.Errorf("failed to parse: %w", err)}
+			}
+			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
+			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+			if output.Message != "" {
+				msg = output.Message
+			}
+		}
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
