@@ -942,13 +942,13 @@ func (c *sshClient) getImageURLCommandOutput(ctx context.Context) (string, error
 func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 	client, err := c.getSSHClient(ctx)
 	if err != nil {
-		return "", fmt.Errorf("ReadOutputJSON: %w", err)
+		return "", fmt.Errorf("failed to get ssh client: %w", err)
 	}
 	defer client.Close()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
-		return "", fmt.Errorf("ReadOutputJSON: NewClientBySSH: %w", err)
+		return "", fmt.Errorf("failed to create scp client: %w", err)
 	}
 	defer scpClient.Close()
 
@@ -956,7 +956,7 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 		out := c.runSSH(ctx, "test -f "+outputJSONPath)
 		exitStatus, err := out.ExitStatus()
 		if err != nil {
-			return "", fmt.Errorf("ReadOutputJSON: test -f: %w", err)
+			return "", fmt.Errorf("failed to test if output.json exists: %w", err)
 		}
 		if exitStatus != 0 {
 			return "", nil // file does not exist
@@ -964,7 +964,7 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 
 		var buf bytes.Buffer
 		if err := scpClient.CopyFromRemotePassThru(ctx, &buf, outputJSONPath, nil); err != nil {
-			return "", fmt.Errorf("reading output.json: %w", err)
+			return "", fmt.Errorf("failed to copy output.json from rescue system to caph: %w", err)
 		}
 
 		content := strings.TrimSpace(buf.String())
