@@ -1365,8 +1365,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		// IMAGE_URL_DONE was found in the stdout.
-		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
-		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
+		s.scope.Info("CustomProvisionerOutput", "logFile", logFile)
+		record.Event(s.scope.HetznerBareMetalHost, "CustomProvisionerOutput", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {

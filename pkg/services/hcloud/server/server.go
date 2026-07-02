@@ -1045,8 +1045,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		// IMAGE_URL_DONE was found in the stdout.
-		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
-		record.Event(hm, "ImageURLCommandOutput", logFile)
+		s.scope.Info("CustomProvisionerOutput", "logFile", logFile)
+		record.Event(hm, "CustomProvisionerOutput", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
