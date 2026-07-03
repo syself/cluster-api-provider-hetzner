@@ -431,6 +431,10 @@ const (
 	HCloudMachineBootingToRealOSV1Beta2Reason = "BootingToRealOS"
 	// HCloudMachineBootingToRealOSTimedOutV1Beta2Reason indicates booting to the real OS timed out.
 	HCloudMachineBootingToRealOSTimedOutV1Beta2Reason = "BootingToRealOSTimedOut"
+	// HCloudMachineCustomProvisionerRunningV1Beta2Reason indicates the custom provisioner is running.
+	HCloudMachineCustomProvisionerRunningV1Beta2Reason = "CustomProvisionerRunning"
+	// HCloudMachineCustomProvisionerFailedV1Beta2Reason indicates the custom provisioner failed.
+	HCloudMachineCustomProvisionerFailedV1Beta2Reason = "CustomProvisionerFailed"
 
 	// HCloudMachineGettingServerImageFailedV1Beta2Reason indicates getting the server image failed.
 	HCloudMachineGettingServerImageFailedV1Beta2Reason = "GettingServerImageFailed"
