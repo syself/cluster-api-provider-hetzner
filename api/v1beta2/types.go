@@ -342,11 +342,11 @@ const (
 	HCloudBootStateEnablingRescue HCloudBootState = "EnablingRescue"
 
 	// HCloudBootStateBootingToRescue indicates that the controller
-	// waits for the rescue system to be reachable. Then it starts the image-url-command.
+	// waits for the rescue system to be reachable. Then it starts the custom provisioner.
 	HCloudBootStateBootingToRescue HCloudBootState = "BootingToRescue"
 
 	// HCloudBootStateRunningImageCommand indicates the controller waits for the
-	// image-url-command, and then switches BootState to BootingToRealOS (no additional reboot gets
+	// custom provisioner, and then switches BootState to BootingToRealOS (no additional reboot gets
 	// done).
 	HCloudBootStateRunningImageCommand HCloudBootState = "RunningImageCommand"
 

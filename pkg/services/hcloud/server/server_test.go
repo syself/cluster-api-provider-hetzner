@@ -1550,8 +1550,8 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 		Expect(res).To(Equal(reconcile.Result{}))
 
-		By("ensuring the ImageURLCommandNotAccessible condition is set")
-		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition, "ImageURLCommandNotAccessible")).To(BeTrue())
+		By("ensuring the CustomProvisionerNotAccessible condition is set")
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition, "CustomProvisionerNotAccessible")).To(BeTrue())
 
 		By("ensuring no hcloud API calls were made to create a server")
 		hcloudClient.AssertNotCalled(GinkgoT(), "CreateServer", mock.Anything, mock.Anything)

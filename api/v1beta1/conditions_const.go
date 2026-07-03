@@ -415,18 +415,18 @@ const (
 	// HCloudMachineWaitForRescueEnabledToBeFalseV1Beta2Reason indicates waiting for rescue enabled to become false.
 	HCloudMachineWaitForRescueEnabledToBeFalseV1Beta2Reason = "WaitingForRescueEnabledToBeFalse"
 
-	// HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason indicates the image URL command is not accessible.
-	HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason = "ImageURLCommandNotAccessible"
-	// HCloudMachineStartImageURLCommandFailedV1Beta2Reason indicates starting the image URL command failed.
-	HCloudMachineStartImageURLCommandFailedV1Beta2Reason = "StartImageURLCommandFailed"
-	// HCloudMachineStartImageURLCommandNonZeroExitCodeV1Beta2Reason indicates the image URL command returned a non-zero exit code.
-	HCloudMachineStartImageURLCommandNonZeroExitCodeV1Beta2Reason = "StartImageURLCommandNonZeroExitCode"
-	// HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason indicates the image URL command is running.
-	HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason = "HCloudImageURLCommandRunning"
-	// HCloudMachineRunningImageURLCommandTimedOutV1Beta2Reason indicates the running image command timed out.
-	HCloudMachineRunningImageURLCommandTimedOutV1Beta2Reason = "RunningImageURLCommandTimedOut"
-	// HCloudMachineImageURLCommandFailedV1Beta2Reason indicates the image command failed.
-	HCloudMachineImageURLCommandFailedV1Beta2Reason = "ImageURLCommandFailed"
+	// HCloudMachineCustomProvisionerNotAccessibleV1Beta2Reason indicates the custom provisioner is not accessible.
+	HCloudMachineCustomProvisionerNotAccessibleV1Beta2Reason = "CustomProvisionerNotAccessible"
+	// HCloudMachineStartCustomProvisionerFailedV1Beta2Reason indicates starting the custom provisioner failed.
+	HCloudMachineStartCustomProvisionerFailedV1Beta2Reason = "StartCustomProvisionerFailed"
+	// HCloudMachineStartCustomProvisionerNonZeroExitCodeV1Beta2Reason indicates the custom provisioner returned a non-zero exit code.
+	HCloudMachineStartCustomProvisionerNonZeroExitCodeV1Beta2Reason = "StartCustomProvisionerNonZeroExitCode"
+	// HCloudMachineHCloudCustomProvisionerRunningV1Beta2Reason indicates the custom provisioner is running.
+	HCloudMachineHCloudCustomProvisionerRunningV1Beta2Reason = "HCloudCustomProvisionerRunning"
+	// HCloudMachineRunningCustomProvisionerTimedOutV1Beta2Reason indicates the running custom provisioner timed out.
+	HCloudMachineRunningCustomProvisionerTimedOutV1Beta2Reason = "RunningCustomProvisionerTimedOut"
+	// HCloudMachineCustomProvisionerFailedV1Beta2Reason indicates the custom provisioner failed.
+	HCloudMachineCustomProvisionerFailedV1Beta2Reason = "CustomProvisionerFailed"
 	// HCloudMachineBootingToRealOSV1Beta2Reason indicates the server is booting to the real OS.
 	HCloudMachineBootingToRealOSV1Beta2Reason = "BootingToRealOS"
 	// HCloudMachineBootingToRealOSTimedOutV1Beta2Reason indicates booting to the real OS timed out.

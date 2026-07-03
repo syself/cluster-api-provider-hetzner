@@ -184,10 +184,10 @@ type InstallImage struct {
 	// provisions a machine from Image.URL. CAPH copies that command into the rescue system and
 	// executes it there.
 	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	// Docs: https://syself.com/docs/caph/developers/custom-provisioner
 	//
 	// ImageURLCommand must be set if the machine should be provisioned from Image.URL without
-	// installimage. The command name must start with image-url-command-.
+	// installimage.
 	// +kubebuilder:validation:Optional
 	// +optional
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`
@@ -231,7 +231,7 @@ type InstallImage struct {
 	SwraidLevel int `json:"swraidLevel,omitempty"`
 }
 
-// UsesImageURLCommand reports whether the machine should be provisioned via image-url-command.
+// UsesImageURLCommand reports whether the machine should be provisioned via a custom provisioner.
 func (installImage InstallImage) UsesImageURLCommand() bool {
 	return installImage.ImageURLCommand != ""
 }

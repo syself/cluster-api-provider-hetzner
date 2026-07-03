@@ -75,7 +75,7 @@ type HCloudMachineSpec struct {
 	// (stdout and stderr) of the script. If the script takes longer than 20 minutes, the
 	// controller cancels the provisioning.
 	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	// Docs: https://syself.com/docs/caph/developers/custom-provisioner
 	//
 	// ImageURL is mutually exclusive to "ImageName".
 	// +kubebuilder:validation:MinLength=1
@@ -87,7 +87,7 @@ type HCloudMachineSpec struct {
 	// provisions a machine from ImageURL. CAPH copies that command into the rescue system and
 	// executes it there.
 	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	// Docs: https://syself.com/docs/caph/developers/custom-provisioner
 	//
 	// ImageURLCommand must be set if ImageURL is set. ImageURLCommand must be empty if ImageURL is
 	// empty.

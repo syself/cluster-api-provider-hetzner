@@ -243,7 +243,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
 		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
 		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring(`imageURLCommand started`))
+		Expect(c.Message).To(ContainSubstring(`custom provisioner started`))
 	})
 
 	It("passes WWN to StartImageURLCommand when DeviceStringType is wwn", func() {
@@ -273,7 +273,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
 		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"eui.0025388801b4dff2"})).To(BeTrue())
 		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring(`imageURLCommand started`))
+		Expect(c.Message).To(ContainSubstring(`custom provisioner started`))
 	})
 
 	It("returns error when DeviceStringType is wwn but no WWN is configured in rootDeviceHints", func() {
@@ -322,7 +322,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
 		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
+		Expect(c.Message).To(ContainSubstring("Custom provisioner failed with non-zero exit status. Deleting machine"))
 	})
 
 	It("times out after 20 minutes", func() {
@@ -339,7 +339,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
 		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring("ImageURLCommand timed out"))
+		Expect(c.Message).To(ContainSubstring("Custom provisioner timed out"))
 	})
 })
 

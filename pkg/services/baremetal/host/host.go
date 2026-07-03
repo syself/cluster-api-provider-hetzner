@@ -1311,18 +1311,18 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 	// Please keep the number (20) in sync with the docstring of ImageURL.
 	if duration > 20*time.Minute {
 		// timeout. Something has failed.
-		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
+		msg := fmt.Sprintf("Custom provisioner timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
 		s.scope.Error(nil, msg, "logFile", logFile)
-		record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandTimedOut", logFile)
+		record.Warn(s.scope.HetznerBareMetalHost, "CustomProvisionerTimedOut", logFile)
 
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandTimedOut", clusterv1beta1.ConditionSeverityWarning,
+			"CustomProvisionerTimedOut", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(host, metav1.Condition{
 			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "ImageURLCommandTimedOut",
+			Reason:  "CustomProvisionerTimedOut",
 			Message: msg,
 		})
 		return s.recordActionFailure(infrav1.FatalError, msg)
@@ -1338,14 +1338,14 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		msg := "custom provisioner running"
 
 		if outputJSON == "" {
-			// imageURLCommand is still running. Either output.json was not created yet, or
+			// The custom provisioner is still running. Either output.json was not created yet, or
 			// the command does not create it at all.
 		} else {
-			// imageURLCommand is still running. The file output.json exists. Let's read the
+			// The custom provisioner is still running. The file output.json exists. Let's read the
 			// message.
 			output, err := imageurlcommand.Parse(outputJSON)
 			if err != nil {
-				s.scope.Error(err, "failed to parse image URL command output")
+				s.scope.Error(err, "failed to parse custom provisioner output")
 				return actionContinue{delay: 10 * time.Second}
 			}
 
@@ -1393,7 +1393,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
 
-		msg := "machine image and cloud-init data got installed (via image-url-command)"
+		msg := "machine image and cloud-init data got installed (via custom provisioner)"
 		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
 
 		// clear potential errors - all done
@@ -1424,12 +1424,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			}
 		}
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
+			"CustomProvisionerFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(host, metav1.Condition{
 			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "ImageURLCommandFailed",
+			Reason:  "CustomProvisionerFailed",
 			Message: msg,
 		})
 		return s.recordActionFailure(infrav1.FatalError, msg)
@@ -1444,16 +1444,16 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		if command == "" {
 			err = errors.New("internal error: spec.status.installImage.imageURLCommand is not set")
 			s.scope.Error(err, "")
-			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandMissing", err.Error())
+			record.Warn(s.scope.HetznerBareMetalHost, "CustomProvisionerMissing", err.Error())
 
 			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
-				"ImageURLCommandMissing",
+				"CustomProvisionerMissing",
 				clusterv1beta1.ConditionSeverityError,
 				"%s", err.Error())
 			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  "ImageURLCommandMissing",
+				Reason:  "CustomProvisionerMissing",
 				Message: err.Error(),
 			})
 			return actionStop{}
@@ -1463,16 +1463,16 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		if err != nil {
 			err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", command, err)
 			s.scope.Error(err, "")
-			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandNotAccessible", err.Error())
+			record.Warn(s.scope.HetznerBareMetalHost, "CustomProvisionerNotAccessible", err.Error())
 
 			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
-				"ImageURLCommandNotAccessible",
+				"CustomProvisionerNotAccessible",
 				clusterv1beta1.ConditionSeverityWarning,
 				"%s", err.Error())
 			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  "ImageURLCommandNotAccessible",
+				Reason:  "CustomProvisionerNotAccessible",
 				Message: err.Error(),
 			})
 			return actionStop{}
@@ -1507,51 +1507,51 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				"ImageURLCommand", command,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
-			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandFailedToStart", err.Error())
+			record.Warn(s.scope.HetznerBareMetalHost, "CustomProvisionerFailedToStart", err.Error())
 
 			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
-				"ImageURLCommandFailedToStart",
+				"CustomProvisionerFailedToStart",
 				clusterv1beta1.ConditionSeverityWarning,
 				"%s", err.Error())
 			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  "ImageURLCommandFailedToStart",
+				Reason:  "CustomProvisionerFailedToStart",
 				Message: err.Error(),
 			})
 			return actionError{err: err}
 		}
 
 		if exitStatus != 0 {
-			msg := "StartImageURLCommand failed with non-zero exit status. Deleting machine"
+			msg := "Custom provisioner failed with non-zero exit status. Deleting machine"
 			s.scope.Error(nil, msg,
 				"ImageURLCommand", command,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
-			record.Warn(s.scope.HetznerBareMetalHost, "StartImageURLCommandFailed", msg)
+			record.Warn(s.scope.HetznerBareMetalHost, "StartCustomProvisionerFailed", msg)
 
 			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
-				"StartImageURLCommandFailed",
+				"StartCustomProvisionerFailed",
 				clusterv1beta1.ConditionSeverityWarning,
 				"%s", msg)
 			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  "StartImageURLCommandFailed",
+				Reason:  "StartCustomProvisionerFailed",
 				Message: msg,
 			})
 			return s.recordActionFailure(infrav1.ProvisioningError, msg)
 		}
 
 		v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandStarted",
+			"CustomProvisionerStarted",
 			clusterv1beta1.ConditionSeverityInfo,
-			"imageURLCommand started")
+			"custom provisioner started")
 		v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "ImageURLCommandStarted",
-			Message: "imageURLCommand started",
+			Reason:  "CustomProvisionerStarted",
+			Message: "custom provisioner started",
 		})
 
 		return actionContinue{delay: 55 * time.Second}
