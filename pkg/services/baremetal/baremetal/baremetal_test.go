@@ -415,13 +415,13 @@ var _ = Describe("Test NodeAddresses", func() {
 		Machine               clusterv1.Machine
 		BareMetalMachine      infrav1.HetznerBareMetalMachine
 		Host                  *infrav1.HetznerBareMetalHost
-		UseExternalIP         bool
+		UseMatchingIPType     bool
 		ExpectedNodeAddresses []clusterv1beta1.MachineAddress
 	}
 
 	DescribeTable("Test NodeAddress",
 		func(tc testCaseNodeAddress) {
-			nodeAddresses := nodeAddresses(tc.Host, "bm-machine", tc.UseExternalIP)
+			nodeAddresses := nodeAddresses(tc.Host, "bm-machine", tc.UseMatchingIPType)
 			for i, address := range tc.ExpectedNodeAddresses {
 				Expect(nodeAddresses[i]).To(Equal(address))
 			}
@@ -450,7 +450,7 @@ var _ = Describe("Test NodeAddresses", func() {
 			},
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr2, addr3, addr4},
 		}),
-		Entry("useExternalIP=false keeps CIDR suffix and always reports InternalIP", testCaseNodeAddress{
+		Entry("useMatchingIPType=false keeps CIDR suffix and always reports InternalIP", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
 				Spec: infrav1.HetznerBareMetalHostSpec{
 					Status: infrav1.ControllerGeneratedStatus{
@@ -460,10 +460,10 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			UseExternalIP:         false,
+			UseMatchingIPType:     false,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr6, addr3, addr4},
 		}),
-		Entry("useExternalIP=true strips CIDR suffix and reports public IP as ExternalIP", testCaseNodeAddress{
+		Entry("useMatchingIPType=true strips CIDR suffix and reports public IP as ExternalIP", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
 				Spec: infrav1.HetznerBareMetalHostSpec{
 					Status: infrav1.ControllerGeneratedStatus{
@@ -473,10 +473,10 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			UseExternalIP:         true,
+			UseMatchingIPType:     true,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr5, addr3, addr4},
 		}),
-		Entry("useExternalIP=true keeps private IP as InternalIP", testCaseNodeAddress{
+		Entry("useMatchingIPType=true keeps private IP as InternalIP", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
 				Spec: infrav1.HetznerBareMetalHostSpec{
 					Status: infrav1.ControllerGeneratedStatus{
@@ -486,7 +486,7 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			UseExternalIP:         true,
+			UseMatchingIPType:     true,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr3, addr4},
 		}),
 	)

@@ -872,11 +872,8 @@ func (s *Service) setReferencesOnHost(host *infrav1.HetznerBareMetalHost) {
 }
 
 func (s *Service) updateMachineAddresses(host *infrav1.HetznerBareMetalHost) {
-	useExternalIP := strings.EqualFold(
-		strings.TrimSpace(s.scope.BareMetalMachine.Annotations[infrav1.UseExternalIPForBaremetalAnnotation]),
-		"true",
-	)
-	addrs := nodeAddresses(host, s.scope.Name(), useExternalIP)
+	useMatchingIPType := ptr.Deref(s.scope.BareMetalMachine.Spec.UseMatchingIPType, false)
+	addrs := nodeAddresses(host, s.scope.Name(), useMatchingIPType)
 
 	bareMetalMachineOld := s.scope.BareMetalMachine.DeepCopy()
 
@@ -975,12 +972,12 @@ func ensureClusterLabel(host *infrav1.HetznerBareMetalHost, clusterName string) 
 
 // nodeAddresses returns a slice of clusterv1beta1.MachineAddress objects for a given host.
 //
-// If useExternalIP is false, NIC IPs are reported verbatim (including any CIDR suffix from
+// If useMatchingIPType is false, NIC IPs are reported verbatim (including any CIDR suffix from
 // `ip addr show`) and always classified as InternalIP, matching the historical behavior.
-// If useExternalIP is true (opted in via infrav1.UseExternalIPForBaremetalAnnotation on the
-// HetznerBareMetalMachine), the CIDR suffix is stripped and each address is classified as
-// ExternalIP or InternalIP depending on whether it is a public or private IP.
-func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string, useExternalIP bool) []clusterv1beta1.MachineAddress {
+// If useMatchingIPType is true (opted in via infrav1.HetznerBareMetalMachineSpec.UseMatchingIPType),
+// the CIDR suffix is stripped and each address is classified as ExternalIP or InternalIP
+// depending on whether it is a public or private IP.
+func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string, useMatchingIPType bool) []clusterv1beta1.MachineAddress {
 	// if there are no hw details, return
 	if host.Spec.Status.HardwareDetails == nil {
 		return nil
@@ -993,7 +990,7 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 			continue
 		}
 
-		if !useExternalIP {
+		if !useMatchingIPType {
 			addrs = append(addrs, clusterv1beta1.MachineAddress{
 				Type:    clusterv1beta1.MachineInternalIP,
 				Address: nic.IP,
