@@ -1337,12 +1337,9 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		}
 		msg := "custom provisioner running"
 
-		if outputJSON == "" {
-			// imageURLCommand is still running. Either output.json was not created yet, or
-			// the command does not create it at all.
-		} else {
-			// imageURLCommand is still running. The file output.json exists. Let's read the
-			// message.
+		// If outputJSON is empty, imageURLCommand is still running and output.json was
+		// either not created yet, or the command does not create it at all.
+		if outputJSON != "" {
 			output, err := imageurlcommand.Parse(outputJSON)
 			if err != nil {
 				s.scope.Error(err, "failed to parse image URL command output")
