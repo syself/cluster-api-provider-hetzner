@@ -66,7 +66,7 @@ You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overvie
 ### capi.syself.com/use-hrobot-provider-id-for-baremetal
 
 | **Resource**    | [HetznerCluster](/docs/caph/03-reference/02-hetzner-cluster.md)                                                                                                                  |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Description** | When set to `"true"`, then the ProviderID format `hrobot://NNNN` will be used. If not set or empty `hcloud://bm-NNNN` will be used.                                              |
 | **Value**       | `"true"` enables this feature.                                                                                                                                                   |
 | **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                                                                                |
