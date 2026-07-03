@@ -1079,7 +1079,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 
 	case sshclient.ImageURLCommandStateFailed:
 		record.Warn(hm, "InstallImageNotSuccessful", logFile)
-		s.scope.Error(nil, "image-url-command failed", "logFile", logFile)
+		s.scope.Error(nil, "custom provisioner failed", "logFile", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
@@ -1087,7 +1087,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
-		msg := "image-url-command failed"
+		msg := "custom provisioner failed"
 		if outputJSON != "" {
 			output, err := imageurlcommand.Parse(outputJSON)
 			if err != nil {

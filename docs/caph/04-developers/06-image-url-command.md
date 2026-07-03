@@ -5,9 +5,9 @@ sidebar: image-url-command
 description: Documentation on the CAPH image-url-command
 ---
 
-The hcloud `spec.imageURLCommand` field and the bare metal
-`spec.installImage.imageURLCommand` field can be used to execute a custom command to
-install the node image.
+The hcloud `spec.imageURLCommand` field and the bare metal `spec.installImage.imageURLCommand` field
+can be used to execute a custom command to install the node image. This feature is also known as a
+"custom provisioner".
 
 This provides you a flexible way to create nodes.
 

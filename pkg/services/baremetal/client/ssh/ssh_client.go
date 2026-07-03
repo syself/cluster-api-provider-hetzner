@@ -892,7 +892,7 @@ func (c *sshClient) StateOfImageURLCommand(ctx context.Context) (state ImageURLC
 	out := c.runSSH(ctx, `[ -e /root/image-url-command.pid ]`)
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
-		return ImageURLCommandStateNotStarted, "", fmt.Errorf("getting exit status of image-url-command failed: %w", err)
+		return ImageURLCommandStateNotStarted, "", fmt.Errorf("getting exit status of custom provisioner failed: %w", err)
 	}
 	if exitStatus > 0 {
 		// file does exists
@@ -931,10 +931,10 @@ func (c *sshClient) getImageURLCommandOutput(ctx context.Context) (string, error
 	out := c.runSSH(ctx, fmt.Sprintf("cat %s", imageURLCommandLog)) // TODO: implement getFile for sshClient.
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
-		return "", fmt.Errorf("getting logs of image-url-command failed: %w", err)
+		return "", fmt.Errorf("getting logs of custom provisioner failed: %w", err)
 	}
 	if exitStatus > 0 {
-		return "", fmt.Errorf("getting logs of image-url-command failed. Non zero status of 'cat'")
+		return "", fmt.Errorf("getting logs of custom provisioner failed. Non zero status of 'cat'")
 	}
 	return out.StdOut, nil
 }

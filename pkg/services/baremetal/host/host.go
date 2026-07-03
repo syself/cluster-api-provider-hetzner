@@ -1402,7 +1402,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 	case sshclient.ImageURLCommandStateFailed:
 		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", logFile)
-		s.scope.Error(nil, "image-url-command failed", "logFile", logFile)
+		s.scope.Error(nil, "custom provisioner failed", "logFile", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
@@ -1410,7 +1410,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			return actionContinue{delay: 10 * time.Second}
 		}
 
-		msg := "image-url-command failed"
+		msg := "custom provisioner failed"
 		if outputJSON != "" {
 			output, err := imageurlcommand.Parse(outputJSON)
 			if err != nil {

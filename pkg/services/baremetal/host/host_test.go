@@ -194,7 +194,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
 		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring("image-url-command failed"))
+		Expect(c.Message).To(ContainSubstring("custom provisioner failed"))
 	})
 
 	It("completes successfully when ImageURLCommandStateFinishedSuccessfully", func() {
