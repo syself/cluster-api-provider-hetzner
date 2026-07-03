@@ -872,12 +872,18 @@ func (s *Service) setReferencesOnHost(host *infrav1.HetznerBareMetalHost) {
 }
 
 func (s *Service) updateMachineAddresses(host *infrav1.HetznerBareMetalHost) {
-	// Once a machine has reported an InternalIP/ExternalIP address, keep computing it the same
-	// (possibly historical, incorrect) way for the rest of its lifetime. This avoids silently
-	// changing the address type of already-running machines, which could break firewall rules or
-	// CNI configuration built around the previous type. Only genuinely new machines - those that
-	// have never reported such an address - get the corrected classification.
-	isNewMachine := !hasReportedIPTypeAddress(s.scope.BareMetalMachine.Status.Addresses)
+	// Once a machine has an InternalIP/ExternalIP address with the (invalid) CIDR suffix still
+	// attached, keep computing it the same historical, incorrect way for the rest of its
+	// lifetime. This avoids silently changing the address type of already-running machines,
+	// which could break firewall rules or CNI configuration built around the previous type.
+	//
+	// We cannot simply check whether status.addresses already has an InternalIP/ExternalIP
+	// entry: the corrected logic below would itself produce such an entry, and checking for its
+	// mere presence on the next reconcile would immediately fall back to the old logic again,
+	// flip-flopping the type on every reconcile. Checking for the CIDR suffix instead is stable:
+	// the old logic always keeps it, the corrected logic always strips it, so the check reflects
+	// which logic actually produced the current address, not just that some address exists.
+	isNewMachine := !hasOldStyleIPAddress(s.scope.BareMetalMachine.Status.Addresses)
 	addrs := nodeAddresses(host, s.scope.Name(), isNewMachine)
 
 	bareMetalMachineOld := s.scope.BareMetalMachine.DeepCopy()
@@ -975,11 +981,16 @@ func ensureClusterLabel(host *infrav1.HetznerBareMetalHost, clusterName string) 
 	host.Labels[clusterv1.ClusterNameLabel] = clusterName
 }
 
-// hasReportedIPTypeAddress returns true if addrs already contains an InternalIP or ExternalIP
-// entry, meaning the machine has computed its NIC address type at least once before.
-func hasReportedIPTypeAddress(addrs []clusterv1beta1.MachineAddress) bool {
+// hasOldStyleIPAddress returns true if addrs contains an InternalIP or ExternalIP entry whose
+// address still carries a CIDR suffix (e.g. "/26"). Only the historical, uncorrected logic ever
+// produces such an address - the corrected logic always strips the suffix - so this reflects
+// which logic last computed the address, not merely that some address is present.
+func hasOldStyleIPAddress(addrs []clusterv1beta1.MachineAddress) bool {
 	for _, addr := range addrs {
-		if addr.Type == clusterv1beta1.MachineInternalIP || addr.Type == clusterv1beta1.MachineExternalIP {
+		if addr.Type != clusterv1beta1.MachineInternalIP && addr.Type != clusterv1beta1.MachineExternalIP {
+			continue
+		}
+		if strings.Contains(addr.Address, "/") {
 			return true
 		}
 	}

@@ -492,22 +492,28 @@ var _ = Describe("Test NodeAddresses", func() {
 	)
 })
 
-var _ = Describe("Test hasReportedIPTypeAddress", func() {
-	DescribeTable("hasReportedIPTypeAddress",
+var _ = Describe("Test hasOldStyleIPAddress", func() {
+	DescribeTable("hasOldStyleIPAddress",
 		func(addrs []clusterv1beta1.MachineAddress, expected bool) {
-			Expect(hasReportedIPTypeAddress(addrs)).To(Equal(expected))
+			Expect(hasOldStyleIPAddress(addrs)).To(Equal(expected))
 		},
 		Entry("nil addresses", nil, false),
 		Entry("only hostname/internalDNS addresses", []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineHostName, Address: "bm-machine"},
 			{Type: clusterv1beta1.MachineInternalDNS, Address: "bm-machine"},
 		}, false),
-		Entry("has InternalIP", []clusterv1beta1.MachineAddress{
+		Entry("InternalIP with CIDR suffix (old logic)", []clusterv1beta1.MachineAddress{
+			{Type: clusterv1beta1.MachineInternalIP, Address: "192.168.1.1/24"},
+		}, true),
+		Entry("ExternalIP with CIDR suffix (old logic)", []clusterv1beta1.MachineAddress{
+			{Type: clusterv1beta1.MachineExternalIP, Address: "203.0.113.5/26"},
+		}, true),
+		Entry("InternalIP without CIDR suffix (corrected logic already applied)", []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineInternalIP, Address: "192.168.1.1"},
-		}, true),
-		Entry("has ExternalIP", []clusterv1beta1.MachineAddress{
+		}, false),
+		Entry("ExternalIP without CIDR suffix (corrected logic already applied)", []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineExternalIP, Address: "203.0.113.5"},
-		}, true),
+		}, false),
 	)
 })
 
@@ -555,6 +561,25 @@ var _ = Describe("Test updateMachineAddresses", func() {
 			Type:    clusterv1beta1.MachineExternalIP,
 			Address: "203.0.113.5",
 		}))
+	})
+
+	It("keeps reporting the corrected classification across repeated reconciles of a new machine", func() {
+		// Regression test: checking merely "does status.addresses already have an
+		// InternalIP/ExternalIP entry" would flip back to the old logic as soon as the
+		// corrected logic wrote its first result, since that result IS such an entry.
+		bmMachine := &infrav1.HetznerBareMetalMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "bm-machine", Namespace: "default"},
+		}
+		s := &Service{scope: &scope.BareMetalMachineScope{BareMetalMachine: bmMachine}}
+		host := newHostWithNIC("203.0.113.5/26")
+
+		for i := range 3 {
+			s.updateMachineAddresses(host)
+			Expect(bmMachine.Status.Addresses).To(ContainElement(clusterv1beta1.MachineAddress{
+				Type:    clusterv1beta1.MachineExternalIP,
+				Address: "203.0.113.5",
+			}), "reconcile #%d should still report the corrected ExternalIP classification", i+1)
+		}
 	})
 })
 
