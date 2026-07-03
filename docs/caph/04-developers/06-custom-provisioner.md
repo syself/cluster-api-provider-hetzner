@@ -1,8 +1,8 @@
 ---
-title: image-url-command
-metatitle: Cluster API Provider Hetzner Custom Command to Install Node Image via imageURL
-sidebar: image-url-command
-description: Documentation on the CAPH image-url-command
+title: custom-provisioner
+metatitle: Cluster API Provider Hetzner Custom Provisioner to Install Node Image via imageURL
+sidebar: custom-provisioner
+description: Documentation on the CAPH custom provisioner.
 ---
 
 The hcloud `spec.imageURLCommand` field and the bare metal `spec.installImage.imageURLCommand` field
@@ -23,12 +23,12 @@ You need to enable two things:
 ```yaml
 spec:
   installImage:
-    imageURLCommand: image-url-command-install-foo.sh
+    imageURLCommand: custom-provisioner-install-foo.sh
     image:
       url: oci://example.com/yourimage:v1
 ```
 
-In bare metal custom-command mode, `image.name` and `image.path` must stay empty.
+In bare metal custom-provisioner mode, `image.name` and `image.path` must stay empty.
 
 Example for hcloud:
 
@@ -42,7 +42,7 @@ spec:
     spec:
       type: cpx22
       imageURL: oci://example.com/yourimage:v1
-      imageURLCommand: image-url-command-install-foo.sh
+      imageURLCommand: custom-provisioner-install-foo.sh
 ```
 
 The command receives the following positional arguments:
@@ -79,7 +79,7 @@ Example:
 ```yaml
 spec:
   installImage:
-    imageURLCommand: image-url-command-install-foo.sh
+    imageURLCommand: custom-provisioner-install-foo.sh
     deviceStringType: wwn
     image:
       url: oci://example.com/yourimage:v1
