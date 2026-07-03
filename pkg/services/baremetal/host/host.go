@@ -1335,24 +1335,25 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			s.scope.Error(err, "failed to read output.json")
 			return actionContinue{delay: 10 * time.Second}
 		}
+		msg := "custom provisioner running"
+
 		if outputJSON == "" {
 			// imageURLCommand is still running. Either output.json was not created yet, or
 			// the command does not create it at all.
-			return actionContinue{delay: 10 * time.Second}
+		} else {
+			// imageURLCommand is still running. The file output.json exists. Let's read the
+			// message.
+			output, err := imageurlcommand.Parse(outputJSON)
+			if err != nil {
+				s.scope.Error(err, "failed to parse image URL command output")
+				return actionContinue{delay: 10 * time.Second}
+			}
+
+			if output.Message != "" {
+				msg = output.Message
+			}
 		}
 
-		output, err := imageurlcommand.Parse(outputJSON)
-		if err != nil {
-			s.scope.Error(err, "failed to parse image URL command output")
-			return actionContinue{delay: 10 * time.Second}
-		}
-
-		// imageURLCommand is still running. CAPH waits until the Linux process in the rescue system
-		// has terminated.
-		msg := output.Message
-		if msg == "" {
-			msg = "custom provisioner running"
-		}
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			infrav1.HetznerBareMetalHostProvisioningV1Beta2Reason, clusterv1beta1.ConditionSeverityInfo, "%s", msg)
 		v1beta2conditions.Set(host, metav1.Condition{

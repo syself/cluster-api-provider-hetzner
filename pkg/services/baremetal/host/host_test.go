@@ -144,7 +144,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
 		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
+		Expect(c.Message).To(Equal(`custom provisioner running`))
 	})
 
 	It("reboots and completes when command finished successfully", func() {

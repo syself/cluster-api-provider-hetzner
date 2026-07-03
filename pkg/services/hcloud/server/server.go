@@ -1015,24 +1015,25 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			s.scope.Error(err, "failed to read output.json")
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
+		msg := "custom provisioner running"
+
 		if outputJSON == "" {
 			// imageURLCommand is still running. Either output.json was not created yet, or
 			// the command does not create it at all.
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		} else {
+			// imageURLCommand is still running. The file output.json exists. Let's read the
+			// message.
+			output, err := imageurlcommand.Parse(outputJSON)
+			if err != nil {
+				s.scope.Error(err, "failed to parse image URL command output")
+				return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+			}
+
+			if output.Message != "" {
+				msg = output.Message
+			}
 		}
 
-		output, err := imageurlcommand.Parse(outputJSON)
-		if err != nil {
-			s.scope.Error(err, "failed to parse image URL command output")
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
-		}
-
-		// imageURLCommand is still running. CAPH waits until the Linux process in the rescue system
-		// has terminated.
-		msg := output.Message
-		if msg == "" {
-			msg = "custom provisioner running"
-		}
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 			"HCloudImageURLCommandRunning", clusterv1beta1.ConditionSeverityInfo, "%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
