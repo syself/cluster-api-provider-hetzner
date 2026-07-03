@@ -874,8 +874,9 @@ func (s *Service) setReferencesOnHost(host *infrav1.HetznerBareMetalHost) {
 func (s *Service) updateMachineAddresses(host *infrav1.HetznerBareMetalHost) {
 	// Once a machine has an InternalIP/ExternalIP address with the (invalid) CIDR suffix still
 	// attached, keep computing it the same historical, incorrect way for the rest of its
-	// lifetime. This avoids silently changing the address type of already-running machines,
-	// which could break firewall rules or CNI configuration built around the previous type.
+	// lifetime. This avoids silently changing status.addresses of already-running machines,
+	// which lives only in the management cluster (it has no effect on the workload cluster or
+	// its CNI), but could still surprise management-cluster automation that reads this field.
 	hasOldStyle := hasOldStyleIPAddress(s.scope.BareMetalMachine.Status.Addresses)
 	addrs := nodeAddresses(host, s.scope.Name(), hasOldStyle)
 
