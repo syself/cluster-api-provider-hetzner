@@ -186,7 +186,7 @@ type InstallImage struct {
 	// Docs: https://syself.com/docs/caph/developers/image-url-command
 	//
 	// ImageURLCommand must be set if the machine should be provisioned from Image.URL without
-	// installimage. The command name must start with image-url-command-.
+	// installimage.
 	// +kubebuilder:validation:Optional
 	// +optional
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`
