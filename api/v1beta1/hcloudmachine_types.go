@@ -72,7 +72,7 @@ type HCloudMachineSpec struct {
 	// the process is considered to have failed.
 	//
 	// A Kubernetes event will be created in both (success, failure) cases containing the output
-	// (stdout and stderr) of the script. If the script takes longer than 7 minutes, the
+	// (stdout and stderr) of the script. If the script takes longer than 20 minutes, the
 	// controller cancels the provisioning.
 	//
 	// Docs: https://syself.com/docs/caph/developers/image-url-command
@@ -110,6 +110,12 @@ type HCloudMachineSpec struct {
 }
 
 // HCloudMachineStatus defines the observed state of HCloudMachine.
+//
+// The v1beta2 HCloudMachineStatus has its final API shape (status.conditions as []metav1.Condition,
+// status.initialization, status.deprecated.v1beta1.conditions, a CAPH owned status.instanceState),
+// which does not map field-for-field onto this v1beta1 status. conversion-gen cannot express that
+// mapping, so it is skipped here and the conversion is hand written in conversion.go.
+// +k8s:conversion-gen=false
 type HCloudMachineStatus struct {
 	// Ready is true when the provider resource is ready.
 	// +optional

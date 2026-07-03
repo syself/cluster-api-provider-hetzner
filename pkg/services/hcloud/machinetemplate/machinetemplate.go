@@ -62,7 +62,7 @@ func (s *Service) getCapacity(ctx context.Context) (corev1.ResourceList, error) 
 	// List all server types
 	serverTypes, err := s.scope.HCloudClient.ListServerTypes(ctx)
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachineTemplate, err, "ListServerTypes")
+		hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HCloudMachineTemplate, err, "ListServerTypes")
 		return nil, fmt.Errorf("failed to list server types: %w", err)
 	}
 

@@ -43,7 +43,7 @@ type HCloudRemediationTemplateStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Strategy",type=string,JSONPath=".spec.template.spec.strategy.type",description="Type of the remediation strategy"
 // +kubebuilder:printcolumn:name="Retry limit",type=string,JSONPath=".spec.template.spec.strategy.retryLimit",description="How many times remediation controller should attempt to remediate the node"
-// +kubebuilder:printcolumn:name="Timeout",type=string,JSONPath=".spec.template.spec.strategy.timeout",description="Timeout for the remediation"
+// +kubebuilder:printcolumn:name="Timeout",type=string,JSONPath=".spec.template.spec.strategy.timeoutSeconds",description="Timeout for the remediation"
 
 // HCloudRemediationTemplate is the Schema for the hcloudremediationtemplates API.
 type HCloudRemediationTemplate struct {

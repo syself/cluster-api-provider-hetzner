@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -28,15 +29,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
+	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hostpkg "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -46,6 +52,85 @@ import (
 const (
 	hostName = "test-host"
 )
+
+type countingRobotFactory struct {
+	calls int
+}
+
+func (f *countingRobotFactory) NewClient(robotclient.Credentials) robotclient.Client {
+	f.calls++
+	return nil
+}
+
+// TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster verifies that
+// the reconciler returns early when the linked Cluster has Spec.Paused = true.
+// The Robot client factory counts NewClient calls and the test asserts the
+// count stays at zero, proving the pause guard fired before any host work ran.
+func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+
+	namespace := "default"
+	clusterName := "test-cluster"
+	hetznerClusterName := "test-hetzner-cluster"
+
+	cluster := &clusterv1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clusterName,
+			Namespace: namespace,
+		},
+		Spec: clusterv1.ClusterSpec{
+			Paused: ptr.To(true),
+			InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+				APIGroup: infrav1.GroupVersion.Group,
+				Kind:     "HetznerCluster",
+				Name:     hetznerClusterName,
+			},
+		},
+	}
+	hetznerCluster := &infrav1.HetznerCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hetznerClusterName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				clusterv1.ClusterNameLabel: clusterName,
+			},
+		},
+		Spec: helpers.GetDefaultHetznerClusterSpec(),
+	}
+	host := helpers.BareMetalHost("paused-cluster-host", namespace, helpers.WithHetznerClusterRef(hetznerClusterName))
+	host.Finalizers = []string{infrav1.HetznerBareMetalHostFinalizer}
+	host.Spec.Status.ProvisioningState = infrav1.StatePreparing
+	hetznerSecret := getDefaultHetznerSecret(namespace)
+	robotFactory := &countingRobotFactory{}
+
+	c := fakeclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&infrav1.HetznerBareMetalHost{}).
+		WithObjects(cluster, hetznerCluster, host, hetznerSecret).
+		Build()
+
+	reconciler := &HetznerBareMetalHostReconciler{
+		Client:             c,
+		APIReader:          c,
+		RobotClientFactory: robotFactory,
+	}
+
+	result, err := reconciler.Reconcile(ctx, reconcile.Request{
+		NamespacedName: client.ObjectKeyFromObject(host),
+	})
+	require.NoError(t, err)
+	require.Equal(t, reconcile.Result{}, result)
+
+	updatedHost := &infrav1.HetznerBareMetalHost{}
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost))
+	require.Contains(t, updatedHost.Finalizers, infrav1.HetznerBareMetalHostFinalizer)
+	require.Equal(t, infrav1.StatePreparing, updatedHost.Spec.Status.ProvisioningState)
+	require.Zero(t, robotFactory.calls)
+}
 
 func verifyError(host *infrav1.HetznerBareMetalHost, errorType infrav1.ErrorType, errorMessage string) bool {
 	if host.Spec.Status.ErrorType != errorType {
@@ -381,7 +466,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 						return false
 					}
 
-					return isPresentAndTrue(key, host, infrav1.ProvisionSucceededCondition)
+					return isPresentAndTrueV1Beta1(key, host, infrav1.ProvisionSucceededCondition)
 				}, timeout).Should(BeTrue())
 			})
 		})
@@ -755,7 +840,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		It("gives an error", func() {
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.RescueSSHSecretMissingReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, host, infrav1.CredentialsAvailableCondition, infrav1.RescueSSHSecretMissingReason)
 			}, timeout).Should(BeTrue())
 		})
 
@@ -777,7 +862,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 			}()
 
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
 			}, timeout).Should(BeTrue())
 		})
 	})
@@ -807,7 +892,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		It("gives the right error if secret is missing", func() {
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.OSSSHSecretMissingReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, host, infrav1.CredentialsAvailableCondition, infrav1.OSSSHSecretMissingReason)
 			}, timeout).Should(BeTrue())
 		})
 
@@ -829,7 +914,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 			}()
 
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
 			}, timeout).Should(BeTrue())
 		})
 	})
@@ -875,7 +960,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		It("should set CredentialsAvailable condition to false if Robot API returned unauthorized", func() {
 			By("making the Robot client return an unauthorized error")
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
 			}, timeout).Should(BeTrue())
 
 			Expect(robotClient.AssertExpectations(GinkgoT())).To(BeTrue())
@@ -918,7 +1003,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		It("sets RobotCredentialsAvailable to false if robot-user is empty", func() {
 			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
+				return isPresentAndFalseWithReasonV1Beta1(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
 			}, timeout).Should(BeTrue())
 		})
 	})

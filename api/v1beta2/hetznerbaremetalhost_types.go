@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,12 +21,10 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
-	"sigs.k8s.io/cluster-api/util/record"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 const (
@@ -218,6 +216,31 @@ type RebootAnnotationArguments struct {
 	Type RebootType `json:"type"`
 }
 
+// HetznerBareMetalHostConsumerReference is a reference to the HetznerBareMetalMachine
+// that is using a HetznerBareMetalHost.
+type HetznerBareMetalHostConsumerReference struct {
+	// Kind is the kind of the resource being referenced.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$`
+	Kind string `json:"kind,omitempty"`
+
+	// Name is the name of the resource being referenced.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	Name string `json:"name,omitempty"`
+
+	// APIGroup is the group of the resource being referenced.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	APIGroup string `json:"apiGroup,omitempty"`
+}
+
 // HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
 type HetznerBareMetalHostSpec struct {
 	// ServerID defines the ID of the server provided by Hetzner.
@@ -232,7 +255,7 @@ type HetznerBareMetalHostSpec struct {
 	// ConsumerRef is a reference to the HetznerBareMetalMachine
 	// that is using this host. When it is not empty, the host is considered "in use".
 	// +optional
-	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
+	ConsumerRef *HetznerBareMetalHostConsumerReference `json:"consumerRef,omitempty"`
 
 	// MaintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
 	// will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
@@ -243,97 +266,87 @@ type HetznerBareMetalHostSpec struct {
 	// It can be used to store some valuable information about the host.
 	// +optional
 	Description string `json:"description,omitempty"`
-
-	// Status contains all status information. The controller writes this status.
-	// As some cannot be regenerated during any reconcilement, the status
-	// is in the specs of the object - not the actual status. DO NOT EDIT!!!
-	// +optional
-	Status ControllerGeneratedStatus `json:"status,omitempty"`
 }
 
-// ControllerGeneratedStatus contains all status information which is important to persist.
-type ControllerGeneratedStatus struct {
-	// HetznerClusterRef is the name of the HetznerCluster object which is
-	// needed as some necessary information is stored there, e.g. the hrobot password.
-	HetznerClusterRef string `json:"hetznerClusterRef"`
-
-	// UserData holds the reference to the Secret containing the user
-	// data to be passed to the host before it boots.
-	// +optional
-	UserData *corev1.SecretReference `json:"userData,omitempty"`
-
-	// InstallImage is the configuration that is used for the autosetup configuration for installing
-	// an OS via InstallImage. The field has an additional usage: When a hbmm gets deleted, then the
-	// hbmm controller sets this field of the hbmh to nil. This indicates the hbmh controller that
-	// deprovisioning should started
-	//
-	//  +optional
-	InstallImage *InstallImage `json:"installImage,omitempty"`
-
-	// StatusHardwareDetails are automatically gathered and should not be modified by the user.
+// HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
+type HetznerBareMetalHostStatus struct {
+	// hardwareDetails are automatically gathered and should not be modified by the user.
 	// +optional
 	HardwareDetails *HardwareDetails `json:"hardwareDetails,omitempty"`
 
-	// IPv4 address of server.
+	// ipv4 address of the server.
 	// +optional
-	IPv4 string `json:"ipv4"`
+	IPv4 string `json:"ipv4,omitempty"`
 
-	// IPv6 address of server.
+	// ipv6 address of the server.
 	// +optional
-	IPv6 string `json:"ipv6"`
+	IPv6 string `json:"ipv6,omitempty"`
 
-	// RebootTypes is a list of all available reboot types for API reboots.
+	// rebootTypes is a list of all available reboot types for API reboots.
 	// +optional
+	// +listType=atomic
 	RebootTypes []RebootType `json:"rebootTypes,omitempty"`
 
-	// SSHSpec defines specs for SSH.
-	SSHSpec *SSHSpec `json:"sshSpec,omitempty"`
-
-	// HetznerRobotSSHKey contains the name and fingerprint of the HetznerCluster spec specified SSH key.
+	// sshStatus contains the name and fingerprint of the SSH keys that have been used.
 	// +optional
 	SSHStatus SSHStatus `json:"sshStatus,omitempty"`
 
-	// ErrorType indicates the type of failure encountered when the
-	// OperationalStatus is OperationalStatusError.
+	// errorType indicates the type of failure encountered.
 	// +optional
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
-	// ErrorCount records how many times the host has encountered an error since the last successful operation.
-	// +kubebuilder:default:=0
-	ErrorCount int `json:"errorCount"`
-
-	// Information tracked by the provisioner.
+	// provisioningState is the current state tracked by the provisioner.
 	// +optional
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
 
-	// the last error message reported by the provisioning subsystem.
+	// rebootTriggeredAt is the timestamp when the reboot was initiated.
 	// +optional
-	ErrorMessage string `json:"errorMessage"`
+	RebootTriggeredAt metav1.Time `json:"rebootTriggeredAt,omitempty,omitzero"`
 
-	// LastUpdated indicates when the provisioning subsystem last updated the host state.
-	//
-	// Deprecated: Superseded by RebootTriggeredAt.
+	// rebooted shows whether the server is currently being rebooted.
 	// +optional
-	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
-
-	// RebootTriggeredAt is the timestamp when the reboot was initiated.
-	// +optional
-	RebootTriggeredAt *metav1.Time `json:"rebootTriggeredAt,omitempty"`
-
-	// Rebooted shows whether the server is currently being rebooted.
 	Rebooted bool `json:"rebooted,omitempty"`
 
-	// NodeBootID reflects the BootID of the corresponding Node resource in the workload-cluster.
+	// nodeBootID reflects the BootID of the corresponding Node resource in the workload-cluster.
 	// +optional
 	NodeBootID string `json:"nodeBootID,omitempty"`
 
-	// Conditions define the current service state of the HetznerBareMetalHost.
+	// conditions represents the observations of a HetznerBareMetalHost's current state.
+	// Known condition types are Ready, SSHKeysAvailable, RobotCredentialsAvailable, RootDeviceHintsValidated, ProvisionSucceeded, NodeBootIDRetrieved, RebootSucceeded, Deleting, RobotRateLimitExceeded, ActionCompleted.
 	// +optional
-	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// deprecated groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
+	// +optional
+	Deprecated *HetznerBareMetalHostDeprecatedStatus `json:"deprecated,omitempty"`
+}
+
+// HetznerBareMetalHostDeprecatedStatus groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
+// See https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more context.
+type HetznerBareMetalHostDeprecatedStatus struct {
+	// v1beta1 groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
+	// +optional
+	V1Beta1 *HetznerBareMetalHostV1Beta1DeprecatedStatus `json:"v1beta1,omitempty"`
+}
+
+// HetznerBareMetalHostV1Beta1DeprecatedStatus groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
+// See https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more context.
+type HetznerBareMetalHostV1Beta1DeprecatedStatus struct {
+	// conditions define the current service state of the HetznerBareMetalHost.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
+	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
 }
 
 // GetIPAddress returns the IPv6 if set, otherwise the IPv4.
-func (sts ControllerGeneratedStatus) GetIPAddress() string {
+func (sts HetznerBareMetalHostStatus) GetIPAddress() string {
 	if sts.IPv4 == "" {
 		return sts.IPv6
 	}
@@ -341,18 +354,37 @@ func (sts ControllerGeneratedStatus) GetIPAddress() string {
 }
 
 // HasFatalError returns true, if the corresponding capi machine should get deleted.
-func (sts ControllerGeneratedStatus) HasFatalError() bool {
+func (sts HetznerBareMetalHostStatus) HasFatalError() bool {
 	return sts.ErrorType == FatalError || sts.ErrorType == PermanentError
 }
 
-// GetConditions returns the observations of the operational state of the HetznerBareMetalHost resource.
-func (host *HetznerBareMetalHost) GetConditions() clusterv1beta1.Conditions {
-	return host.Spec.Status.Conditions
+// GetConditions returns the conditions for the HetznerBareMetalHost object.
+func (host *HetznerBareMetalHost) GetConditions() []metav1.Condition {
+	return host.Status.Conditions
 }
 
-// SetConditions sets the underlying service state of the HetznerBareMetalHost to the predescribed clusterv1beta1.Conditions.
-func (host *HetznerBareMetalHost) SetConditions(conditions clusterv1beta1.Conditions) {
-	host.Spec.Status.Conditions = conditions
+// SetConditions sets the conditions on the HetznerBareMetalHost object.
+func (host *HetznerBareMetalHost) SetConditions(conditions []metav1.Condition) {
+	host.Status.Conditions = conditions
+}
+
+// GetV1Beta1Conditions returns the deprecated v1beta1 conditions of the HetznerBareMetalHost object.
+func (host *HetznerBareMetalHost) GetV1Beta1Conditions() clusterv1.Conditions {
+	if host.Status.Deprecated == nil || host.Status.Deprecated.V1Beta1 == nil {
+		return nil
+	}
+	return host.Status.Deprecated.V1Beta1.Conditions
+}
+
+// SetV1Beta1Conditions sets the deprecated v1beta1 conditions on the HetznerBareMetalHost object.
+func (host *HetznerBareMetalHost) SetV1Beta1Conditions(conditions clusterv1.Conditions) {
+	if host.Status.Deprecated == nil {
+		host.Status.Deprecated = &HetznerBareMetalHostDeprecatedStatus{}
+	}
+	if host.Status.Deprecated.V1Beta1 == nil {
+		host.Status.Deprecated.V1Beta1 = &HetznerBareMetalHostV1Beta1DeprecatedStatus{}
+	}
+	host.Status.Deprecated.V1Beta1.Conditions = conditions
 }
 
 // SSHStatus contains all status information about SSHStatus.
@@ -406,7 +438,6 @@ type CPU struct {
 	Arch           string     `json:"arch,omitempty"`
 	Model          string     `json:"model,omitempty"`
 	ClockGigahertz ClockSpeed `json:"clockGigahertz,omitempty"`
-	Flags          []string   `json:"flags,omitempty"`
 	Threads        int        `json:"threads,omitempty"`
 	Cores          int        `json:"cores,omitempty"`
 }
@@ -466,28 +497,31 @@ type NIC struct {
 // HardwareDetails collects all of the information about hardware
 // discovered on the host.
 type HardwareDetails struct {
-	RAMGB   int       `json:"ramGB,omitempty"`
-	NIC     []NIC     `json:"nics,omitempty"`
+	RAMGB int `json:"ramGB,omitempty"`
+	// +optional
+	// +listType=atomic
+	NIC []NIC `json:"nics,omitempty"`
+	// +optional
+	// +listType=atomic
 	Storage []Storage `json:"storage,omitempty"`
 	CPU     CPU       `json:"cpu,omitempty"`
 }
 
-// HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
-type HetznerBareMetalHostStatus struct{}
-
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=hbmh
-// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".spec.status.provisioningState",description="Phase of provisioning"
-// +kubebuilder:printcolumn:name="IPv4",type="string",JSONPath=".spec.status.ipv4",description="IPv4 of the host"
-// +kubebuilder:printcolumn:name="IPv6",type="string",JSONPath=".spec.status.ipv6",description="IPv6 of the host"
-// +kubebuilder:printcolumn:name="Maintenance",type="boolean",JSONPath=".spec.maintenanceMode",description="Maintenance Mode"
-// +kubebuilder:printcolumn:name="CPU",type="string",JSONPath=".spec.status.hardwareDetails.cpu.threads",description="CPU threads"
-// +kubebuilder:printcolumn:name="RAM",type="string",JSONPath=".spec.status.hardwareDetails.ramGB",description="RAM in GB"
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.provisioningState",description="Phase of provisioning"
 // +kubebuilder:printcolumn:name="HetznerBareMetalMachine",type="string",JSONPath=".spec.consumerRef.name",description="HetznerBareMetalMachine using this host"
+// +kubebuilder:printcolumn:name="Maintenance",type="boolean",JSONPath=".spec.maintenanceMode",description="Maintenance Mode"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status",description="HetznerBareMetalHost is ready"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
-// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".spec.status.conditions[?(@.type=='Ready')].reason"
-// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".spec.status.conditions[?(@.type=='Ready')].message"
+// +kubebuilder:printcolumn:name="IPv4",type="string",JSONPath=".status.ipv4",description="IPv4 of the host",priority=1
+// +kubebuilder:printcolumn:name="IPv6",type="string",JSONPath=".status.ipv6",description="IPv6 of the host",priority=1
+// +kubebuilder:printcolumn:name="CPU",type="string",JSONPath=".status.hardwareDetails.cpu.threads",description="CPU threads",priority=1
+// +kubebuilder:printcolumn:name="RAM",type="string",JSONPath=".status.hardwareDetails.ramGB",description="RAM in GB",priority=1
+// +kubebuilder:printcolumn:name="Server ID",type="integer",JSONPath=".spec.serverID",description="Server ID of the host",priority=1
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason",priority=1
+// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message",priority=1
 // +k8s:defaulter-gen=true
 
 // HetznerBareMetalHost is the Schema for the hetznerbaremetalhosts API.
@@ -505,7 +539,7 @@ func (host *HetznerBareMetalHost) UpdateRescueSSHStatus(secret corev1.Secret) er
 	if err != nil {
 		return fmt.Errorf("failed get status from secret: %w", err)
 	}
-	host.Spec.Status.SSHStatus.CurrentRescue = status
+	host.Status.SSHStatus.CurrentRescue = status
 	return nil
 }
 
@@ -515,7 +549,7 @@ func (host *HetznerBareMetalHost) UpdateOSSSHStatus(secret corev1.Secret) error 
 	if err != nil {
 		return fmt.Errorf("failed get status from secret: %w", err)
 	}
-	host.Spec.Status.SSHStatus.CurrentOS = status
+	host.Status.SSHStatus.CurrentOS = status
 	return nil
 }
 
@@ -551,7 +585,7 @@ func HashOfSecretData(data map[string][]byte) ([]byte, error) {
 
 // HasSoftwareReboot returns a boolean indicating whether software reboot exists for server.
 func (host *HetznerBareMetalHost) HasSoftwareReboot() bool {
-	for _, rt := range host.Spec.Status.RebootTypes {
+	for _, rt := range host.Status.RebootTypes {
 		if rt == RebootTypeSoftware {
 			return true
 		}
@@ -561,52 +595,12 @@ func (host *HetznerBareMetalHost) HasSoftwareReboot() bool {
 
 // HasHardwareReboot returns a boolean indicating whether hardware reboot exists for the server.
 func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
-	for _, rt := range host.Spec.Status.RebootTypes {
+	for _, rt := range host.Status.RebootTypes {
 		if rt == RebootTypeHardware {
 			return true
 		}
 	}
 	return false
-}
-
-// NeedsProvisioning compares the settings with the provisioning
-// status and returns true when more work is needed or false
-// otherwise.
-func (host *HetznerBareMetalHost) NeedsProvisioning() bool {
-	// Without an image, there is nothing to provision.
-	return host.Spec.Status.InstallImage != nil
-}
-
-// SetError updates the error type and message in the status struct and increases the ErrorCount.
-func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string) {
-	if errType == host.Spec.Status.ErrorType && errMessage == host.Spec.Status.ErrorMessage {
-		host.Spec.Status.ErrorCount++
-	} else {
-		// new error - start fresh error count
-		host.Spec.Status.ErrorCount = 1
-	}
-	host.Spec.Status.ErrorType = errType
-	host.Spec.Status.ErrorMessage = errMessage
-	if errType == PermanentError {
-		if host.Annotations == nil {
-			host.Annotations = make(map[string]string, 1)
-		}
-		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
-		record.Warnf(host, "PermanentErrorSet", "Remove annotation %q, if you want the controller to use the hbmh again.",
-			PermanentErrorAnnotation)
-	}
-}
-
-// ClearError removes the error on the host and resets the error count to 0.
-func (host *HetznerBareMetalHost) ClearError() {
-	var emptyErrType ErrorType
-	if host.Spec.Status.ErrorType != emptyErrType {
-		host.Spec.Status.ErrorType = emptyErrType
-	}
-	if host.Spec.Status.ErrorMessage != "" {
-		host.Spec.Status.ErrorMessage = ""
-	}
-	host.Spec.Status.ErrorCount = 0
 }
 
 // HasRebootAnnotation checks for the existence of reboot annotations and returns true if at least one exists.

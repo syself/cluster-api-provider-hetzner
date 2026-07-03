@@ -150,7 +150,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
 				if !s.scope.HCloudMachine.Status.Ready {
-					hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "findServer")
+					hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HCloudMachine, err, "findServer")
 					return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 				}
 				return reconcile.Result{}, nil
@@ -965,8 +965,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	}
 
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
-	// Please keep the number (7) in sync with the docstring of ImageURL.
-	if durationOfState > 7*time.Minute {
+	// Please keep the number (20) in sync with the docstring of ImageURL.
+	if durationOfState > 20*time.Minute {
 		// timeout. Something has failed.
 		timeoutMsg := fmt.Sprintf("image URL command timed out, in this state since %s", durationOfState.Round(time.Second).String())
 
@@ -1268,7 +1268,7 @@ func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, 
 	}
 
 	// check for a rate limit exceeded error if the machine is not running or if machine has a deletion timestamp
-	hcloudutil.HandleRateLimitExceeded(hm, err, functionName)
+	hcloudutil.HandleRateLimitExceededV1Beta1(hm, err, functionName)
 	return fmt.Errorf("%s: %w", errMsg, err)
 }
 
@@ -1642,7 +1642,7 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 		msg := fmt.Sprintf("failed to create HCloud server %q in %q (type %q)",
 			hm.Name, opts.Location.Name, serverType)
 
-		if hcloudutil.HandleRateLimitExceeded(hm, err, "CreateServer") {
+		if hcloudutil.HandleRateLimitExceededV1Beta1(hm, err, "CreateServer") {
 			// RateLimit was reached. Condition and Event got already created.
 			return nil, fmt.Errorf("%s: %w", msg, err)
 		}
@@ -2063,8 +2063,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 				return nil, err
 			}
 
-			errMsg := fmt.Sprintf("failed to get server %d", serverID)
-			return nil, handleRateLimit(s.scope.HCloudMachine, err, "GetServer", errMsg)
+			return nil, fmt.Errorf("failed to get server %d: %w", serverID, err)
 		}
 
 		v1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
