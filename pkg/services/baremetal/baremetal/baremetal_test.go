@@ -377,6 +377,10 @@ var _ = Describe("Test NodeAddresses", func() {
 		IP: "172.0.20.2",
 	}
 
+	nic3 := infrav1.NIC{
+		IP: "203.0.113.5/26",
+	}
+
 	addr1 := clusterv1beta1.MachineAddress{
 		Type:    clusterv1beta1.MachineInternalIP,
 		Address: "192.168.1.1",
@@ -397,16 +401,27 @@ var _ = Describe("Test NodeAddresses", func() {
 		Address: "bm-machine",
 	}
 
+	addr5 := clusterv1beta1.MachineAddress{
+		Type:    clusterv1beta1.MachineExternalIP,
+		Address: "203.0.113.5",
+	}
+
+	addr6 := clusterv1beta1.MachineAddress{
+		Type:    clusterv1beta1.MachineInternalIP,
+		Address: "203.0.113.5/26",
+	}
+
 	type testCaseNodeAddress struct {
 		Machine               clusterv1.Machine
 		BareMetalMachine      infrav1.HetznerBareMetalMachine
 		Host                  *infrav1.HetznerBareMetalHost
+		HasOldStyle           bool
 		ExpectedNodeAddresses []clusterv1beta1.MachineAddress
 	}
 
 	DescribeTable("Test NodeAddress",
 		func(tc testCaseNodeAddress) {
-			nodeAddresses := nodeAddresses(tc.Host, "bm-machine")
+			nodeAddresses := nodeAddresses(tc.Host, "bm-machine", tc.HasOldStyle)
 			for i, address := range tc.ExpectedNodeAddresses {
 				Expect(nodeAddresses[i]).To(Equal(address))
 			}
@@ -421,6 +436,7 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
+			HasOldStyle:           true,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr3, addr4},
 		}),
 		Entry("Two NICs", testCaseNodeAddress{
@@ -433,9 +449,140 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
+			HasOldStyle:           true,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr2, addr3, addr4},
 		}),
+		Entry("existing machine (hasOldStyle=true) keeps CIDR suffix and always reports InternalIP", testCaseNodeAddress{
+			Host: &infrav1.HetznerBareMetalHost{
+				Spec: infrav1.HetznerBareMetalHostSpec{
+					Status: infrav1.ControllerGeneratedStatus{
+						HardwareDetails: &infrav1.HardwareDetails{
+							NIC: []infrav1.NIC{nic3},
+						},
+					},
+				},
+			},
+			HasOldStyle:           true,
+			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr6, addr3, addr4},
+		}),
+		Entry("new machine (hasOldStyle=false) strips CIDR suffix and reports public IP as ExternalIP", testCaseNodeAddress{
+			Host: &infrav1.HetznerBareMetalHost{
+				Spec: infrav1.HetznerBareMetalHostSpec{
+					Status: infrav1.ControllerGeneratedStatus{
+						HardwareDetails: &infrav1.HardwareDetails{
+							NIC: []infrav1.NIC{nic3},
+						},
+					},
+				},
+			},
+			HasOldStyle:           false,
+			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr5, addr3, addr4},
+		}),
+		Entry("new machine (hasOldStyle=false) keeps private IP as InternalIP", testCaseNodeAddress{
+			Host: &infrav1.HetznerBareMetalHost{
+				Spec: infrav1.HetznerBareMetalHostSpec{
+					Status: infrav1.ControllerGeneratedStatus{
+						HardwareDetails: &infrav1.HardwareDetails{
+							NIC: []infrav1.NIC{nic1},
+						},
+					},
+				},
+			},
+			HasOldStyle:           false,
+			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr3, addr4},
+		}),
 	)
+})
+
+var _ = Describe("Test hasOldStyleIPAddress", func() {
+	DescribeTable("hasOldStyleIPAddress",
+		func(addrs []clusterv1beta1.MachineAddress, expected bool) {
+			Expect(hasOldStyleIPAddress(addrs)).To(Equal(expected))
+		},
+		Entry("nil addresses", nil, false),
+		Entry("only hostname/internalDNS addresses", []clusterv1beta1.MachineAddress{
+			{Type: clusterv1beta1.MachineHostName, Address: "bm-machine"},
+			{Type: clusterv1beta1.MachineInternalDNS, Address: "bm-machine"},
+		}, false),
+		Entry("InternalIP with CIDR suffix (old logic)", []clusterv1beta1.MachineAddress{
+			{Type: clusterv1beta1.MachineInternalIP, Address: "192.168.1.1/24"},
+		}, true),
+		Entry("ExternalIP with CIDR suffix is never old-style (old logic never produces ExternalIP)", []clusterv1beta1.MachineAddress{
+			{Type: clusterv1beta1.MachineExternalIP, Address: "203.0.113.5/26"},
+		}, false),
+		Entry("InternalIP without CIDR suffix (corrected logic already applied)", []clusterv1beta1.MachineAddress{
+			{Type: clusterv1beta1.MachineInternalIP, Address: "192.168.1.1"},
+		}, false),
+		Entry("ExternalIP without CIDR suffix (corrected logic already applied)", []clusterv1beta1.MachineAddress{
+			{Type: clusterv1beta1.MachineExternalIP, Address: "203.0.113.5"},
+		}, false),
+	)
+})
+
+var _ = Describe("Test updateMachineAddresses", func() {
+	newHostWithNIC := func(ip string) *infrav1.HetznerBareMetalHost {
+		return &infrav1.HetznerBareMetalHost{
+			Spec: infrav1.HetznerBareMetalHostSpec{
+				Status: infrav1.ControllerGeneratedStatus{
+					HardwareDetails: &infrav1.HardwareDetails{
+						NIC: []infrav1.NIC{{IP: ip}},
+					},
+				},
+			},
+		}
+	}
+
+	It("keeps computing addresses the old way for a machine that already reported InternalIP", func() {
+		bmMachine := &infrav1.HetznerBareMetalMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "bm-machine", Namespace: "default"},
+			Status: infrav1.HetznerBareMetalMachineStatus{
+				Addresses: []clusterv1beta1.MachineAddress{
+					{Type: clusterv1beta1.MachineInternalIP, Address: "203.0.113.5/26"},
+				},
+			},
+		}
+		s := &Service{scope: &scope.BareMetalMachineScope{BareMetalMachine: bmMachine}}
+
+		s.updateMachineAddresses(newHostWithNIC("203.0.113.5/26"))
+
+		Expect(bmMachine.Status.Addresses).To(ContainElement(clusterv1beta1.MachineAddress{
+			Type:    clusterv1beta1.MachineInternalIP,
+			Address: "203.0.113.5/26",
+		}))
+	})
+
+	It("uses the corrected classification for a machine that never reported an IP-type address", func() {
+		bmMachine := &infrav1.HetznerBareMetalMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "bm-machine", Namespace: "default"},
+		}
+		s := &Service{scope: &scope.BareMetalMachineScope{BareMetalMachine: bmMachine}}
+
+		s.updateMachineAddresses(newHostWithNIC("203.0.113.5/26"))
+
+		Expect(bmMachine.Status.Addresses).To(ContainElement(clusterv1beta1.MachineAddress{
+			Type:    clusterv1beta1.MachineExternalIP,
+			Address: "203.0.113.5",
+		}))
+	})
+
+	It("keeps reporting the corrected classification across repeated reconciles of a new machine", func() {
+		// Regression test: checking merely "does status.addresses already have an
+		// InternalIP/ExternalIP entry" would flip back to the old logic as soon as the
+		// corrected logic wrote its first result, since that result IS such an entry.
+		bmMachine := &infrav1.HetznerBareMetalMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "bm-machine", Namespace: "default"},
+		}
+		s := &Service{scope: &scope.BareMetalMachineScope{BareMetalMachine: bmMachine}}
+		host := newHostWithNIC("203.0.113.5/26")
+
+		for i := range 3 {
+			s.updateMachineAddresses(host)
+			Expect(bmMachine.Status.Addresses).To(ContainElement(clusterv1beta1.MachineAddress{
+				Type:    clusterv1beta1.MachineExternalIP,
+				Address: "203.0.113.5",
+			}), "reconcile #%d should still report the corrected ExternalIP classification", i+1)
+		}
+	})
 })
 
 var _ = Describe("Test consumerRefMatches", func() {
