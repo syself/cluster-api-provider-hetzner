@@ -415,13 +415,13 @@ var _ = Describe("Test NodeAddresses", func() {
 		Machine               clusterv1.Machine
 		BareMetalMachine      infrav1.HetznerBareMetalMachine
 		Host                  *infrav1.HetznerBareMetalHost
-		IsNewMachine          bool
+		HasOldStyle           bool
 		ExpectedNodeAddresses []clusterv1beta1.MachineAddress
 	}
 
 	DescribeTable("Test NodeAddress",
 		func(tc testCaseNodeAddress) {
-			nodeAddresses := nodeAddresses(tc.Host, "bm-machine", tc.IsNewMachine)
+			nodeAddresses := nodeAddresses(tc.Host, "bm-machine", tc.HasOldStyle)
 			for i, address := range tc.ExpectedNodeAddresses {
 				Expect(nodeAddresses[i]).To(Equal(address))
 			}
@@ -436,6 +436,7 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
+			HasOldStyle:           true,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr3, addr4},
 		}),
 		Entry("Two NICs", testCaseNodeAddress{
@@ -448,9 +449,10 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
+			HasOldStyle:           true,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr2, addr3, addr4},
 		}),
-		Entry("existing machine (isNewMachine=false) keeps CIDR suffix and always reports InternalIP", testCaseNodeAddress{
+		Entry("existing machine (hasOldStyle=true) keeps CIDR suffix and always reports InternalIP", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
 				Spec: infrav1.HetznerBareMetalHostSpec{
 					Status: infrav1.ControllerGeneratedStatus{
@@ -460,10 +462,10 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			IsNewMachine:          false,
+			HasOldStyle:           true,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr6, addr3, addr4},
 		}),
-		Entry("new machine (isNewMachine=true) strips CIDR suffix and reports public IP as ExternalIP", testCaseNodeAddress{
+		Entry("new machine (hasOldStyle=false) strips CIDR suffix and reports public IP as ExternalIP", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
 				Spec: infrav1.HetznerBareMetalHostSpec{
 					Status: infrav1.ControllerGeneratedStatus{
@@ -473,10 +475,10 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			IsNewMachine:          true,
+			HasOldStyle:           false,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr5, addr3, addr4},
 		}),
-		Entry("new machine (isNewMachine=true) keeps private IP as InternalIP", testCaseNodeAddress{
+		Entry("new machine (hasOldStyle=false) keeps private IP as InternalIP", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
 				Spec: infrav1.HetznerBareMetalHostSpec{
 					Status: infrav1.ControllerGeneratedStatus{
@@ -486,7 +488,7 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			IsNewMachine:          true,
+			HasOldStyle:           false,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr3, addr4},
 		}),
 	)
@@ -505,9 +507,9 @@ var _ = Describe("Test hasOldStyleIPAddress", func() {
 		Entry("InternalIP with CIDR suffix (old logic)", []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineInternalIP, Address: "192.168.1.1/24"},
 		}, true),
-		Entry("ExternalIP with CIDR suffix (old logic)", []clusterv1beta1.MachineAddress{
+		Entry("ExternalIP with CIDR suffix is never old-style (old logic never produces ExternalIP)", []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineExternalIP, Address: "203.0.113.5/26"},
-		}, true),
+		}, false),
 		Entry("InternalIP without CIDR suffix (corrected logic already applied)", []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineInternalIP, Address: "192.168.1.1"},
 		}, false),

@@ -883,8 +883,8 @@ func (s *Service) updateMachineAddresses(host *infrav1.HetznerBareMetalHost) {
 	// flip-flopping the type on every reconcile. Checking for the CIDR suffix instead is stable:
 	// the old logic always keeps it, the corrected logic always strips it, so the check reflects
 	// which logic actually produced the current address, not just that some address exists.
-	isNewMachine := !hasOldStyleIPAddress(s.scope.BareMetalMachine.Status.Addresses)
-	addrs := nodeAddresses(host, s.scope.Name(), isNewMachine)
+	hasOldStyle := hasOldStyleIPAddress(s.scope.BareMetalMachine.Status.Addresses)
+	addrs := nodeAddresses(host, s.scope.Name(), hasOldStyle)
 
 	bareMetalMachineOld := s.scope.BareMetalMachine.DeepCopy()
 
@@ -981,16 +981,15 @@ func ensureClusterLabel(host *infrav1.HetznerBareMetalHost, clusterName string) 
 	host.Labels[clusterv1.ClusterNameLabel] = clusterName
 }
 
-// hasOldStyleIPAddress returns true if addrs contains an InternalIP or ExternalIP entry whose
-// address still carries a CIDR suffix (e.g. "/26"). Only the historical, uncorrected logic ever
-// produces such an address - the corrected logic always strips the suffix - so this reflects
-// which logic last computed the address, not merely that some address is present.
+// hasOldStyleIPAddress returns true if addrs contains an InternalIP entry whose address still
+// carries a CIDR suffix (e.g. "/26"). Only the historical, uncorrected logic ever produces such
+// an address - it unconditionally uses InternalIP and never strips the suffix - so this reflects
+// which logic last computed the address, not merely that some address is present. ExternalIP
+// never needs checking: the old logic never produces it, and the corrected logic always strips
+// the suffix, so an ExternalIP address is never old-style.
 func hasOldStyleIPAddress(addrs []clusterv1beta1.MachineAddress) bool {
 	for _, addr := range addrs {
-		if addr.Type != clusterv1beta1.MachineInternalIP && addr.Type != clusterv1beta1.MachineExternalIP {
-			continue
-		}
-		if strings.Contains(addr.Address, "/") {
+		if addr.Type == clusterv1beta1.MachineInternalIP && strings.Contains(addr.Address, "/") {
 			return true
 		}
 	}
@@ -999,12 +998,12 @@ func hasOldStyleIPAddress(addrs []clusterv1beta1.MachineAddress) bool {
 
 // nodeAddresses returns a slice of clusterv1beta1.MachineAddress objects for a given host.
 //
-// If isNewMachine is false, NIC IPs are reported verbatim (including any CIDR suffix from
+// If hasOldStyle is true, NIC IPs are reported verbatim (including any CIDR suffix from
 // `ip addr show`) and always classified as InternalIP, matching the historical behavior. This
 // keeps already-running machines from silently changing their reported address type.
-// If isNewMachine is true, the CIDR suffix is stripped and each address is classified as
+// If hasOldStyle is false, the CIDR suffix is stripped and each address is classified as
 // ExternalIP or InternalIP depending on whether it is a public or private IP.
-func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string, isNewMachine bool) []clusterv1beta1.MachineAddress {
+func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string, hasOldStyle bool) []clusterv1beta1.MachineAddress {
 	// if there are no hw details, return
 	if host.Spec.Status.HardwareDetails == nil {
 		return nil
@@ -1017,7 +1016,7 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 			continue
 		}
 
-		if !isNewMachine {
+		if hasOldStyle {
 			addrs = append(addrs, clusterv1beta1.MachineAddress{
 				Type:    clusterv1beta1.MachineInternalIP,
 				Address: nic.IP,
