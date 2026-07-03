@@ -1055,8 +1055,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
-		record.Event(hm, "ImageURLCommandOutputJSON", outputJSON)
-		s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+		record.Event(hm, "CustomProvisionerOutputJSON", outputJSON)
+		s.scope.Info("CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 
 		// The image got installed. Now reboot in the real operating system.
 		if rebootErr := hcloudSSHClient.Reboot(ctx).Err; rebootErr != nil {
@@ -1094,8 +1094,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
 				return reconcile.Result{}, fmt.Errorf("failed to parse: %w", err)
 			}
-			record.Warn(hm, "ImageURLCommandOutputJSON", outputJSON)
-			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+			record.Warn(hm, "CustomProvisionerOutputJSON", outputJSON)
+			s.scope.Error(nil, "CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 			if output.Message != "" {
 				msg = output.Message
 			}

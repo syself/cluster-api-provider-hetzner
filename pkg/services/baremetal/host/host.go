@@ -1374,8 +1374,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			s.scope.Error(err, "failed to read output.json")
 			return actionContinue{delay: 10 * time.Second}
 		}
-		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
-		s.scope.Info("ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+		record.Event(s.scope.HetznerBareMetalHost, "CustomProvisionerOutputJSON", outputJSON)
+		s.scope.Info("CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 
 		// Update name in robot API
 		if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
@@ -1417,8 +1417,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
 				return actionError{err: fmt.Errorf("failed to parse: %w", err)}
 			}
-			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandOutputJSON", outputJSON)
-			s.scope.Error(nil, "ImageURLCommandOutputJSON", "outputJSON", outputJSON)
+			record.Warn(s.scope.HetznerBareMetalHost, "CustomProvisionerOutputJSON", outputJSON)
+			s.scope.Error(nil, "CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 			if output.Message != "" {
 				msg = output.Message
 			}

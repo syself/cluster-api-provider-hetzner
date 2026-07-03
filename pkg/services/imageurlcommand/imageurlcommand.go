@@ -25,7 +25,7 @@ import (
 // Output is the format of /root/output.json written by the image-url-command binary. Written
 // continuously during execution; presence and content are optional from CAPH's perspective. On
 // completion (success or failure) CAPH emits the full JSON as a Kubernetes Event (reason
-// "ImageURLCommandOutputJSON") and logs it to the controller log. CAPH reads only the top level
+// "CustomProvisionerOutputJSON") and logs it to the controller log. CAPH reads only the top level
 // field "message" to write it to the corresponding message of the corresponding condition.
 type Output struct {
 	Message string `json:"message,omitempty"`

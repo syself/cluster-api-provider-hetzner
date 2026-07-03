@@ -152,7 +152,7 @@ event (see below). You can use them for your own structured debugging output.
 ### Kubernetes event on completion
 
 When the command finishes (success or failure), CAPH emits a Kubernetes event with reason
-`ImageURLCommandOutputJSON` containing the **full JSON content** of the file. If the command
+`CustomProvisionerOutputJSON` containing the **full JSON content** of the file. If the command
 failed, the event type is `Warning`; otherwise it is `Normal`. The content is also written to
 the controller log at key `outputJSON`.
 
