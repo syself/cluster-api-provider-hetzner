@@ -415,13 +415,13 @@ var _ = Describe("Test NodeAddresses", func() {
 		Machine               clusterv1.Machine
 		BareMetalMachine      infrav1.HetznerBareMetalMachine
 		Host                  *infrav1.HetznerBareMetalHost
-		UseMatchingIPType     bool
+		IsNewMachine          bool
 		ExpectedNodeAddresses []clusterv1beta1.MachineAddress
 	}
 
 	DescribeTable("Test NodeAddress",
 		func(tc testCaseNodeAddress) {
-			nodeAddresses := nodeAddresses(tc.Host, "bm-machine", tc.UseMatchingIPType)
+			nodeAddresses := nodeAddresses(tc.Host, "bm-machine", tc.IsNewMachine)
 			for i, address := range tc.ExpectedNodeAddresses {
 				Expect(nodeAddresses[i]).To(Equal(address))
 			}
@@ -450,7 +450,7 @@ var _ = Describe("Test NodeAddresses", func() {
 			},
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr2, addr3, addr4},
 		}),
-		Entry("useMatchingIPType=false keeps CIDR suffix and always reports InternalIP", testCaseNodeAddress{
+		Entry("existing machine (isNewMachine=false) keeps CIDR suffix and always reports InternalIP", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
 				Spec: infrav1.HetznerBareMetalHostSpec{
 					Status: infrav1.ControllerGeneratedStatus{
@@ -460,10 +460,10 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			UseMatchingIPType:     false,
+			IsNewMachine:          false,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr6, addr3, addr4},
 		}),
-		Entry("useMatchingIPType=true strips CIDR suffix and reports public IP as ExternalIP", testCaseNodeAddress{
+		Entry("new machine (isNewMachine=true) strips CIDR suffix and reports public IP as ExternalIP", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
 				Spec: infrav1.HetznerBareMetalHostSpec{
 					Status: infrav1.ControllerGeneratedStatus{
@@ -473,10 +473,10 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			UseMatchingIPType:     true,
+			IsNewMachine:          true,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr5, addr3, addr4},
 		}),
-		Entry("useMatchingIPType=true keeps private IP as InternalIP", testCaseNodeAddress{
+		Entry("new machine (isNewMachine=true) keeps private IP as InternalIP", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
 				Spec: infrav1.HetznerBareMetalHostSpec{
 					Status: infrav1.ControllerGeneratedStatus{
@@ -486,10 +486,76 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			UseMatchingIPType:     true,
+			IsNewMachine:          true,
 			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr3, addr4},
 		}),
 	)
+})
+
+var _ = Describe("Test hasReportedIPTypeAddress", func() {
+	DescribeTable("hasReportedIPTypeAddress",
+		func(addrs []clusterv1beta1.MachineAddress, expected bool) {
+			Expect(hasReportedIPTypeAddress(addrs)).To(Equal(expected))
+		},
+		Entry("nil addresses", nil, false),
+		Entry("only hostname/internalDNS addresses", []clusterv1beta1.MachineAddress{
+			{Type: clusterv1beta1.MachineHostName, Address: "bm-machine"},
+			{Type: clusterv1beta1.MachineInternalDNS, Address: "bm-machine"},
+		}, false),
+		Entry("has InternalIP", []clusterv1beta1.MachineAddress{
+			{Type: clusterv1beta1.MachineInternalIP, Address: "192.168.1.1"},
+		}, true),
+		Entry("has ExternalIP", []clusterv1beta1.MachineAddress{
+			{Type: clusterv1beta1.MachineExternalIP, Address: "203.0.113.5"},
+		}, true),
+	)
+})
+
+var _ = Describe("Test updateMachineAddresses", func() {
+	newHostWithNIC := func(ip string) *infrav1.HetznerBareMetalHost {
+		return &infrav1.HetznerBareMetalHost{
+			Spec: infrav1.HetznerBareMetalHostSpec{
+				Status: infrav1.ControllerGeneratedStatus{
+					HardwareDetails: &infrav1.HardwareDetails{
+						NIC: []infrav1.NIC{{IP: ip}},
+					},
+				},
+			},
+		}
+	}
+
+	It("keeps computing addresses the old way for a machine that already reported InternalIP", func() {
+		bmMachine := &infrav1.HetznerBareMetalMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "bm-machine", Namespace: "default"},
+			Status: infrav1.HetznerBareMetalMachineStatus{
+				Addresses: []clusterv1beta1.MachineAddress{
+					{Type: clusterv1beta1.MachineInternalIP, Address: "203.0.113.5/26"},
+				},
+			},
+		}
+		s := &Service{scope: &scope.BareMetalMachineScope{BareMetalMachine: bmMachine}}
+
+		s.updateMachineAddresses(newHostWithNIC("203.0.113.5/26"))
+
+		Expect(bmMachine.Status.Addresses).To(ContainElement(clusterv1beta1.MachineAddress{
+			Type:    clusterv1beta1.MachineInternalIP,
+			Address: "203.0.113.5/26",
+		}))
+	})
+
+	It("uses the corrected classification for a machine that never reported an IP-type address", func() {
+		bmMachine := &infrav1.HetznerBareMetalMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "bm-machine", Namespace: "default"},
+		}
+		s := &Service{scope: &scope.BareMetalMachineScope{BareMetalMachine: bmMachine}}
+
+		s.updateMachineAddresses(newHostWithNIC("203.0.113.5/26"))
+
+		Expect(bmMachine.Status.Addresses).To(ContainElement(clusterv1beta1.MachineAddress{
+			Type:    clusterv1beta1.MachineExternalIP,
+			Address: "203.0.113.5",
+		}))
+	})
 })
 
 var _ = Describe("Test consumerRefMatches", func() {

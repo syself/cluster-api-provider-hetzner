@@ -103,25 +103,6 @@ type HetznerBareMetalMachineSpec struct {
 	// This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
 	// +optional
 	SkipCheckDisk bool `json:"skipCheckDisk,omitempty"`
-
-	// UseMatchingIPType controls how this machine's NIC addresses are reported in
-	// Machine.status.addresses. If true, the CIDR suffix is stripped from the NIC IP, and the
-	// address is classified as ExternalIP (public IP) or InternalIP (private IP) to match its
-	// actual type. If false, the NIC IP is reported verbatim (including any CIDR suffix) and
-	// always classified as InternalIP, regardless of whether it is actually public or private.
-	// If unset, this currently defaults to false (the old, invalid behavior). This is a pointer
-	// so that unset can be distinguished from an explicit false, which lets us change the
-	// default in a future API version (e.g. v1beta2) without changing the meaning of an
-	// explicit false.
-	//
-	// We recommend to enable it. In the future we might change the default to true, because
-	// the old behaviour is invalid: it reports a malformed address (an IP with a CIDR suffix is
-	// not a valid IP address) and misclassifies public IPs as InternalIP.
-	//
-	// Note: enabling this can affect firewall rules and other apps that treat InternalIP and
-	// ExternalIP differently, e.g. Cilium's remote-node identity and host firewall.
-	// +optional
-	UseMatchingIPType *bool `json:"useMatchingIPType,omitempty"`
 }
 
 // HostSelector specifies matching criteria for labels on BareMetalHosts.

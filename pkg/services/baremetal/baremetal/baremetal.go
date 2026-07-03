@@ -872,8 +872,13 @@ func (s *Service) setReferencesOnHost(host *infrav1.HetznerBareMetalHost) {
 }
 
 func (s *Service) updateMachineAddresses(host *infrav1.HetznerBareMetalHost) {
-	useMatchingIPType := ptr.Deref(s.scope.BareMetalMachine.Spec.UseMatchingIPType, false)
-	addrs := nodeAddresses(host, s.scope.Name(), useMatchingIPType)
+	// Once a machine has reported an InternalIP/ExternalIP address, keep computing it the same
+	// (possibly historical, incorrect) way for the rest of its lifetime. This avoids silently
+	// changing the address type of already-running machines, which could break firewall rules or
+	// CNI configuration built around the previous type. Only genuinely new machines - those that
+	// have never reported such an address - get the corrected classification.
+	isNewMachine := !hasReportedIPTypeAddress(s.scope.BareMetalMachine.Status.Addresses)
+	addrs := nodeAddresses(host, s.scope.Name(), isNewMachine)
 
 	bareMetalMachineOld := s.scope.BareMetalMachine.DeepCopy()
 
@@ -970,14 +975,25 @@ func ensureClusterLabel(host *infrav1.HetznerBareMetalHost, clusterName string) 
 	host.Labels[clusterv1.ClusterNameLabel] = clusterName
 }
 
+// hasReportedIPTypeAddress returns true if addrs already contains an InternalIP or ExternalIP
+// entry, meaning the machine has computed its NIC address type at least once before.
+func hasReportedIPTypeAddress(addrs []clusterv1beta1.MachineAddress) bool {
+	for _, addr := range addrs {
+		if addr.Type == clusterv1beta1.MachineInternalIP || addr.Type == clusterv1beta1.MachineExternalIP {
+			return true
+		}
+	}
+	return false
+}
+
 // nodeAddresses returns a slice of clusterv1beta1.MachineAddress objects for a given host.
 //
-// If useMatchingIPType is false, NIC IPs are reported verbatim (including any CIDR suffix from
-// `ip addr show`) and always classified as InternalIP, matching the historical behavior.
-// If useMatchingIPType is true (opted in via infrav1.HetznerBareMetalMachineSpec.UseMatchingIPType),
-// the CIDR suffix is stripped and each address is classified as ExternalIP or InternalIP
-// depending on whether it is a public or private IP.
-func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string, useMatchingIPType bool) []clusterv1beta1.MachineAddress {
+// If isNewMachine is false, NIC IPs are reported verbatim (including any CIDR suffix from
+// `ip addr show`) and always classified as InternalIP, matching the historical behavior. This
+// keeps already-running machines from silently changing their reported address type.
+// If isNewMachine is true, the CIDR suffix is stripped and each address is classified as
+// ExternalIP or InternalIP depending on whether it is a public or private IP.
+func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string, isNewMachine bool) []clusterv1beta1.MachineAddress {
 	// if there are no hw details, return
 	if host.Spec.Status.HardwareDetails == nil {
 		return nil
@@ -990,7 +1006,7 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 			continue
 		}
 
-		if !useMatchingIPType {
+		if !isNewMachine {
 			addrs = append(addrs, clusterv1beta1.MachineAddress{
 				Type:    clusterv1beta1.MachineInternalIP,
 				Address: nic.IP,
