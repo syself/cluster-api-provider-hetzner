@@ -876,13 +876,6 @@ func (s *Service) updateMachineAddresses(host *infrav1.HetznerBareMetalHost) {
 	// attached, keep computing it the same historical, incorrect way for the rest of its
 	// lifetime. This avoids silently changing the address type of already-running machines,
 	// which could break firewall rules or CNI configuration built around the previous type.
-	//
-	// We cannot simply check whether status.addresses already has an InternalIP/ExternalIP
-	// entry: the corrected logic below would itself produce such an entry, and checking for its
-	// mere presence on the next reconcile would immediately fall back to the old logic again,
-	// flip-flopping the type on every reconcile. Checking for the CIDR suffix instead is stable:
-	// the old logic always keeps it, the corrected logic always strips it, so the check reflects
-	// which logic actually produced the current address, not just that some address exists.
 	hasOldStyle := hasOldStyleIPAddress(s.scope.BareMetalMachine.Status.Addresses)
 	addrs := nodeAddresses(host, s.scope.Name(), hasOldStyle)
 
