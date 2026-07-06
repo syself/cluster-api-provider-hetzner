@@ -42,8 +42,8 @@ type OnExhaustionAction string
 
 const (
 	// OnExhaustionReuse deletes the machine and frees the host back into the
-	// selectable pool, so it can be provisioned again. This is the default and
-	// the right choice for temporary problems.
+	// selectable pool, so it can be provisioned again. This is the behavior when
+	// onExhaustion is unset, and the right choice for temporary problems.
 	OnExhaustionReuse OnExhaustionAction = "Reuse"
 
 	// OnExhaustionRetire sets a permanent error on the host, which deletes the

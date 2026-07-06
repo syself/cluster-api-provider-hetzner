@@ -207,9 +207,10 @@ func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerB
 			"reboot remediation succeeded: Node is healthy again")
 	}
 
-	// Reboots are exhausted and the node is still unhealthy. Retire also gets the
-	// machine deleted (like the reuse path below), but via a permanent error on the
-	// host, which additionally keeps the host out of the pool. See retireHost.
+	// Reboots are exhausted and the node is still unhealthy, so the machine is deleted
+	// either way. Retire deletes it by setting a permanent error on the host (retireHost),
+	// which also keeps the host out of the pool. Without Retire we fall through to
+	// setOwnerRemediatedConditionToFailed below and the host can be provisioned again.
 	if s.scope.BareMetalRemediation.Spec.Strategy.OnExhaustion == infrav1.OnExhaustionRetire {
 		return reconcile.Result{}, s.retireHost(ctx, host)
 	}

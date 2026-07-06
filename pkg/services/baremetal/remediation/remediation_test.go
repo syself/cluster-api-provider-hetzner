@@ -120,9 +120,9 @@ var _ = Describe("Test AddRebootAnnotation", func() {
 
 var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 	// Deterministic unit test with a fake client (no host controller running, so
-	// nothing overwrites the permanent error). It exercises the exhausted path:
-	// reboots are used up and the node is still unhealthy, so the strategy decides
-	// whether the host is reused or retired.
+	// nothing overwrites the permanent error). It covers the case where reboots are
+	// used up and the node is still unhealthy, so handlePhaseWaiting decides whether
+	// to reuse or retire the host.
 	scheme := runtime.NewScheme()
 	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
