@@ -207,10 +207,9 @@ func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerB
 			"reboot remediation succeeded: Node is healthy again")
 	}
 
-	// Reboots are exhausted and the node is still unhealthy. When the strategy
-	// asks to retire, set a permanent error on the host instead of freeing it:
-	// this deletes the machine through the existing HasFatalError path and keeps
-	// the host out of the pool until a human removes the permanent-error annotation.
+	// Reboots are exhausted and the node is still unhealthy. Retire also gets the
+	// machine deleted (like the reuse path below), but via a permanent error on the
+	// host, which additionally keeps the host out of the pool. See retireHost.
 	if s.scope.BareMetalRemediation.Spec.Strategy.OnExhaustion == infrav1.OnExhaustionRetire {
 		return reconcile.Result{}, s.retireHost(ctx, host)
 	}
@@ -218,18 +217,18 @@ func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerB
 	return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx, "because retryLimit is reached and reboot timed out")
 }
 
-// retireHost sets a permanent error on the host so it leaves the cluster instead
-// of being reused. The permanent error deletes the machine through the existing
-// HasFatalError path, and skipHost keeps the host out of selection (the error is
-// not cleared on deprovision) until a human removes the permanent-error annotation.
+// retireHost sets a permanent error on the host so it leaves the cluster instead of
+// being reused. The permanent error deletes the machine through the HasFatalError path,
+// and skipHost keeps the host out of selection (the error is not cleared on deprovision)
+// until a human removes the permanent-error annotation.
 func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
 	patchHelper, err := v1beta1patch.NewHelper(host, s.scope.Client)
 	if err != nil {
 		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
 
-	// RetryCount is the number of reboots that were attempted. It is 0 when
-	// retryLimit is 0 (retire without rebooting), so phrase the reason accordingly.
+	// RetryCount is the number of reboots attempted; it is 0 when retryLimit is 0
+	// (retire without rebooting).
 	retryCount := s.scope.BareMetalRemediation.Status.RetryCount
 	reason := "retired by remediation: retryLimit is 0, node retired without a reboot attempt"
 	if retryCount > 0 {

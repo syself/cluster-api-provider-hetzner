@@ -63,11 +63,10 @@ type BareMetalRemediationStrategy struct {
 	RemediationStrategy `json:",inline"`
 
 	// OnExhaustion selects what happens when remediation runs out of retries and
-	// the node is still unhealthy. Reuse (default) deletes the machine and frees
-	// the host to be provisioned again. Retire sets a permanent error on the host,
-	// which deletes the machine and keeps the host out of the pool until a human
-	// removes the capi.syself.com/permanent-error annotation.
-	// +kubebuilder:default=Reuse
+	// the node is still unhealthy. Reuse deletes the machine and frees the host to be
+	// provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
+	// error on the host, which deletes the machine and keeps the host out of the pool
+	// until a human removes the capi.syself.com/permanent-error annotation.
 	// +kubebuilder:validation:Enum=Reuse;Retire
 	// +optional
 	OnExhaustion OnExhaustionAction `json:"onExhaustion,omitempty"`

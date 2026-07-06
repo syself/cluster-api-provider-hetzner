@@ -122,7 +122,7 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 	// Deterministic unit test with a fake client (no host controller running, so
 	// nothing overwrites the permanent error). It exercises the exhausted path:
 	// reboots are used up and the node is still unhealthy, so the strategy decides
-	// whether the host is reused (today's behavior) or retired.
+	// whether the host is reused or retired.
 	scheme := runtime.NewScheme()
 	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
@@ -188,8 +188,10 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 				BareMetalRemediation: remediation,
 			}}
 
-			// The machine has no MachineNodeHealthy condition, so the node counts as
-			// still unhealthy and the exhausted path runs.
+			// handlePhaseWaiting decides the node is healthy by checking the MachineNodeHealthy
+			// condition on the owner Machine. This test machine has no such condition, so the
+			// node is treated as unhealthy and the onExhaustion decision applies instead of
+			// marking the remediation succeeded.
 			res, err := service.handlePhaseWaiting(ctx, host)
 			Expect(err).To(BeNil())
 			Expect(res.RequeueAfter).To(BeZero())
@@ -201,8 +203,8 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost)).To(Succeed())
 			if tc.expectHostPermanentError {
 				Expect(updatedHost.Spec.Status.ErrorType).To(Equal(infrav1.PermanentError))
-				// Pin the retire branch's real output: the reason differs for 0 reboots
-				// (retryLimit 0) versus one or more failed reboots.
+				// We check the errorMessage against the expected one because the reason wording
+				// differs for 0 reboots (retryLimit 0) versus one or more failed reboots.
 				Expect(updatedHost.Spec.Status.ErrorMessage).To(Equal(tc.expectErrorMessage))
 				Expect(updatedHost.Annotations).To(HaveKey(infrav1.PermanentErrorAnnotation))
 			} else {
@@ -222,7 +224,7 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			expectHostPermanentError: true,
 			expectErrorMessage:       "retired by remediation: retryLimit is 0, node retired without a reboot attempt",
 		}),
-		Entry("Reuse keeps today's behavior", testCaseOnExhaustion{
+		Entry("Reuse deletes the machine without retiring the host", testCaseOnExhaustion{
 			onExhaustion:             infrav1.OnExhaustionReuse,
 			retryCount:               1,
 			expectHostPermanentError: false,
