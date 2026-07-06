@@ -230,17 +230,17 @@ func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetal
 	// RetryCount is the number of reboots attempted; it is 0 when retryLimit is 0
 	// (retire without rebooting).
 	retryCount := s.scope.BareMetalRemediation.Status.RetryCount
-	reason := "retired by remediation: retryLimit is 0, node retired without a reboot attempt"
+	message := "retired by remediation: retryLimit is 0, node retired without a reboot attempt"
 	if retryCount > 0 {
-		reason = fmt.Sprintf("retired by remediation: node still unhealthy after %d failed reboot(s)", retryCount)
+		message = fmt.Sprintf("retired by remediation: node still unhealthy after %d failed reboot(s)", retryCount)
 	}
-	host.SetError(infrav1.PermanentError, reason)
+	host.SetError(infrav1.PermanentError, message)
 
 	if err := patchHelper.Patch(ctx, host); err != nil {
 		return fmt.Errorf("failed to patch: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
 
-	record.Warn(s.scope.BareMetalRemediation, "HostRetired", reason)
+	record.Warn(s.scope.BareMetalRemediation, "HostRetired", message)
 
 	s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
 	return nil

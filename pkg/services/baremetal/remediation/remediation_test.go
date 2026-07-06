@@ -203,8 +203,8 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost)).To(Succeed())
 			if tc.expectHostPermanentError {
 				Expect(updatedHost.Spec.Status.ErrorType).To(Equal(infrav1.PermanentError))
-				// We check the errorMessage against the expected one because the reason wording
-				// differs for 0 reboots (retryLimit 0) versus one or more failed reboots.
+				// We check the errorMessage against the expected one because its wording differs
+				// for 0 reboots (retryLimit 0) versus one or more failed reboots.
 				Expect(updatedHost.Spec.Status.ErrorMessage).To(Equal(tc.expectErrorMessage))
 				Expect(updatedHost.Annotations).To(HaveKey(infrav1.PermanentErrorAnnotation))
 			} else {
