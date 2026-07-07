@@ -1308,8 +1308,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		duration = time.Since(host.Spec.Status.RebootTriggeredAt.Time)
 	}
 
-	// Please keep the number (7) in sync with the docstring of ImageURL.
-	if duration > 7*time.Minute {
+	// Please keep the number (20) in sync with the docstring of ImageURL.
+	if duration > 20*time.Minute {
 		// timeout. Something has failed.
 		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
