@@ -136,6 +136,16 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	now := metav1.Now()
 
+	// retryLimit 0 disables reboots (see RemediationStrategy.RetryLimit), so there
+	// is no remediation to perform. Mark the machine for deletion by CAPI.
+	if !s.scope.HasRetriesLeft() && s.scope.HCloudRemediation.Status.LastRemediated == nil {
+		if err := s.setOwnerRemediatedConditionToFailed(ctx, "exit remediation because retryLimit is 0 (no reboot performed)"); err != nil {
+			record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
+			return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
+		}
+		return reconcile.Result{}, nil
+	}
+
 	// if server has never been remediated, then do that now
 	if s.scope.HCloudRemediation.Status.LastRemediated == nil {
 		if err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
@@ -149,11 +159,8 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 		s.scope.HCloudRemediation.Status.RetryCount++
 	}
 
-	retryLimit := s.scope.HCloudRemediation.Spec.Strategy.RetryLimit
-	retryCount := s.scope.HCloudRemediation.Status.RetryCount
-
 	// check whether retry limit has been reached
-	if retryLimit == 0 || retryCount >= retryLimit {
+	if !s.scope.HasRetriesLeft() {
 		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseWaiting
 	}
 
@@ -201,7 +208,7 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (reconcile.Result, err
 	}
 
 	err := s.setOwnerRemediatedConditionToFailed(ctx,
-		"exit remediation because because retryLimit is reached and reboot timed out")
+		"exit remediation because retryLimit is reached and reboot timed out")
 	if err != nil {
 		record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
 		return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
