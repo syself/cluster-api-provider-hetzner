@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -131,6 +132,7 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 	type testCaseOnExhaustion struct {
 		onExhaustion             infrav1.OnExhaustionAction
 		retryCount               int
+		healthCheckMessage       string
 		expectHostPermanentError bool
 		expectErrorMessage       string
 	}
@@ -174,6 +176,17 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 					RetryCount:     tc.retryCount,
 					LastRemediated: &metav1.Time{Time: time.Now().Add(-2 * time.Second)},
 				},
+			}
+
+			// The MachineHealthCheck records the failing node condition on the Machine's
+			// HealthCheckSucceeded condition. When present, retireHost uses it as the reason.
+			if tc.healthCheckMessage != "" {
+				conditions.Set(machine, metav1.Condition{
+					Type:    clusterv1.MachineHealthCheckSucceededCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  clusterv1.MachineHealthCheckUnhealthyNodeReason,
+					Message: tc.healthCheckMessage,
+				})
 			}
 
 			c := fakeclient.NewClientBuilder().
@@ -233,6 +246,13 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			onExhaustion:             "",
 			retryCount:               1,
 			expectHostPermanentError: false,
+		}),
+		Entry("Retire uses the MachineHealthCheck reason when the condition is set", testCaseOnExhaustion{
+			onExhaustion:             infrav1.OnExhaustionRetire,
+			retryCount:               1,
+			healthCheckMessage:       "Health check failed: Condition Ready on Node is reporting status Unknown for more than 5m0s",
+			expectHostPermanentError: true,
+			expectErrorMessage:       "retired by remediation: Health check failed: Condition Ready on Node is reporting status Unknown for more than 5m0s",
 		}),
 	)
 })

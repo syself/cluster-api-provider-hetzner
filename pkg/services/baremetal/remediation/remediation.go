@@ -212,7 +212,7 @@ func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerB
 	// which also keeps the host out of the pool. Without Retire we fall through to
 	// setOwnerRemediatedConditionToFailed below and the host can be provisioned again.
 	if s.scope.BareMetalRemediation.Spec.Strategy.OnExhaustion == infrav1.OnExhaustionRetire {
-		return reconcile.Result{}, s.retireHost(ctx, host)
+		return reconcile.Result{}, s.retireHost(ctx, host, capiMachine)
 	}
 
 	return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx, "because retryLimit is reached and reboot timed out")
@@ -222,19 +222,28 @@ func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerB
 // being reused. The permanent error deletes the machine through the HasFatalError path,
 // and skipHost keeps the host out of selection (the error is not cleared on deprovision)
 // until a human removes the permanent-error annotation.
-func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
+func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetalHost, capiMachine *clusterv1.Machine) error {
 	patchHelper, err := v1beta1patch.NewHelper(host, s.scope.Client)
 	if err != nil {
 		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
 
-	// RetryCount is the number of reboots attempted; it is 0 when retryLimit is 0
-	// (retire without rebooting).
-	retryCount := s.scope.BareMetalRemediation.Status.RetryCount
-	message := "retired by remediation: retryLimit is 0, node retired without a reboot attempt"
-	if retryCount > 0 {
-		message = fmt.Sprintf("retired by remediation: node still unhealthy after %d failed reboot(s)", retryCount)
+	// The MachineHealthCheck writes the node condition that made the machine unhealthy onto
+	// the Machine's HealthCheckSucceeded condition. Use it as the reason so the permanent
+	// error explains why the host was retired. Fall back to how remediation ended when the
+	// Machine or the message is missing.
+	reason := ""
+	if capiMachine != nil {
+		reason = conditions.GetMessage(capiMachine, clusterv1.MachineHealthCheckSucceededCondition)
 	}
+	if reason == "" {
+		// RetryCount is the number of reboots attempted; it is 0 when retryLimit is 0.
+		reason = "retryLimit is 0, node retired without a reboot attempt"
+		if retryCount := s.scope.BareMetalRemediation.Status.RetryCount; retryCount > 0 {
+			reason = fmt.Sprintf("node still unhealthy after %d failed reboot(s)", retryCount)
+		}
+	}
+	message := fmt.Sprintf("retired by remediation: %s", reason)
 	host.SetError(infrav1.PermanentError, message)
 
 	if err := patchHelper.Patch(ctx, host); err != nil {
