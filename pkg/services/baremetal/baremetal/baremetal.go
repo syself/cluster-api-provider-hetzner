@@ -335,18 +335,18 @@ func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, er
 		}
 	}
 
-	// maintenance mode on the host is a fatal error for the machine object
-	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
-		err := s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, FailureMessageMaintenanceMode)
+	// if host has a fatal error, then it should be set on the hbmm object as well
+	if host.Spec.Status.HasFatalError() {
+		err := s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, host.Spec.Status.ErrorMessage)
 		if err != nil {
 			return nil, err
 		}
 		return host, nil
 	}
 
-	// if host has a fatal error, then it should be set on the hbmm object as well
-	if host.Spec.Status.HasFatalError() {
-		err := s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, host.Spec.Status.ErrorMessage)
+	// maintenance mode on the host is a fatal error for the machine object
+	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
+		err := s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, FailureMessageMaintenanceMode)
 		if err != nil {
 			return nil, err
 		}

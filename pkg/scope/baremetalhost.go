@@ -217,6 +217,7 @@ func BareMetalHostPatchOpts() []v1beta1patch.Option {
 			infrav1.RootDeviceHintsValidatedCondition,
 			infrav1.ProvisionSucceededCondition,
 			infrav1.HetznerAPIReachableCondition,
+			infrav1.ActionCompletedCondition,
 		}},
 		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
 			clusterv1beta1.ReadyV1Beta2Condition,

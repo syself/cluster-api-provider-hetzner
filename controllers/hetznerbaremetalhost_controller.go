@@ -209,8 +209,8 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Remove permanent error, if the corresponding annotation was removed by the user.
-	removed := removePermanentErrorIfAnnotationIsGone(bmHost)
+	// Remove permanent error, if the user turned off maintenance mode.
+	removed := removePermanentErrorIfResolved(bmHost)
 	if removed {
 		// The permanent error was removed from Spec.Status.
 		// Save the changes, and then reconcile again.
@@ -594,23 +594,26 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 	return nil
 }
 
-func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost,
+// removePermanentErrorIfResolved clears the permanent error status and annotation once the
+// maintenance mode is turned off.
+func removePermanentErrorIfResolved(bmHost *infrav1.HetznerBareMetalHost,
 ) (removed bool) {
 	if bmHost.Spec.Status.ErrorType != infrav1.PermanentError {
 		// PermanentError not set. Do nothing.
 		return false
 	}
-	for k := range bmHost.GetAnnotations() {
-		if k == infrav1.PermanentErrorAnnotation {
-			// Annotation was not removed by user. Do nothing.
-			return false
-		}
+
+	if bmHost.Spec.MaintenanceMode != nil && *bmHost.Spec.MaintenanceMode {
+		// Maintenance mode was not turned off by the user. Do nothing.
+		return false
 	}
+
+	delete(bmHost.Annotations, infrav1.PermanentErrorAnnotation)
 	bmHost.Spec.Status.ErrorType = ""
 	bmHost.Spec.Status.ErrorMessage = ""
 	bmHost.Spec.Status.ErrorCount = 0
+	v1beta1conditions.Delete(bmHost, infrav1.ActionCompletedCondition)
 	v1beta2conditions.Delete(bmHost, infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition)
-	record.Eventf(bmHost, "PermanentErrorWasRemoved", "The permanent error was removed, because the annotation %q was removed",
-		infrav1.PermanentErrorAnnotation)
+	record.Eventf(bmHost, "PermanentErrorWasRemoved", "The permanent error was removed, because maintenance mode was turned off")
 	return true
 }

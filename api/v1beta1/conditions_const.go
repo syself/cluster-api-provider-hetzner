@@ -189,6 +189,15 @@ const (
 )
 
 const (
+	// ActionCompletedCondition reports whether the last action on the host completed successfully.
+	// Set to False when a fatal, non-recoverable error is detected that requires manual intervention.
+	// Absent on healthy hosts; only present when a permanent error has been recorded.
+	ActionCompletedCondition clusterv1beta1.ConditionType = "ActionCompleted"
+	// ActionCompletedPermanentErrorReason represents a fatal, non-recoverable error that persists on the host.
+	ActionCompletedPermanentErrorReason = "PermanentError"
+)
+
+const (
 	// ProvisionSucceededCondition indicates that a host has been provisioned.
 	ProvisionSucceededCondition clusterv1beta1.ConditionType = "ProvisionSucceeded"
 	// StillProvisioningReason indicates that the server is still provisioning.
