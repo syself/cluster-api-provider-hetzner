@@ -414,8 +414,8 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	var requeueAfter time.Duration
 	if hm.Status.BootState == infrav1.HCloudBootStateInitializing {
 		// The imageURL flow created the server powered off. Only the create action needs
-		// to finish before the rescue system can be enabled, which takes a few seconds.
-		requeueAfter = 5 * time.Second
+		// to finish before the rescue system can be enabled.
+		requeueAfter = 15 * time.Second
 	} else {
 		// The imageName flow boots the real image directly.
 		// Provisioning from a hcloud image like ubuntu-YY.MM takes roughly 11 seconds.
@@ -632,7 +632,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 		Reason:  infrav1.HCloudMachineWaitingForRescueSystemV1Beta2Reason,
 		Message: "waiting for rescue system to be enabled",
 	})
-	return reconcile.Result{RequeueAfter: 4 * time.Second}, nil
+	return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 }
 
 // handleBootStateEnablingRescue is for provisioning with imageURL and image-url-command.
@@ -750,7 +750,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 				Reason:  infrav1.HCloudMachineWaitingForEnablingRescueActionV1Beta2Reason,
 				Message: "Waiting until Action RescueEnabled is finished",
 			})
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
 		err = action.Error()
@@ -904,7 +904,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			Reason:  infrav1.HCloudMachineWaitForRescueEnabledToBeFalseV1Beta2Reason,
 			Message: msg,
 		})
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	sshClient, err := s.getSSHClient(ctx)
@@ -1037,7 +1037,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		Message: "custom provisioner running",
 	})
 	s.setBootState(infrav1.HCloudBootStateRunningImageCommand)
-	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
+	return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
 }
 
 // handleBootStateRunningImageCommand is for provisioning with imageURL and image-url-command.
@@ -1129,7 +1129,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			Reason:  infrav1.HCloudMachineCustomProvisionerRunningV1Beta2Reason,
 			Message: msg,
 		})
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		// IMAGE_URL_DONE was found in the stdout.
