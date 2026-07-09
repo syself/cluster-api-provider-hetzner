@@ -334,8 +334,8 @@ const (
 	// HCloudBootStateUnset is the initial state when the boot state has not been set yet.
 	HCloudBootStateUnset HCloudBootState = ""
 
-	// HCloudBootStateInitializing indicates that the controller waits for PreRescueOS.
-	// When it is available, then the rescue system gets enabled.
+	// HCloudBootStateInitializing indicates the controller waits for the server create action to
+	// finish. The server stays powered off; once it is provisioned, the rescue system gets enabled.
 	HCloudBootStateInitializing HCloudBootState = "Initializing"
 
 	// HCloudBootStateEnablingRescue indicates that the controller waits for the rescue system to be enabled. Then the server gets booted into the rescue system.

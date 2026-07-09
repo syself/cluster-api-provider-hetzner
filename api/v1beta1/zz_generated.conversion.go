@@ -1041,6 +1041,7 @@ func Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in *v1beta2.
 
 func autoConvert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStatusExternalIDs(in *HCloudMachineStatusExternalIDs, out *v1beta2.HCloudMachineStatusExternalIDs, s conversion.Scope) error {
 	out.ActionIDEnableRescueSystem = in.ActionIDEnableRescueSystem
+	out.ActionIDCreate = in.ActionIDCreate
 	return nil
 }
 
@@ -1051,6 +1052,7 @@ func Convert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStat
 
 func autoConvert_v1beta2_HCloudMachineStatusExternalIDs_To_v1beta1_HCloudMachineStatusExternalIDs(in *v1beta2.HCloudMachineStatusExternalIDs, out *HCloudMachineStatusExternalIDs, s conversion.Scope) error {
 	out.ActionIDEnableRescueSystem = in.ActionIDEnableRescueSystem
+	out.ActionIDCreate = in.ActionIDCreate
 	return nil
 }
 

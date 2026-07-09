@@ -373,13 +373,21 @@ const (
 	HCloudMachineBootStateInitializingTimedOutV1Beta2Reason = "BootStateInitializingTimedOut"
 	// HCloudMachineProvisioningServerV1Beta2Reason indicates the server is being provisioned.
 	HCloudMachineProvisioningServerV1Beta2Reason = "Provisioning"
-	// HCloudMachineServerNotRunningYetV1Beta2Reason indicates the server is not running yet.
-	HCloudMachineServerNotRunningYetV1Beta2Reason = "ServerNotRunningYet"
 	// HCloudMachineServerStatusUnknownV1Beta2Reason indicates the hcloud server returned a status that the controller does not handle.
 	HCloudMachineServerStatusUnknownV1Beta2Reason = "ServerStatusUnknown"
+	// HCloudMachineActionIDCreateNotSetV1Beta2Reason indicates the action ID of the server create action is not set.
+	HCloudMachineActionIDCreateNotSetV1Beta2Reason = "ActionIDCreateNotSet"
+	// HCloudMachineWaitingForCreateActionV1Beta2Reason indicates waiting for the server create action to finish.
+	HCloudMachineWaitingForCreateActionV1Beta2Reason = "WaitingForCreateAction"
+	// HCloudMachineGettingCreateActionFailedV1Beta2Reason indicates getting the server create action failed.
+	HCloudMachineGettingCreateActionFailedV1Beta2Reason = "GettingCreateActionFailed"
+	// HCloudMachineCreateActionFailedV1Beta2Reason indicates the server create action failed.
+	HCloudMachineCreateActionFailedV1Beta2Reason = "CreateActionFailed"
 
 	// HCloudMachineWaitingForRescueSystemV1Beta2Reason indicates waiting for the rescue system to be enabled.
 	HCloudMachineWaitingForRescueSystemV1Beta2Reason = "WaitingForRescueSystem"
+	// HCloudMachineEnablingRescueSystemFailedV1Beta2Reason indicates enabling the rescue system failed.
+	HCloudMachineEnablingRescueSystemFailedV1Beta2Reason = "EnablingRescueSystemFailed"
 	// HCloudMachineEnablingRescueTimedOutV1Beta2Reason indicates enabling rescue system timed out.
 	HCloudMachineEnablingRescueTimedOutV1Beta2Reason = "EnablingRescueTimedOut"
 	// HCloudMachineActionIDForEnablingRescueSystemNotSetV1Beta2Reason indicates the action ID for enabling rescue is not set.
@@ -397,12 +405,8 @@ const (
 
 	// HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason indicates getting the SSH private key failed.
 	HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason = "GettingSSHPrivateKeyFailed"
-	// HCloudMachineGettingSSHClientFailedV1Beta2Reason indicates getting the SSH client failed.
-	HCloudMachineGettingSSHClientFailedV1Beta2Reason = "GettingSSHClientFailed"
 	// HCloudMachineRetryingSSHConnectionV1Beta2Reason indicates the SSH connection is being retried.
 	HCloudMachineRetryingSSHConnectionV1Beta2Reason = "RetryingSSHConnection"
-	// HCloudMachineRebootViaSSHFailedV1Beta2Reason indicates rebooting via SSH failed.
-	HCloudMachineRebootViaSSHFailedV1Beta2Reason = "RebootViaSSHFailed"
 	// HCloudMachineGettingHostnameFailedV1Beta2Reason indicates getting the hostname failed.
 	HCloudMachineGettingHostnameFailedV1Beta2Reason = "GettingHostnameFailed"
 	// HCloudMachineUnexpectedHostnameV1Beta2Reason indicates the remote hostname was unexpected.
