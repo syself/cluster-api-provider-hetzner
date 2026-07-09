@@ -4,36 +4,36 @@ go 1.25.7
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/bramvdbogaerde/go-scp v1.5.0
+	github.com/bramvdbogaerde/go-scp v1.6.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/go-cmp v0.7.0
 	github.com/guettli/check-conditions v0.0.33
-	github.com/hetznercloud/hcloud-go/v2 v2.32.0
+	github.com/hetznercloud/hcloud-go/v2 v2.42.0
 	github.com/mitchellh/copystructure v1.2.0
-	github.com/onsi/ginkgo/v2 v2.28.3
-	github.com/onsi/gomega v1.40.0
-	github.com/prometheus/common v0.67.5
+	github.com/onsi/ginkgo/v2 v2.29.0
+	github.com/onsi/gomega v1.41.0
+	github.com/prometheus/common v0.68.1
 	github.com/spf13/pflag v1.0.10
 	github.com/stoewer/go-strcase v1.3.1
 	github.com/stretchr/testify v1.11.1
 	github.com/syself/hrobot-go v0.2.7
-	go.uber.org/zap v1.27.1
-	golang.org/x/crypto v0.50.0
-	golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39
-	golang.org/x/mod v0.35.0
+	go.uber.org/zap v1.28.0
+	golang.org/x/crypto v0.52.0
+	golang.org/x/exp v0.0.0-20260529124908-c761662dc8c9
+	golang.org/x/mod v0.36.0
 	k8s.io/api v0.35.5
-	k8s.io/apiextensions-apiserver v0.35.5
+	k8s.io/apiextensions-apiserver v0.36.1
 	k8s.io/apimachinery v0.35.5
 	k8s.io/apiserver v0.35.5
 	k8s.io/client-go v0.35.5
-	k8s.io/klog/v2 v2.130.1
+	k8s.io/klog/v2 v2.140.0
 	k8s.io/kubectl v0.35.4
-	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
+	k8s.io/utils v0.0.0-20260507154919-ff6756f316d2
 	sigs.k8s.io/cluster-api v1.13.1
 	sigs.k8s.io/cluster-api/test v1.13.1
 	sigs.k8s.io/controller-runtime v0.23.3
-	sigs.k8s.io/kind v0.31.0
+	sigs.k8s.io/kind v0.32.0
 	sigs.k8s.io/randfill v1.0.0
 )
 
