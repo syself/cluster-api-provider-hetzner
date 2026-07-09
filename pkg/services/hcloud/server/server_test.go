@@ -1534,7 +1534,7 @@ var _ = Describe("Reconcile", func() {
 		By("reconciling")
 		result, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(result.RequeueAfter).To(Equal(5 * time.Second))
+		Expect(result.RequeueAfter).To(Equal(10 * time.Second))
 
 		By("ensuring the machine stays in RunningImageCommand")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateRunningImageCommand))
