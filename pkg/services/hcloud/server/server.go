@@ -75,6 +75,24 @@ type Service struct {
 	scope *scope.MachineScope
 }
 
+// setBootState sets the BootState and logs the transition, together with how long the
+// machine was in the previous state.
+func (s *Service) setBootState(bootState infrav1.HCloudBootState) {
+	hm := s.scope.HCloudMachine
+	if hm.Status.BootState == bootState {
+		return
+	}
+	durationOfPreviousState := time.Duration(0)
+	if !hm.Status.BootStateSince.IsZero() {
+		durationOfPreviousState = time.Since(hm.Status.BootStateSince.Time).Round(time.Millisecond)
+	}
+	s.scope.Info("BootState changed",
+		"from", hm.Status.BootState,
+		"to", bootState,
+		"durationOfPreviousState", durationOfPreviousState)
+	hm.SetBootState(bootState)
+}
+
 // NewService outs a new service with machine scope.
 func NewService(scope *scope.MachineScope) *Service {
 	return &Service{
@@ -195,6 +213,14 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		}
 	}
 
+	sinceBootStateChanged := time.Duration(0)
+	if !s.scope.HCloudMachine.Status.BootStateSince.IsZero() {
+		sinceBootStateChanged = time.Since(s.scope.HCloudMachine.Status.BootStateSince.Time).Round(time.Millisecond)
+	}
+	s.scope.V(1).Info("Reconciling BootState",
+		"bootState", s.scope.HCloudMachine.Status.BootState,
+		"sinceBootStateChanged", sinceBootStateChanged)
+
 	switch s.scope.HCloudMachine.Status.BootState {
 	case infrav1.HCloudBootStateUnset:
 		return s.handleBootStateUnset(ctx)
@@ -269,9 +295,9 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 		var msg string
 		if !hm.Status.Ready {
-			hm.SetBootState(infrav1.HCloudBootStateBootingToRealOS)
+			s.setBootState(infrav1.HCloudBootStateBootingToRealOS)
 		} else {
-			hm.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+			s.setBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		}
 		msg = fmt.Sprintf("Updating old resource (pre BootState) %s", hm.Status.BootState)
 
@@ -595,7 +621,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	// is done. After that we can power the server on, so that it boots into the rescue system.
 	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = result.Action.ID
 
-	hm.SetBootState(infrav1.HCloudBootStateEnablingRescue)
+	s.setBootState(infrav1.HCloudBootStateEnablingRescue)
 
 	v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 		"WaitForRescueSystem", clusterv1beta1.ConditionSeverityInfo,
@@ -805,7 +831,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 
 	s.scope.Info("Power on started (first boot, into rescue system)")
 
-	hm.SetBootState(infrav1.HCloudBootStateBootingToRescue)
+	s.setBootState(infrav1.HCloudBootStateBootingToRescue)
 	v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 		"BootingToRescue", clusterv1beta1.ConditionSeverityInfo,
 		"power on to rescue started")
@@ -1010,7 +1036,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		Reason:  infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason,
 		Message: "custom provisioner running",
 	})
-	hm.SetBootState(infrav1.HCloudBootStateRunningImageCommand)
+	s.setBootState(infrav1.HCloudBootStateRunningImageCommand)
 	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 }
 
@@ -1124,7 +1150,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w", rebootErr)
 		}
 
-		hm.SetBootState(infrav1.HCloudBootStateBootingToRealOS)
+		s.setBootState(infrav1.HCloudBootStateBootingToRealOS)
 
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 			"BootingToRealOS", clusterv1beta1.ConditionSeverityInfo,
@@ -1250,7 +1276,7 @@ func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Serv
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 
 	case hcloud.ServerStatusRunning:
-		hm.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+		s.setBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		v1beta1conditions.MarkTrue(hm, infrav1.ServerProvisionedCondition)
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
@@ -1633,7 +1659,7 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 	// handleBootStateInitializing waits for this action before enabling the rescue system.
 	hm.Status.ExternalIDs.ActionIDCreate = result.Action.ID
 
-	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateInitializing)
+	s.setBootState(infrav1.HCloudBootStateInitializing)
 	return result.Server, image, nil
 }
 
@@ -1680,7 +1706,7 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 		return nil, nil, err
 	}
 
-	hm.SetBootState(infrav1.HCloudBootStateBootingToRealOS)
+	s.setBootState(infrav1.HCloudBootStateBootingToRealOS)
 	return result.Server, image, nil
 }
 
