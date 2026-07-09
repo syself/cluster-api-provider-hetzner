@@ -1707,11 +1707,19 @@ var _ = Describe("getImageDetails", func() {
 
 var _ = Describe("actionEnsureProvisioned", func() {
 	type testCaseActionEnsureProvisioned struct {
-		outSSHClientGetHostName                sshclient.Output
-		outSSHClientCloudInitStatus            sshclient.Output
-		outSSHClientCheckSigterm               sshclient.Output
-		outOldSSHClientCloudInitStatus         sshclient.Output
-		outOldSSHClientCheckSigterm            sshclient.Output
+		// Initial host state
+		hostErrorType         infrav1.ErrorType
+		hostRebootTriggeredAt *metav1.Time
+		// Rescue SSH client responses (Step-1: checkRescueAndTriggerReboot)
+		// Empty output (default) means non-rescue hostname so Step-1 passes through to Step-2.
+		outRescueSSHClientGetHostName sshclient.Output
+		// OS SSH client responses (Step-2: verifyProvisionedOS)
+		outSSHClientGetHostName        sshclient.Output
+		outSSHClientCloudInitStatus    sshclient.Output
+		outSSHClientCheckSigterm       sshclient.Output
+		outOldSSHClientCloudInitStatus sshclient.Output
+		outOldSSHClientCheckSigterm    sshclient.Output
+		// Expected results
 		expectedActionResult                   actionResult
 		expectedErrorType                      infrav1.ErrorType
 		expectsSSHClientCallCloudInitStatus    bool
@@ -1727,13 +1735,25 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			ctx := context.Background()
 			portAfterInstallImage := 24
 
-			host := helpers.BareMetalHost(
-				"test-host",
-				"default",
+			hostOpts := []helpers.HostOpts{
 				helpers.WithSSHSpecInclPorts(portAfterInstallImage),
 				helpers.WithIPv4(),
 				helpers.WithConsumerRef(),
-			)
+			}
+			if in.hostErrorType != infrav1.ErrorType("") {
+				hostOpts = append(hostOpts, helpers.WithError(in.hostErrorType, "test error", 1))
+			}
+			if in.hostRebootTriggeredAt != nil {
+				hostOpts = append(hostOpts, helpers.WithRebootTriggeredAt(*in.hostRebootTriggeredAt))
+			}
+
+			host := helpers.BareMetalHost("test-host", "default", hostOpts...)
+
+			// rescueSSHMock is used in Step-1 (checkRescueAndTriggerReboot).
+			rescueSSHMock := &sshmock.Client{}
+			rescueSSHMock.On("GetHostName", mock.Anything).Return(in.outRescueSSHClientGetHostName)
+
+			// sshMock is used in Step-2 (verifyProvisionedOS).
 			sshMock := &sshmock.Client{}
 			sshMock.On("GetHostName", mock.Anything).Return(in.outSSHClientGetHostName)
 			sshMock.On("CloudInitStatus", mock.Anything).Return(in.outSSHClientCloudInitStatus)
@@ -1753,7 +1773,10 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			robotMock := robotmock.Client{}
 			robotMock.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
 
-			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, oldSSHMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+			service := newTestService(host, &robotMock,
+				bmmock.NewSSHFactory(rescueSSHMock, oldSSHMock, sshMock),
+				helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
+				helpers.GetDefaultSSHSecret("rescue-ssh-secret", "default"))
 
 			actResult := service.actionEnsureProvisioned(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(in.expectedActionResult))
@@ -1793,6 +1816,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		},
 		Entry("correct hostname, cloud init running",
 			testCaseActionEnsureProvisioned{
+				outRescueSSHClientGetHostName:          sshclient.Output{},
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: running"},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1810,6 +1834,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		),
 		Entry("correct hostname, cloud init done, no SIGTERM",
 			testCaseActionEnsureProvisioned{
+				outRescueSSHClientGetHostName:          sshclient.Output{},
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: ""},
@@ -1827,6 +1852,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		),
 		Entry("correct hostname, cloud init done, SIGTERM",
 			testCaseActionEnsureProvisioned{
+				outRescueSSHClientGetHostName:          sshclient.Output{},
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: "found SIGTERM in cloud init output logs"},
@@ -1844,6 +1870,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		),
 		Entry("correct hostname, cloud init error",
 			testCaseActionEnsureProvisioned{
+				outRescueSSHClientGetHostName:          sshclient.Output{},
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: error"},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1861,6 +1888,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		),
 		Entry("correct hostname, cloud init disabled",
 			testCaseActionEnsureProvisioned{
+				outRescueSSHClientGetHostName:          sshclient.Output{},
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: disabled"},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1876,21 +1904,282 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
+		// connectionFailed: SSH error in Step-1, so passes through to Step-2, which also gets connection
+		// refused; returns actionContinue.
 		Entry("connectionFailed, same ports",
 			testCaseActionEnsureProvisioned{
+				outRescueSSHClientGetHostName:          sshclient.Output{Err: syscall.ECONNREFUSED},
 				outSSHClientGetHostName:                sshclient.Output{Err: syscall.ECONNREFUSED},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
 				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
+				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    false,
 				expectsSSHClientCallCheckSigterm:       false,
 				expectsSSHClientCallReboot:             false,
 				expectsOldSSHClientCallCloudInitStatus: false,
 				expectsOldSSHClientCallCheckSigterm:    false,
 				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		// When ErrorTypeHardwareRebootTriggered is set, Step-1 is skipped and Step-2 runs directly.
+		Entry("hardware reboot triggered, correct hostname, cloud init done",
+			testCaseActionEnsureProvisioned{
+				hostErrorType:                          infrav1.ErrorTypeHardwareRebootTriggered,
+				hostRebootTriggeredAt:                  ptr.To(metav1.NewTime(time.Now().Add(-2 * time.Minute))),
+				outRescueSSHClientGetHostName:          sshclient.Output{}, // not called (Step-1 skipped)
+				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
+				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
+				outSSHClientCheckSigterm:               sshclient.Output{StdOut: ""},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				expectedActionResult:                   actionComplete{},
+				expectedErrorType:                      infrav1.ErrorType(""),
+				expectsSSHClientCallCloudInitStatus:    true,
+				expectsSSHClientCallCheckSigterm:       true,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: false,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		// Hardware reboot triggered but hostname not matching yet and timeout not reached, therefore requeue.
+		Entry("hardware reboot triggered, SSH timeout, hardware reboot not timed out",
+			testCaseActionEnsureProvisioned{
+				hostErrorType:                          infrav1.ErrorTypeHardwareRebootTriggered,
+				hostRebootTriggeredAt:                  ptr.To(metav1.NewTime(time.Now().Add(-2 * time.Minute))),
+				outRescueSSHClientGetHostName:          sshclient.Output{},
+				outSSHClientGetHostName:                sshclient.Output{Err: timeout},
+				outSSHClientCloudInitStatus:            sshclient.Output{},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				expectedActionResult:                   actionContinue{},
+				expectedErrorType:                      infrav1.ErrorType(""),
+				expectsSSHClientCallCloudInitStatus:    false,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: false,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		// Hardware reboot triggered, hostname still not matching after hardwareResetTimeout, set permanent error.
+		Entry("hardware reboot triggered, SSH timeout, hardware reboot timed out",
+			testCaseActionEnsureProvisioned{
+				hostErrorType:                          infrav1.ErrorTypeHardwareRebootTriggered,
+				hostRebootTriggeredAt:                  ptr.To(metav1.NewTime(time.Now().Add(-15 * time.Minute))),
+				outRescueSSHClientGetHostName:          sshclient.Output{},
+				outSSHClientGetHostName:                sshclient.Output{Err: timeout},
+				outSSHClientCloudInitStatus:            sshclient.Output{},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				expectedActionResult:                   actionFailed{},
+				expectedErrorType:                      infrav1.PermanentError,
+				expectsSSHClientCallCloudInitStatus:    false,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: false,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+	)
+
+	It("SSHAfterInstallImage disabled: mark complete immediately without SSH verification", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost("test-host", "default",
+			helpers.WithSSHSpecInclPorts(24),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			// Use ErrorTypeHardwareRebootTriggered so Step-1 is skipped.
+			helpers.WithError(infrav1.ErrorTypeHardwareRebootTriggered, "test", 1),
+		)
+		host.Spec.Status.SSHSpec.NoSSHAfterInstallImage = true
+
+		robotMock := robotmock.Client{}
+		rescueSSHMock := &sshmock.Client{}
+		osSSHMock := &sshmock.Client{}
+
+		service := newTestService(host, &robotMock,
+			bmmock.NewSSHFactory(rescueSSHMock, osSSHMock, osSSHMock),
+			helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
+			helpers.GetDefaultSSHSecret("rescue-ssh-secret", "default"))
+
+		actResult := service.actionEnsureProvisioned(ctx)
+		Expect(actResult).Should(BeAssignableToTypeOf(actionComplete{}))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorType("")))
+		Expect(osSSHMock.AssertNotCalled(GinkgoT(), "GetHostName", mock.Anything)).To(BeTrue())
+	})
+})
+
+var _ = Describe("checkRescueAndTriggerReboot", func() {
+	type testCaseCheckRescueAndTriggerReboot struct {
+		hostErrorType         infrav1.ErrorType
+		hostRebootTriggeredAt *metav1.Time
+		rebootTypes           []infrav1.RebootType
+		rescueSSHHostname     sshclient.Output
+		rescueActive          bool
+		// Expected
+		expectNilResult        bool // true = proceeds to Step-2
+		expectedActionResult   actionResult
+		expectedErrorType      infrav1.ErrorType
+		expectRebootBMServer   bool
+		expectedRebootType     infrav1.RebootType
+		expectDeleteBootRescue bool
+	}
+
+	DescribeTable("checkRescueAndTriggerReboot",
+		func(tc testCaseCheckRescueAndTriggerReboot) {
+			ctx := context.Background()
+
+			hostOpts := []helpers.HostOpts{
+				helpers.WithIPv4(),
+				helpers.WithSSHSpec(),
+				helpers.WithSSHStatus(),
+				helpers.WithRebootTypes(tc.rebootTypes),
+			}
+			if tc.hostErrorType != infrav1.ErrorType("") {
+				hostOpts = append(hostOpts, helpers.WithError(tc.hostErrorType, "test", 1))
+			}
+			if tc.hostRebootTriggeredAt != nil {
+				hostOpts = append(hostOpts, helpers.WithRebootTriggeredAt(*tc.hostRebootTriggeredAt))
+			}
+
+			host := helpers.BareMetalHost("test-host", "default", hostOpts...)
+
+			rescueSSHMock := &sshmock.Client{}
+			rescueSSHMock.On("GetHostName", mock.Anything).Return(tc.rescueSSHHostname)
+
+			robotMock := robotmock.Client{}
+			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: tc.rescueActive}, nil)
+			robotMock.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
+			robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
+
+			service := newTestService(host, &robotMock,
+				bmmock.NewSSHFactory(rescueSSHMock, &sshmock.Client{}, &sshmock.Client{}),
+				nil,
+				helpers.GetDefaultSSHSecret("rescue-ssh-secret", "default"))
+
+			result := service.checkRescueAndTriggerReboot(ctx)
+
+			if tc.expectNilResult {
+				Expect(result).To(BeNil())
+			} else {
+				Expect(result).Should(BeAssignableToTypeOf(tc.expectedActionResult))
+			}
+
+			if tc.expectedErrorType != infrav1.ErrorType("") {
+				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedErrorType))
+			}
+
+			if tc.expectRebootBMServer {
+				Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, tc.expectedRebootType)).To(BeTrue())
+			} else {
+				Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
+			}
+
+			if tc.expectDeleteBootRescue {
+				Expect(robotMock.AssertCalled(GinkgoT(), "DeleteBootRescue", mock.Anything)).To(BeTrue())
+			} else {
+				Expect(robotMock.AssertNotCalled(GinkgoT(), "DeleteBootRescue", mock.Anything)).To(BeTrue())
+			}
+		},
+		// software reboot timed out: skip SSH, trigger hardware reboot and proceed to Step-2.
+		Entry("software reboot timed out: escalate to hardware reboot without SSH check",
+			testCaseCheckRescueAndTriggerReboot{
+				hostErrorType:          infrav1.ErrorTypeSoftwareRebootTriggered,
+				hostRebootTriggeredAt:  ptr.To(metav1.NewTime(time.Now().Add(-15 * time.Minute))),
+				rebootTypes:            []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware},
+				rescueSSHHostname:      sshclient.Output{}, // not called
+				rescueActive:           false,
+				expectNilResult:        true,
+				expectedErrorType:      infrav1.ErrorTypeHardwareRebootTriggered,
+				expectRebootBMServer:   true,
+				expectedRebootType:     infrav1.RebootTypeHardware,
+				expectDeleteBootRescue: false,
+			},
+		),
+		// active rescue: DeleteBootRescue is called before triggering hardware reboot.
+		Entry("software reboot timed out, rescue active: unset rescue then hardware reboot",
+			testCaseCheckRescueAndTriggerReboot{
+				hostErrorType:          infrav1.ErrorTypeSoftwareRebootTriggered,
+				hostRebootTriggeredAt:  ptr.To(metav1.NewTime(time.Now().Add(-15 * time.Minute))),
+				rebootTypes:            []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware},
+				rescueSSHHostname:      sshclient.Output{},
+				rescueActive:           true,
+				expectNilResult:        true,
+				expectedErrorType:      infrav1.ErrorTypeHardwareRebootTriggered,
+				expectRebootBMServer:   true,
+				expectedRebootType:     infrav1.RebootTypeHardware,
+				expectDeleteBootRescue: true,
+			},
+		),
+		// SSH error accessing rescue mode: host may already be booting OS, pass through to Step-2.
+		Entry("rescue SSH error: pass through to Step-2",
+			testCaseCheckRescueAndTriggerReboot{
+				rebootTypes:       []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware},
+				rescueSSHHostname: sshclient.Output{Err: syscall.ECONNREFUSED},
+				expectNilResult:   true,
+			},
+		),
+		// non-rescue hostname: host is booting OS or already there, pass through to Step-2.
+		Entry("non-rescue hostname: pass through to Step-2",
+			testCaseCheckRescueAndTriggerReboot{
+				rebootTypes:       []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware},
+				rescueSSHHostname: sshclient.Output{StdOut: "some-other-hostname"},
+				expectNilResult:   true,
+			},
+		),
+		// Rescue hostname but reboot was triggered recently: give the reboot time to take effect.
+		Entry("rescue hostname, recently rebooted: wait for reboot",
+			testCaseCheckRescueAndTriggerReboot{
+				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
+				hostRebootTriggeredAt: ptr.To(metav1.NewTime(time.Now().Add(-5 * time.Second))),
+				rebootTypes:           []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware},
+				rescueSSHHostname:     sshclient.Output{StdOut: rescue},
+				expectNilResult:       false,
+				expectedActionResult:  actionContinue{},
+			},
+		),
+		// Rescue hostname, no prior reboot, software reboot available: trigger software reboot and requeue.
+		Entry("rescue hostname, no prior error, software reboot available: trigger software reboot",
+			testCaseCheckRescueAndTriggerReboot{
+				rebootTypes:          []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware},
+				rescueSSHHostname:    sshclient.Output{StdOut: rescue},
+				rescueActive:         false,
+				expectNilResult:      false,
+				expectedActionResult: actionContinue{},
+				expectedErrorType:    infrav1.ErrorTypeSoftwareRebootTriggered,
+				expectRebootBMServer: true,
+				expectedRebootType:   infrav1.RebootTypeSoftware,
+			},
+		),
+		// Rescue hostname, no prior reboot, hardware reboot only: trigger hardware reboot and proceed to Step-2.
+		Entry("rescue hostname, no prior error, hardware reboot only: trigger hardware reboot",
+			testCaseCheckRescueAndTriggerReboot{
+				rebootTypes:          []infrav1.RebootType{infrav1.RebootTypeHardware},
+				rescueSSHHostname:    sshclient.Output{StdOut: rescue},
+				rescueActive:         false,
+				expectNilResult:      true,
+				expectedErrorType:    infrav1.ErrorTypeHardwareRebootTriggered,
+				expectRebootBMServer: true,
+				expectedRebootType:   infrav1.RebootTypeHardware,
+			},
+		),
+		// Rescue hostname with software reboot in progress but not timed out: keep waiting.
+		Entry("rescue hostname, software reboot in progress, not timed out: requeue",
+			testCaseCheckRescueAndTriggerReboot{
+				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
+				hostRebootTriggeredAt: ptr.To(metav1.NewTime(time.Now().Add(-2 * time.Minute))),
+				rebootTypes:           []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware},
+				rescueSSHHostname:     sshclient.Output{StdOut: rescue},
+				rescueActive:          false,
+				expectNilResult:       false,
+				expectedActionResult:  actionContinue{},
 			},
 		),
 	)
