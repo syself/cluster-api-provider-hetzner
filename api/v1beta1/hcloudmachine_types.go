@@ -201,6 +201,10 @@ type HCloudMachineStatusExternalIDs struct {
 	// ActionIDEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
 	// +optional
 	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`
+
+	// ActionIDCreate is the hcloud API Action result of CreateServer.
+	// +optional
+	ActionIDCreate int64 `json:"actionIdCreate,omitzero"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.

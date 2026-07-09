@@ -261,6 +261,11 @@ spec:
                 description: ExternalIDs contains temporary data during the provisioning
                   process
                 properties:
+                  actionIdCreate:
+                    description: ActionIDCreate is the hcloud API Action result of
+                      CreateServer.
+                    format: int64
+                    type: integer
                   actionIdEnableRescueSystem:
                     description: ActionIDEnableRescueSystem is the hcloud API Action
                       result of EnableRescueSystem.
