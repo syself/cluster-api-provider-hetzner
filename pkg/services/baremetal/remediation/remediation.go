@@ -221,7 +221,7 @@ func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerB
 // retireHost sets a permanent error on the host so it leaves the cluster instead of
 // being reused. The permanent error deletes the machine through the HasFatalError path,
 // and skipHost keeps the host out of selection (the error is not cleared on deprovision)
-// until a human takes the host out of maintenance mode.
+// until a human removes the permanent-error annotation.
 func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetalHost, capiMachine *clusterv1.Machine) error {
 	patchHelper, err := v1beta1patch.NewHelper(host, s.scope.Client)
 	if err != nil {
