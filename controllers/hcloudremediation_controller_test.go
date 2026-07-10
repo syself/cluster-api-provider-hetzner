@@ -394,10 +394,11 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 
 			hcloudClient := testEnv.HCloudClientFactory.NewClient("dummy-token")
 
-			server, err := hcloudClient.CreateServer(ctx, hcloud.ServerCreateOpts{
+			result, err := hcloudClient.CreateServer(ctx, hcloud.ServerCreateOpts{
 				Name: "myserver",
 			})
 			Expect(err).ShouldNot(HaveOccurred())
+			server := result.Server
 
 			Eventually(func() error {
 				err := testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
