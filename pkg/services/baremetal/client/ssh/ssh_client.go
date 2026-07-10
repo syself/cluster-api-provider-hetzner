@@ -77,6 +77,8 @@ var (
 	ErrTimeout = errors.New("i/o timeout")
 	// ErrCheckDiskBrokenDisk means that a disk seams broken.
 	ErrCheckDiskBrokenDisk = errors.New("CheckDisk failed")
+
+	installImageTGZOverride []byte
 )
 
 // Input defines an SSH input.
@@ -229,6 +231,16 @@ type Client interface {
 // Factory is the interface for creating new Client objects.
 type Factory interface {
 	NewClient(Input) Client
+}
+
+// SetInstallImageTGZOverride sets an in-memory installimage archive used by UntarTGZ.
+// Passing nil or an empty slice clears the override and restores file-based behavior.
+func SetInstallImageTGZOverride(data []byte) {
+	if len(data) == 0 {
+		installImageTGZOverride = nil
+		return
+	}
+	installImageTGZOverride = append([]byte(nil), data...)
 }
 
 type sshFactory struct{}
@@ -580,11 +592,18 @@ chmod a+rx /root/check-disk.sh
 }
 
 func (c *sshClient) UntarTGZ(ctx context.Context) Output {
-	// read tgz from container image.
-	fileName := "/installimage.tgz"
-	data, err := os.ReadFile(fileName)
-	if err != nil {
-		return Output{Err: fmt.Errorf("ReadInstallimageTgzFailed %s: %w", fileName, err)}
+	data := installImageTGZOverride
+	if len(data) == 0 {
+		fileName := "/installimage.tgz"
+		if customPath := os.Getenv("HETZNER_INSTALLIMAGE_TGZ_PATH"); customPath != "" {
+			fileName = customPath
+		}
+
+		readData, err := os.ReadFile(fileName) // #nosec G304,G703 -- Operator-controlled local path override for the installimage archive.
+		if err != nil {
+			return Output{Err: fmt.Errorf("ReadInstallimageTgzFailed %s: %w", fileName, err)}
+		}
+		data = readData
 	}
 
 	// send base64 encoded binary to machine via ssh.
