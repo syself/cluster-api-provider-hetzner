@@ -47,9 +47,9 @@ const (
 	OnExhaustionReuse OnExhaustionAction = "Reuse"
 
 	// OnExhaustionRetire sets a permanent error on the host, which deletes the
-	// machine and keeps the host out of the pool until a human removes the
-	// capi.syself.com/permanent-error annotation. Use this for real hardware
-	// failures, where a reboot never helps.
+	// machine and keeps the host out of the pool until a human takes the host
+	// out of maintenance mode. Use this for real hardware failures, where a
+	// reboot never helps.
 	OnExhaustionRetire OnExhaustionAction = "Retire"
 )
 
@@ -66,7 +66,7 @@ type BareMetalRemediationStrategy struct {
 	// the node is still unhealthy. Reuse deletes the machine and frees the host to be
 	// provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
 	// error on the host, which deletes the machine and keeps the host out of the pool
-	// until a human removes the capi.syself.com/permanent-error annotation.
+	// until a human takes the host out of maintenance mode.
 	// +kubebuilder:validation:Enum=Reuse;Retire
 	// +optional
 	OnExhaustion OnExhaustionAction `json:"onExhaustion,omitempty"`

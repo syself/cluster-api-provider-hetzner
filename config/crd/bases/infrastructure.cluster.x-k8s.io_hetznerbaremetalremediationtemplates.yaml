@@ -88,7 +88,7 @@ spec:
                               the node is still unhealthy. Reuse deletes the machine and frees the host to be
                               provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
                               error on the host, which deletes the machine and keeps the host out of the pool
-                              until a human removes the capi.syself.com/permanent-error annotation.
+                              until a human takes the host out of maintenance mode.
                             enum:
                             - Reuse
                             - Retire
@@ -218,7 +218,7 @@ spec:
                               the node is still unhealthy. Reuse deletes the machine and frees the host to be
                               provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
                               error on the host, which deletes the machine and keeps the host out of the pool
-                              until a human removes the capi.syself.com/permanent-error annotation.
+                              until a human takes the host out of maintenance mode.
                             enum:
                             - Reuse
                             - Retire

@@ -229,13 +229,13 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			onExhaustion:             infrav1.OnExhaustionRetire,
 			retryCount:               1,
 			expectHostPermanentError: true,
-			expectErrorMessage:       "retired by remediation: node still unhealthy after 1 failed reboot(s)",
+			expectErrorMessage:       "node still unhealthy after 1 failed reboot(s)",
 		}),
 		Entry("Retire with no reboots (retryLimit 0)", testCaseOnExhaustion{
 			onExhaustion:             infrav1.OnExhaustionRetire,
 			retryCount:               0,
 			expectHostPermanentError: true,
-			expectErrorMessage:       "retired by remediation: retryLimit is 0, node retired without a reboot attempt",
+			expectErrorMessage:       "retryLimit is 0, node retired without a reboot attempt",
 		}),
 		Entry("Reuse deletes the machine without retiring the host", testCaseOnExhaustion{
 			onExhaustion:             infrav1.OnExhaustionReuse,
@@ -252,7 +252,7 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			retryCount:               1,
 			healthCheckMessage:       "Health check failed: Condition Ready on Node is reporting status Unknown for more than 5m0s",
 			expectHostPermanentError: true,
-			expectErrorMessage:       "retired by remediation: Health check failed: Condition Ready on Node is reporting status Unknown for more than 5m0s",
+			expectErrorMessage:       "Health check failed: Condition Ready on Node is reporting status Unknown for more than 5m0s",
 		}),
 	)
 })

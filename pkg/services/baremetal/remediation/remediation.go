@@ -221,7 +221,7 @@ func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerB
 // retireHost sets a permanent error on the host so it leaves the cluster instead of
 // being reused. The permanent error deletes the machine through the HasFatalError path,
 // and skipHost keeps the host out of selection (the error is not cleared on deprovision)
-// until a human removes the permanent-error annotation.
+// until a human takes the host out of maintenance mode.
 func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetalHost, capiMachine *clusterv1.Machine) error {
 	patchHelper, err := v1beta1patch.NewHelper(host, s.scope.Client)
 	if err != nil {
@@ -232,7 +232,7 @@ func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetal
 	// the Machine's HealthCheckSucceeded condition. Use it as the reason so the permanent
 	// error explains why the host was retired. Fall back to how remediation ended when the
 	// Machine or the message is missing.
-	reason := ""
+	var reason string
 	if capiMachine != nil {
 		reason = conditions.GetMessage(capiMachine, clusterv1.MachineHealthCheckSucceededCondition)
 	}
@@ -243,14 +243,13 @@ func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetal
 			reason = fmt.Sprintf("node still unhealthy after %d failed reboot(s)", retryCount)
 		}
 	}
-	message := fmt.Sprintf("retired by remediation: %s", reason)
-	host.SetError(infrav1.PermanentError, message)
+	host.SetError(infrav1.PermanentError, reason)
 
 	if err := patchHelper.Patch(ctx, host); err != nil {
 		return fmt.Errorf("failed to patch: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
 
-	record.Warn(s.scope.BareMetalRemediation, "HostRetired", message)
+	record.Warn(s.scope.BareMetalRemediation, "HostRetired", reason)
 
 	s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
 	return nil
