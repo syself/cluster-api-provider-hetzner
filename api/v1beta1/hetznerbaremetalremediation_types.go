@@ -25,9 +25,9 @@ const (
 	RebootAnnotation = "capi.syself.com/reboot"
 
 	// PermanentErrorAnnotation indicates that the bare metal host has an error which needs to be resolved manually.
-	// It is set together with Spec.MaintenanceMode=true. After the maintenance mode is
-	// turned off (usually by a human), the controller removes ErrorType, ErrorCount and ErrorMessages, as well as
-	// the annotation, so that the hbmh will be usable again.
+	// After the annotation is removed (usually by a human), the controller removes ErrorType, ErrorCount and
+	// ErrorMessage, so that the hbmh will be usable again. The ActionCompleted condition explains the underlying
+	// problem and tells the user to remove this annotation to resolve it.
 	PermanentErrorAnnotation = "capi.syself.com/permanent-error"
 )
 

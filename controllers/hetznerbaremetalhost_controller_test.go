@@ -33,7 +33,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -1082,8 +1084,8 @@ name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express
 	sshClient.On("GetResultOfInstallImage", mock.Anything).Return(hostpkg.PostInstallScriptFinished, nil)
 }
 
-func Test_removePermanentErrorIfResolved_MaintenanceModeOn(t *testing.T) {
-	// PermanentError with maintenance mode on: Error should not get removed, regardless of annotation.
+func Test_removePermanentErrorIfAnnotationIsGone_AnnotationPresent(t *testing.T) {
+	// PermanentError with annotation still present: Error should not get removed.
 	bmHost := infrav1.HetznerBareMetalHost{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
@@ -1092,7 +1094,6 @@ func Test_removePermanentErrorIfResolved_MaintenanceModeOn(t *testing.T) {
 			},
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
-			MaintenanceMode: ptr.To(true),
 			Status: infrav1.ControllerGeneratedStatus{
 				ErrorType:    infrav1.PermanentError,
 				ErrorCount:   1,
@@ -1100,31 +1101,36 @@ func Test_removePermanentErrorIfResolved_MaintenanceModeOn(t *testing.T) {
 			},
 		},
 	}
-	removed := removePermanentErrorIfResolved(&bmHost)
+	removed := removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorType)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorCount)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorMessage)
 	require.Contains(t, bmHost.Annotations, infrav1.PermanentErrorAnnotation)
-	require.True(t, *bmHost.Spec.MaintenanceMode)
 }
 
-func Test_removePermanentErrorIfResolved_MaintenanceModeOff(t *testing.T) {
-	// PermanentError with maintenance mode turned off: Error, annotation and condition should get removed
+func Test_removePermanentErrorIfAnnotationIsGone_AnnotationRemoved(t *testing.T) {
+	// PermanentError with annotation removed: Error and both old- and new-style conditions should get removed.
 	bmHost := infrav1.HetznerBareMetalHost{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				infrav1.PermanentErrorAnnotation: "true",
-				"other-annotation":               "some value",
+				"other-annotation": "some value",
 			},
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
-			MaintenanceMode: ptr.To(false),
 			Status: infrav1.ControllerGeneratedStatus{
 				ErrorType:    infrav1.PermanentError,
 				ErrorCount:   1,
 				ErrorMessage: "my err",
+				Conditions: clusterv1beta1.Conditions{
+					{
+						Type:    infrav1.ActionCompletedCondition,
+						Status:  corev1.ConditionFalse,
+						Reason:  infrav1.ActionCompletedPermanentErrorReason,
+						Message: "my err",
+					},
+				},
 				V1Beta2: &infrav1.HetznerBareMetalHostV1Beta2Status{
 					Conditions: []metav1.Condition{
 						{
@@ -1138,48 +1144,24 @@ func Test_removePermanentErrorIfResolved_MaintenanceModeOff(t *testing.T) {
 			},
 		},
 	}
-	removed := removePermanentErrorIfResolved(&bmHost)
+	removed := removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.True(t, removed)
 	require.Empty(t, bmHost.Spec.Status.ErrorType)
 	require.Empty(t, bmHost.Spec.Status.ErrorCount)
 	require.Empty(t, bmHost.Spec.Status.ErrorMessage)
 	require.Equal(t, map[string]string{"other-annotation": "some value"}, bmHost.Annotations)
-	require.False(t, *bmHost.Spec.MaintenanceMode)
+	require.Nil(t, v1beta1conditions.Get(&bmHost, infrav1.ActionCompletedCondition))
 	require.Nil(t, v1beta2conditions.Get(&bmHost, infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition))
 }
 
-func Test_removePermanentErrorIfResolved_MaintenanceModeNil(t *testing.T) {
-	// PermanentError with maintenance mode nil (never set): Error should get removed
-	bmHost := infrav1.HetznerBareMetalHost{
-		TypeMeta: metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				infrav1.PermanentErrorAnnotation: "",
-			},
-		},
-		Spec: infrav1.HetznerBareMetalHostSpec{
-			Status: infrav1.ControllerGeneratedStatus{
-				ErrorType:    infrav1.PermanentError,
-				ErrorCount:   1,
-				ErrorMessage: "my err",
-			},
-		},
-	}
-	removed := removePermanentErrorIfResolved(&bmHost)
-	require.True(t, removed)
-	require.Empty(t, bmHost.Spec.Status.ErrorType)
-	require.NotContains(t, bmHost.Annotations, infrav1.PermanentErrorAnnotation)
-}
-
-func Test_removePermanentErrorIfResolved_NonPermanentError(t *testing.T) {
-	// Other error type, maintenance mode off: Error should not get removed (guarded on PermanentError)
+func Test_removePermanentErrorIfAnnotationIsGone_NonPermanentError(t *testing.T) {
+	// Other error type: Error should not get removed (guarded on PermanentError).
 	bmHost := infrav1.HetznerBareMetalHost{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{},
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
-			MaintenanceMode: ptr.To(false),
 			Status: infrav1.ControllerGeneratedStatus{
 				ErrorType:    infrav1.ProvisioningError,
 				ErrorCount:   1,
@@ -1187,7 +1169,7 @@ func Test_removePermanentErrorIfResolved_NonPermanentError(t *testing.T) {
 			},
 		},
 	}
-	removed := removePermanentErrorIfResolved(&bmHost)
+	removed := removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorType)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorCount)
