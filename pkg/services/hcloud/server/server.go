@@ -615,7 +615,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 			})
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
-		return res, fmt.Errorf("EnableRescueSystem failed: %w", err)
+		return res, handleRateLimit(hm, err, "EnableRescueSystem", "failed to enable rescue system")
 	}
 
 	// The API of hetzner is async. We get an Action-ID as result. We need to wait until the action
@@ -1705,6 +1705,7 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 		return nil, nil, err
 	}
 
+	// The imageName flow does not use the rescue system, so the server can start right after create.
 	result, err := s.createServer(ctx, userData, image, true)
 	if err != nil {
 		return nil, nil, err
