@@ -739,20 +739,20 @@ func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string)
 
 		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
 
-		conditionMessage := fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
+		message := fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
 			errMessage, PermanentErrorAnnotation)
 
-		record.Warn(host, "PermanentErrorSet", conditionMessage)
+		record.Warn(host, "PermanentErrorSet", message)
 
 		// set the ActionCompleted condition to false with reason PermanentError.
 		v1beta1conditions.MarkFalse(host, ActionCompletedCondition,
 			ActionCompletedPermanentErrorReason, clusterv1beta1.ConditionSeverityError,
-			"%s", conditionMessage)
+			"%s", message)
 		v1beta2conditions.Set(host, metav1.Condition{
 			Type:    HetznerBareMetalHostActionCompletedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
 			Reason:  HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason,
-			Message: conditionMessage,
+			Message: message,
 		})
 	}
 }
@@ -767,6 +767,7 @@ func (host *HetznerBareMetalHost) ClearError() {
 		host.Spec.Status.ErrorMessage = ""
 	}
 	host.Spec.Status.ErrorCount = 0
+	v1beta1conditions.Delete(host, ActionCompletedCondition)
 	v1beta2conditions.Delete(host, HetznerBareMetalHostActionCompletedV1Beta2Condition)
 }
 
