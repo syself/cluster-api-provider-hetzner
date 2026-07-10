@@ -375,14 +375,14 @@ const (
 	HCloudMachineProvisioningServerV1Beta2Reason = "Provisioning"
 	// HCloudMachineServerStatusUnknownV1Beta2Reason indicates the hcloud server returned a status that the controller does not handle.
 	HCloudMachineServerStatusUnknownV1Beta2Reason = "ServerStatusUnknown"
-	// HCloudMachineActionIDCreateNotSetV1Beta2Reason indicates the action ID of the server create action is not set.
-	HCloudMachineActionIDCreateNotSetV1Beta2Reason = "ActionIDCreateNotSet"
-	// HCloudMachineWaitingForCreateActionV1Beta2Reason indicates waiting for the server create action to finish.
-	HCloudMachineWaitingForCreateActionV1Beta2Reason = "WaitingForCreateAction"
-	// HCloudMachineGettingCreateActionFailedV1Beta2Reason indicates getting the server create action failed.
-	HCloudMachineGettingCreateActionFailedV1Beta2Reason = "GettingCreateActionFailed"
-	// HCloudMachineCreateActionFailedV1Beta2Reason indicates the server create action failed.
-	HCloudMachineCreateActionFailedV1Beta2Reason = "CreateActionFailed"
+	// HCloudMachineActionIDCreateServerNotSetV1Beta2Reason indicates the action ID of the server create action is not set.
+	HCloudMachineActionIDCreateServerNotSetV1Beta2Reason = "ActionIDCreateServerNotSet"
+	// HCloudMachineCreatingServerV1Beta2Reason indicates the hcloud server is being created.
+	HCloudMachineCreatingServerV1Beta2Reason = "CreatingServer"
+	// HCloudMachineGettingCreateServerActionFailedV1Beta2Reason indicates getting the server create action failed.
+	HCloudMachineGettingCreateServerActionFailedV1Beta2Reason = "GettingCreateServerActionFailed"
+	// HCloudMachineCreateServerActionFailedV1Beta2Reason indicates the server create action failed.
+	HCloudMachineCreateServerActionFailedV1Beta2Reason = "CreateServerActionFailed"
 
 	// HCloudMachineWaitingForRescueSystemV1Beta2Reason indicates waiting for the rescue system to be enabled.
 	HCloudMachineWaitingForRescueSystemV1Beta2Reason = "WaitingForRescueSystem"

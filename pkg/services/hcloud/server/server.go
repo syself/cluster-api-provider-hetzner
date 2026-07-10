@@ -412,11 +412,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 	// These values get only used **once** after the server got created.
 	var requeueAfter time.Duration
-	if hm.Status.BootState == infrav1.HCloudBootStateInitializing {
-		// The imageURL flow created the server powered off. Only the create action needs
-		// to finish before the rescue system can be enabled.
-		requeueAfter = 15 * time.Second
-	} else {
+	if hm.Spec.ImageName != "" {
 		// The imageName flow boots the real image directly.
 		// Provisioning from a hcloud image like ubuntu-YY.MM takes roughly 11 seconds.
 		// Provisioning from a snapshot takes roughly 140 seconds.
@@ -426,6 +422,10 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		if image.RapidDeploy {
 			requeueAfter = 10 * time.Second
 		}
+	} else {
+		// The imageURL flow created the server powered off. Only the server create action needs
+		// to finish before the rescue system can be enabled.
+		requeueAfter = 15 * time.Second
 	}
 	v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 		"ProvisioningServer", clusterv1beta1.ConditionSeverityInfo,
@@ -485,32 +485,32 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 
 	updateHCloudMachineStatusFromServer(hm, server)
 
-	// ActionIDCreate gets stored by createServerFromImageURL before the boot state becomes
+	// ActionIDCreateServer gets stored by createServerFromImageURL before the boot state becomes
 	// Initializing. This guard catches it early if that behavior ever changes.
-	if hm.Status.ExternalIDs.ActionIDCreate == 0 {
-		msg := "ActionIDCreate is missing in the status.externalIDs, cannot check whether the server is provisioned. Machine will be remediated"
+	if hm.Status.ExternalIDs.ActionIDCreateServer == 0 {
+		msg := "ActionIDCreateServer is missing in the status.externalIDs, cannot check whether the server is provisioned. Machine will be remediated"
 		s.scope.Error(nil, msg)
 		err := s.scope.SetErrorAndRemediate(ctx, msg)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"ActionIDCreateNotSet", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
+			"ActionIDCreateServerNotSet", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineActionIDCreateNotSetV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineActionIDCreateServerNotSetV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
 	}
 
 	// The server was created with StartAfterCreate=false and is still powered off. Wait until
-	// the create action is finished, which means the server is provisioned and unlocked. After
-	// that the rescue system can be enabled. Once finished, ActionIDCreate is set to actionDone
+	// the server create action is finished, which means the server is provisioned and unlocked. After
+	// that the rescue system can be enabled. Once finished, ActionIDCreateServer is set to actionDone
 	// so a later EnableRescueSystem retry does not fetch the finished action again.
-	if hm.Status.ExternalIDs.ActionIDCreate != actionDone {
-		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ExternalIDs.ActionIDCreate)
+	if hm.Status.ExternalIDs.ActionIDCreateServer != actionDone {
+		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ExternalIDs.ActionIDCreateServer)
 		if err != nil {
 			if errors.Is(err, hcloudclient.ErrUnauthorized) {
 				v1beta1conditions.MarkFalse(
@@ -537,12 +537,12 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 			err = fmt.Errorf("GetAction failed: %w", err)
 			s.scope.Error(err, "")
 			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-				"GettingCreateActionFailed", clusterv1beta1.ConditionSeverityWarning,
+				"GettingCreateServerActionFailed", clusterv1beta1.ConditionSeverityWarning,
 				"%s", err.Error())
 			v1beta2conditions.Set(hm, metav1.Condition{
 				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 				Status:  metav1.ConditionUnknown,
-				Reason:  infrav1.HCloudMachineGettingCreateActionFailedV1Beta2Reason,
+				Reason:  infrav1.HCloudMachineGettingCreateServerActionFailedV1Beta2Reason,
 				Message: err.Error(),
 			})
 			return reconcile.Result{}, err
@@ -551,12 +551,12 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 		if action.Finished.IsZero() {
 			// not finished yet.
 			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-				"WaitingForCreateAction", clusterv1beta1.ConditionSeverityInfo,
+				"CreatingServer", clusterv1beta1.ConditionSeverityInfo,
 				"Waiting until server create action is finished")
 			v1beta2conditions.Set(hm, metav1.Condition{
 				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineWaitingForCreateActionV1Beta2Reason,
+				Reason:  infrav1.HCloudMachineCreatingServerV1Beta2Reason,
 				Message: "Waiting until server create action is finished",
 			})
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
@@ -572,22 +572,22 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 				return reconcile.Result{}, remediateErr
 			}
 			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-				"CreateActionFailed", clusterv1beta1.ConditionSeverityWarning,
+				"CreateServerActionFailed", clusterv1beta1.ConditionSeverityWarning,
 				"%s", msg)
 			v1beta2conditions.Set(hm, metav1.Condition{
 				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineCreateActionFailedV1Beta2Reason,
+				Reason:  infrav1.HCloudMachineCreateServerActionFailedV1Beta2Reason,
 				Message: msg,
 			})
 			return reconcile.Result{}, nil
 		}
 
-		// The create action finished successfully.
-		hm.Status.ExternalIDs.ActionIDCreate = actionDone
+		// The server create action finished successfully.
+		hm.Status.ExternalIDs.ActionIDCreateServer = actionDone
 	}
 
-	// The create action is finished. The server is provisioned and still powered off.
+	// The server create action is finished. The server is provisioned and still powered off.
 
 	_, hcloudSSHKeys, err := s.getSSHKeys(ctx)
 	if err != nil {
@@ -828,8 +828,6 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		}
 		return reconcile.Result{}, handleRateLimit(hm, err, "PowerOnServer", "failed to power on server")
 	}
-
-	s.scope.Info("Power on started (first boot, into rescue system)")
 
 	s.setBootState(infrav1.HCloudBootStateBootingToRescue)
 	v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
@@ -1146,6 +1144,11 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		s.scope.Info("CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 
 		// The image got installed. Now reboot in the real operating system.
+		// The reboot runs inside the operating system, so the hcloud server status stays
+		// "running" the whole time. handleBootingToRealOS therefore moves on to
+		// OperatingSystemRunning right away, usually while the reboot is still ongoing.
+		// That is fine: the machine only becomes ready once the node has joined the
+		// cluster, which CAPI checks, so nothing is gated on the reboot being finished.
 		if rebootErr := hcloudSSHClient.Reboot(ctx).Err; rebootErr != nil {
 			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w", rebootErr)
 		}
@@ -1315,7 +1318,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 
 	// Clean up old Status fields
 	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = 0
-	hm.Status.ExternalIDs.ActionIDCreate = 0
+	hm.Status.ExternalIDs.ActionIDCreateServer = 0
 
 	v1beta1conditions.MarkTrue(hm, infrav1.ServerProvisionedCondition)
 	// Provisioning is complete.
@@ -1657,7 +1660,7 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 	}
 
 	// handleBootStateInitializing waits for this action before enabling the rescue system.
-	hm.Status.ExternalIDs.ActionIDCreate = result.Action.ID
+	hm.Status.ExternalIDs.ActionIDCreateServer = result.Action.ID
 
 	s.setBootState(infrav1.HCloudBootStateInitializing)
 	return result.Server, image, nil

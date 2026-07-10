@@ -431,14 +431,14 @@ const (
 	HCloudMachineProvisioningServerReason = "Provisioning"
 	// HCloudMachineServerStatusUnknownReason indicates the hcloud server returned a status that the controller does not handle.
 	HCloudMachineServerStatusUnknownReason = "ServerStatusUnknown"
-	// HCloudMachineActionIDCreateNotSetReason indicates the action ID of the server create action is not set.
-	HCloudMachineActionIDCreateNotSetReason = "ActionIDCreateNotSet"
-	// HCloudMachineWaitingForCreateActionReason indicates waiting for the server create action to finish.
-	HCloudMachineWaitingForCreateActionReason = "WaitingForCreateAction"
-	// HCloudMachineGettingCreateActionFailedReason indicates getting the server create action failed.
-	HCloudMachineGettingCreateActionFailedReason = "GettingCreateActionFailed"
-	// HCloudMachineCreateActionFailedReason indicates the server create action failed.
-	HCloudMachineCreateActionFailedReason = "CreateActionFailed"
+	// HCloudMachineActionIDCreateServerNotSetReason indicates the action ID of the server create action is not set.
+	HCloudMachineActionIDCreateServerNotSetReason = "ActionIDCreateServerNotSet"
+	// HCloudMachineCreatingServerReason indicates the hcloud server is being created.
+	HCloudMachineCreatingServerReason = "CreatingServer"
+	// HCloudMachineGettingCreateServerActionFailedReason indicates getting the server create action failed.
+	HCloudMachineGettingCreateServerActionFailedReason = "GettingCreateServerActionFailed"
+	// HCloudMachineCreateServerActionFailedReason indicates the server create action failed.
+	HCloudMachineCreateServerActionFailedReason = "CreateServerActionFailed"
 
 	// HCloudMachineWaitingForRescueSystemReason indicates waiting for the rescue system to be enabled.
 	HCloudMachineWaitingForRescueSystemReason = "WaitingForRescueSystem"

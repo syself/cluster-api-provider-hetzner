@@ -593,7 +593,7 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 })
 
 var _ = Describe("handleBootStateInitializing", func() {
-	It("sets an error and remediates when the create action finished with an error", func() {
+	It("sets an error and remediates when the server create action finished with an error", func() {
 		hcloudMachine := &infrav1.HCloudMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-machine",
@@ -602,7 +602,7 @@ var _ = Describe("handleBootStateInitializing", func() {
 			Status: infrav1.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
-					ActionIDCreate: 998877,
+					ActionIDCreateServer: 998877,
 				},
 			},
 		}
@@ -626,12 +626,12 @@ var _ = Describe("handleBootStateInitializing", func() {
 		Expect(res).To(Equal(reconcile.Result{}))
 		_, exists := service.scope.Machine.Annotations[clusterv1.RemediateMachineAnnotation]
 		Expect(exists).To(BeTrue())
-		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "CreateActionFailed")).To(BeTrue())
-		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineCreateActionFailedV1Beta2Reason)).To(BeTrue())
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "CreateServerActionFailed")).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineCreateServerActionFailedV1Beta2Reason)).To(BeTrue())
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 
-	It("remediates when the create action ID is not set", func() {
+	It("remediates when the server create action ID is not set", func() {
 		hcloudMachine := &infrav1.HCloudMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-machine",
@@ -653,12 +653,12 @@ var _ = Describe("handleBootStateInitializing", func() {
 		Expect(res).To(Equal(reconcile.Result{}))
 		_, exists := service.scope.Machine.Annotations[clusterv1.RemediateMachineAnnotation]
 		Expect(exists).To(BeTrue())
-		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "ActionIDCreateNotSet")).To(BeTrue())
-		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineActionIDCreateNotSetV1Beta2Reason)).To(BeTrue())
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "ActionIDCreateServerNotSet")).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineActionIDCreateServerNotSetV1Beta2Reason)).To(BeTrue())
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 
-	It("returns an error and marks GettingCreateActionFailed when GetAction fails", func() {
+	It("returns an error and marks GettingCreateServerActionFailed when GetAction fails", func() {
 		hcloudMachine := &infrav1.HCloudMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-machine",
@@ -667,7 +667,7 @@ var _ = Describe("handleBootStateInitializing", func() {
 			Status: infrav1.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
-					ActionIDCreate: 998877,
+					ActionIDCreateServer: 998877,
 				},
 			},
 		}
@@ -683,8 +683,8 @@ var _ = Describe("handleBootStateInitializing", func() {
 		Expect(res).To(Equal(reconcile.Result{}))
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("GetAction failed"))
-		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "GettingCreateActionFailed")).To(BeTrue())
-		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionUnknown, infrav1.HCloudMachineGettingCreateActionFailedV1Beta2Reason)).To(BeTrue())
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "GettingCreateServerActionFailed")).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionUnknown, infrav1.HCloudMachineGettingCreateServerActionFailedV1Beta2Reason)).To(BeTrue())
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 })
@@ -1317,12 +1317,12 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateInitializing))
 
-		By("ensuring the bootstate has transitioned to Initializing and the create action is stored")
+		By("ensuring the bootstate has transitioned to Initializing and the server create action is stored")
 
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateInitializing))
-		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDCreate).To(Equal(int64(998877)))
+		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDCreateServer).To(Equal(int64(998877)))
 
-		By("reconciling again: create action not finished yet")
+		By("reconciling again: server create action not finished yet")
 		startTime := time.Now()
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
 			ID:     1,
@@ -1339,10 +1339,10 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateInitializing))
 
-		By("ensuring the bootstate stays Initializing while the create action is running")
+		By("ensuring the bootstate stays Initializing while the server create action is running")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateInitializing))
 
-		By("reconciling again: create action finished, rescue system gets enabled")
+		By("reconciling again: server create action finished, rescue system gets enabled")
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
 			ID:     1,
 			Name:   "my-machine",
