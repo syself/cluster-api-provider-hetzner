@@ -355,7 +355,8 @@ const (
 	HCloudMachineServerSSHKeyNotFoundV1Beta2Reason = "SSHKeyNotFound"
 	// HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason surfaces when the specified placement group does not exist.
 	HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason = "PlacementGroupNotFound"
-	// HCloudMachineServerCreationFailedV1Beta2Reason surfaces when the HCloud API CreateServer call fails.
+	// HCloudMachineServerCreationFailedV1Beta2Reason surfaces when creating the hcloud server fails,
+	// either because the CreateServer call fails or because the create action fails afterwards.
 	HCloudMachineServerCreationFailedV1Beta2Reason = "CreationFailed"
 )
 
@@ -375,14 +376,12 @@ const (
 	HCloudMachineProvisioningServerV1Beta2Reason = "Provisioning"
 	// HCloudMachineServerStatusUnknownV1Beta2Reason indicates the hcloud server returned a status that the controller does not handle.
 	HCloudMachineServerStatusUnknownV1Beta2Reason = "ServerStatusUnknown"
-	// HCloudMachineActionIDCreateServerNotSetV1Beta2Reason indicates the action ID of the server create action is not set.
+	// HCloudMachineActionIDCreateServerNotSetV1Beta2Reason indicates the ActionIDCreateServer status field is not set.
 	HCloudMachineActionIDCreateServerNotSetV1Beta2Reason = "ActionIDCreateServerNotSet"
 	// HCloudMachineCreatingServerV1Beta2Reason indicates the hcloud server is being created.
 	HCloudMachineCreatingServerV1Beta2Reason = "CreatingServer"
-	// HCloudMachineGettingCreateServerActionFailedV1Beta2Reason indicates getting the server create action failed.
-	HCloudMachineGettingCreateServerActionFailedV1Beta2Reason = "GettingCreateServerActionFailed"
-	// HCloudMachineCreateServerActionFailedV1Beta2Reason indicates the server create action failed.
-	HCloudMachineCreateServerActionFailedV1Beta2Reason = "CreateServerActionFailed"
+	// HCloudMachineGettingServerCreationStatusFailedV1Beta2Reason indicates checking the server creation progress failed.
+	HCloudMachineGettingServerCreationStatusFailedV1Beta2Reason = "GettingServerCreationStatusFailed"
 
 	// HCloudMachineWaitingForRescueSystemV1Beta2Reason indicates waiting for the rescue system to be enabled.
 	HCloudMachineWaitingForRescueSystemV1Beta2Reason = "WaitingForRescueSystem"

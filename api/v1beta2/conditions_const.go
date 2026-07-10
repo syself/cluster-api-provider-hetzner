@@ -411,7 +411,8 @@ const (
 	HCloudMachineServerSSHKeyNotFoundReason = "SSHKeyNotFound"
 	// HCloudMachineServerPlacementGroupNotFoundReason surfaces when the specified placement group does not exist.
 	HCloudMachineServerPlacementGroupNotFoundReason = "PlacementGroupNotFound"
-	// HCloudMachineServerCreationFailedReason surfaces when the HCloud API CreateServer call fails.
+	// HCloudMachineServerCreationFailedReason surfaces when creating the hcloud server fails,
+	// either because the CreateServer call fails or because the create action fails afterwards.
 	HCloudMachineServerCreationFailedReason = "CreationFailed"
 )
 
@@ -431,14 +432,12 @@ const (
 	HCloudMachineProvisioningServerReason = "Provisioning"
 	// HCloudMachineServerStatusUnknownReason indicates the hcloud server returned a status that the controller does not handle.
 	HCloudMachineServerStatusUnknownReason = "ServerStatusUnknown"
-	// HCloudMachineActionIDCreateServerNotSetReason indicates the action ID of the server create action is not set.
+	// HCloudMachineActionIDCreateServerNotSetReason indicates the ActionIDCreateServer status field is not set.
 	HCloudMachineActionIDCreateServerNotSetReason = "ActionIDCreateServerNotSet"
 	// HCloudMachineCreatingServerReason indicates the hcloud server is being created.
 	HCloudMachineCreatingServerReason = "CreatingServer"
-	// HCloudMachineGettingCreateServerActionFailedReason indicates getting the server create action failed.
-	HCloudMachineGettingCreateServerActionFailedReason = "GettingCreateServerActionFailed"
-	// HCloudMachineCreateServerActionFailedReason indicates the server create action failed.
-	HCloudMachineCreateServerActionFailedReason = "CreateServerActionFailed"
+	// HCloudMachineGettingServerCreationStatusFailedReason indicates checking the server creation progress failed.
+	HCloudMachineGettingServerCreationStatusFailedReason = "GettingServerCreationStatusFailed"
 
 	// HCloudMachineWaitingForRescueSystemReason indicates waiting for the rescue system to be enabled.
 	HCloudMachineWaitingForRescueSystemReason = "WaitingForRescueSystem"

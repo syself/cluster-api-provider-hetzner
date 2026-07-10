@@ -538,12 +538,12 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 			err = fmt.Errorf("GetAction failed: %w", err)
 			s.scope.Error(err, "")
 			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-				"GettingCreateServerActionFailed", clusterv1beta1.ConditionSeverityWarning,
+				"GettingServerCreationStatusFailed", clusterv1beta1.ConditionSeverityWarning,
 				"%s", err.Error())
 			v1beta2conditions.Set(hm, metav1.Condition{
 				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 				Status:  metav1.ConditionUnknown,
-				Reason:  infrav1.HCloudMachineGettingCreateServerActionFailedV1Beta2Reason,
+				Reason:  infrav1.HCloudMachineGettingServerCreationStatusFailedV1Beta2Reason,
 				Message: err.Error(),
 			})
 			return reconcile.Result{}, err
@@ -553,12 +553,12 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 			// not finished yet.
 			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 				"CreatingServer", clusterv1beta1.ConditionSeverityInfo,
-				"Waiting until server create action is finished")
+				"Waiting until the server is created")
 			v1beta2conditions.Set(hm, metav1.Condition{
 				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
 				Reason:  infrav1.HCloudMachineCreatingServerV1Beta2Reason,
-				Message: "Waiting until server create action is finished",
+				Message: "Waiting until the server is created",
 			})
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
@@ -573,12 +573,12 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 				return reconcile.Result{}, remediateErr
 			}
 			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-				"CreateServerActionFailed", clusterv1beta1.ConditionSeverityWarning,
+				"CreationFailed", clusterv1beta1.ConditionSeverityWarning,
 				"%s", msg)
 			v1beta2conditions.Set(hm, metav1.Condition{
 				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineCreateServerActionFailedV1Beta2Reason,
+				Reason:  infrav1.HCloudMachineServerCreationFailedV1Beta2Reason,
 				Message: msg,
 			})
 			return reconcile.Result{}, nil
