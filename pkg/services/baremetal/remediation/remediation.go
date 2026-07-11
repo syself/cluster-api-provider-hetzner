@@ -124,7 +124,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	case infrav1.PhaseRunning:
 		return s.handlePhaseRunning(ctx, host)
 	case infrav1.PhaseWaiting:
-		return s.handlePhaseWaiting(ctx)
+		return s.handlePhaseWaiting(ctx, host)
 	case infrav1.PhaseDeleting, infrav1.PhaseSucceeded:
 		return reconcile.Result{}, nil
 	default:
@@ -200,7 +200,7 @@ func (s *Service) remediate(ctx context.Context, host *infrav1.HetznerBareMetalH
 	return nil
 }
 
-func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result, err error) {
+func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
 	nextCheck := s.timeUntilNextRemediation(time.Now())
 
 	if nextCheck > 0 {
@@ -217,7 +217,52 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result,
 			"reboot remediation succeeded: Node is healthy again")
 	}
 
+	// Reboots are exhausted and the node is still unhealthy, so the machine is deleted
+	// either way. Retire deletes it by setting a permanent error on the host (retireHost),
+	// which also keeps the host out of the pool. Without Retire we fall through to
+	// setOwnerRemediatedConditionToFailed below and the host can be provisioned again.
+	if s.scope.BareMetalRemediation.Spec.Strategy.OnExhaustion == infrav1.OnExhaustionRetire {
+		return reconcile.Result{}, s.retireHost(ctx, host, capiMachine)
+	}
+
 	return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx, "because retryLimit is reached and reboot timed out")
+}
+
+// retireHost sets a permanent error on the host so it leaves the cluster instead of
+// being reused. The permanent error deletes the machine through the HasFatalError path,
+// and skipHost keeps the host out of selection (the error is not cleared on deprovision)
+// until a human removes the permanent-error annotation.
+func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetalHost, capiMachine *clusterv1.Machine) error {
+	patchHelper, err := v1beta1patch.NewHelper(host, s.scope.Client)
+	if err != nil {
+		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
+	}
+
+	// The MachineHealthCheck writes the node condition that made the machine unhealthy onto
+	// the Machine's HealthCheckSucceeded condition. Use it as the reason so the permanent
+	// error explains why the host was retired. Fall back to how remediation ended when the
+	// Machine or the message is missing.
+	var reason string
+	if capiMachine != nil {
+		reason = conditions.GetMessage(capiMachine, clusterv1.MachineHealthCheckSucceededCondition)
+	}
+	if reason == "" {
+		// RetryCount is the number of reboots attempted; it is 0 when retryLimit is 0.
+		reason = "retryLimit is 0, node retired without a reboot attempt"
+		if retryCount := s.scope.BareMetalRemediation.Status.RetryCount; retryCount > 0 {
+			reason = fmt.Sprintf("node still unhealthy after %d failed reboot(s)", retryCount)
+		}
+	}
+	host.SetError(infrav1.PermanentError, reason)
+
+	if err := patchHelper.Patch(ctx, host); err != nil {
+		return fmt.Errorf("failed to patch: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
+	}
+
+	record.Warn(s.scope.BareMetalRemediation, "HostRetired", reason)
+
+	s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
+	return nil
 }
 
 // timeUntilNextRemediation checks if it is time to execute a next remediation step
