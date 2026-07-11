@@ -133,6 +133,16 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 }
 
 func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
+	// retryLimit 0 disables reboots (see RemediationStrategy.RetryLimit), so there
+	// is no remediation to perform. Mark the machine for deletion by CAPI.
+	if !s.scope.HasRetriesLeft() && s.scope.BareMetalRemediation.Status.LastRemediated == nil {
+		if err := s.setOwnerRemediatedConditionToFailed(ctx, "exit remediation because retryLimit is 0 (no reboot performed)"); err != nil {
+			record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
+			return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
+		}
+		return reconcile.Result{}, nil
+	}
+
 	// if host has not been remediated yet, do that now
 	if s.scope.BareMetalRemediation.Status.LastRemediated == nil {
 		if err := s.remediate(ctx, host); err != nil {
@@ -143,7 +153,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerB
 	// if no retries are left, then change to phase waiting and return
 	if !s.scope.HasRetriesLeft() {
 		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseWaiting
-		return
+		return reconcile.Result{}, nil
 	}
 
 	nextRemediation := s.timeUntilNextRemediation(time.Now())
