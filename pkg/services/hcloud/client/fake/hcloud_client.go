@@ -472,12 +472,12 @@ func (c *cacheHCloudClient) ListImages(_ context.Context, opts hcloud.ImageListO
 	return nil, nil
 }
 
-func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCreateOpts) (*hcloud.Server, error) {
+func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	if _, found := c.serverCache.nameMap[opts.Name]; found {
-		return nil, fmt.Errorf("already exists")
+		return hcloud.ServerCreateResult{}, fmt.Errorf("already exists")
 	}
 
 	c.serverIDCounter++
@@ -490,11 +490,15 @@ func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCr
 		PlacementGroup: opts.PlacementGroup,
 		Status:         hcloud.ServerStatusRunning,
 	}
+	result := hcloud.ServerCreateResult{
+		Server: server,
+		Action: &hcloud.Action{ID: 1},
+	}
 
 	for _, network := range opts.Networks {
 		network, found := c.networkCache.idMap[network.ID]
 		if !found {
-			return server, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+			return result, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 		}
 		ip := network.IPRange.IP
 		server.PrivateNet = append(server.PrivateNet, hcloud.ServerPrivateNet{IP: ip})
@@ -503,7 +507,7 @@ func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCr
 	// Add server to cache
 	c.serverCache.idMap[server.ID] = server
 	c.serverCache.nameMap[server.Name] = struct{}{}
-	return server, nil
+	return result, nil
 }
 
 func (c *cacheHCloudClient) AttachServerToNetwork(_ context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) error {
