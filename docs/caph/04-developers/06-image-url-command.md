@@ -1,8 +1,7 @@
 ---
 title: image-url-command
-metatitle: Cluster API Provider Hetzner Custom Command to Install Node Image via imageURL
-sidebar: image-url-command
 description: Documentation on the CAPH image-url-command
+metatitle: Cluster API Provider Hetzner Custom Command to Install Node Image via imageURL
 ---
 
 The hcloud `spec.imageURLCommand` field and the bare metal `spec.installImage.imageURLCommand` field
@@ -15,9 +14,9 @@ The script/binary will be copied into the rescue system and executed.
 
 You need to enable two things:
 
-* for hcloud: The HCloudMachine resource must set both `spec.imageURL` and
+- for hcloud: The HCloudMachine resource must set both `spec.imageURL` and
   `spec.imageURLCommand` (usually via a HCloudMachineTemplate)
-* for baremetal: The HetznerBareMetalMachine must set
+- for baremetal: The HetznerBareMetalMachine must set
   `spec.installImage.imageURLCommand`, for example:
 
 ```yaml
@@ -71,8 +70,8 @@ The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the co
 By default, CAPH passes short device names (e.g. `sda`) as the last argument to the command.
 For bare metal machines you can set `spec.installImage.deviceStringType` to control this:
 
-* `"short"` (or empty): passes the short device name, e.g. `sda`
-* `"wwn"`: passes the WWN from the `rootDeviceHints`, e.g. `eui.00253885910c8cec`
+- `"short"` (or empty): passes the short device name, e.g. `sda`
+- `"wwn"`: passes the WWN from the `rootDeviceHints`, e.g. `eui.00253885910c8cec`
 
 Example:
 
@@ -107,17 +106,17 @@ provisioning.
 
 ## Steps
 
-* CAPH copies the binary to the rescue system.
-* The executable gets executed, the PID gets written to a file. Stdout and Stderr get redirected
+- CAPH copies the binary to the rescue system.
+- The executable gets executed, the PID gets written to a file. Stdout and Stderr get redirected
   into a file.
-* CAPH continuously reads /root/output.json (if present). The provisioner can write a message into
+- CAPH continuously reads /root/output.json (if present). The provisioner can write a message into
   the file which will be in the corresponding condition, so that users can see the current state of
   the process. This is optional.
-* When the process has terminated, CAPH checks if IMAGE_URL_DONE is in the last line of the output.
+- When the process has terminated, CAPH checks if IMAGE_URL_DONE is in the last line of the output.
   If not, the process is considered to have failed. The machine gets deprovisioned. Two Events
   (level=Warning) get created: One containing the output of the process, one containing the
   output.json file (if it exists).
-* When IMAGE_URL_DONE was found, the process is considered to have succeeded. Two Events
+- When IMAGE_URL_DONE was found, the process is considered to have succeeded. Two Events
   (level=Info) get created: One containing the output of the process, one containing the output.json
   file (if it exists).
 
@@ -158,14 +157,14 @@ the controller log at key `outputJSON`.
 
 ## Measured durations for hcloud
 
-| oldState | newState | avg(s) | min(s) | max(s) |
-| -------- | -------- | -----: | -----: | -----: |
-| | Initializing | 3.30 | 2.00 | 5.00 |
-| Initializing | EnablingRescue | 19.20 | 11.00 | 21.00 |
-| EnablingRescue | BootingToRescue | 14.20 | 9.00 | 23.00 |
-| BootingToRescue | RunningImageCommand | 38.20 | 37.00 | 42.00 |
-| RunningImageCommand | BootingToRealOS | 62.40 | 56.00 | 80.00 |
-| BootingToRealOS | OperatingSystemRunning | 1.80 | 1.00 | 3.00 |
+| oldState            | newState               | avg(s) | min(s) | max(s) |
+| ------------------- | ---------------------- | -----: | -----: | -----: |
+|                     | Initializing           |   3.30 |   2.00 |   5.00 |
+| Initializing        | EnablingRescue         |  19.20 |  11.00 |  21.00 |
+| EnablingRescue      | BootingToRescue        |  14.20 |   9.00 |  23.00 |
+| BootingToRescue     | RunningImageCommand    |  38.20 |  37.00 |  42.00 |
+| RunningImageCommand | BootingToRealOS        |  62.40 |  56.00 |  80.00 |
+| BootingToRealOS     | OperatingSystemRunning |   1.80 |   1.00 |   3.00 |
 
 <!--
   the table was created by:

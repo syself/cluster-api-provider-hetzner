@@ -1,8 +1,7 @@
 ---
 title: Management cluster setup
-metatitle: Cluster API Management Cluster Setup for Hetzner
-sidebar: Management cluster setup
 description: Bootstrap a cluster, install and configure all the necessary components to make it function as a Cluster API management cluster.
+metatitle: Cluster API Management Cluster Setup for Hetzner
 ---
 
 You have two options: either create a pure HCloud cluster or a hybrid cluster with Hetzner dedicated (bare metal) servers. For a full list of flavors, please check out the [release page](https://github.com/syself/cluster-api-provider-hetzner/releases). In the quickstart guide, we will go with the cluster creation on a pure Hetzner Cloud server.
@@ -22,7 +21,7 @@ There are several tasks that have to be completed before a workload cluster can 
 
 1. Create a new [HCloud project](https://console.hetzner.cloud/projects).
 1. Generate an API token with read and write access. You'll find this if you click on the project and go to "security".
-2. Generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. Read more about [Managing SSH Keys](/docs/caph/02-topics/01-managing-ssh-keys.md).
+1. Generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. Read more about [Managing SSH Keys](/docs/caph/topics/managing-ssh-keys).
 
 ## Bootstrap or Management Cluster Installation
 
@@ -65,11 +64,8 @@ For the latest version:
 clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
 ```
 
-{% callout %}
-
-For a specific version, use the `--infrastructure hetzner:vX.X.X` flag with the above command.
-
-{% /callout %}
+> [!NOTE]
+> For a specific version, use the `--infrastructure hetzner:vX.X.X` flag with the above command.
 
 ---
 

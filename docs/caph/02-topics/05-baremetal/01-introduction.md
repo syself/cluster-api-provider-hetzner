@@ -1,8 +1,7 @@
 ---
 title: Hetzner bare metal
-metatitle: Introduction to Using Hetzner Bare Metal Servers as Nodes with CAPH
-sidebar: Hetzner bare metal
 description: Explanation of the Hetzner offerings, and the available cluster flavors with bare metal servers.
+metatitle: Introduction to Using Hetzner Bare Metal Servers as Nodes with CAPH
 ---
 
 Hetzner have two offerings primarily:
@@ -20,23 +19,20 @@ These flavors can be consumed using [clusterctl](https://main.cluster-api.sigs.k
 
 To use bare metal servers for your deployment, you can choose one of the following flavors:
 
-| Flavor                                         | What it does                                                                                                  |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `hetzner-baremetal-control-planes-remediation` | Uses bare metal servers for control plane nodes and worker nodes, with custom remediation (try to reboot failed machines first). |
+| Flavor                                         | What it does                                                                                                                          |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `hetzner-baremetal-control-planes-remediation` | Uses bare metal servers for control plane nodes and worker nodes, with custom remediation (try to reboot failed machines first).      |
 | `hetzner-baremetal-control-planes`             | Uses bare metal servers for control plane nodes and worker nodes, with normal remediation (unprovision and recreate failed machines). |
-| `hetzner-hcloud-control-planes`                | Uses hcloud servers for control plane nodes and bare metal servers for worker nodes.                         |
+| `hetzner-hcloud-control-planes`                | Uses hcloud servers for control plane nodes and bare metal servers for worker nodes.                                                  |
 
 In Cluster API terms, remediation is the automatic recovery behavior for failed or unhealthy
 machines. For bare metal control planes, `custom remediation` tries a reboot first and only falls
 back to replacement if needed. `Normal remediation` directly replaces the failed machine by
 unprovisioning and recreating it.
 
-{% callout %}
-
-These flavors are only for demonstration purposes and should not be used in production.
-
-{% /callout %}
+> [!NOTE]
+> These flavors are only for demonstration purposes and should not be used in production.
 
 ## Purchasing Bare Metal Servers
 
-If you want to create a cluster with bare metal servers, you will also need to set up the robot credentials. For setting robot credentials, as described in the [reference](/docs/caph/03-reference/06-hetzner-bare-metal-machine-template.md), you need to purchase bare metal servers beforehand manually.
+If you want to create a cluster with bare metal servers, you will also need to set up the robot credentials. For setting robot credentials, as described in the [reference](/docs/caph/reference/hetzner-bare-metal-machine-template), you need to purchase bare metal servers beforehand manually.

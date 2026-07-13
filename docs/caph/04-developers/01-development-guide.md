@@ -1,14 +1,13 @@
 ---
 title: Developing Cluster API Provider Hetzner
-metatitle: Developing Cluster API Provider Hetzner with Tilt
-sidebar: Developing Cluster API Provider Hetzner
 description: Learn how to set up an environment to develop the Cluster API Provider Hetzner, using Tilt and kind.
+metatitle: Developing Cluster API Provider Hetzner with Tilt
 ---
 
 Developing our provider is quite easy. Please follow the steps mentioned below:
 
 1. You need to install some base requirements.
-2. You need to follow the [preparation document](/docs/caph/01-getting-started/03-preparation.md) to set up everything related to Hetzner.
+2. You need to follow the [preparation document](/docs/caph/getting-started/preparation) to set up everything related to Hetzner.
 
 ## Install Base requirements
 
@@ -23,12 +22,12 @@ This ensures the following:
 - helmfile
 - kind (required)
 - kubectl (required)
-- tilt
-- hcloud cli-tool.
+- tilt (required)
+- hcloud
 
 ## Preparing Hetzner project
 
-For more information, please see the [Hetzner project preparation](/docs/caph/01-getting-started/03-preparation.md) guide.
+For more information, please see [here](/docs/caph/getting-started/preparation).
 
 ## Developing without Tilt
 
@@ -55,7 +54,7 @@ You can use [Tilt](https://tilt.dev/) to install your changed code in the manage
 We do not update the Tilt configuration regularly. If unsure use [Developing without
 Tilt](#developing-without-tilt).
 
-The complete reference can be found in the [Reference of Tilt](/docs/caph/04-developers/02-tilt.md) documentation.
+The complete reference can be found in the [Reference of Tilt](/docs/caph/developers/tilt) documentation.
 
 To build a kind cluster and to start Tilt, run:
 
@@ -63,11 +62,8 @@ To build a kind cluster and to start Tilt, run:
 make tilt-up
 ```
 
-{% callout %}
-
-To access the Tilt UI, please go to: `http://localhost:10351`
-
-{% /callout %}
+> [!NOTE]
+> To access the Tilt UI, please go to: `http://localhost:10351`
 
 Once your kind management cluster is up and running, you can deploy a workload cluster. This could
 be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create

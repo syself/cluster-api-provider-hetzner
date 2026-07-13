@@ -1,8 +1,7 @@
 ---
 title: Node Images
-metatitle: Custom Node Images for Nodes in Clusters Managed by CAPH
-sidebar: Node Images
 description: Build custom Node Images for CAPH using Packer on Hetzner Cloud. Create, configure, and snapshot servers with all necessary components for Kubernetes.
+metatitle: Custom Node Images for Nodes in Clusters Managed by CAPH
 ---
 
 ## What are node-images?
@@ -24,60 +23,56 @@ To use CAPH in production, it needs a node image. In Hetzner Cloud, it is not po
 
 There are several ways to get a Hcloud snapshot:
 
-* You create one interactively by hand
-* You use [Hashicorp Packer](https://github.com/hashicorp/packer)
-* A Bash script with some `curl` commands to the Hcloud API.
+- You create one interactively by hand
+- You use [Hashicorp Packer](https://github.com/hashicorp/packer)
+- A Bash script with some `curl` commands to the Hcloud API.
 
-Then set `template.spec.imageName` in HCloudMachineTemplate to the name of your Hcloud snapshot. See [HCloudMachineTemplate Reference](/docs/caph/03-reference/03-hcloud-machine-template.md)
+Then set `template.spec.imageName` in HCloudMachineTemplate to the name of your Hcloud snapshot. See [HCloudMachineTemplate Reference](/docs/caph/reference/hcloud-machine-template)
 
 Here is an example of a Packer json:
 
 ```json
 {
-  "variables": {
-    "hcloud_token": "{{env `HCLOUD_TOKEN`}}",
-    "scripts": "{{template_dir}}/scripts",
-    "os": "ubuntu-YY.MM",
-    "arch": "amd64",
-    "image-name": "1.XX.Y-ubuntu-YY.MM-containerd",
-    "version": "{{isotime \"2006-01-02-1504\"}}"
-  },
-  "sensitive-variables": [
-    "hcloud_token"
-  ],
-  "builders": [
-    {
-      "type": "hcloud",
-      "token": "{{user `hcloud_token`}}",
-      "image": "{{user `os`}}",
-      "location": "fsn1",
-      "server_type": "cx23",
-      "ssh_username": "root",
-      "snapshot_name": "{{user `image-name`}}-{{user `version`}}",
-      "snapshot_labels": {
-        "caph-image-name": "{{user `image-name`}}-{{user `version`}}"
-      }
-    }
-  ],
-  "provisioners": [
-    {
-      "type": "shell",
-      "scripts": [
-        "{{user `scripts`}}/install-kubelet-and-kubectl.sh",
-      ]
-    }
-  ],
-  "post-processors": [
-    [
-      {
-        "output": "manifest.json",
-        "strip_path": false,
-        "type": "manifest",
-        "custom_data": {
-          "snapshot_label": "{{user `image-name`}}-{{user `version`}}"
-        }
-      }
-    ]
-  ]
+	"variables": {
+		"hcloud_token": "{{env `HCLOUD_TOKEN`}}",
+		"scripts": "{{template_dir}}/scripts",
+		"os": "ubuntu-YY.MM",
+		"arch": "amd64",
+		"image-name": "1.XX.Y-ubuntu-YY.MM-containerd",
+		"version": "{{isotime \"2006-01-02-1504\"}}"
+	},
+	"sensitive-variables": ["hcloud_token"],
+	"builders": [
+		{
+			"type": "hcloud",
+			"token": "{{user `hcloud_token`}}",
+			"image": "{{user `os`}}",
+			"location": "fsn1",
+			"server_type": "cx23",
+			"ssh_username": "root",
+			"snapshot_name": "{{user `image-name`}}-{{user `version`}}",
+			"snapshot_labels": {
+				"caph-image-name": "{{user `image-name`}}-{{user `version`}}"
+			}
+		}
+	],
+	"provisioners": [
+		{
+			"type": "shell",
+			"scripts": ["{{user `scripts`}}/install-kubelet-and-kubectl.sh"]
+		}
+	],
+	"post-processors": [
+		[
+			{
+				"output": "manifest.json",
+				"strip_path": false,
+				"type": "manifest",
+				"custom_data": {
+					"snapshot_label": "{{user `image-name`}}-{{user `version`}}"
+				}
+			}
+		]
+	]
 }
 ```

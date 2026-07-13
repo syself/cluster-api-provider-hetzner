@@ -1,22 +1,42 @@
 ---
 title: Hetzner project preparation
-metatitle: Preparing Your Hetzner Cloud Project for Working With CAPH
-sidebar: Hetzner project preparation
 description: Learn how to do the necessary steps for creating your first workload cluster on Hetzner with Cluster API.
+metatitle: Preparing Your Hetzner Cloud Project for Working With CAPH
 ---
 
 There are several tasks that have to be completed before a workload cluster can be created.
 
 ## Preparing Hetzner Cloud
 
-1. Create a new [HCloud project](https://console.hetzner.cloud/projects).
-2. Generate an API token with read and write access. You'll find this if you click on the project and go to "security".
-3. If you want to use it, generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. Read more about [Managing SSH Keys](/docs/caph/02-topics/01-managing-ssh-keys.md).
+<Steps>
+
+<Step>Create an HCloud project</Step>
+
+Create a new [HCloud project](https://console.hetzner.cloud/projects).
+
+<Step>Generate an API token</Step>
+
+Generate an API token with read and write access. You'll find this if you click on the project and go to "security".
+
+<Step>Add an SSH key (optional)</Step>
+
+If you want to use it, generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. Read more about [Managing SSH Keys](/docs/caph/topics/managing-ssh-keys).
+
+</Steps>
 
 ## Preparing Hetzner Robot
 
-1. Create a new web service user. [Here](https://robot.your-server.de/doc/webservice/en.html#preface) you can define a password and copy your user name
-2. Generate an SSH key. You can either upload it via Hetzner Robot UI or just rely on the controller to upload a key that it does not find in the robot API. This is possible, as you have to store the public and private key together with the SSH key's name in a secret that the controller reads.
+<Steps>
+
+<Step>Create a web service user</Step>
+
+[Here](https://robot.your-server.de/doc/webservice/en.html#preface) you can define a password and copy your user name.
+
+<Step>Generate an SSH key</Step>
+
+You can either upload it via Hetzner Robot UI or just rely on the controller to upload a key that it does not find in the robot API. This is possible, as you have to store the public and private key together with the SSH key's name in a secret that the controller reads.
+
+</Steps>
 
 ---
 
@@ -37,7 +57,7 @@ It is a common practice to create a temporary, local bootstrap cluster, which is
 
 #### 1. Existing Management Cluster
 
-For production use, a “real” Kubernetes cluster should be used with appropriate backup and Disaster Recovery policies and procedures in place. The Kubernetes cluster must be of a [supported version](/docs/caph/01-getting-started/01-introduction.md).
+For production use, a “real” Kubernetes cluster should be used with appropriate backup and Disaster Recovery policies and procedures in place. The Kubernetes cluster must be of a [supported version](/docs/caph/getting-started/introduction).
 
 #### 2. Kind
 
@@ -74,9 +94,9 @@ export CLUSTER_NAME="my-cluster"
 export HCLOUD_REGION="fsn1"
 export CONTROL_PLANE_MACHINE_COUNT=3
 export WORKER_MACHINE_COUNT=3
-export KUBERNETES_VERSION=1.36.0
-export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx32
-export HCLOUD_WORKER_MACHINE_TYPE=cpx32
+export KUBERNETES_VERSION=1.31.6
+export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31
+export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 ```
 
 - SSH_KEY_NAME: The SSH Key name you loaded in HCloud.
@@ -96,7 +116,7 @@ Required Variables:
 Optional Variables:
   - CLUSTER_NAME                 (defaults to hetzner-cluster)
   - CONTROL_PLANE_MACHINE_COUNT  (defaults to 3)
-  - KUBERNETES_VERSION           (defaults to 1.36.0)
+  - KUBERNETES_VERSION           (defaults to 1.31.6)
   - WORKER_MACHINE_COUNT         (defaults to 3)
 ```
 
@@ -147,4 +167,4 @@ kubectl patch secret robot-ssh -p '{"metadata":{"labels":{"clusterctl.cluster.x-
 
 The secret name and the tokens can also be customized in the cluster template.
 
-See [node-image](/docs/caph/02-topics/03-node-image.md) for more information.
+See [node-image](/docs/caph/topics/node-image) for more information.

@@ -1,15 +1,10 @@
 ---
 title: Reference of Tilt
-metatitle: Reference For Available Tilt Configuration Options
-sidebar: Reference of Tilt
 description: Full list of available Tilt configuration values and their description.
+metatitle: Reference For Available Tilt Configuration Options
 ---
 
-We do not update the Tilt configuration regularly. The script
-([update-operator-dev-deployment.sh](https://github.com/syself/cluster-api-provider-hetzner/blob/main/hack/update-operator-dev-deployment.sh)) may be an easier
-solution.
-
-```json
+```starlark
 "allowed_contexts": [
     "kind-caph",
 ],
@@ -36,12 +31,36 @@ solution.
 }
 ```
 
-| Key                       | Type       | Default         | Required | Description                                                                                                                                                                                                           |
-| ------------------------- | ---------- | --------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `allowed_contexts`        | `[]string` | `["kind-caph"]` | no       | A list of kubeconfig contexts Tilt is allowed to use. See the Tilt documentation on [allow_k8s_contexts](https://docs.tilt.dev/api.html#api.allow_k8s_contexts) for more details                                      |
-| `deploy_cert_manager`     | `bool`     | `true`          | no       | If true, deploys cert-manager into the cluster for use for webhook registration                                                                                                                                       |
-| `deploy_observability`    | `bool`     | `false`         | no       | If true, installs grafana, loki and promtail in the dev cluster. Grafana UI will be accessible via a link in the tilt console. Important! This feature requires the `helm` command to be available in the user's path |
-| `preload_images_for_kind` | `bool`     | `true`          | no       | If set to true, uses `kind load docker-image` to preload images into a kind cluster                                                                                                                                   |
-| `kind_cluster_name`       | `[]object` | `"caph"`        | no       | The name of the kind cluster to use when preloading images                                                                                                                                                            |
-| `capi_version`            | `string`   | `"v1.13.1"`     | no       | Version of CAPI                                                                                                                                                                                                       |
-| `cert_manager_version`    | `string`   | `"v1.20.2"`     | no       | Version of cert manager                                                                                                                                                                                               |
+<PropField name="allowed_contexts" type="[]string" defaultValue='["kind-caph"]' required={false}>
+
+A list of kubeconfig contexts Tilt is allowed to use. See the Tilt documentation on [allow_k8s_contexts](https://docs.tilt.dev/api.html#api.allow_k8s_contexts) for more details.
+
+</PropField>
+
+<PropField name="deploy_cert_manager" type="bool" defaultValue="true" required={false}>
+If true, deploys cert-manager into the cluster for use for webhook registration.
+</PropField>
+
+<PropField name="deploy_observability" type="bool" defaultValue="false" required={false}>
+
+If true, installs grafana, loki and promtail in the dev cluster. Grafana UI will be accessible via a link in the tilt console. Important! This feature requires the `helm` command to be available in the user's path.
+
+</PropField>
+
+<PropField name="preload_images_for_kind" type="bool" defaultValue="true" required={false}>
+
+If set to true, uses `kind load docker-image` to preload images into a kind cluster.
+
+</PropField>
+
+<PropField name="kind_cluster_name" type="string" defaultValue='"caph"' required={false}>
+The name of the kind cluster to use when preloading images.
+</PropField>
+
+<PropField name="capi_version" type="string" defaultValue='"v1.13.1"' required={false}>
+Version of CAPI.
+</PropField>
+
+<PropField name="cert_manager_version" type="string" defaultValue='"v1.20.2"' required={false}>
+Version of cert manager.
+</PropField>

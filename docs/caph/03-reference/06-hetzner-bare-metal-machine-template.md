@@ -1,8 +1,7 @@
 ---
 title: HetznerBareMetalMachineTemplate
-metatitle: HetznerBareMetalMachineTemplate Object Reference
-sidebar: HetznerBareMetalMachineTemplate
 description: In HetznerBareMetalMachineTemplate you can define all important properties for the HetznerBareMetalMachines.
+metatitle: HetznerBareMetalMachineTemplate Object Reference
 ---
 
 In `HetznerBareMetalMachineTemplate` you can define all important properties for the `HetznerBareMetalMachines`. `HetznerBareMetalMachines` are reconciled by the `HetznerBareMetalMachineController`, which DOES NOT create or delete Hetzner dedicated machines. Instead, it uses the inventory of `HetznerBareMetalHosts`. These hosts correspond to already existing bare metal servers, which get provisioned when selected by a `HetznerBareMetalMachine`.
@@ -40,47 +39,225 @@ Via MatchLabels you can specify a certain label (key and value) that identifies 
 
 ## Overview of HetznerBareMetalMachineTemplate.Spec
 
-| Key                                                              | Type                  | Default                   | Required | Description                                                                                                                                        |
-| ---------------------------------------------------------------- | --------------------- | ------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `template.spec.providerID`                                       | `string`              |                           | no       | Provider ID set by controller                                                                                                                      |
-| `template.spec.installImage`                                     | `object`              |                           | yes      | Configuration used in autosetup                                                                                                                    |
-| `template.spec.installImage.imageURLCommand`                     | `string`              |                           | no       | Basename of a command below `/shared` on the controller pod that CAPH copies into the rescue system and executes instead of `installimage`. Requires `template.spec.installImage.image.url`. |
-| `template.spec.installImage.image`                               | `object`              |                           | yes      | Defines image for bm machine. See below for details.                                                                                               |
-| `template.spec.installImage.image.url`                           | `string`              |                           | no       | Remote URL of image. Can be tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz                                                                    |
-| `template.spec.installImage.image.name`                          | `string`              |                           | no       | Name of the image                                                                                                                                  |
-| `template.spec.installImage.image.path`                          | `string`              |                           | no       | Local path of a pre-installed image                                                                                                                |
-| `template.spec.installImage.postInstallScript`                   | `string`              |                           | no       | PostInstallScript that is used for commands that will be executed after installing image                                                           |
-| `template.spec.installImage.swraid`                              | `int`                 | `0`                       | no       | Enables or disables raid. Set 1 to enable                                                                                                          |
-| `template.spec.installImage.swraidLevel`                         | `int`                 | `1`                       | no       | Defines the software raid levels. Only relevant if raid is enabled. Pick one of 0,1,5,6,10                                                         |
-| `template.spec.installImage.partitions`                          | `[]object`            |                           | yes      | Partitions that should be created in installimage                                                                                                  |
-| `template.spec.installImage.partitions.mount`                    | `string`              |                           | yes      | Mount defines the mount path of the filesystem                                                                                                     |
-| `template.spec.installImage.partitions.fileSystem`               | `string`              |                           | yes      | Filesystem that should be used. Can be ext2, ext3, ext4, btrfs, reiserfs, xfs, swap, or the name of the LVM volume group, if the partition is a VG |
-| `template.spec.installImage.partitions.size`                     | `string`              |                           | yes      | Size of the partition. Use 'all' to use all remaining space of the drive. M/G/T can be used as unit specifications for MiB, GiB, TiB               |
-| `template.spec.installImage.logicalVolumeDefinitions`            | `[]object`            |                           | no       | Defines the logical volume definitions that should be created                                                                                      |
-| `template.spec.installImage.logicalVolumeDefinitions.vg`         | `string`              |                           | yes      | Defines the vg name                                                                                                                                |
-| `template.spec.installImage.logicalVolumeDefinitions.name`       | `string`              |                           | yes      | Defines the volume name                                                                                                                            |
-| `template.spec.installImage.logicalVolumeDefinitions.mount`      | `string`              |                           | yes      | Defines the mount path                                                                                                                             |
-| `template.spec.installImage.logicalVolumeDefinitions.fileSystem` | `string`              |                           | yes      | Defines the file system                                                                                                                            |
-| `template.spec.installImage.logicalVolumeDefinitions.size`       | `string`              |                           | yes      | Defines size with unit M/G/T or MiB/GiB/TiB                                                                                                        |
-| `template.spec.installImage.btrfsDefinitions`                    | `[]object`            |                           | no       | Defines the btrfs sub-volume definitions that should be created                                                                                    |
-| `template.spec.installImage.btrfsDefinitions.volume`             | `string`              |                           | yes      | Defines the btrfs volume name                                                                                                                      |
-| `template.spec.installImage.btrfsDefinitions.subvolume`          | `string`              |                           | yes      | Defines the btrfs sub-volume name                                                                                                                  |
-| `template.spec.installImage.btrfsDefinitions.mount`              | `string`              |                           | yes      | Defines the btrfs mount path                                                                                                                       |
-| `template.spec.hostSelector`                                     | `object`              |                           | no       | Options to select hosts with                                                                                                                       |
-| `template.spec.hostSelector.matchLabels`                         | `map[string][string]` |                           | no       | Specify labels as key-value pairs that should be there in host object to select it                                                                 |
-| `template.spec.hostSelector.matchExpressions`                    | `[]object`            |                           | no       | Requirements using Kubernetes MatchExpressions                                                                                                     |
-| `template.spec.hostSelector.matchExpressions.key`                | `string`              |                           | yes      | Key of label that should be matched in host object                                                                                                 |
-| `template.spec.hostSelector.matchExpressions.operator`           | `string`              |                           | yes      | [Selection operator](https://pkg.go.dev/k8s.io/apimachinery@v0.23.4/pkg/selection?utm_source=gopls#Operator)                                       |
-| `template.spec.hostSelector.matchExpressions.values`             | `[]string`            |                           | yes      | Values whose relation to the label value in the host machine is defined by the selection operator                                                  |
-| `template.spec.sshSpec`                                          | `object`              |                           | yes      | SSH specs                                                                                                                                          |
-| `template.spec.sshSpec.secretRef`                                | `object`              |                           | yes      | Reference to the secret where SSH key is stored                                                                                                    |
-| `template.spec.sshSpec.secretRef.name`                           | `string`              |                           | yes      | Name of the secret                                                                                                                                 |
-| `template.spec.sshSpec.secretRef.key`                            | `object`              |                           | yes      | Details about the keys used in the data of the secret                                                                                              |
-| `template.spec.sshSpec.secretRef.key.name`                       | `string`              |                           | yes      | Name is the key in the secret's data where the SSH key's name is stored                                                                            |
-| `template.spec.sshSpec.secretRef.key.publicKey`                  | `string`              |                           | yes      | PublicKey is the key in the secret's data where the SSH key's public key is stored                                                                 |
-| `template.spec.sshSpec.secretRef.key.privateKey`                 | `string`              |                           | yes      | PrivateKey is the key in the secret's data where the SSH key's private key is stored                                                               |
-| `template.spec.sshSpec.portAfterInstallImage`                    | `int`                 | `22`                      | no       | PortAfterInstallImage specifies the port that can be used to reach the server via SSH after install image completed successfully. If `--baremetal-ssh-after-install-image=false` is set, then this value will never be used.                   |
-| `template.spec.sshSpec.portAfterCloudInit`                       | `int`                 | `22` (install image port) | no       | PortAfterCloudInit specifies the port that can be used to reach the server via SSH after cloud init completed successfully. Deprecated. Since [PR Install Cloud-Init-Data via post-install.sh #1407](https://github.com/syself/cluster-api-provider-hetzner/pull/1407) this field is not functional.  |
+<PropField name="template.spec.providerID" type="string" required={false}>
+Provider ID set by controller.
+</PropField>
+
+<PropField name="template.spec.installImage" type="object" required={true}>
+
+Configuration used in autosetup.
+
+<Collapsible title="properties">
+
+<PropField name="template.spec.installImage.image" type="object" required={true}>
+
+Defines image for bm machine. See below for details.
+
+<Collapsible title="properties">
+
+<PropField name="template.spec.installImage.image.url" type="string" required={false}>
+Remote URL of image. Can be tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz.
+</PropField>
+
+<PropField name="template.spec.installImage.imageURLCommand" type="string" required={false}>
+
+Basename of a command below `/shared` on the controller pod that CAPH copies into the rescue system and executes instead of `installimage`. Requires `template.spec.installImage.image.url`.
+
+</PropField>
+
+<PropField name="template.spec.installImage.image.name" type="string" required={false}>
+Name of the image.
+</PropField>
+
+<PropField name="template.spec.installImage.image.path" type="string" required={false}>
+Local path of a pre-installed image.
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
+<PropField name="template.spec.installImage.postInstallScript" type="string" required={false}>
+PostInstallScript that is used for commands that will be executed after installing image.
+</PropField>
+
+<PropField name="template.spec.installImage.swraid" type="int" defaultValue="0" required={false}>
+Enables or disables raid. Set 1 to enable.
+</PropField>
+
+<PropField name="template.spec.installImage.swraidLevel" type="int" defaultValue="1" required={false}>
+Defines the software raid levels. Only relevant if raid is enabled. Pick one of 0,1,5,6,10.
+</PropField>
+
+<PropField name="template.spec.installImage.partitions" type="[]object" required={true}>
+
+Partitions that should be created in installimage.
+
+<Collapsible title="properties">
+
+<PropField name="template.spec.installImage.partitions.mount" type="string" required={true}>
+Mount defines the mount path of the filesystem.
+</PropField>
+
+<PropField name="template.spec.installImage.partitions.fileSystem" type="string" required={true}>
+Filesystem that should be used. Can be ext2, ext3, ext4, btrfs, reiserfs, xfs, swap, or the name of the LVM volume group, if the partition is a VG.
+</PropField>
+
+<PropField name="template.spec.installImage.partitions.size" type="string" required={true}>
+Size of the partition. Use 'all' to use all remaining space of the drive. M/G/T can be used as unit specifications for MiB, GiB, TiB.
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
+<PropField name="template.spec.installImage.logicalVolumeDefinitions" type="[]object" required={false}>
+
+Defines the logical volume definitions that should be created.
+
+<Collapsible title="properties">
+
+<PropField name="template.spec.installImage.logicalVolumeDefinitions.vg" type="string" required={true}>
+Defines the vg name.
+</PropField>
+
+<PropField name="template.spec.installImage.logicalVolumeDefinitions.name" type="string" required={true}>
+Defines the volume name.
+</PropField>
+
+<PropField name="template.spec.installImage.logicalVolumeDefinitions.mount" type="string" required={true}>
+Defines the mount path.
+</PropField>
+
+<PropField name="template.spec.installImage.logicalVolumeDefinitions.fileSystem" type="string" required={true}>
+Defines the file system.
+</PropField>
+
+<PropField name="template.spec.installImage.logicalVolumeDefinitions.size" type="string" required={true}>
+Defines size with unit M/G/T or MiB/GiB/TiB.
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
+<PropField name="template.spec.installImage.btrfsDefinitions" type="[]object" required={false}>
+
+Defines the btrfs sub-volume definitions that should be created.
+
+<Collapsible title="properties">
+
+<PropField name="template.spec.installImage.btrfsDefinitions.volume" type="string" required={true}>
+Defines the btrfs volume name.
+</PropField>
+
+<PropField name="template.spec.installImage.btrfsDefinitions.subvolume" type="string" required={true}>
+Defines the btrfs sub-volume name.
+</PropField>
+
+<PropField name="template.spec.installImage.btrfsDefinitions.mount" type="string" required={true}>
+Defines the btrfs mount path.
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
+<PropField name="template.spec.hostSelector" type="object" required={false}>
+
+Options to select hosts with.
+
+<Collapsible title="properties">
+
+<PropField name="template.spec.hostSelector.matchLabels" type="map[string][string]" required={false}>
+Specify labels as key-value pairs that should be there in host object to select it.
+</PropField>
+
+<PropField name="template.spec.hostSelector.matchExpressions" type="[]object" required={false}>
+
+Requirements using Kubernetes MatchExpressions.
+
+<Collapsible title="properties">
+
+<PropField name="template.spec.hostSelector.matchExpressions.key" type="string" required={true}>
+Key of label that should be matched in host object.
+</PropField>
+
+<PropField name="template.spec.hostSelector.matchExpressions.operator" type="string" required={true}>
+
+[Selection operator](https://pkg.go.dev/k8s.io/apimachinery@v0.23.4/pkg/selection?utm_source=gopls#Operator).
+
+</PropField>
+
+<PropField name="template.spec.hostSelector.matchExpressions.values" type="[]string" required={true}>
+Values whose relation to the label value in the host machine is defined by the selection operator.
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
+<PropField name="template.spec.sshSpec" type="object" required={true}>
+
+SSH specs.
+
+<Collapsible title="properties">
+
+<PropField name="template.spec.sshSpec.secretRef" type="object" required={true}>
+
+Reference to the secret where SSH key is stored.
+
+<Collapsible title="properties">
+
+<PropField name="template.spec.sshSpec.secretRef.name" type="string" required={true}>
+Name of the secret.
+</PropField>
+
+<PropField name="template.spec.sshSpec.secretRef.key" type="object" required={true}>
+
+Details about the keys used in the data of the secret.
+
+<Collapsible title="properties">
+
+<PropField name="template.spec.sshSpec.secretRef.key.name" type="string" required={true}>
+Name is the key in the secret's data where the SSH key's name is stored.
+</PropField>
+
+<PropField name="template.spec.sshSpec.secretRef.key.publicKey" type="string" required={true}>
+PublicKey is the key in the secret's data where the SSH key's public key is stored.
+</PropField>
+
+<PropField name="template.spec.sshSpec.secretRef.key.privateKey" type="string" required={true}>
+PrivateKey is the key in the secret's data where the SSH key's private key is stored.
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
+<PropField name="template.spec.sshSpec.portAfterInstallImage" type="int" defaultValue="22" required={false}>
+PortAfterInstallImage specifies the port that can be used to reach the server via SSH after install image completed successfully.
+</PropField>
+
+<PropField name="template.spec.sshSpec.portAfterCloudInit" type="int" defaultValue="22 (install image port)" required={false}>
+PortAfterCloudInit specifies the port that can be used to reach the server via SSH after cloud init completed successfully.
+</PropField>
+
+</Collapsible>
+
+</PropField>
 
 ## installImage.image
 

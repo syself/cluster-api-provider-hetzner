@@ -1,8 +1,7 @@
 ---
 title: Upgrading the Kubernetes Cluster API Provider Hetzner
-metatitle: Upgrade Process for Kubernetes Clusters with CAPH
-sidebar: Upgrading the Kubernetes Cluster API Provider Hetzner
 description: How to upgrade Cluster API and Cluster API Provider Hetzner.
+metatitle: Upgrade Process for Kubernetes Clusters with CAPH
 ---
 
 This guide explains how to upgrade Cluster API and Cluster API Provider Hetzner (aka CAPH). Additionally, it also references [upgrading your kubernetes version](#external-cluster-api-reference) as part of this guide.
@@ -72,11 +71,8 @@ Docs: [clusterctl upgrade plan](https://cluster-api.sigs.k8s.io/clusterctl/comma
 
 You might be surprised that for `infrastructure-hetzner`, you see the "Already up to date" message below "NEXT VERSION".
 
-{% callout %}
-
-`clusterctl upgrade plan` does not display pre-release versions by default.
-
-{% /callout %}
+> [!NOTE]
+> `clusterctl upgrade plan` does not display pre-release versions by default.
 
 ## Upgrade cluster-API
 
@@ -101,11 +97,8 @@ Installing Provider="control-plane-kubeadm" Version="v1.13.1" TargetNamespace="c
 
 Great, cluster-API was upgraded.
 
-{% callout %}
-
-If you want to update only one components or update components one by one then there are flags for that under `clusterctl upgrade apply` subcommand like `--bootstrap`, `--control-plane` and `--core`.
-
-{% /callout %}
+> [!NOTE]
+> If you want to update only one components or update components one by one then there are flags for that under `clusterctl upgrade apply` subcommand like `--bootstrap`, `--control-plane` and `--core`.
 
 ## Upgrade CAPH
 
@@ -114,13 +107,13 @@ You can find the latest version of CAPH here:
 <https://github.com/syself/cluster-api-provider-hetzner/tags>
 
 ```console
-$ clusterctl upgrade apply --infrastructure=hetzner:v1.0.7
+$ clusterctl upgrade apply --infrastructure=hetzner:v1.0.1
 Checking cert-manager version...
 Cert-manager is already up to date
 Performing upgrade...
 Scaling down Provider="infrastructure-hetzner" Version="" Namespace="caph-system"
 Deleting Provider="infrastructure-hetzner" Version="" Namespace="caph-system"
-Installing Provider="infrastructure-hetzner" Version="v1.0.7" TargetNamespace="caph-system"
+Installing Provider="infrastructure-hetzner" Version="v1.0.1" TargetNamespace="caph-system"
 ```
 
 After the upgrade, you'll notice the new pod spinning up the `caph-system` namespace.
@@ -131,11 +124,8 @@ NAME                                       READY   STATUS    RESTARTS   AGE
 caph-controller-manager-85fcb6ffcb-4sj6d   1/1     Running   0          79s
 ```
 
-{% callout %}
-
-Please note that `clusterctl` doesn't support pre-release of GitHub by default so if you want to use a pre-release, you'll have to specify the version such as `hetzner:v1.0.7`
-
-{% /callout %}
+> [!NOTE]
+> Please note that `clusterctl` doesn't support pre-release of GitHub by default so if you want to use a pre-release, you'll have to specify the version such as `hetzner:v1.0.1`
 
 ## Check your cluster
 
@@ -145,11 +135,8 @@ Check the health of your workload cluster with your preferred tools and ensure t
 
 After upgrading cluster API, you may want to update the Kubernetes version of your controlplane and worker nodes. Those details can be found in the [Cluster API documentation](https://cluster-api.sigs.k8s.io/tasks/upgrading-clusters).
 
-{% callout %}
-
-The update can be done on either management cluster or workload cluster separately as well.
-
-{% /callout %}
+> [!NOTE]
+> The update can be done on either management cluster or workload cluster separately as well.
 
 You should upgrade your kubernetes version after considering that a Cluster API minor release supports (when it’s initially created):
 

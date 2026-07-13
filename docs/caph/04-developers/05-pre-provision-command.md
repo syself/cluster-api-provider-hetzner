@@ -1,8 +1,7 @@
 ---
 title: pre-provision-command
-metatitle: Cluster API Provider Hetzner Check Bare Metal Server before Provisioning
-sidebar: pre-provision-command
 description: Documentation on the CAPH pre-provision-command.
+metatitle: Cluster API Provider Hetzner Check Bare Metal Server before Provisioning
 ---
 
 The `--pre-provision-command` for the caph controller can be used to execute a custom command
@@ -26,17 +25,17 @@ The CAPH controller runs in a Kubernetes Pod. The container of that pod needs ac
 
 There are several ways to make this command available:
 
-* You could mount a configMap/secret.
-* You create a container image, and use that as init-container.
-* You build a custom image of CAPH. We do not recommend that.
+- You could mount a configMap/secret.
+- You create a container image, and use that as init-container.
+- You build a custom image of CAPH. We do not recommend that.
 
 In this example we use an init-container to provide the script.
 
 In the directory `images/pre-provision-command/` you see these files:
 
-* my-pre-provision-command.sh: A simple Bash script which creates a message and exists with 0.
-* Dockerfile: Needed to create a container image.
-* build-and-push.sh: A script to build and upload the script to a container registry.
+- my-pre-provision-command.sh: A simple Bash script which creates a message and exists with 0.
+- Dockerfile: Needed to create a container image.
+- build-and-push.sh: A script to build and upload the script to a container registry.
 
 When the container image was uploaded, you need to adapt the CAPH deployment:
 
