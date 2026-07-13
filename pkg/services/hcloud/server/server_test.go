@@ -240,7 +240,6 @@ var _ = Describe("handleBootStateUnset", func() {
 
 	It("marks SSHPrivateKeyAvailableCondition false and requeues when SSH private key secret ref name is empty", func() {
 		hcloudClient := mocks.NewClient(GinkgoT())
-		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return(nil, nil)
 
 		service := newTestService(hcloudMachine, hcloudClient)
 		service.scope.HetznerCluster = &infrav1.HetznerCluster{
@@ -1232,8 +1231,6 @@ var _ = Describe("Reconcile", func() {
 			Action: &hcloud.Action{ID: 998877},
 		}, nil)
 
-		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return(nil, nil)
-
 		By("calling reconcile")
 		_, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
@@ -1258,7 +1255,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 	})
 
-	It("adopts an existing server with a matching name instead of creating a duplicate", func() {
+	It("recovers from a uniqueness error on CreateServer by adopting the existing server", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1273,7 +1270,40 @@ var _ = Describe("Reconcile", func() {
 
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 
-		By("simulating a server that a previous reconcile already created, but whose ProviderID never got persisted")
+		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(&hcloud.ServerType{
+			Architecture: hcloud.ArchitectureX86,
+		}, nil)
+
+		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: "caph-image-name==ubuntu-24.04",
+			},
+			Architecture: []hcloud.Architecture{hcloud.ArchitectureX86},
+		}).Return([]*hcloud.Image{
+			{
+				ID:   123456,
+				Name: "ubuntu",
+			},
+		}, nil)
+
+		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+			Name:         "ubuntu-24.04",
+			Architecture: []hcloud.Architecture{hcloud.ArchitectureX86},
+		}).Return([]*hcloud.Image{}, nil)
+
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return([]*hcloud.SSHKey{
+			{
+				ID:          1,
+				Name:        "sshKey1",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+			},
+		}, nil)
+
+		By("simulating a previous reconcile that created the server but never persisted ProviderID")
+		hcloudClient.On("CreateServer", mock.Anything, mock.Anything).Return(hcloud.ServerCreateResult{}, hcloud.Error{
+			Code:    hcloud.ErrorCodeUniquenessError,
+			Message: "server name is already used",
+		})
 		hcloudClient.On("ListServers", mock.Anything, hcloud.ServerListOpts{Name: "my-machine"}).Return([]*hcloud.Server{
 			{
 				ID:     42,
@@ -1282,15 +1312,14 @@ var _ = Describe("Reconcile", func() {
 			},
 		}, nil)
 
-		By("calling reconcile — CreateServer must not be called")
-		res, err := service.Reconcile(ctx)
+		By("calling reconcile")
+		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(res).To(Equal(reconcile.Result{RequeueAfter: requeueImmediately}))
 
-		By("ensuring the existing server was adopted instead of creating a duplicate")
-		hcloudClient.AssertNotCalled(GinkgoT(), "CreateServer", mock.Anything, mock.Anything)
+		By("ensuring the existing server was adopted instead of failing forever")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
 		Expect(*service.scope.HCloudMachine.Spec.ProviderID).To(Equal("hcloud://42"))
+		Expect(v1beta1conditions.IsTrue(service.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)).To(BeTrue())
 	})
 
 	It("transitions to BootStateOperatingSystemRunning (imageURL)", func() {
@@ -1351,8 +1380,6 @@ var _ = Describe("Reconcile", func() {
 			},
 			Action: &hcloud.Action{ID: 998877},
 		}, nil)
-
-		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return(nil, nil)
 
 		By("calling reconcile")
 		_, err := service.Reconcile(ctx)
@@ -1741,8 +1768,6 @@ var _ = Describe("Reconcile", func() {
 
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 
-		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return(nil, nil)
-
 		By("ensuring that the mock hcloud client return unauthorized error on GetServerType")
 		// GetServerType is the first API call to HCloud while creating a server.
 		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: invalid HCloud token", hcloudclient.ErrUnauthorized)).Once()
@@ -1789,8 +1814,6 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
-
-		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return(nil, nil)
 
 		By("ensuring that the mock hcloud client returns no server type")
 		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(nil, nil).Once()
@@ -1928,8 +1951,6 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
 		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-nonexistent.sh"
-
-		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return(nil, nil)
 
 		By("calling reconcile — CreateServer must not be called")
 		res, err := service.Reconcile(ctx)

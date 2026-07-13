@@ -314,39 +314,6 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
-	// A server with this exact name can already exist here even though ProviderID is unset:
-	// a previous reconcile may have created the HCloud server successfully but lost the
-	// update that would have persisted ProviderID/BootState (e.g. an API server conflict or a
-	// controller restart between CreateServer and Close()). Without this check we would retry
-	// CreateServer with the same deterministic name forever and fail every time with a
-	// name-uniqueness error.
-	existingServer, err := s.findServerByName(ctx)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("findServerByName: %w", err)
-	}
-	if existingServer != nil {
-		s.scope.Info("found existing HCloud server with matching name, adopting it instead of creating a duplicate",
-			"serverID", existingServer.ID, "serverName", existingServer.Name)
-		updateHCloudMachineStatusFromServer(hm, existingServer)
-		s.scope.SetProviderID(existingServer.ID)
-		v1beta1conditions.MarkTrue(hm, infrav1.ServerCreateSucceededCondition)
-		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:   infrav1.HCloudMachineServerCreatedV1Beta2Condition,
-			Status: metav1.ConditionTrue,
-			Reason: infrav1.HCloudMachineServerCreatedV1Beta2Reason,
-		})
-		if hm.Spec.ImageURL != "" {
-			s.setBootState(infrav1.HCloudBootStateInitializing)
-			// The create action ID for this server is unknown since we did not create it
-			// ourselves. Treat it as already finished so handleBootStateInitializing does not
-			// wait on an action ID it will never see.
-			hm.Status.ExternalIDs.ActionIDCreateServer = actionDone
-		} else {
-			s.setBootState(infrav1.HCloudBootStateBootingToRealOS)
-		}
-		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
-	}
-
 	// The imageURL flow installs the image via SSH in the rescue system, so it needs a valid
 	// SSH private key. Check that before creating the server, so that no server gets created
 	// when the key is misconfigured. Other failures could also mean a network failure while
@@ -1834,6 +1801,26 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 		if hcloudutil.HandleRateLimitExceededV1Beta1(hm, err, "CreateServer") {
 			// RateLimit was reached. Condition and Event got already created.
 			return hcloud.ServerCreateResult{}, fmt.Errorf("%s: %w", msg, err)
+		}
+
+		// A server with this exact name already exists. This happens if a previous reconcile
+		// created the HCloud server successfully but lost the update that would have persisted
+		// ProviderID/BootState (e.g. an API server conflict or a controller restart between
+		// CreateServer and Close()). Adopt the existing server instead of failing forever with
+		// the same uniqueness error on every retry.
+		if hcloud.IsError(err, hcloud.ErrorCodeUniquenessError) {
+			if existingServer, findErr := s.findServerByName(ctx); findErr == nil && existingServer != nil {
+				s.scope.Info("server already exists after a uniqueness error, adopting it instead of failing",
+					"serverID", existingServer.ID, "serverName", existingServer.Name)
+				hm.Status.SSHKeys = caphSSHKeys
+				v1beta1conditions.MarkTrue(hm, infrav1.ServerCreateSucceededCondition)
+				v1beta2conditions.Set(hm, metav1.Condition{
+					Type:   infrav1.HCloudMachineServerCreatedV1Beta2Condition,
+					Status: metav1.ConditionTrue,
+					Reason: infrav1.HCloudMachineServerCreatedV1Beta2Reason,
+				})
+				return hcloud.ServerCreateResult{Server: existingServer, Action: &hcloud.Action{ID: actionDone}}, nil
+			}
 		}
 
 		msg = fmt.Sprintf("%s: %s", msg, err.Error())
