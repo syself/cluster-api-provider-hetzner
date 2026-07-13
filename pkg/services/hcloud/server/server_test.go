@@ -1258,7 +1258,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 	})
 
-	It("adopts an existing server with matching labels instead of creating a duplicate", func() {
+	It("adopts an existing server with a matching name instead of creating a duplicate", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1274,7 +1274,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 
 		By("simulating a server that a previous reconcile already created, but whose ProviderID never got persisted")
-		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{
+		hcloudClient.On("ListServers", mock.Anything, hcloud.ServerListOpts{Name: "my-machine"}).Return([]*hcloud.Server{
 			{
 				ID:     42,
 				Name:   "my-machine",

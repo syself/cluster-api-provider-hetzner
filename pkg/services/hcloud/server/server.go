@@ -314,18 +314,18 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
-	// A server with matching labels can already exist here even though ProviderID is unset:
+	// A server with this exact name can already exist here even though ProviderID is unset:
 	// a previous reconcile may have created the HCloud server successfully but lost the
 	// update that would have persisted ProviderID/BootState (e.g. an API server conflict or a
 	// controller restart between CreateServer and Close()). Without this check we would retry
 	// CreateServer with the same deterministic name forever and fail every time with a
 	// name-uniqueness error.
-	existingServer, err := s.findServerByLabels(ctx)
+	existingServer, err := s.findServerByName(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("findServerByLabels: %w", err)
+		return reconcile.Result{}, fmt.Errorf("findServerByName: %w", err)
 	}
 	if existingServer != nil {
-		s.scope.Info("found existing HCloud server with matching labels, adopting it instead of creating a duplicate",
+		s.scope.Info("found existing HCloud server with matching name, adopting it instead of creating a duplicate",
 			"serverID", existingServer.ID, "serverName", existingServer.Name)
 		updateHCloudMachineStatusFromServer(hm, existingServer)
 		s.scope.SetProviderID(existingServer.ID)
@@ -2268,23 +2268,21 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 		}
 	}
 
-	// server has not been found via id - try to find the server based on its labels
-	server, err = s.findServerByLabels(ctx)
+	// server has not been found via id - try to find the server based on its name
+	server, err = s.findServerByName(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if server != nil {
-		s.scope.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer")
+		s.scope.Info("DeprecationWarning finding Server by name is no longer needed. We plan to remove that feature and rename findServer to getServer")
 	}
 	return server, nil
 }
 
-// findServerByLabels searches for a server matching this HCloudMachine's labels, without
-// relying on ProviderID. It returns server and error as nil when no server matches.
-func (s *Service) findServerByLabels(ctx context.Context) (*hcloud.Server, error) {
-	opts := hcloud.ServerListOpts{}
-
-	opts.LabelSelector = utils.LabelsToLabelSelector(s.createLabels())
+// findServerByName searches for a server with this HCloudMachine's name, without relying on
+// ProviderID. It returns server and error as nil when no server matches.
+func (s *Service) findServerByName(ctx context.Context) (*hcloud.Server, error) {
+	opts := hcloud.ServerListOpts{Name: s.scope.Name()}
 
 	servers, err := s.scope.HCloudClient.ListServers(ctx, opts)
 	if err != nil {
