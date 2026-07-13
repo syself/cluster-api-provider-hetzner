@@ -1477,6 +1477,15 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 		By("ensuring the bootstate has transitioned to OperatingSystemRunning")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
+
+		getServerCalls := 0
+		for _, call := range hcloudClient.Calls {
+			if call.Method == "GetServer" {
+				getServerCalls++
+			}
+		}
+		GinkgoWriter.Printf("GetServer was called %d times during provisioning (imageURL)\n", getServerCalls)
+		Expect(getServerCalls).To(BeNumerically("<=", 7), "GetServer should not be called more than 7 times during imageURL provisioning (see issue #2163)")
 	})
 
 	It("ignores status in output.json when IMAGE_URL_DONE in stdout", func() {
