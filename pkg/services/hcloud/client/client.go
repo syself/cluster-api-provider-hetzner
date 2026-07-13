@@ -127,8 +127,26 @@ var getServerCallsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Help: "Number of GetServer calls to the HCloud API, labeled by server ID. Only populated when --hcloud-metric-per-server-id is set.",
 }, []string{"server_id"})
 
+// getServerCallsByBootStateTotal counts GetServer calls labeled by the caller's BootState (or an
+// equivalent fixed label for non-boot-state callers, e.g. remediation). Unlike
+// getServerCallsTotal, this is always on: BootState has a small, fixed set of values, so
+// cardinality stays bounded regardless of fleet size. Used to identify which code path drives
+// the most GetServer calls (see issue #2163).
+var getServerCallsByBootStateTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "caph_hcloud_getserver_calls_by_bootstate_total",
+	Help: "Number of GetServer calls to the HCloud API, labeled by the caller's BootState (or a fixed value for non-boot-state callers like remediation).",
+}, []string{"boot_state"})
+
 func init() {
 	metrics.Registry.MustRegister(getServerCallsTotal)
+	metrics.Registry.MustRegister(getServerCallsByBootStateTotal)
+}
+
+// RecordGetServerCallByBootState increments the per-BootState GetServer call counter. Callers
+// that know which BootState (or equivalent code path) triggered a GetServer call should call
+// this alongside the GetServer call itself.
+func RecordGetServerCallByBootState(bootState string) {
+	getServerCallsByBootStateTotal.WithLabelValues(bootState).Inc()
 }
 
 // NewClient creates new HCloud clients.

@@ -2199,6 +2199,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	// try to find the server based on its id
 	serverID, err := s.scope.ServerIDFromProviderID()
 	if err == nil {
+		hcloudclient.RecordGetServerCallByBootState(string(s.scope.HCloudMachine.Status.BootState))
 		server, err = s.scope.HCloudClient.GetServer(ctx, serverID)
 		if err != nil {
 			// If it is an unauthorized error i.e. wrong HCloudToken, set HCloudCredentialsInvalid condition.

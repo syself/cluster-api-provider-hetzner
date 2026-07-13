@@ -253,7 +253,7 @@ var _ = SynchronizedAfterSuite(func() {
 	}
 }, func() {
 	// After all ParallelNodes.
-	printHcloudGetServerCallsTable(hcloudMetricsPath(artifactFolder, bootstrapClusterProxy.GetName()))
+	printHcloudGetServerCallsTables(hcloudMetricsPath(artifactFolder, bootstrapClusterProxy.GetName()))
 	if !skipCleanup {
 		tearDown(ctx, bootstrapClusterProvider, nil)
 	}
@@ -1039,61 +1039,75 @@ func hcloudMetricsPath(artifactFolder, clusterName string) string {
 	return filepath.Join(artifactFolder, "clusters", clusterName, "metrics")
 }
 
-var getServerCallsMetricRegexp = regexp.MustCompile(`caph_hcloud_getserver_calls_total\{server_id="(\d+)"\}\s+([0-9eE+.-]+)`)
+var getServerCallsByServerIDRegexp = regexp.MustCompile(`caph_hcloud_getserver_calls_total\{server_id="(\d+)"\}\s+([0-9eE+.-]+)`)
 
-// printHcloudGetServerCallsTable parses the /metrics snapshots dumped by WatchPodMetrics and
-// prints a table of GetServer calls per server ID, plus the total sum (see issue #2163).
-func printHcloudGetServerCallsTable(metricsPath string) {
+var getServerCallsByBootStateRegexp = regexp.MustCompile(`caph_hcloud_getserver_calls_by_bootstate_total\{boot_state="([^"]*)"\}\s+([0-9eE+.-]+)`)
+
+// countsByLabel parses the /metrics snapshots dumped by WatchPodMetrics for the given
+// counter regexp (capture group 1: label value, group 2: counter value) and returns the
+// summed counts per label value across all pods.
+func countsByLabel(metricsPath string, metricRegexp *regexp.Regexp) map[string]int {
 	files, err := filepath.Glob(filepath.Join(metricsPath, "caph-controller-manager", "*", "metrics.txt"))
 	if err != nil {
-		log(fmt.Sprintf("printHcloudGetServerCallsTable: failed to glob metrics files: %v", err))
-		return
+		log(fmt.Sprintf("countsByLabel: failed to glob metrics files: %v", err))
+		return nil
 	}
 	if len(files) == 0 {
-		log("printHcloudGetServerCallsTable: no metrics.txt files found under " + metricsPath)
-		return
+		log("countsByLabel: no metrics.txt files found under " + metricsPath)
+		return nil
 	}
 
-	countByServerID := map[string]int{}
+	countByLabel := map[string]int{}
 	for _, file := range files {
 		data, err := os.ReadFile(file) //nolint:gosec
 		if err != nil {
-			log(fmt.Sprintf("printHcloudGetServerCallsTable: failed to read %q: %v", file, err))
+			log(fmt.Sprintf("countsByLabel: failed to read %q: %v", file, err))
 			continue
 		}
-		for _, match := range getServerCallsMetricRegexp.FindAllStringSubmatch(string(data), -1) {
-			serverID, valueStr := match[1], match[2]
+		for _, match := range metricRegexp.FindAllStringSubmatch(string(data), -1) {
+			label, valueStr := match[1], match[2]
 			value, err := strconv.ParseFloat(valueStr, 64)
 			if err != nil {
 				continue
 			}
-			// Overwrite rather than add: each metrics.txt is a full counter snapshot from one
-			// pod, not a delta, so summing across snapshots from the same pod would double count.
-			countByServerID[serverID] = int(value)
+			// Each file is one pod's full counter snapshot (not a delta), and there is exactly
+			// one file per pod, so summing across files sums across pods correctly.
+			countByLabel[label] += int(value)
 		}
 	}
+	return countByLabel
+}
 
+// printCountTable prints a table of counts per label value, sorted descending, plus the total.
+func printCountTable(title, labelName string, countByLabel map[string]int) {
 	type row struct {
-		serverID string
-		count    int
+		label string
+		count int
 	}
-	rows := make([]row, 0, len(countByServerID))
+	rows := make([]row, 0, len(countByLabel))
 	total := 0
-	for serverID, count := range countByServerID {
-		rows = append(rows, row{serverID, count})
+	for label, count := range countByLabel {
+		rows = append(rows, row{label, count})
 		total += count
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].count > rows[j].count })
 
-	log("--------------------------------------------------- GetServer calls per server ID (issue #2163)")
+	log("--------------------------------------------------- " + title + " (issue #2163)")
 	if len(rows) == 0 {
-		log("No caph_hcloud_getserver_calls_total samples found. Was --hcloud-metric-per-server-id set on the manager?")
+		log("  no samples found")
 		return
 	}
 	for _, r := range rows {
-		log(fmt.Sprintf("  server_id=%-15s GetServer calls=%d", r.serverID, r.count))
+		log(fmt.Sprintf("  %s=%-20s GetServer calls=%d", labelName, r.label, r.count))
 	}
-	log(fmt.Sprintf("  TOTAL GetServer calls=%d across %d server(s)", total, len(rows)))
+	log(fmt.Sprintf("  TOTAL GetServer calls=%d across %d %s(s)", total, len(rows), labelName))
+}
+
+// printHcloudGetServerCallsTables parses the /metrics snapshots dumped by WatchPodMetrics and
+// prints GetServer call tables per server ID and per BootState (see issue #2163).
+func printHcloudGetServerCallsTables(metricsPath string) {
+	printCountTable("GetServer calls per server ID", "server_id", countsByLabel(metricsPath, getServerCallsByServerIDRegexp))
+	printCountTable("GetServer calls per BootState/caller", "boot_state", countsByLabel(metricsPath, getServerCallsByBootStateRegexp))
 }
 
 func tearDown(ctx context.Context, bootstrapClusterProvider bootstrap.ClusterProvider, bootstrapClusterProxy framework.ClusterProxy) {
