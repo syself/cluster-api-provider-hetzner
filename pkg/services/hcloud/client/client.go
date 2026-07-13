@@ -24,9 +24,11 @@ import (
 	"net/http"
 	"regexp"
 	"runtime/debug"
+	"strconv"
 	"strings"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	"github.com/prometheus/client_golang/prometheus"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
@@ -111,6 +113,23 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, e
 
 // DebugAPICalls loggs all hcloud API calls if true.
 var DebugAPICalls bool
+
+// MetricPerServerID adds a server_id label to hcloud API call metrics if true.
+// This adds one Prometheus time series per distinct server ID, so it must not be
+// enabled permanently on a long-lived production manager.
+var MetricPerServerID bool
+
+// getServerCallsTotal counts calls to GetServer, labeled by server ID. Only
+// incremented when MetricPerServerID is true. Used to measure API call volume
+// during provisioning (see issue #2163).
+var getServerCallsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "caph_hcloud_getserver_calls_total",
+	Help: "Number of GetServer calls to the HCloud API, labeled by server ID. Only populated when --hcloud-metric-per-server-id is set.",
+}, []string{"server_id"})
+
+func init() {
+	metrics.Registry.MustRegister(getServerCallsTotal)
+}
 
 // NewClient creates new HCloud clients.
 func (f *factory) NewClient(hcloudToken string) Client {
@@ -249,6 +268,9 @@ func (c *realClient) ListServers(ctx context.Context, opts hcloud.ServerListOpts
 // It returns both server and error as nil when the server does not exist, as hcloud-go's GetByID
 // returns nil for non-existent server without an error.
 func (c *realClient) GetServer(ctx context.Context, id int64) (*hcloud.Server, error) {
+	if MetricPerServerID {
+		getServerCallsTotal.WithLabelValues(strconv.FormatInt(id, 10)).Inc()
+	}
 	res, _, err := c.client.Server.GetByID(ctx, id)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
 		return res, fmt.Errorf("%w: %w", ErrUnauthorized, err)

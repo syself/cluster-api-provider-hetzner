@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -252,6 +253,7 @@ var _ = SynchronizedAfterSuite(func() {
 	}
 }, func() {
 	// After all ParallelNodes.
+	printHcloudGetServerCallsTable(hcloudMetricsPath(artifactFolder, bootstrapClusterProxy.GetName()))
 	if !skipCleanup {
 		tearDown(ctx, bootstrapClusterProvider, nil)
 	}
@@ -1013,6 +1015,85 @@ func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.C
 		InfrastructureProviders: config.InfrastructureProviders(),
 		LogFolder:               filepath.Join(artifactFolder, "clusters", bootstrapClusterProxy.GetName()),
 	}, config.GetIntervals(bootstrapClusterProxy.GetName(), "wait-controllers")...)
+
+	// Periodically dumps /metrics from the caph-controller-manager pod, so we can print a
+	// summary of hcloud API calls per server ID at the end of the run (see issue #2163).
+	// Requires --hcloud-metric-per-server-id and --metrics-bind-address=:8080 on the manager
+	// (set via replacements in test/e2e/config/hetzner.yaml).
+	framework.WatchPodMetrics(ctx, framework.WatchPodMetricsInput{
+		GetLister: bootstrapClusterProxy.GetClient(),
+		ClientSet: bootstrapClusterProxy.GetClientSet(),
+		Deployment: &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "caph-controller-manager",
+				Namespace: "caph-system",
+			},
+		},
+		MetricsPath: hcloudMetricsPath(artifactFolder, bootstrapClusterProxy.GetName()),
+	})
+}
+
+// hcloudMetricsPath returns the directory WatchPodMetrics dumps caph-controller-manager's
+// /metrics snapshots into.
+func hcloudMetricsPath(artifactFolder, clusterName string) string {
+	return filepath.Join(artifactFolder, "clusters", clusterName, "metrics")
+}
+
+var getServerCallsMetricRegexp = regexp.MustCompile(`caph_hcloud_getserver_calls_total\{server_id="(\d+)"\}\s+([0-9eE+.-]+)`)
+
+// printHcloudGetServerCallsTable parses the /metrics snapshots dumped by WatchPodMetrics and
+// prints a table of GetServer calls per server ID, plus the total sum (see issue #2163).
+func printHcloudGetServerCallsTable(metricsPath string) {
+	files, err := filepath.Glob(filepath.Join(metricsPath, "caph-controller-manager", "*", "metrics.txt"))
+	if err != nil {
+		log(fmt.Sprintf("printHcloudGetServerCallsTable: failed to glob metrics files: %v", err))
+		return
+	}
+	if len(files) == 0 {
+		log("printHcloudGetServerCallsTable: no metrics.txt files found under " + metricsPath)
+		return
+	}
+
+	countByServerID := map[string]int{}
+	for _, file := range files {
+		data, err := os.ReadFile(file) //nolint:gosec
+		if err != nil {
+			log(fmt.Sprintf("printHcloudGetServerCallsTable: failed to read %q: %v", file, err))
+			continue
+		}
+		for _, match := range getServerCallsMetricRegexp.FindAllStringSubmatch(string(data), -1) {
+			serverID, valueStr := match[1], match[2]
+			value, err := strconv.ParseFloat(valueStr, 64)
+			if err != nil {
+				continue
+			}
+			// Overwrite rather than add: each metrics.txt is a full counter snapshot from one
+			// pod, not a delta, so summing across snapshots from the same pod would double count.
+			countByServerID[serverID] = int(value)
+		}
+	}
+
+	type row struct {
+		serverID string
+		count    int
+	}
+	rows := make([]row, 0, len(countByServerID))
+	total := 0
+	for serverID, count := range countByServerID {
+		rows = append(rows, row{serverID, count})
+		total += count
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].count > rows[j].count })
+
+	log("--------------------------------------------------- GetServer calls per server ID (issue #2163)")
+	if len(rows) == 0 {
+		log("No caph_hcloud_getserver_calls_total samples found. Was --hcloud-metric-per-server-id set on the manager?")
+		return
+	}
+	for _, r := range rows {
+		log(fmt.Sprintf("  server_id=%-15s GetServer calls=%d", r.serverID, r.count))
+	}
+	log(fmt.Sprintf("  TOTAL GetServer calls=%d across %d server(s)", total, len(rows)))
 }
 
 func tearDown(ctx context.Context, bootstrapClusterProvider bootstrap.ClusterProvider, bootstrapClusterProxy framework.ClusterProxy) {
