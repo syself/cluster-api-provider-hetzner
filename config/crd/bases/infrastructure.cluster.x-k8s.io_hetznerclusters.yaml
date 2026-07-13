@@ -101,6 +101,23 @@ spec:
                       It could be round_robin or least_connection. The default value
                       is "round_robin".
                     type: string
+                  enableProxyProtocol:
+                    description: |-
+                      EnableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
+                      Only the kube-apiserver service is affected; extra services are never given proxy protocol.
+
+                      For new clusters the LB service is created with proxy protocol enabled immediately — no
+                      annotation check is performed because there are no existing backends that could receive
+                      unexpected PROXY-protocol headers.
+
+                      For existing clusters that want to enable proxy protocol after the fact, CAPH waits until
+                      every control-plane node carries the annotation
+                      capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" (set by an external
+                      service, never by CAPH) before recreating the LB service with proxy protocol. This prevents
+                      nodes still expecting plain TCP from receiving malformed PROXY-protocol headers.
+
+                      Enabling proxy protocol is a one-way operation — it is never turned back off.
+                    type: boolean
                   enabled:
                     default: true
                     description: Enabled specifies if a load balancer should be created.
@@ -367,7 +384,13 @@ spec:
             - sshKeys
             type: object
           status:
-            description: HetznerClusterStatus defines the observed state of HetznerCluster.
+            description: |-
+              HetznerClusterStatus defines the observed state of HetznerCluster.
+
+              The v1beta2 HetznerClusterStatus has its final API shape (status.conditions as []metav1.Condition,
+              status.initialization, status.deprecated.v1beta1.conditions), which does not map field-for-field
+              onto this v1beta1 status. conversion-gen cannot express that mapping, so it is skipped here and the
+              conversion is hand written in conversion.go.
             properties:
               conditions:
                 description: Conditions provide observations of the operational state
@@ -512,11 +535,730 @@ spec:
               ready:
                 default: false
                 type: boolean
+              v1beta2:
+                description: v1beta2 groups all the fields that will be added or modified
+                  in HetznerCluster's status with the V1Beta2 version.
+                properties:
+                  conditions:
+                    description: conditions represents the observations of a HetznerCluster's
+                      current state.
+                    items:
+                      description: Condition contains details for one aspect of the
+                        current state of this API Resource.
+                      properties:
+                        lastTransitionTime:
+                          description: |-
+                            lastTransitionTime is the last time the condition transitioned from one status to another.
+                            This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                          format: date-time
+                          type: string
+                        message:
+                          description: |-
+                            message is a human readable message indicating details about the transition.
+                            This may be an empty string.
+                          maxLength: 32768
+                          type: string
+                        observedGeneration:
+                          description: |-
+                            observedGeneration represents the .metadata.generation that the condition was set based upon.
+                            For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                            with respect to the current state of the instance.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                        reason:
+                          description: |-
+                            reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                            Producers of specific condition types may define expected values and meanings for this field,
+                            and whether the values are considered a guaranteed API.
+                            The value should be a CamelCase string.
+                            This field may not be empty.
+                          maxLength: 1024
+                          minLength: 1
+                          pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                          type: string
+                        status:
+                          description: status of the condition, one of True, False,
+                            Unknown.
+                          enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                          type: string
+                        type:
+                          description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                          maxLength: 316
+                          pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                          type: string
+                      required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                      type: object
+                    maxItems: 32
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - type
+                    x-kubernetes-list-type: map
+                type: object
             required:
             - ready
             type: object
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - description: Cluster to which this HetznerCluster belongs
+      jsonPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
+      name: Cluster
+      type: string
+    - description: Cluster infrastructure is ready for Nodes
+      jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
+    - description: Time duration since creation of HetznerCluster
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - description: API Endpoint
+      jsonPath: .spec.controlPlaneEndpoint
+      name: Endpoint
+      priority: 1
+      type: string
+    - description: Control plane regions
+      jsonPath: .spec.controlPlaneRegions
+      name: Regions
+      priority: 1
+      type: string
+    - description: Indicates if private network is enabled.
+      jsonPath: .spec.hcloudNetwork.enabled
+      name: Network enabled
+      priority: 1
+      type: boolean
+    - jsonPath: .status.conditions[?(@.type=='Ready')].reason
+      name: Reason
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].message
+      name: Message
+      priority: 1
+      type: string
+    name: v1beta2
+    schema:
+      openAPIV3Schema:
+        description: HetznerCluster is the Schema for the hetznercluster API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HetznerClusterSpec defines the desired state of HetznerCluster.
+            properties:
+              controlPlaneEndpoint:
+                description: ControlPlaneEndpoint represents the endpoint used to
+                  communicate with the control plane.
+                minProperties: 1
+                properties:
+                  host:
+                    description: Host is the hostname on which the API server is serving.
+                    maxLength: 512
+                    minLength: 1
+                    type: string
+                  port:
+                    description: Port is the port on which the API server is serving.
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
+                type: object
+              controlPlaneLoadBalancer:
+                description: ControlPlaneLoadBalancer is an optional configuration
+                  for customizing control plane behavior.
+                properties:
+                  algorithm:
+                    allOf:
+                    - enum:
+                      - round_robin
+                      - least_connections
+                    - enum:
+                      - round_robin
+                      - least_connections
+                    default: round_robin
+                    description: Algorithm defines the type of load balancer algorithm.
+                      It could be round_robin or least_connection. The default value
+                      is "round_robin".
+                    type: string
+                  enableProxyProtocol:
+                    description: |-
+                      EnableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
+                      Only the kube-apiserver service is affected; extra services are never given proxy protocol.
+
+                      For new clusters the LB service is created with proxy protocol enabled immediately — no
+                      annotation check is performed because there are no existing backends that could receive
+                      unexpected PROXY-protocol headers.
+
+                      For existing clusters that want to enable proxy protocol after the fact, CAPH waits until
+                      every control-plane node carries the annotation
+                      capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" (set by an external
+                      service, never by CAPH) before recreating the LB service with proxy protocol. This prevents
+                      nodes still expecting plain TCP from receiving malformed PROXY-protocol headers.
+
+                      Enabling proxy protocol is a one-way operation — it is never turned back off.
+                    type: boolean
+                  enabled:
+                    default: true
+                    description: Enabled specifies if a load balancer should be created.
+                    type: boolean
+                  extraServices:
+                    description: ExtraServices defines how traffic will be routed
+                      from the load balancer to your target server.
+                    items:
+                      description: LoadBalancerServiceSpec defines a load balancer
+                        Target.
+                      properties:
+                        destinationPort:
+                          description: DestinationPort defines the port on the server.
+                            It must be a valid port range (1-65535).
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
+                        listenPort:
+                          description: ListenPort, i.e. source port, defines the incoming
+                            port open on the load balancer. It must be a valid port
+                            range (1-65535).
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
+                        protocol:
+                          description: Protocol specifies the supported load balancer
+                            Protocol. It could be one of the https, http, or tcp.
+                          enum:
+                          - http
+                          - https
+                          - tcp
+                          type: string
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  name:
+                    description: Name defines the name of the load balancer. It can
+                      be specified in order to use an existing load balancer.
+                    type: string
+                  port:
+                    default: 6443
+                    description: Port defines the API Server port. It must be a valid
+                      port range (1-65535). If omitted, the default value is 6443.
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
+                  region:
+                    description: Region contains the name of the HCloud location where
+                      the load balancer is running.
+                    enum:
+                    - fsn1
+                    - hel1
+                    - nbg1
+                    - ash
+                    - hil
+                    - sin
+                    type: string
+                  type:
+                    default: lb11
+                    description: Type defines the type of load balancer. It could
+                      be one of lb11, lb21, or lb31.
+                    enum:
+                    - lb11
+                    - lb21
+                    - lb31
+                    type: string
+                type: object
+              controlPlaneRegions:
+                description: |-
+                  ControlPlaneRegion consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
+                  have a very low latency we could assume in some use cases that a region is behaving like a zone.
+                  https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
+                items:
+                  description: Region is a Hetzner Location.
+                  enum:
+                  - fsn1
+                  - hel1
+                  - nbg1
+                  - ash
+                  - hil
+                  - sin
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
+              hcloudNetwork:
+                description: HCloudNetwork defines details about the private Network
+                  for Hetzner Cloud. If left empty, no private Network is configured.
+                properties:
+                  cidrBlock:
+                    default: 10.0.0.0/16
+                    description: CIDRBlock defines the cidrBlock of the HCloud Network.
+                      If omitted, default "10.0.0.0/16" will be used.
+                    type: string
+                  enabled:
+                    description: Enabled defines whether the network should be enabled
+                      or not.
+                    type: boolean
+                  networkZone:
+                    default: eu-central
+                    description: |-
+                      NetworkZone specifies the HCloud network zone of the private network.
+                      The zones must be one of eu-central, us-east, or us-west. The default is eu-central.
+                    enum:
+                    - eu-central
+                    - us-east
+                    - us-west
+                    - ap-southeast
+                    type: string
+                  subnetCidrBlock:
+                    default: 10.0.0.0/24
+                    description: |-
+                      SubnetCIDRBlock defines the cidrBlock for the subnet of the HCloud Network.
+                      Note: A subnet is required.
+                    type: string
+                required:
+                - enabled
+                type: object
+              hcloudPlacementGroups:
+                items:
+                  description: HCloudPlacementGroupSpec defines a PlacementGroup.
+                  properties:
+                    name:
+                      minLength: 1
+                      type: string
+                    type:
+                      default: spread
+                      enum:
+                      - spread
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              hetznerSecretRef:
+                description: |-
+                  HetznerSecretRef is a reference to a token to be used when reconciling this cluster.
+                  This is generated in the security section under API TOKENS. Read & write is necessary.
+                properties:
+                  key:
+                    description: |-
+                      Key defines the keys that are used in the secret.
+                      Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
+                    properties:
+                      hcloudToken:
+                        description: |-
+                          HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
+                          The controller reads the token from the management-cluster secret using this key and writes
+                          it to workload-cluster secrets using the same key. Upstream hcloud-ccm expects the key
+                          "token", while the legacy Syself ccm fork uses "hcloud". The configured workload-cluster
+                          secret remains untouched. CAPH only adds the compatibility key "token" inside the
+                          workload-cluster secret named "hcloud", and only if this field is not already "token". If
+                          the configured secret name is already "hcloud", the same token value is stored under both
+                          keys in that single secret. We recommend to use "token".
+                        type: string
+                      hetznerRobotPassword:
+                        default: hetzner-robot-password
+                        description: |-
+                          HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
+                          is stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
+                          creating a secret in the wl-cluster. We recommend to use "robot-password", because this is
+                          the default of upstream hcloud-ccm.
+                        type: string
+                      hetznerRobotUser:
+                        default: hetzner-robot-user
+                        description: |-
+                          HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
+                          stored. It gets used for reading the credential in the mgt-cluster, and it gets used for
+                          creating a secret in the wl-cluster. We recommend to use "robot-user", because this is the
+                          default of upstream hcloud-ccm.
+                        type: string
+                      sshKey:
+                        default: hcloud-ssh-key-name
+                        description: |-
+                          SSHKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
+                          to the wl-cluster.
+                        type: string
+                    required:
+                    - hcloudToken
+                    type: object
+                  name:
+                    default: hetzner
+                    description: |-
+                      Name defines the name of the secret. The controller reads the credential from the
+                      management-cluster secret with this name and creates a workload-cluster secret with the same
+                      name. The upstream hcloud-ccm helm chart expects the secret name "hcloud", while the Syself
+                      ccm fork defaults to "hetzner".
+
+                      To facilitate migrations to the upstream hcloud-ccm, it is ensured that the secret it expects
+                      is created in the proper way. This means that CAPH ensures that in the secret called "hcloud"
+                      there is the hcloud token stored under the key "token". This might lead to the same value
+                      being stored in two different keys of the same secret, depending on the configuration used
+                      here.
+
+                      We recommend to use the value "hcloud". Set `spec.skipCreatingHetznerSecretInWorkloadCluster`
+                      if you don't want workload-cluster secrets to be created.
+                    type: string
+                required:
+                - key
+                - name
+                type: object
+              skipCreatingHetznerSecretInWorkloadCluster:
+                description: |-
+                  SkipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be
+                  created in the workload cluster. By default the secret gets created, so that the ccm (running
+                  in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
+                  wl-cluster, you can set this to value to false, so that the secret is not created. Be sure to
+                  run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
+                type: boolean
+              sshKeys:
+                description: SSHKeys are cluster wide. Valid values are a valid SSH
+                  key name.
+                properties:
+                  hcloud:
+                    description: Hcloud defines the SSH keys used for hcloud.
+                    items:
+                      description: SSHKey defines the SSHKey for HCloud.
+                      properties:
+                        fingerprint:
+                          description: Fingerprint defines the fingerprint of the
+                            SSH key - added by the controller.
+                          type: string
+                        name:
+                          description: Name defines the name of the SSH key.
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  rescueSecretRef:
+                    description: RescueSecretRef defines the reference to the secret
+                      where the SSH key for the rescue system is stored.
+                    properties:
+                      key:
+                        description: Key contains details about the keys used in the
+                          data of the secret.
+                        properties:
+                          name:
+                            description: Name is the key in the secret's data where
+                              the SSH key's name is stored.
+                            type: string
+                          privateKey:
+                            description: PrivateKey is the key in the secret's data
+                              where the SSH key's private key is stored.
+                            type: string
+                          publicKey:
+                            description: PublicKey is the key in the secret's data
+                              where the SSH key's public key is stored.
+                            type: string
+                        required:
+                        - name
+                        - privateKey
+                        - publicKey
+                        type: object
+                      name:
+                        description: Name is the name of the secret.
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                type: object
+            required:
+            - controlPlaneRegions
+            - hetznerSecretRef
+            - sshKeys
+            type: object
+          status:
+            description: HetznerClusterStatus defines the observed state of HetznerCluster.
+            properties:
+              conditions:
+                description: conditions represents the observations of a HetznerCluster's
+                  current state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              controlPlaneLoadBalancer:
+                description: LoadBalancerStatus defines the observed state of the
+                  control plane load balancer.
+                properties:
+                  id:
+                    format: int64
+                    type: integer
+                  internalIP:
+                    type: string
+                  ipv4:
+                    type: string
+                  ipv6:
+                    type: string
+                  protected:
+                    type: boolean
+                  targets:
+                    items:
+                      description: LoadBalancerTarget defines the target of a load
+                        balancer.
+                      properties:
+                        ip:
+                          type: string
+                        serverID:
+                          format: int64
+                          type: integer
+                        type:
+                          description: LoadBalancerTargetType defines the target type.
+                          enum:
+                          - server
+                          - ip
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                type: object
+              deprecated:
+                description: deprecated groups all the status fields that are deprecated
+                  and will be removed when support for v1beta1 will be dropped.
+                properties:
+                  v1beta1:
+                    description: v1beta1 groups all the status fields that are deprecated
+                      and will be removed when support for v1beta1 will be dropped.
+                    properties:
+                      conditions:
+                        description: |-
+                          conditions defines current service state of the HetznerCluster.
+
+                          Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
+                        items:
+                          description: |-
+                            Condition defines an observation of a Cluster API resource operational state.
+
+                            Deprecated: This type is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
+                          properties:
+                            lastTransitionTime:
+                              description: |-
+                                lastTransitionTime is the last time the condition transitioned from one status to another.
+                                This should be when the underlying condition changed. If that is not known, then using the time when
+                                the API field changed is acceptable.
+                              format: date-time
+                              type: string
+                            message:
+                              description: |-
+                                message is a human readable message indicating details about the transition.
+                                This field may be empty.
+                              maxLength: 10240
+                              minLength: 1
+                              type: string
+                            reason:
+                              description: |-
+                                reason is the reason for the condition's last transition in CamelCase.
+                                The specific API may choose whether or not this field is considered a guaranteed API.
+                                This field may be empty.
+                              maxLength: 256
+                              minLength: 1
+                              type: string
+                            severity:
+                              description: |-
+                                severity provides an explicit classification of Reason code, so the users or machines can immediately
+                                understand the current situation and act accordingly.
+                                The Severity field MUST be set only when Status=False.
+                              maxLength: 32
+                              type: string
+                            status:
+                              description: status of the condition, one of True, False,
+                                Unknown.
+                              type: string
+                            type:
+                              description: |-
+                                type of condition in CamelCase or in foo.example.com/CamelCase.
+                                Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                                can be useful (see .node.status.conditions), the ability to deconflict is important.
+                              maxLength: 256
+                              minLength: 1
+                              type: string
+                          required:
+                          - lastTransitionTime
+                          - status
+                          - type
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - type
+                        x-kubernetes-list-type: map
+                    type: object
+                type: object
+              failureDomains:
+                description: failureDomains is a slice of failure domain objects synced
+                  from the infrastructure provider.
+                items:
+                  description: |-
+                    FailureDomain is the Schema for Cluster API failure domains.
+                    It allows controllers to understand how many failure domains a cluster can optionally span across.
+                  properties:
+                    attributes:
+                      additionalProperties:
+                        type: string
+                      description: attributes is a free form map of attributes an
+                        infrastructure provider might use or require.
+                      type: object
+                    controlPlane:
+                      description: controlPlane determines if this failure domain
+                        is suitable for use by control plane machines.
+                      type: boolean
+                    name:
+                      description: name is the name of the failure domain.
+                      maxLength: 256
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 100
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              hcloudPlacementGroups:
+                items:
+                  description: HCloudPlacementGroupStatus returns the status of a
+                    Placementgroup.
+                  properties:
+                    id:
+                      format: int64
+                      type: integer
+                    name:
+                      description: |-
+                        Name is the placement group name. It is required because status.hcloudPlacementGroups is a
+                        list-map keyed on name, and a list-map key must be a required (or defaulted) property.
+                      type: string
+                    servers:
+                      items:
+                        format: int64
+                        type: integer
+                      type: array
+                      x-kubernetes-list-type: set
+                    type:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              initialization:
+                description: |-
+                  initialization provides observations of the HetznerCluster initialization process.
+                  NOTE: Fields in this struct are part of the Cluster API contract and are used to orchestrate initial Cluster provisioning.
+                minProperties: 1
+                properties:
+                  provisioned:
+                    description: |-
+                      provisioned is true when the infrastructure provider reports that the HetznerCluster's infrastructure is fully provisioned.
+                      NOTE: this field is part of the Cluster API contract, and it is used to orchestrate initial Cluster provisioning.
+                      The value of this field is never updated after provisioning is completed.
+                    type: boolean
+                type: object
+              networkStatus:
+                description: NetworkStatus defines the observed state of the HCloud
+                  Private Network.
+                properties:
+                  attachedServers:
+                    items:
+                      format: int64
+                      type: integer
+                    type: array
+                    x-kubernetes-list-type: set
+                  id:
+                    format: int64
+                    type: integer
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: false
     subresources:
       status: {}

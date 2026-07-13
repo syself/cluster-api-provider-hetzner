@@ -26,10 +26,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,11 +42,27 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
 // MachineScopeParams defines the input parameters used to create a new Scope.
+//
+// MachineScopeParams keeps its own fields instead of embedding ClusterScopeParams, because the two
+// scopes are on different API versions during the migration. ClusterScopeParams carries the v1beta2
+// HetznerCluster, while the HCloudMachine controller is still on v1beta1 and passes the cluster as
+// v1beta1, so MachineScopeParams holds its own v1beta1 HetznerCluster. Embedding ClusterScopeParams
+// would make that field v1beta2, which cannot hold the v1beta1 cluster this scope works with.
+//
+// TODO: once the HCloudMachine controller is migrated to v1beta2, MachineScopeParams also uses the
+// v1beta2 HetznerCluster, so embed ClusterScopeParams here again and drop the duplicated fields.
 type MachineScopeParams struct {
-	ClusterScopeParams
+	Client           client.Client
+	APIReader        client.Reader
+	Logger           logr.Logger
+	HetznerSecret    *corev1.Secret
+	HCloudClient     hcloudclient.Client
+	Cluster          *clusterv1.Cluster
+	HetznerCluster   *infrav1.HetznerCluster
 	Machine          *clusterv1.Machine
 	HCloudMachine    *infrav1.HCloudMachine
 	SSHClientFactory sshclient.Factory
@@ -71,19 +92,38 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 	if params.HCloudMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudMachine")
 	}
-
-	cs, err := NewClusterScope(params.ClusterScopeParams)
-	if err != nil {
-		return nil, fmt.Errorf("failed create new cluster scope: %w", err)
+	if params.Cluster == nil {
+		return nil, errors.New("failed to generate new scope from nil Cluster")
+	}
+	if params.HetznerCluster == nil {
+		return nil, errors.New("failed to generate new scope from nil HetznerCluster")
+	}
+	if params.HCloudClient == nil {
+		return nil, errors.New("failed to generate new scope from nil HCloudClient")
+	}
+	if params.APIReader == nil {
+		return nil, errors.New("failed to generate new scope from nil APIReader")
 	}
 
-	cs.patchHelper, err = v1beta1patch.NewHelper(params.HCloudMachine, params.Client)
+	emptyLogger := logr.Logger{}
+	if params.Logger == emptyLogger {
+		return nil, errors.New("failed to generate new scope from nil Logger")
+	}
+
+	patchHelper, err := v1beta1patch.NewHelper(params.HCloudMachine, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
 	return &MachineScope{
-		ClusterScope:     *cs,
+		Logger:           params.Logger,
+		Client:           params.Client,
+		APIReader:        params.APIReader,
+		patchHelper:      patchHelper,
+		hetznerSecret:    params.HetznerSecret,
+		HCloudClient:     params.HCloudClient,
+		Cluster:          params.Cluster,
+		HetznerCluster:   params.HetznerCluster,
 		Machine:          params.Machine,
 		HCloudMachine:    params.HCloudMachine,
 		SSHClientFactory: params.SSHClientFactory,
@@ -91,17 +131,62 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 }
 
 // MachineScope defines the basic context for an actuator to operate upon.
+//
+// MachineScope keeps its own fields instead of embedding ClusterScope, because the two scopes are on
+// different API versions during the migration. ClusterScope reconciles the v1beta2 HetznerCluster,
+// while the HCloudMachine controller is still on v1beta1 and reads the cluster as v1beta1, so
+// MachineScope holds its own v1beta1 HetznerCluster. Embedding ClusterScope would make that field
+// v1beta2, which cannot hold the v1beta1 cluster this scope works with.
+//
+// TODO: once the HCloudMachine controller is migrated to v1beta2, MachineScope also uses the v1beta2
+// HetznerCluster, so embed ClusterScope here again and drop the duplicated fields.
 type MachineScope struct {
-	ClusterScope
+	logr.Logger
+	Client        client.Client
+	APIReader     client.Reader
+	patchHelper   *v1beta1patch.Helper
+	hetznerSecret *corev1.Secret
+
+	HCloudClient hcloudclient.Client
+
+	Cluster        *clusterv1.Cluster
+	HetznerCluster *infrav1.HetznerCluster
+
 	Machine          *clusterv1.Machine
 	HCloudMachine    *infrav1.HCloudMachine
 	SSHClientFactory sshclient.Factory
 }
 
-// Close closes the current scope persisting the cluster configuration and status.
+// Close closes the current scope persisting the machine configuration and status.
 func (m *MachineScope) Close(ctx context.Context) error {
+	// set summary for v1beta1 conditions.
 	v1beta1conditions.SetSummary(m.HCloudMachine)
-	return m.patchHelper.Patch(ctx, m.HCloudMachine)
+
+	// set summary for v1beta2 conditions.
+	readyCondition, err := v1beta2conditions.NewSummaryCondition(
+		m.HCloudMachine,
+		clusterv1beta1.ReadyV1Beta2Condition,
+		infrav1.HCloudMachineV1Beta2SummaryOpts()...,
+	)
+	if err != nil {
+		// Note, this could only happen if we hit edge cases in computing the summary, which should not happen due to the fact
+		// that we are passing a non empty list of ForConditionTypes.
+		m.Error(err, "Failed to set v1beta2 Ready condition")
+		unknownReadyCondition := metav1.Condition{
+			Type:   clusterv1beta1.ReadyV1Beta2Condition,
+			Status: metav1.ConditionUnknown,
+			Reason: infrav1.InternalErrorV1Beta2Reason,
+		}
+
+		v1beta2conditions.Set(m.HCloudMachine, unknownReadyCondition)
+
+		patchErr := m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
+		return errors.Join(err, patchErr)
+	}
+
+	v1beta2conditions.Set(m.HCloudMachine, *readyCondition)
+
+	return m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
 }
 
 // IsControlPlane returns true if the machine is a control plane.
@@ -119,9 +204,49 @@ func (m *MachineScope) Namespace() string {
 	return m.HCloudMachine.Namespace
 }
 
+// HetznerSecret returns the hetzner secret.
+//
+// TODO: remove this once the HCloudMachine controller is migrated and MachineScope embeds
+// ClusterScope again, which already provides HetznerSecret and its backing field.
+func (m *MachineScope) HetznerSecret() *corev1.Secret {
+	return m.hetznerSecret
+}
+
 // PatchObject persists the machine spec and status.
 func (m *MachineScope) PatchObject(ctx context.Context) error {
-	return m.patchHelper.Patch(ctx, m.HCloudMachine)
+	return m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
+}
+
+// SetHCloudMachineV1Beta2SummaryCondition computes the HCloudMachine v1beta2 Ready condition.
+func SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine *infrav1.HCloudMachine) error {
+	return v1beta2conditions.SetSummaryCondition(hcloudMachine, hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition,
+		infrav1.HCloudMachineV1Beta2SummaryOpts()...,
+	)
+}
+
+// machinePatchOpts returns the list of patch.Option for HCloudMachine.
+func machinePatchOpts() []v1beta1patch.Option {
+	return []v1beta1patch.Option{
+		// owned v1beta1 conditions.
+		v1beta1patch.WithOwnedConditions{Conditions: []clusterv1beta1.ConditionType{
+			clusterv1beta1.ReadyCondition,
+			infrav1.BootstrapReadyCondition,
+			infrav1.HCloudTokenAvailableCondition,
+			infrav1.HetznerAPIReachableCondition,
+			infrav1.ServerCreateSucceededCondition,
+			infrav1.ServerProvisionedCondition,
+			infrav1.ServerAvailableCondition,
+		}},
+		// owned v1beta2 conditions.
+		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
+			clusterv1beta1.ReadyV1Beta2Condition,
+			infrav1.HCloudTokenAvailableV1Beta2Condition,
+			infrav1.HCloudRateLimitExceededV1Beta2Condition,
+			infrav1.HCloudMachineServerCreatedV1Beta2Condition,
+			infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+			infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+		}},
+	}
 }
 
 // SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding

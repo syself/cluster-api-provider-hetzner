@@ -19,6 +19,7 @@ package v1beta1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 )
 
 const (
@@ -82,6 +83,12 @@ type HetznerClusterSpec struct {
 }
 
 // HetznerClusterStatus defines the observed state of HetznerCluster.
+//
+// The v1beta2 HetznerClusterStatus has its final API shape (status.conditions as []metav1.Condition,
+// status.initialization, status.deprecated.v1beta1.conditions), which does not map field-for-field
+// onto this v1beta1 status. conversion-gen cannot express that mapping, so it is skipped here and the
+// conversion is hand written in conversion.go.
+// +k8s:conversion-gen=false
 type HetznerClusterStatus struct {
 	// +kubebuilder:default=false
 	Ready bool `json:"ready"`
@@ -94,6 +101,21 @@ type HetznerClusterStatus struct {
 	HCloudPlacementGroups []HCloudPlacementGroupStatus  `json:"hcloudPlacementGroups,omitempty"`
 	FailureDomains        clusterv1beta1.FailureDomains `json:"failureDomains,omitempty"`
 	Conditions            clusterv1beta1.Conditions     `json:"conditions,omitempty"`
+
+	// v1beta2 groups all the fields that will be added or modified in HetznerCluster's status with the V1Beta2 version.
+	// +optional
+	V1Beta2 *HetznerClusterV1Beta2Status `json:"v1beta2,omitempty"`
+}
+
+// HetznerClusterV1Beta2Status groups all the fields that will be added or modified in HetznerCluster with the V1Beta2 version.
+// See https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more context.
+type HetznerClusterV1Beta2Status struct {
+	// conditions represents the observations of a HetznerCluster's current state.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -135,6 +157,75 @@ func (r *HetznerCluster) GetConditions() clusterv1beta1.Conditions {
 // SetConditions sets the underlying service state of the HetznerCluster to the predescribed clusterv1beta1.Conditions.
 func (r *HetznerCluster) SetConditions(conditions clusterv1beta1.Conditions) {
 	r.Status.Conditions = conditions
+}
+
+// GetV1Beta2Conditions returns the set of v1beta2 conditions for the HetznerCluster object.
+func (r *HetznerCluster) GetV1Beta2Conditions() []metav1.Condition {
+	if r.Status.V1Beta2 == nil {
+		return nil
+	}
+	return r.Status.V1Beta2.Conditions
+}
+
+// SetV1Beta2Conditions sets v1beta2 conditions for the HetznerCluster object.
+func (r *HetznerCluster) SetV1Beta2Conditions(conditions []metav1.Condition) {
+	if r.Status.V1Beta2 == nil {
+		r.Status.V1Beta2 = &HetznerClusterV1Beta2Status{}
+	}
+	r.Status.V1Beta2.Conditions = conditions
+}
+
+// ClusterV1Beta2SummaryOpts returns the v1beta2 summary options for a HetznerCluster.
+// It is the single source of truth for which conditions contribute to the Ready summary,
+// used both by ClusterScope.Close() and by early-exit error paths that bypass the scope.
+func ClusterV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
+	return []v1beta2conditions.SummaryOption{
+		// The summary is derived from all condition types listed in ForConditionTypes.
+		// The order matters: it defines the priority in which conditions surface in the summary.
+		v1beta2conditions.ForConditionTypes{
+			HCloudTokenAvailableV1Beta2Condition,
+			HCloudRateLimitExceededV1Beta2Condition,
+			HetznerClusterDeletingV1Beta2Condition,
+			HetznerClusterNetworkReadyV1Beta2Condition,
+			HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			HetznerClusterPlacementGroupsSyncedV1Beta2Condition,
+			HetznerClusterControlPlaneEndpointSetV1Beta2Condition,
+			HetznerClusterTargetClusterReadyV1Beta2Condition,
+			HetznerClusterTargetClusterSecretReadyV1Beta2Condition,
+		},
+		// IgnoreTypesIfMissing lists conditions that may legitimately not be present on the object.
+		// If any of these are missing, the summary treats them as if they are healthy.
+		v1beta2conditions.IgnoreTypesIfMissing{
+			HetznerClusterNetworkReadyV1Beta2Condition,
+			HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			HetznerClusterDeletingV1Beta2Condition,
+			HCloudRateLimitExceededV1Beta2Condition,
+		},
+		// CustomMergeStrategy is used only to override the merge reasons, so
+		// the Ready summary uses CAPI's standard Ready reasons (Ready /
+		// NotReady / ReadyUnknown) instead of the generic merge defaults
+		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
+		v1beta2conditions.CustomMergeStrategy{
+			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
+					// conditions with negative polarity
+					HCloudRateLimitExceededV1Beta2Condition,
+					HetznerClusterDeletingV1Beta2Condition,
+				)),
+				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(
+					clusterv1beta1.NotReadyV1Beta2Reason,
+					clusterv1beta1.ReadyUnknownV1Beta2Reason,
+					clusterv1beta1.ReadyV1Beta2Reason,
+				)),
+			),
+		},
+	}
 }
 
 // ClusterTagKey generates the key for resources associated with a cluster.

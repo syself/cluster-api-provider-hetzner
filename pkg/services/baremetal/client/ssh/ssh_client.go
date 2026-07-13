@@ -45,7 +45,9 @@ const (
 	sshTimeOut time.Duration = 5 * time.Second
 	sshUser                  = "root"
 
-	imageURLCommandLog = "/root/image-url-command.log"
+	imageURLCommandLog   = "/root/image-url-command.log"
+	outputJSONPath       = "/root/output.json"
+	outputJSONMaxRetries = 10
 )
 
 //go:embed detect-linux-on-another-disk.sh
@@ -113,7 +115,8 @@ const (
 	// ImageURLCommandStateRunning indicates that the command is running.
 	ImageURLCommandStateRunning ImageURLCommandState = "ImageURLCommandStateRunning"
 
-	// ImageURLCommandStateFinishedSuccessfully indicates that the command is finished successfully.
+	// ImageURLCommandStateFinishedSuccessfully indicates that the command is finished with IMAGE_URL_DONE in
+	// stdout.
 	ImageURLCommandStateFinishedSuccessfully ImageURLCommandState = "ImageURLCommandStateFinishedSuccessfully"
 
 	// ImageURLCommandStateFailed indicates that the command is finished, but failed.
@@ -174,7 +177,12 @@ type Client interface {
 	GetResultOfInstallImage(ctx context.Context) (string, error)
 	GetCloudInitOutput(ctx context.Context) Output
 	CreateAutoSetup(ctx context.Context, data string) Output
+
+	// DownloadImage is a synchronous process. This means the controller waits until the
+	// download is finished. Note: We should use StartImageURLCommand(), similar to the handling
+	// of ImageURLCommand.
 	DownloadImage(ctx context.Context, path, url string) Output
+
 	CreatePostInstallScript(ctx context.Context, data string) Output
 	ExecuteInstallImage(ctx context.Context, hasPostInstallScript bool) Output
 	Reboot(ctx context.Context) Output
@@ -210,6 +218,12 @@ type Client interface {
 	// StateOfImageURLCommand returns the current states of the ImageURLCommand. States can
 	// be: NotStarted, Running, Failed, FinishedSuccesfully.
 	StateOfImageURLCommand(ctx context.Context) (state ImageURLCommandState, logFile string, err error)
+
+	// ReadOutputJSON reads /root/output.json from the rescue system. It retries up to
+	// outputJSONMaxRetries times when the content does not end with '}', which guards against
+	// reading a partially-written file. An empty or not existing file returns an empty string and
+	// error is nil.
+	ReadOutputJSON(ctx context.Context) (string, error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -878,7 +892,7 @@ func (c *sshClient) StateOfImageURLCommand(ctx context.Context) (state ImageURLC
 	out := c.runSSH(ctx, `[ -e /root/image-url-command.pid ]`)
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
-		return ImageURLCommandStateNotStarted, "", fmt.Errorf("getting exit status of image-url-command failed: %w", err)
+		return ImageURLCommandStateNotStarted, "", fmt.Errorf("getting exit status of custom provisioner failed: %w", err)
 	}
 	if exitStatus > 0 {
 		// file does exists
@@ -917,10 +931,52 @@ func (c *sshClient) getImageURLCommandOutput(ctx context.Context) (string, error
 	out := c.runSSH(ctx, fmt.Sprintf("cat %s", imageURLCommandLog)) // TODO: implement getFile for sshClient.
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
-		return "", fmt.Errorf("getting logs of image-url-command failed: %w", err)
+		return "", fmt.Errorf("getting logs of custom provisioner failed: %w", err)
 	}
 	if exitStatus > 0 {
-		return "", fmt.Errorf("getting logs of image-url-command failed. Non zero status of 'cat'")
+		return "", fmt.Errorf("getting logs of custom provisioner failed. Non zero status of 'cat'")
 	}
 	return out.StdOut, nil
+}
+
+func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
+	client, err := c.getSSHClient(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get ssh client: %w", err)
+	}
+	defer client.Close()
+
+	scpClient, err := scp.NewClientBySSH(client)
+	if err != nil {
+		return "", fmt.Errorf("failed to create scp client: %w", err)
+	}
+	defer scpClient.Close()
+
+	for range outputJSONMaxRetries {
+		out := c.runSSH(ctx, "test -f "+outputJSONPath)
+		exitStatus, err := out.ExitStatus()
+		if err != nil {
+			return "", fmt.Errorf("failed to test if output.json exists: %w", err)
+		}
+		if exitStatus != 0 {
+			return "", nil // file does not exist
+		}
+
+		var buf bytes.Buffer
+		if err := scpClient.CopyFromRemotePassThru(ctx, &buf, outputJSONPath, nil); err != nil {
+			return "", fmt.Errorf("failed to copy output.json from rescue system to caph: %w", err)
+		}
+
+		content := strings.TrimSpace(buf.String())
+		if content == "" {
+			return "", nil
+		}
+		if strings.HasSuffix(content, "}") {
+			return content, nil
+		}
+
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	return "", fmt.Errorf("output.json did not end with '}' after %d attempts", outputJSONMaxRetries)
 }

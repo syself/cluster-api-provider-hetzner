@@ -75,6 +75,17 @@ spec:
               strategy:
                 description: Strategy field defines remediation strategy.
                 properties:
+                  cooldown:
+                    default: 30m
+                    description: |-
+                      Cooldown is the minimum time between successive remediations of the same
+                      machine. If a new remediation starts within this window of the previous
+                      successful one, the reboot is skipped and the machine is deleted.
+                      Set to 0s to disable the guard.
+                    type: string
+                    x-kubernetes-validations:
+                    - message: cooldown must be non-negative
+                      rule: duration(self) >= duration('0s')
                   retryLimit:
                     description: RetryLimit sets the maximum number of remediation
                       retries. Zero retries if not set.
@@ -93,7 +104,10 @@ spec:
                 type: object
             type: object
           status:
-            description: HCloudRemediationStatus defines the observed state of HCloudRemediation.
+            description: |-
+              HCloudRemediationStatus defines the observed state of HCloudRemediation.
+              The v1beta2 status reshapes these fields (typed counters, demoted conditions),
+              so conversion is hand-written in conversion.go instead of generated.
             properties:
               conditions:
                 description: Conditions defines current service state of the HCloudRemediation.
@@ -161,9 +175,335 @@ spec:
                   RetryCount can be used as a counter during the remediation.
                   Field can hold number of reboots etc.
                 type: integer
+              v1beta2:
+                description: v1beta2 groups all the fields that will be added or modified
+                  in HCloudRemediation's status with the V1Beta2 version.
+                properties:
+                  conditions:
+                    description: |-
+                      conditions represents the observations of a HCloudRemediation's current state.
+                      Known condition types are Ready, HCloudTokenAvailable and HCloudRateLimitExceeded.
+                    items:
+                      description: Condition contains details for one aspect of the
+                        current state of this API Resource.
+                      properties:
+                        lastTransitionTime:
+                          description: |-
+                            lastTransitionTime is the last time the condition transitioned from one status to another.
+                            This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                          format: date-time
+                          type: string
+                        message:
+                          description: |-
+                            message is a human readable message indicating details about the transition.
+                            This may be an empty string.
+                          maxLength: 32768
+                          type: string
+                        observedGeneration:
+                          description: |-
+                            observedGeneration represents the .metadata.generation that the condition was set based upon.
+                            For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                            with respect to the current state of the instance.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                        reason:
+                          description: |-
+                            reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                            Producers of specific condition types may define expected values and meanings for this field,
+                            and whether the values are considered a guaranteed API.
+                            The value should be a CamelCase string.
+                            This field may not be empty.
+                          maxLength: 1024
+                          minLength: 1
+                          pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                          type: string
+                        status:
+                          description: status of the condition, one of True, False,
+                            Unknown.
+                          enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                          type: string
+                        type:
+                          description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                          maxLength: 316
+                          pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                          type: string
+                      required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                      type: object
+                    maxItems: 32
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - type
+                    x-kubernetes-list-type: map
+                type: object
             type: object
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - description: Phase of the remediation
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    - description: Time duration since creation of the remediation
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.conditions[?(@.type=='Ready')].reason
+      name: Reason
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].message
+      name: Message
+      type: string
+    - description: Timeout for the remediation
+      jsonPath: .spec.strategy.timeoutSeconds
+      name: Timeout
+      priority: 1
+      type: string
+    - description: Timestamp of the last remediation attempt
+      jsonPath: .status.lastRemediated
+      name: Last Remediated
+      priority: 1
+      type: string
+    - description: How many times remediation controller has tried to remediate the
+        node
+      jsonPath: .status.retryCount
+      name: Retry count
+      priority: 1
+      type: string
+    - description: How many times remediation controller should attempt to remediate
+        the node
+      jsonPath: .spec.strategy.retryLimit
+      name: Retry limit
+      priority: 1
+      type: string
+    name: v1beta2
+    schema:
+      openAPIV3Schema:
+        description: HCloudRemediation is the Schema for the hcloudremediations API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HCloudRemediationSpec defines the desired state of HCloudRemediation.
+            properties:
+              strategy:
+                description: Strategy field defines remediation strategy.
+                properties:
+                  cooldownSeconds:
+                    default: 1800
+                    description: |-
+                      CooldownSeconds is the minimum time, in seconds, between successive
+                      remediations of the same machine. If a new remediation starts within this
+                      window of the previous successful one, the reboot is skipped and the
+                      machine is deleted. An explicit 0 disables the guard and is distinct from an
+                      absent value, which defaults to 1800 (30m).
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  retryLimit:
+                    description: RetryLimit sets the maximum number of remediation
+                      retries. Zero retries if not set.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  timeoutSeconds:
+                    description: TimeoutSeconds sets the timeout, in seconds, between
+                      remediation retries.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  type:
+                    default: Reboot
+                    description: Type represents the type of the remediation strategy.
+                      At the moment, only "Reboot" is supported.
+                    type: string
+                required:
+                - timeoutSeconds
+                type: object
+            type: object
+          status:
+            description: HCloudRemediationStatus defines the observed state of HCloudRemediation.
+            properties:
+              conditions:
+                description: |-
+                  conditions represents the observations of a HCloudRemediation's current state.
+                  Known condition types are Ready, HCloudTokenAvailable and HCloudRateLimitExceeded.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              deprecated:
+                description: deprecated groups all the status fields that are deprecated
+                  and will be removed when support for v1beta1 is dropped.
+                properties:
+                  v1beta1:
+                    description: v1beta1 groups all the status fields that are deprecated
+                      and will be removed when support for v1beta1 is dropped.
+                    properties:
+                      conditions:
+                        description: |-
+                          conditions defines current service state of the HCloudRemediation.
+
+                          Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
+                        items:
+                          description: |-
+                            Condition defines an observation of a Cluster API resource operational state.
+
+                            Deprecated: This type is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
+                          properties:
+                            lastTransitionTime:
+                              description: |-
+                                lastTransitionTime is the last time the condition transitioned from one status to another.
+                                This should be when the underlying condition changed. If that is not known, then using the time when
+                                the API field changed is acceptable.
+                              format: date-time
+                              type: string
+                            message:
+                              description: |-
+                                message is a human readable message indicating details about the transition.
+                                This field may be empty.
+                              maxLength: 10240
+                              minLength: 1
+                              type: string
+                            reason:
+                              description: |-
+                                reason is the reason for the condition's last transition in CamelCase.
+                                The specific API may choose whether or not this field is considered a guaranteed API.
+                                This field may be empty.
+                              maxLength: 256
+                              minLength: 1
+                              type: string
+                            severity:
+                              description: |-
+                                severity provides an explicit classification of Reason code, so the users or machines can immediately
+                                understand the current situation and act accordingly.
+                                The Severity field MUST be set only when Status=False.
+                              maxLength: 32
+                              type: string
+                            status:
+                              description: status of the condition, one of True, False,
+                                Unknown.
+                              type: string
+                            type:
+                              description: |-
+                                type of condition in CamelCase or in foo.example.com/CamelCase.
+                                Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                                can be useful (see .node.status.conditions), the ability to deconflict is important.
+                              maxLength: 256
+                              minLength: 1
+                              type: string
+                          required:
+                          - lastTransitionTime
+                          - status
+                          - type
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - type
+                        x-kubernetes-list-type: map
+                    type: object
+                type: object
+              lastRemediated:
+                description: |-
+                  LastRemediated identifies when the host was last remediated.
+                  A zero value is treated as absent.
+                format: date-time
+                type: string
+              phase:
+                description: |-
+                  Phase represents the current phase of machine remediation.
+                  E.g. Pending, Running, Done etc.
+                type: string
+              retryCount:
+                description: |-
+                  RetryCount records how many times the remediation controller has tried to
+                  remediate the node, for example the number of reboots.
+                format: int32
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: false
     subresources:
       status: {}

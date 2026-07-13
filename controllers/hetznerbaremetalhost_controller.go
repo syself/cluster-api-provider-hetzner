@@ -26,20 +26,26 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/annotations"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -187,8 +193,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		v1beta1conditions.Delete(bmHost, infrav1.DeprecatedRateLimitExceededCondition)
 
 		v1beta1conditions.SetSummary(bmHost)
+		scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
 
-		if err := patchHelper.Patch(ctx, bmHost); err != nil {
+		if err := patchHelper.Patch(ctx, bmHost, scope.BareMetalHostPatchOpts()...); err != nil {
 			res = reconcile.Result{}
 			reterr = errors.Join(reterr, err)
 			return
@@ -221,15 +228,16 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has no
 	// DeletionTimestamp set. But the hbmm could be in Deprovisioning.
 
+	if bmHost.Spec.Status.HetznerClusterRef == "" {
+		log.Info("bmHost.Spec.Status.HetznerClusterRef is empty. Looks like a stale cache read")
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
 	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
 		Namespace: bmHost.Namespace,
 		Name:      bmHost.Spec.Status.HetznerClusterRef,
-	}
-	if bmHost.Spec.Status.HetznerClusterRef == "" {
-		log.Info("bmHost.Spec.Status.HetznerClusterRef is empty. Looks like a stale cache read")
-		return reconcile.Result{Requeue: true}, nil
 	}
 	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
@@ -244,6 +252,11 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
+
+	if annotations.IsPaused(cluster, bmHost) {
+		log.Info("HetznerBareMetalHost or linked Cluster is marked as paused. Won't reconcile")
+		return reconcile.Result{}, nil
+	}
 
 	hetznerBareMetalMachine := &infrav1.HetznerBareMetalMachine{}
 
@@ -262,7 +275,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(bmHost, r.RateLimitWaitTime); wait {
+	if wait := reconcileRateLimitV1Beta1(bmHost, r.RateLimitWaitTime); wait {
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -323,6 +336,11 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(bmHost *infrav1
 	case infrav1.StateNone:
 		if !bmHost.DeletionTimestamp.IsZero() && bmHost.Spec.ConsumerRef == nil {
 			bmHost.Spec.Status.ProvisioningState = infrav1.StateDeleting
+			v1beta2conditions.Set(bmHost, metav1.Condition{
+				Type:   infrav1.HetznerBareMetalHostDeletingV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HetznerBareMetalHostDeletingV1Beta2Reason,
+			})
 		} else if bmHost.NeedsProvisioning() {
 			bmHost.Spec.Status.ProvisioningState = infrav1.StatePreparing
 		}
@@ -331,6 +349,11 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(bmHost *infrav1
 
 	// Handle StateDeleting
 	case infrav1.StateDeleting:
+		v1beta2conditions.Set(bmHost, metav1.Condition{
+			Type:   infrav1.HetznerBareMetalHostDeletingV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HetznerBareMetalHostDeletingV1Beta2Reason,
+		})
 		// remove finalizers.
 		controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer)
 		controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer)
@@ -365,8 +388,15 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					"%s",
 					msg,
 				)
+				v1beta2conditions.Set(bmHost, metav1.Condition{
+					Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav1.HetznerBareMetalHostOSSSHSecretMissingV1Beta2Reason,
+					Message: msg,
+				})
 				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, msg)
 				v1beta1conditions.SetSummary(bmHost)
+				scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
@@ -383,9 +413,16 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					clusterv1beta1.ConditionSeverityError,
 					infrav1.ErrorMessageMissingRescueSSHSecret,
 				)
+				v1beta2conditions.Set(bmHost, metav1.Condition{
+					Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav1.HetznerBareMetalHostRescueSSHSecretMissingV1Beta2Reason,
+					Message: infrav1.ErrorMessageMissingRescueSSHSecret,
+				})
 
 				record.Warnf(bmHost, infrav1.RescueSSHSecretMissingReason, infrav1.ErrorMessageMissingRescueSSHSecret)
 				v1beta1conditions.SetSummary(bmHost)
+				scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
@@ -450,14 +487,21 @@ func hetznerSecretErrorResult(
 		// at some point in the future.
 		v1beta1conditions.MarkFalse(
 			bmHost,
-			infrav1.CredentialsAvailableCondition,
+			infrav1.RobotCredentialsAvailableCondition,
 			infrav1.HetznerSecretUnreachableReason,
 			clusterv1beta1.ConditionSeverityError,
 			infrav1.ErrorMessageMissingHetznerSecret,
 		)
+		v1beta2conditions.Set(bmHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostSecretUnreachableV1Beta2Reason,
+			Message: infrav1.ErrorMessageMissingHetznerSecret,
+		})
 
 		record.Warnf(bmHost, infrav1.HetznerSecretUnreachableReason, fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingHetznerSecret, err.Error()))
 		v1beta1conditions.SetSummary(bmHost)
+		scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
 
 		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 		return res, nil
@@ -472,6 +516,12 @@ func hetznerSecretErrorResult(
 			clusterv1beta1.ConditionSeverityError,
 			infrav1.ErrorMessageMissingOrInvalidSecretData,
 		)
+		v1beta2conditions.Set(bmHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostRobotCredentialsInvalidV1Beta2Reason,
+			Message: infrav1.ErrorMessageMissingOrInvalidSecretData,
+		})
 		record.Warnf(bmHost, infrav1.RobotCredentialsInvalidReason, err.Error())
 		return res, nil
 	}
@@ -480,10 +530,17 @@ func hetznerSecretErrorResult(
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	log := ctrl.LoggerFrom(ctx)
+
+	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r, &infrav1.HetznerBareMetalHostList{}, mgr.GetScheme())
+	if err != nil {
+		return fmt.Errorf("failed to create mapper for Cluster to HetznerBareMetalHosts: %w", err)
+	}
+
+	err = ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HetznerBareMetalHost{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
 		WithEventFilter(
 			predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
@@ -524,9 +581,21 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 				},
 			}).
 		Owns(&corev1.Secret{}).
+		Watches(
+			&clusterv1.Cluster{},
+			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
+			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(mgr.GetScheme(), log)),
+		).
 		Complete(r)
+	if err != nil {
+		return fmt.Errorf("error creating controller: %w", err)
+	}
+
+	return nil
 }
 
+// removePermanentErrorIfAnnotationIsGone clears the permanent error status once the user removes
+// the permanent-error annotation.
 func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost,
 ) (removed bool) {
 	if bmHost.Spec.Status.ErrorType != infrav1.PermanentError {
@@ -539,9 +608,12 @@ func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost
 			return false
 		}
 	}
+
 	bmHost.Spec.Status.ErrorType = ""
 	bmHost.Spec.Status.ErrorMessage = ""
 	bmHost.Spec.Status.ErrorCount = 0
+	v1beta1conditions.Delete(bmHost, infrav1.ActionCompletedCondition)
+	v1beta2conditions.Delete(bmHost, infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition)
 	record.Eventf(bmHost, "PermanentErrorWasRemoved", "The permanent error was removed, because the annotation %q was removed",
 		infrav1.PermanentErrorAnnotation)
 	return true

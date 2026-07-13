@@ -26,9 +26,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -36,6 +40,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/annotations"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -144,23 +149,33 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
-	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
+
+	hcloudToken, hetznerSecret, err := getAndValidateHCloudTokenV1Beta1(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r)
+		// On the token-error early-return, hcloudTokenErrorResult does a full
+		// Status().Update. Set the deletion markers here so they are persisted
+		// (the scope's patchHelper is not created on this path).
+		if !hcloudMachine.DeletionTimestamp.IsZero() {
+			hcloudMachine.Status.InstanceState = ptr.To(hcloud.ServerStatusDeleting)
+			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+				Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Status: metav1.ConditionFalse,
+				Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
+			})
+		}
+		return hcloudTokenErrorResultV1Beta1(ctx, err, hcloudMachine, r, infrav1.HCloudMachineV1Beta2SummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
-		ClusterScopeParams: scope.ClusterScopeParams{
-			Client:         r,
-			Logger:         log,
-			Cluster:        cluster,
-			HetznerCluster: hetznerCluster,
-			HCloudClient:   hcc,
-			HetznerSecret:  hetznerSecret,
-			APIReader:      r.APIReader,
-		},
+		Client:           r,
+		Logger:           log,
+		Cluster:          cluster,
+		HetznerCluster:   hetznerCluster,
+		HCloudClient:     hcc,
+		HetznerSecret:    hetznerSecret,
+		APIReader:        r.APIReader,
 		Machine:          machine,
 		HCloudMachine:    hcloudMachine,
 		SSHClientFactory: r.SSHClientFactory,
@@ -236,7 +251,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	}()
 
 	// Check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(hcloudMachine, r.RateLimitWaitTime); wait {
+	if wait := reconcileRateLimitV1Beta1(hcloudMachine, r.RateLimitWaitTime); wait {
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -322,6 +337,11 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
 			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(mgr.GetScheme(), log)),
+		).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.HetznerSecretToHCloudMachines(ctx)),
+			builder.WithPredicates(IgnoreInsignificantSecretUpdates(log)),
 		).
 		Complete(r)
 	if err != nil {
@@ -417,6 +437,66 @@ func normalizeLoadBalancerTargets(loadBalancer *infrav1.LoadBalancerStatus) []in
 	}
 
 	return loadBalancer.Target
+}
+
+// HetznerSecretToHCloudMachines is a handler.ToRequestsFunc to be used to enqueue requests for reconciliation
+// of HCloudMachines when the referenced HetznerSecret changes (e.g. after a token rotation).
+func (r *HCloudMachineReconciler) HetznerSecretToHCloudMachines(_ context.Context) handler.MapFunc {
+	return func(ctx context.Context, o client.Object) []reconcile.Request {
+		log := log.FromContext(ctx)
+
+		secret, ok := o.(*corev1.Secret)
+		if !ok {
+			log.Error(fmt.Errorf("expected a Secret but got a %T", o), "failed to get HCloudMachine for Secret")
+			return nil
+		}
+
+		log = log.WithValues("objectMapper", "hetznerSecretToHCloudMachine", "namespace", secret.Namespace, "secret", secret.Name)
+
+		hetznerClusterList := &infrav1.HetznerClusterList{}
+		if err := r.List(ctx, hetznerClusterList, client.InNamespace(secret.Namespace)); err != nil {
+			log.Error(err, "failed to list HetznerClusters, skipping mapping")
+			return nil
+		}
+
+		result := []reconcile.Request{}
+		toRequests := r.HetznerClusterToHCloudMachines(ctx)
+		for i := range hetznerClusterList.Items {
+			hc := &hetznerClusterList.Items[i]
+			if hc.Spec.HetznerSecret.Name != secret.Name {
+				continue
+			}
+			result = append(result, toRequests(ctx, hc)...)
+		}
+		return result
+	}
+}
+
+// IgnoreInsignificantSecretUpdates is a predicate that only fires when the Secret's Data
+// actually changes, so HCloudMachines do not reconcile for ManagedFields or metadata-only
+// Secret updates.
+func IgnoreInsignificantSecretUpdates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldSecret, ok := e.ObjectOld.(*corev1.Secret)
+			if !ok {
+				return false
+			}
+			newSecret, ok := e.ObjectNew.(*corev1.Secret)
+			if !ok {
+				return false
+			}
+			if reflect.DeepEqual(oldSecret.Data, newSecret.Data) {
+				return false
+			}
+			logger.V(1).Info("Secret data changed, will enqueue HCloudMachines",
+				"namespace", newSecret.GetNamespace(), "name", newSecret.GetName())
+			return true
+		},
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
+	}
 }
 
 // IgnoreInsignificantHetznerClusterUpdates is a predicate used for ignoring insignificant HetznerCluster.Status updates.

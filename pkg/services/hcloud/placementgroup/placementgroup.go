@@ -24,11 +24,13 @@ import (
 	"strings"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/record"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -50,14 +52,21 @@ func NewService(scope *scope.ClusterScope) *Service {
 func (s *Service) Reconcile(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
-			v1beta1conditions.MarkFalse(
+			deprecatedv1beta1conditions.MarkFalse(
 				s.scope.HetznerCluster,
-				infrav1.PlacementGroupsSyncedCondition,
-				infrav1.PlacementGroupsSyncFailedReason,
-				clusterv1beta1.ConditionSeverityWarning,
+				infrav2.PlacementGroupsSyncedV1Beta1Condition,
+				infrav2.PlacementGroupsSyncFailedV1Beta1Reason,
+				clusterv1.ConditionSeverityWarning,
 				"%s",
 				err.Error(),
 			)
+
+			conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+				Type:    infrav2.HetznerClusterPlacementGroupsSyncedCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav2.HetznerClusterPlacementGroupsSyncingFailedReason,
+				Message: err.Error(),
+			})
 		}
 	}()
 
@@ -73,8 +82,8 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	// Create arrays and maps to make diff
 	placementGroupNamesExisting := make([]string, len(placementGroupsStatus))
 	placementGroupNamesDesired := make([]string, len(placementGroupsSpec))
-	placementGroupExistingMap := make(map[string]infrav1.HCloudPlacementGroupStatus)
-	placementGroupDesiredMap := make(map[string]infrav1.HCloudPlacementGroupSpec)
+	placementGroupExistingMap := make(map[string]infrav2.HCloudPlacementGroupStatus)
+	placementGroupDesiredMap := make(map[string]infrav2.HCloudPlacementGroupSpec)
 
 	for i, pgSpec := range placementGroupsSpec {
 		placementGroupNamesDesired[i] = pgSpec.Name
@@ -98,7 +107,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		opts := hcloud.PlacementGroupCreateOpts{
 			Name:   name,
 			Type:   hcloud.PlacementGroupType(placementGroupDesiredMap[pgName].Type),
-			Labels: map[string]string{clusterTagKey: string(infrav1.ResourceLifecycleOwned)},
+			Labels: map[string]string{clusterTagKey: string(infrav2.ResourceLifecycleOwned)},
 		}
 
 		if _, err := s.scope.HCloudClient.CreatePlacementGroup(ctx, opts); err != nil {
@@ -130,7 +139,13 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	}
 
 	s.scope.HetznerCluster.Status.HCloudPlacementGroups = statusFromHCloudPlacementGroups(placementGroups, s.scope.HetznerCluster.Name)
-	v1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav1.PlacementGroupsSyncedCondition)
+	deprecatedv1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav2.PlacementGroupsSyncedV1Beta1Condition)
+
+	conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+		Type:   infrav2.HetznerClusterPlacementGroupsSyncedCondition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav2.HetznerClusterPlacementGroupsSyncedReason,
+	})
 
 	return nil
 }
@@ -159,7 +174,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 
 func (s *Service) findPlacementGroups(ctx context.Context) ([]*hcloud.PlacementGroup, error) {
 	clusterTagKey := s.scope.HetznerCluster.ClusterTagKey()
-	labels := map[string]string{clusterTagKey: string(infrav1.ResourceLifecycleOwned)}
+	labels := map[string]string{clusterTagKey: string(infrav2.ResourceLifecycleOwned)}
 	opts := hcloud.PlacementGroupListOpts{}
 	opts.LabelSelector = utils.LabelsToLabelSelector(labels)
 
@@ -172,10 +187,10 @@ func (s *Service) findPlacementGroups(ctx context.Context) ([]*hcloud.PlacementG
 }
 
 // statusFromHCloudPlacementGroups gets the information of the Hetzner placement groups and returns it in our status object.
-func statusFromHCloudPlacementGroups(placementGroups []*hcloud.PlacementGroup, clusterName string) []infrav1.HCloudPlacementGroupStatus {
-	status := make([]infrav1.HCloudPlacementGroupStatus, len(placementGroups))
+func statusFromHCloudPlacementGroups(placementGroups []*hcloud.PlacementGroup, clusterName string) []infrav2.HCloudPlacementGroupStatus {
+	status := make([]infrav2.HCloudPlacementGroupStatus, len(placementGroups))
 	for i, pg := range placementGroups {
-		status[i] = infrav1.HCloudPlacementGroupStatus{
+		status[i] = infrav2.HCloudPlacementGroupStatus{
 			ID:     pg.ID,
 			Server: pg.Servers,
 			Name:   strings.TrimPrefix(pg.Name, clusterName+"-"),

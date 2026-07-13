@@ -36,6 +36,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -100,11 +101,9 @@ var _ = DescribeTable("createLabels",
 
 		service := Service{
 			scope: &scope.MachineScope{
-				HCloudMachine: &hcloudMachine,
-				Machine:       &capiMachine,
-				ClusterScope: scope.ClusterScope{
-					HetznerCluster: &hetznerCluster,
-				},
+				HCloudMachine:    &hcloudMachine,
+				Machine:          &capiMachine,
+				HetznerCluster:   &hetznerCluster,
 				SSHClientFactory: testEnv.HCloudSSHClientFactory,
 			},
 		}
@@ -135,9 +134,9 @@ var _ = Describe("handleServerStatusOff", func() {
 	BeforeEach(func() {
 		client = fakehcloudclient.NewHCloudClientFactory().NewClient("")
 
-		var err error
-		server, err = client.CreateServer(context.Background(), hcloud.ServerCreateOpts{Name: "serverName"})
+		result, err := client.CreateServer(context.Background(), hcloud.ServerCreateOpts{Name: "serverName"})
 		Expect(err).To(Succeed())
+		server = result.Server
 
 		hcloudMachine = &infrav1.HCloudMachine{
 			ObjectMeta: metav1.ObjectMeta{
@@ -300,6 +299,7 @@ var _ = Describe("Delete", func() {
 		Expect(hcloudMachine.Status.InstanceState).To(Equal(ptr.To(hcloud.ServerStatusDeleting)))
 		Expect(v1beta1conditions.IsFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(BeTrue())
 		Expect(v1beta1conditions.GetReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(Equal(infrav1.HCloudCredentialsInvalidReason))
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 
 		hcloudClient.AssertExpectations(GinkgoT())
 	})
@@ -325,8 +325,10 @@ var _ = Describe("Test handleRateLimit", func() {
 			}
 			if tc.expectCondition {
 				Expect(isPresentAndFalseWithReason(tc.hm, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+				Expect(isPresentWithStatusAndReasonV1Beta2(tc.hm, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
 			} else {
 				Expect(v1beta1conditions.Get(tc.hm, infrav1.HetznerAPIReachableCondition)).To(BeNil())
+				Expect(v1beta2conditions.Get(tc.hm, infrav1.HCloudRateLimitExceededV1Beta2Condition)).To(BeNil())
 			}
 		},
 		Entry("machine not ready, rate limit exceeded error", testCaseHandleRateLimit{
@@ -490,6 +492,203 @@ var _ = Describe("Delete", func() {
 	})
 })
 
+var _ = Describe("handleBootStateEnablingRescue", func() {
+	It("sets HCloudTokenAvailable when GetAction returns unauthorized", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootStateSince: metav1.Now(),
+				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
+					ActionIDEnableRescueSystem: 123456,
+				},
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetAction", mock.Anything, int64(123456)).Return(nil, fmt.Errorf("%w: invalid HCloud token", hcloudclient.ErrUnauthorized)).Once()
+
+		res, err := service.handleBootStateEnablingRescue(context.Background(), &hcloud.Server{
+			ID:     1,
+			Status: hcloud.ServerStatusRunning,
+		})
+
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("routes GetAction rate-limit errors through handleRateLimit", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootStateSince: metav1.Now(),
+				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
+					ActionIDEnableRescueSystem: 123456,
+				},
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		rateLimitErr := hcloud.Error{
+			Code:    hcloud.ErrorCodeRateLimitExceeded,
+			Message: "rate limit exceeded for ip 48.49.48.49",
+		}
+		hcloudClient.On("GetAction", mock.Anything, int64(123456)).Return(nil, rateLimitErr).Once()
+
+		res, err := service.handleBootStateEnablingRescue(context.Background(), &hcloud.Server{
+			ID:     1,
+			Status: hcloud.ServerStatusRunning,
+		})
+
+		Expect(res).To(Equal(reconcile.Result{}))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(Equal("failed to get enabling rescue action: rate limit exceeded for ip 48.49.48.49 (rate_limit_exceeded)"))
+		Expect(hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded)).To(BeTrue())
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("requeues after 5 seconds when PowerOnServer returns a locked error", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootStateSince: metav1.Now(),
+				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
+					ActionIDEnableRescueSystem: actionDone,
+				},
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("PowerOnServer", mock.Anything, mock.Anything).Return(hcloud.Error{
+			Code:    hcloud.ErrorCodeLocked,
+			Message: "server is locked",
+		}).Once()
+
+		res, err := service.handleBootStateEnablingRescue(context.Background(), &hcloud.Server{
+			ID:            1,
+			RescueEnabled: true,
+			Status:        hcloud.ServerStatusOff,
+		})
+
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "PowerOnServerFailed")).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachinePoweringOnServerFailedV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudMachine.Status.BootState).ToNot(Equal(infrav1.HCloudBootStateBootingToRescue))
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+})
+
+var _ = Describe("handleBootStateInitializing", func() {
+	It("sets an error and remediates when the server create action finished with an error", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootStateSince: metav1.Now(),
+				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
+					ActionIDCreateServer: 998877,
+				},
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetAction", mock.Anything, int64(998877)).Return(&hcloud.Action{
+			ID:           998877,
+			Status:       hcloud.ActionStatusError,
+			Started:      time.Now().Add(-time.Minute),
+			Finished:     time.Now(),
+			ErrorCode:    "server_creation_failed",
+			ErrorMessage: "server creation failed",
+		}, nil).Once()
+
+		res, err := service.handleBootStateInitializing(context.Background(), &hcloud.Server{
+			ID:     1,
+			Status: hcloud.ServerStatusOff,
+		})
+
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+		_, exists := service.scope.Machine.Annotations[clusterv1.RemediateMachineAnnotation]
+		Expect(exists).To(BeTrue())
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "CreationFailed")).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineServerCreationFailedV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("remediates when the server create action ID is not set", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootStateSince: metav1.Now(),
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+
+		res, err := service.handleBootStateInitializing(context.Background(), &hcloud.Server{
+			ID:     1,
+			Status: hcloud.ServerStatusOff,
+		})
+
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+		_, exists := service.scope.Machine.Annotations[clusterv1.RemediateMachineAnnotation]
+		Expect(exists).To(BeTrue())
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "ActionIDCreateServerNotSet")).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineActionIDCreateServerNotSetV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("returns an error and marks GettingServerCreationStatusFailed when GetAction fails", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootStateSince: metav1.Now(),
+				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
+					ActionIDCreateServer: 998877,
+				},
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetAction", mock.Anything, int64(998877)).Return(nil, fmt.Errorf("hcloud is down")).Once()
+
+		res, err := service.handleBootStateInitializing(context.Background(), &hcloud.Server{
+			ID:     1,
+			Status: hcloud.ServerStatusOff,
+		})
+
+		Expect(res).To(Equal(reconcile.Result{}))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("GetAction failed"))
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "GettingServerCreationStatusFailed")).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionUnknown, infrav1.HCloudMachineGettingServerCreationStatusFailedV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+})
+
 var _ = Describe("getSSHKeys", func() {
 	var (
 		service      *Service
@@ -498,7 +697,7 @@ var _ = Describe("getSSHKeys", func() {
 
 	BeforeEach(func() {
 		hcloudClient = mocks.NewClient(GinkgoT())
-		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
+		machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
 			Client:       testEnv.GetClient(),
 			APIReader:    testEnv.GetAPIReader(),
 			HCloudClient: hcloudClient,
@@ -526,6 +725,13 @@ var _ = Describe("getSSHKeys", func() {
 				},
 			},
 
+			HCloudMachine: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-machine",
+					Namespace: "default",
+				},
+			},
+
 			HetznerSecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "secretname",
@@ -535,20 +741,18 @@ var _ = Describe("getSSHKeys", func() {
 					"hcloud-ssh-key-name": []byte("sshKey1"),
 				},
 			},
+			Machine: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-machine",
+					Namespace: "default",
+				},
+			},
+			SSHClientFactory: testEnv.HCloudSSHClientFactory,
 		})
 		Expect(err).To(BeNil())
 
 		service = &Service{
-			scope: &scope.MachineScope{
-				ClusterScope: *clusterScope,
-				HCloudMachine: &infrav1.HCloudMachine{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "my-machine",
-						Namespace: "default",
-					},
-				},
-				SSHClientFactory: testEnv.HCloudSSHClientFactory,
-			},
+			scope: machineScope,
 		}
 	})
 
@@ -776,57 +980,48 @@ var _ = Describe("Reconcile", func() {
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "server-reconcile")
 		Expect(err).To(BeNil())
 
-		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-			Client:       testEnv.GetClient(),
-			APIReader:    testEnv.GetAPIReader(),
-			HCloudClient: hcloudClient,
-			Logger:       GinkgoLogr,
-
-			Cluster: &clusterv1.Cluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "clustername",
-					Namespace: testNs.Name,
-				},
+		cluster := &clusterv1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "clustername",
+				Namespace: testNs.Name,
 			},
+		}
 
-			HetznerCluster: &infrav1.HetznerCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "clustername",
-					Namespace: testNs.Name,
-				},
-				Spec: infrav1.HetznerClusterSpec{
-					HetznerSecret: infrav1.HetznerSecretRef{
-						Name: "secretname",
-						Key: infrav1.HetznerSecretKeyRef{
-							SSHKey: "hcloud-ssh-key-name",
-						},
+		hetznerCluster := &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "clustername",
+				Namespace: testNs.Name,
+			},
+			Spec: infrav1.HetznerClusterSpec{
+				HetznerSecret: infrav1.HetznerSecretRef{
+					Name: "secretname",
+					Key: infrav1.HetznerSecretKeyRef{
+						SSHKey: "hcloud-ssh-key-name",
 					},
-					SSHKeys: infrav1.HetznerSSHKeys{
-						HCloud: []infrav1.SSHKey{},
-						RobotRescueSecretRef: infrav1.SSHSecretRef{
-							Name: "rescue-ssh-secret",
-							Key: infrav1.SSHSecretKeyRef{
-								Name:       "sshkey-name",
-								PublicKey:  "public-key",
-								PrivateKey: "private-key",
-							},
+				},
+				SSHKeys: infrav1.HetznerSSHKeys{
+					HCloud: []infrav1.SSHKey{},
+					RobotRescueSecretRef: infrav1.SSHSecretRef{
+						Name: "rescue-ssh-secret",
+						Key: infrav1.SSHSecretKeyRef{
+							Name:       "sshkey-name",
+							PublicKey:  "public-key",
+							PrivateKey: "private-key",
 						},
 					},
 				},
 			},
+		}
 
-			HetznerSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "secretname",
-					Namespace: testNs.Name,
-				},
-				Data: map[string][]byte{
-					"hcloud-ssh-key-name": []byte("sshKey1"),
-				},
+		hetznerSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "secretname",
+				Namespace: testNs.Name,
 			},
-		})
-
-		Expect(err).To(BeNil())
+			Data: map[string][]byte{
+				"hcloud-ssh-key-name": []byte("sshKey1"),
+			},
+		}
 
 		err = testEnv.Create(ctx, helpers.GetDefaultSSHSecret("rescue-ssh-secret", testNs.Name))
 		Expect(err).To(BeNil())
@@ -880,14 +1075,21 @@ var _ = Describe("Reconcile", func() {
 		err = controllerutil.SetOwnerReference(capiMachine, hcloudMachine, testEnv.Scheme())
 		Expect(err).ShouldNot(HaveOccurred())
 
-		service = &Service{
-			scope: &scope.MachineScope{
-				ClusterScope:     *clusterScope,
-				Machine:          capiMachine,
-				HCloudMachine:    hcloudMachine,
-				SSHClientFactory: testEnv.HCloudSSHClientFactory,
-			},
-		}
+		machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
+			Client:           testEnv.GetClient(),
+			APIReader:        testEnv.GetAPIReader(),
+			HCloudClient:     hcloudClient,
+			Logger:           GinkgoLogr,
+			Cluster:          cluster,
+			HetznerCluster:   hetznerCluster,
+			HetznerSecret:    hetznerSecret,
+			Machine:          capiMachine,
+			HCloudMachine:    hcloudMachine,
+			SSHClientFactory: testEnv.HCloudSSHClientFactory,
+		})
+		Expect(err).To(BeNil())
+
+		service = &Service{scope: machineScope}
 		service.scope.Client = testEnv.Client
 
 		Eventually(func() error {
@@ -916,6 +1118,11 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring the BootstrapReady condition is marked as false")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)).To(BeTrue())
+
+		By("ensuring the v1beta2 ServerCreated condition is false with WaitingForBootstrapData reason")
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason)).To(BeTrue())
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, clusterv1beta1.ReadyV1Beta2Condition, metav1.ConditionFalse, clusterv1beta1.NotReadyV1Beta2Reason)).To(BeTrue())
 	})
 
 	It("sets the region in status of hcloudMachine, by fetching the failure domain from cluster.status if machine.spec.failureDomain is empty", func() {
@@ -1009,10 +1216,17 @@ var _ = Describe("Reconcile", func() {
 			},
 		}, nil)
 
-		hcloudClient.On("CreateServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
-			ID:     1,
-			Name:   "my-machine",
-			Status: hcloud.ServerStatusInitializing,
+		hcloudClient.On("CreateServer", mock.Anything, mock.MatchedBy(func(opts hcloud.ServerCreateOpts) bool {
+			// an imageName machine must be created with StartAfterCreate=true, so it boots
+			// the real image directly and never goes through the rescue system
+			return opts.StartAfterCreate != nil && *opts.StartAfterCreate
+		})).Return(hcloud.ServerCreateResult{
+			Server: &hcloud.Server{
+				ID:     1,
+				Name:   "my-machine",
+				Status: hcloud.ServerStatusInitializing,
+			},
+			Action: &hcloud.Action{ID: 998877},
 		}, nil)
 
 		By("calling reconcile")
@@ -1086,10 +1300,16 @@ var _ = Describe("Reconcile", func() {
 			},
 		}, nil)
 
-		hcloudClient.On("CreateServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
-			ID:     1,
-			Name:   "my-machine",
-			Status: hcloud.ServerStatusInitializing,
+		hcloudClient.On("CreateServer", mock.Anything, mock.MatchedBy(func(opts hcloud.ServerCreateOpts) bool {
+			// an imageURL machine must be created powered off, so its first boot goes into the rescue system
+			return opts.StartAfterCreate != nil && !*opts.StartAfterCreate
+		})).Return(hcloud.ServerCreateResult{
+			Server: &hcloud.Server{
+				ID:     1,
+				Name:   "my-machine",
+				Status: hcloud.ServerStatusInitializing,
+			},
+			Action: &hcloud.Action{ID: 998877},
 		}, nil)
 
 		By("calling reconcile")
@@ -1097,18 +1317,44 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateInitializing))
 
-		By("ensuring the bootstate has transitioned to Initializing")
+		By("ensuring the bootstate has transitioned to Initializing and the server create action is stored")
 
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateInitializing))
+		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDCreateServer).To(Equal(int64(998877)))
 
-		By("reconciling again")
+		By("reconciling again: server create action not finished yet")
+		startTime := time.Now()
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
 			ID:     1,
 			Name:   "my-machine",
-			Status: hcloud.ServerStatusRunning,
+			Status: hcloud.ServerStatusOff,
 		}, nil).Once()
+		hcloudClient.On("GetAction", mock.Anything, int64(998877)).Return(
+			&hcloud.Action{
+				ID:      998877,
+				Status:  hcloud.ActionStatusRunning,
+				Started: startTime,
+			}, nil).Once()
+		_, err = service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateInitializing))
 
-		startTime := time.Now()
+		By("ensuring the bootstate stays Initializing while the server create action is running")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateInitializing))
+
+		By("reconciling again: server create action finished, rescue system gets enabled")
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
+			ID:     1,
+			Name:   "my-machine",
+			Status: hcloud.ServerStatusOff,
+		}, nil).Once()
+		hcloudClient.On("GetAction", mock.Anything, int64(998877)).Return(
+			&hcloud.Action{
+				ID:       998877,
+				Status:   hcloud.ActionStatusSuccess,
+				Started:  startTime,
+				Finished: time.Now(),
+			}, nil).Once()
 		hcloudClient.On("EnableRescueSystem", mock.Anything, mock.Anything, mock.Anything).Return(
 			hcloud.ServerEnableRescueResult{
 				Action: &hcloud.Action{
@@ -1131,16 +1377,16 @@ var _ = Describe("Reconcile", func() {
 		By("ensuring the bootstate has transitioned to EnablingRescue")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateEnablingRescue))
 
-		By("reconcile again --------------------------------------------------------")
+		By("reconcile again: enable rescue action finished ---------------------------")
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
 			ID:            1,
 			Name:          "my-machine",
 			RescueEnabled: true,
-			Status:        hcloud.ServerStatusRunning,
+			Status:        hcloud.ServerStatusOff,
 		}, nil).Once()
-		hcloudClient.On("GetAction", mock.Anything, mock.Anything).Return(
+		hcloudClient.On("GetAction", mock.Anything, int64(334455)).Return(
 			&hcloud.Action{
-				ID:           1,
+				ID:           334455,
 				Status:       hcloud.ActionStatusSuccess,
 				Command:      "",
 				Progress:     0,
@@ -1155,22 +1401,17 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateEnablingRescue))
 
-		By("ensuring the bootstate has transitioned to EnablingRescue")
+		By("ensuring the bootstate stays EnablingRescue until the server is powered on")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateEnablingRescue))
 
-		By("reconcile again --------------------------------------------------------")
+		By("reconcile again: server gets powered on ---------------------------------")
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
 			ID:            1,
-			Name:          "hcloudmachinenameWithRescueEnabled",
+			Name:          "my-machine",
 			RescueEnabled: true,
-			Status:        hcloud.ServerStatusRunning,
+			Status:        hcloud.ServerStatusOff,
 		}, nil).Once()
-
-		testEnv.HCloudSSHClient.On("Reboot", mock.Anything).Return(sshclient.Output{
-			Err:    nil,
-			StdOut: "ok",
-			StdErr: "",
-		})
+		hcloudClient.On("PowerOnServer", mock.Anything, mock.Anything).Return(nil).Once()
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRescue))
@@ -1205,6 +1446,12 @@ var _ = Describe("Reconcile", func() {
 			Err:    nil,
 		})
 		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "output-of-image-url-command", nil)
+		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return(`{"status":"Succeeded"}`, nil).Once()
+		testEnv.HCloudSSHClient.On("Reboot", mock.Anything).Return(sshclient.Output{
+			Err:    nil,
+			StdOut: "ok",
+			StdErr: "",
+		})
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
 			ID:            1,
 			Name:          "hcloudmachinenameWithRescueEnabled",
@@ -1232,6 +1479,211 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 	})
 
+	It("ignores status in output.json when IMAGE_URL_DONE in stdout", func() {
+		By("setting bootstrap data ready and machine in RunningImageCommand state")
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+		service.scope.HCloudMachine.Spec.ImageName = ""
+		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
+		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-test.sh"
+		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
+		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
+
+		By("mocking GetServer to return server 42 (which has IP 1.2.3.4)")
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(newTestServer(), nil).Once()
+
+		By("mocking SSH: command finished but output.json reports failure")
+		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "logfile", nil)
+		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return(`{"status":"Failed","message":"disk full"}`, nil).Once()
+		testEnv.HCloudSSHClient.On("Reboot", mock.Anything).Return(sshclient.Output{
+			Err:    nil,
+			StdOut: "ok",
+			StdErr: "",
+		})
+
+		By("reconciling")
+		_, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("ensuring machine proceeds to BootingToRealOS despite status:Failed in output.json")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
+
+		By("ensuring ServerProvisionedCondition reflects the successful transition, not a failure")
+		c := v1beta1conditions.Get(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition)
+		Expect(c).ToNot(BeNil())
+		Expect(c.Reason).To(Equal(string(infrav1.HCloudBootStateBootingToRealOS)))
+	})
+
+	It("propagates the message from output.json into ServerProvisionedCondition while the command is still running", func() {
+		By("setting bootstrap data ready and machine in RunningImageCommand state")
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+		service.scope.HCloudMachine.Spec.ImageName = ""
+		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
+		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-test.sh"
+		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
+		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
+
+		By("mocking GetServer to return server 42 (which has IP 1.2.3.4)")
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(newTestServer(), nil).Once()
+
+		By("mocking SSH: command still running, output.json has a progress message")
+		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateRunning, "", nil)
+		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return(`{"message":"downloading image 42%"}`, nil).Once()
+
+		By("reconciling")
+		result, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(result.RequeueAfter).To(Equal(10 * time.Second))
+
+		By("ensuring the machine stays in RunningImageCommand")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateRunningImageCommand))
+
+		By("ensuring ServerProvisionedCondition message reflects output.json's message field")
+		c := v1beta1conditions.Get(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition)
+		Expect(c).ToNot(BeNil())
+		Expect(c.Message).To(Equal("downloading image 42%"))
+		Expect(c.Reason).To(Equal("CustomProvisionerRunning"))
+
+		c2 := v1beta2conditions.Get(service.scope.HCloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition)
+		Expect(c2).ToNot(BeNil())
+		Expect(c2.Message).To(Equal("downloading image 42%"))
+		Expect(c2.Reason).To(Equal(infrav1.HCloudMachineCustomProvisionerRunningV1Beta2Reason))
+	})
+
+	It("falls back to the default running message when output.json is empty", func() {
+		By("setting bootstrap data ready and machine in RunningImageCommand state")
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+		service.scope.HCloudMachine.Spec.ImageName = ""
+		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
+		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-test.sh"
+		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
+		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
+
+		By("mocking GetServer to return server 42 (which has IP 1.2.3.4)")
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(newTestServer(), nil).Once()
+
+		By("mocking SSH: command still running, output.json not written yet")
+		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateRunning, "", nil)
+		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
+
+		By("reconciling")
+		_, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("ensuring ServerProvisionedCondition falls back to the default message")
+		c := v1beta1conditions.Get(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition)
+		Expect(c).ToNot(BeNil())
+		Expect(c.Message).To(Equal("custom provisioner running"))
+	})
+
+	It("requeues without erroring when reading output.json fails while the command is running", func() {
+		By("setting bootstrap data ready and machine in RunningImageCommand state")
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+		service.scope.HCloudMachine.Spec.ImageName = ""
+		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
+		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-test.sh"
+		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
+		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
+
+		By("mocking GetServer to return server 42 (which has IP 1.2.3.4)")
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(newTestServer(), nil).Once()
+
+		By("mocking SSH: command running, but reading output.json fails")
+		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateRunning, "", nil)
+		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return("", fmt.Errorf("ssh connection lost")).Once()
+
+		By("reconciling")
+		result, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(result.RequeueAfter).To(Equal(10 * time.Second))
+
+		By("ensuring the machine stays in RunningImageCommand")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateRunningImageCommand))
+	})
+
+	It("requeues without erroring when output.json is malformed while the command is running", func() {
+		By("setting bootstrap data ready and machine in RunningImageCommand state")
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+		service.scope.HCloudMachine.Spec.ImageName = ""
+		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
+		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-test.sh"
+		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
+		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
+
+		By("mocking GetServer to return server 42 (which has IP 1.2.3.4)")
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(newTestServer(), nil).Once()
+
+		By("mocking SSH: command running, output.json is malformed JSON")
+		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateRunning, "", nil)
+		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return(`{"message":`, nil).Once()
+
+		By("reconciling")
+		result, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(result.RequeueAfter).To(Equal(10 * time.Second))
+
+		By("ensuring the machine stays in RunningImageCommand")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateRunningImageCommand))
+	})
+
+	It("returns an error and does not remediate when output.json is malformed after the command failed", func() {
+		By("setting bootstrap data ready and machine in RunningImageCommand state")
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+		service.scope.HCloudMachine.Spec.ImageName = ""
+		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
+		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-test.sh"
+		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
+		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
+
+		By("mocking GetServer to return server 42 (which has IP 1.2.3.4)")
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(newTestServer(), nil).Once()
+
+		By("mocking SSH: command failed, output.json is malformed JSON")
+		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFailed, "some logs", nil)
+		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return(`{"message":`, nil).Once()
+
+		By("reconciling")
+		_, err := service.Reconcile(ctx)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to parse"))
+
+		By("ensuring the machine did not transition and was not marked for remediation")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateRunningImageCommand))
+	})
+
+	It("uses the message from output.json when the command failed", func() {
+		By("setting bootstrap data ready and machine in RunningImageCommand state")
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+		service.scope.HCloudMachine.Spec.ImageName = ""
+		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
+		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-test.sh"
+		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
+		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
+
+		By("mocking GetServer to return server 42 (which has IP 1.2.3.4)")
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(newTestServer(), nil).Once()
+
+		By("mocking SSH: command failed, output.json has a message")
+		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFailed, "some logs", nil)
+		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return(`{"message":"disk full"}`, nil).Once()
+
+		By("reconciling")
+		_, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("ensuring ServerProvisionedCondition carries the message from output.json")
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition, "CustomProvisionerFailed")).To(BeTrue())
+		c := v1beta1conditions.Get(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition)
+		Expect(c).ToNot(BeNil())
+		Expect(c.Message).To(Equal("disk full"))
+	})
+
 	It("sets condition HCloudCredentialsInvalid when HCloud API returns 'unauthorized' error while creating a server", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
@@ -1257,6 +1709,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring condition HCloudCredentialsInvalid is set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, clusterv1beta1.ReadyV1Beta2Condition, metav1.ConditionFalse, clusterv1beta1.NotReadyV1Beta2Reason)).To(BeTrue())
 
 		// Ensure that the HCloudCredentialsInvalid condition persists even when we hit rate-limit on Hetzner.
 		By("making hcloud client return a rate-limit error on GetServerType API call")
@@ -1271,7 +1726,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring conditions HCloudCredentialsInvalid and RateLimitExceeded are set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
 	})
 
 	It("requeues for 5 minutes when server creation is not possible while creating a server", func() {
@@ -1328,6 +1785,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring condition HCloudCredentialsInvalid is set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, clusterv1beta1.ReadyV1Beta2Condition, metav1.ConditionFalse, clusterv1beta1.NotReadyV1Beta2Reason)).To(BeTrue())
 
 		// Ensure that the HCloudCredentialsInvalid condition persists even when we hit rate-limit on Hetzner.
 		By("making hcloud client return a rate-limit error on GetServer API call")
@@ -1343,7 +1803,64 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring conditions HCloudCredentialsInvalid and RateLimitExceeded are set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
+	})
+
+	It("keeps a ready machine in Ready state when GetServer returns a rate-limit error", func() {
+		// The reconcilement for a provisioned HCloudMachine with ready state should be a no-op
+		// when it encounters a rate-limit error.
+		By("setting the bootstrap data")
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		By("setting the ProviderID on the HCloudMachine and marking it as fully provisioned")
+		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://1234567")
+		err = testEnv.Update(ctx, service.scope.HCloudMachine)
+		Expect(err).To(BeNil())
+		service.scope.HCloudMachine.Status.Ready = true
+		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateOperatingSystemRunning
+		// Setting HCloudTokenAvailableV1Beta2Condition here so the summary condition can be computed.
+		v1beta2conditions.Set(service.scope.HCloudMachine, metav1.Condition{
+			Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
+		})
+
+		By("making GetServer return a rate-limit error")
+		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(nil, hcloud.Error{
+			Code:    hcloud.ErrorCodeRateLimitExceeded,
+			Message: "rate limit exceeded for ip 48.49.48.49",
+		}).Once()
+
+		By("calling reconcile")
+		_, err = service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("ensuring the machine remains Ready with its BootState intact")
+		Expect(service.scope.HCloudMachine.Status.Ready).To(BeTrue())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
+
+		By("ensuring the summary conditions are True, meaning no error condition was set")
+		// The summary condition is actually set by scope.Close() function which the controller
+		// calls after service.Reconcile() returns. In tests we call service.Reconcile() directly,
+		// so scope.Close() never runs and the summary is never computed. That's why we call the set summary
+		// functions manually.
+		v1beta1conditions.SetSummary(service.scope.HCloudMachine)
+		Expect(v1beta1conditions.IsTrue(service.scope.HCloudMachine, clusterv1beta1.ReadyCondition)).To(BeTrue())
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, clusterv1beta1.ReadyV1Beta2Condition, metav1.ConditionTrue, clusterv1beta1.ReadyV1Beta2Reason)).To(BeTrue())
 	})
 
 	It("does not create a server when the image-url-command is not available on disk", func() {
@@ -1460,5 +1977,14 @@ func isPresentAndFalseWithReason(getter v1beta1conditions.Getter, condition clus
 	}
 	objectCondition := v1beta1conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionFalse &&
+		objectCondition.Reason == reason
+}
+
+func isPresentWithStatusAndReasonV1Beta2(getter v1beta2conditions.Getter, condition string, status metav1.ConditionStatus, reason string) bool {
+	if !v1beta2conditions.Has(getter, condition) {
+		return false
+	}
+	objectCondition := v1beta2conditions.Get(getter, condition)
+	return objectCondition.Status == status &&
 		objectCondition.Reason == reason
 }

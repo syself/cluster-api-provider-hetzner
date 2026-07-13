@@ -26,6 +26,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 )
 
@@ -330,6 +332,21 @@ type ControllerGeneratedStatus struct {
 	// Conditions define the current service state of the HetznerBareMetalHost.
 	// +optional
 	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
+
+	// v1beta2 groups all the fields that will be added or modified in HetznerBareMetalHost's status with the V1Beta2 version.
+	// +optional
+	V1Beta2 *HetznerBareMetalHostV1Beta2Status `json:"v1beta2,omitempty"`
+}
+
+// HetznerBareMetalHostV1Beta2Status groups all the fields that will be added or modified in HetznerBareMetalHost with the V1Beta2 version.
+type HetznerBareMetalHostV1Beta2Status struct {
+	// conditions represents the observations of a HetznerBareMetalHost's current state.
+	// Known condition types are Ready, CredentialsAvailable, RobotCredentialsAvailable, RootDeviceHintsValidated, ProvisionSucceeded, Deleting, RobotRateLimitExceeded.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // GetIPAddress returns the IPv6 if set, otherwise the IPv4.
@@ -353,6 +370,127 @@ func (host *HetznerBareMetalHost) GetConditions() clusterv1beta1.Conditions {
 // SetConditions sets the underlying service state of the HetznerBareMetalHost to the predescribed clusterv1beta1.Conditions.
 func (host *HetznerBareMetalHost) SetConditions(conditions clusterv1beta1.Conditions) {
 	host.Spec.Status.Conditions = conditions
+}
+
+// GetV1Beta2Conditions returns the list of v1beta2 conditions for a HetznerBareMetalHost API object.
+func (host *HetznerBareMetalHost) GetV1Beta2Conditions() []metav1.Condition {
+	if host.Spec.Status.V1Beta2 == nil {
+		return nil
+	}
+	// Return a deep copy so callers cannot modify the stored slice in-place via a shared
+	// backing array. SetV1Beta2Conditions relies on reading the pre-modification stored
+	// values to detect when only ObservedGeneration changed; that check only works if
+	// the stored slice was not already mutated before SetV1Beta2Conditions runs.
+	out := make([]metav1.Condition, len(host.Spec.Status.V1Beta2.Conditions))
+	copy(out, host.Spec.Status.V1Beta2.Conditions)
+	return out
+}
+
+// SetV1Beta2Conditions sets v1beta2 conditions for a HetznerBareMetalHost API object.
+func (host *HetznerBareMetalHost) SetV1Beta2Conditions(conditions []metav1.Condition) {
+	// HetznerBareMetalHost stores its conditions inside Spec (not in a status subresource).
+	// The CAPI conditions library always sets ObservedGeneration = metadata.generation when
+	// writing a condition. Because the conditions are part of the spec, writing them bumps
+	// metadata.generation, which makes ObservedGeneration stale on the very next reconcile,
+	// which triggers another write, which bumps generation again, this is a loop that
+	// increments metadata.generation on every reconcile loop.
+	//
+	// To break the loop: if a condition's Status, Reason, and Message are unchanged from
+	// what is already stored, keep the existing ObservedGeneration instead of overwriting it
+	// with the current (higher) generation. ObservedGeneration will still advance whenever
+	// the condition itself actually changes.
+	existing := host.GetV1Beta2Conditions()
+	existingByType := make(map[string]metav1.Condition, len(existing))
+	for _, c := range existing {
+		existingByType[c.Type] = c
+	}
+	for i := range conditions {
+		if ex, ok := existingByType[conditions[i].Type]; ok &&
+			conditions[i].Status == ex.Status &&
+			conditions[i].Reason == ex.Reason &&
+			conditions[i].Message == ex.Message {
+			conditions[i].ObservedGeneration = ex.ObservedGeneration
+		}
+	}
+	if host.Spec.Status.V1Beta2 == nil {
+		host.Spec.Status.V1Beta2 = &HetznerBareMetalHostV1Beta2Status{}
+	}
+	host.Spec.Status.V1Beta2.Conditions = conditions
+}
+
+// HetznerBareMetalHostV1Beta2SummaryOpts returns the v1beta2 summary options for a HetznerBareMetalHost.
+// It is the single source of truth for which conditions contribute to the Ready summary,
+// used both by the scope's Close() and by early-exit error paths that bypass the scope.
+//
+// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
+// when multiple conditions are unhealthy, the summary lists all of them in priority
+// order (highest-priority first). Credentials and provisioning problems must outrank
+// Deleting, since deletion may itself need credentials to succeed.
+//  1. RobotCredentialsAvailable - invalid Robot credentials block every Robot API call.
+//  2. ActionCompleted           - fatal permanent error requiring manual intervention.
+//  3. RobotRateLimitExceeded    - rate-limit issues (negative polarity).
+//  4. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
+//  5. RootDeviceHintsValidated  - device hints must validate before provisioning.
+//  6. ProvisionSucceeded        - provisioning state (rescue -> image -> OS).
+//  7. RebootSucceeded           - post-provision reboot via annotation.
+//  8. NodeBootIDRetrieved       - workload-cluster Node check after provisioning.
+//  9. Deleting                  - deletion state (negative polarity).
+func HetznerBareMetalHostV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
+	return []v1beta2conditions.SummaryOption{
+		// ForConditionTypes lists every condition that contributes to Ready, in
+		// priority order. When multiple conditions are unhealthy the summary
+		// surfaces them in this order, so the most important issue is listed first.
+		v1beta2conditions.ForConditionTypes{
+			HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+			HetznerBareMetalHostActionCompletedV1Beta2Condition,
+			HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+			HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+			HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+			HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			HetznerBareMetalHostRebootSucceededV1Beta2Condition,
+			HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
+			HetznerBareMetalHostDeletingV1Beta2Condition,
+		},
+		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
+		// listed condition as Unknown. Several reconcile paths exit before every
+		// condition has been set (for example, before Robot credentials are
+		// checked or before the host has been provisioned), and we don't want
+		// those early exits to flip Ready to Unknown.
+		v1beta2conditions.IgnoreTypesIfMissing{
+			HetznerBareMetalHostActionCompletedV1Beta2Condition,
+			HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+			HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+			HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			HetznerBareMetalHostRebootSucceededV1Beta2Condition,
+			HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
+			HetznerBareMetalHostDeletingV1Beta2Condition,
+			HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+		},
+		// CustomMergeStrategy is used only to override the merge reasons, so
+		// the Ready summary uses CAPI's standard Ready reasons (Ready /
+		// NotReady / ReadyUnknown) instead of the generic merge defaults
+		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
+		v1beta2conditions.CustomMergeStrategy{
+			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
+					// conditions with negative polarity
+					HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
+					HetznerBareMetalHostDeletingV1Beta2Condition,
+				)),
+				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(
+					clusterv1beta1.NotReadyV1Beta2Reason,
+					clusterv1beta1.ReadyUnknownV1Beta2Reason,
+					clusterv1beta1.ReadyV1Beta2Reason,
+				)),
+			),
+		},
+	}
 }
 
 // SSHStatus contains all status information about SSHStatus.
@@ -473,9 +611,15 @@ type HardwareDetails struct {
 }
 
 // HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
+//
+// The v1beta1 host stores its controller-generated status in spec.status, so this status subresource
+// carries no data. The v1beta2 shape moves that status into the real status subresource, a cross-field
+// move that conversion-gen cannot express, so the conversion is hand-written at the object level.
+// +k8s:conversion-gen=false
 type HetznerBareMetalHostStatus struct{}
 
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=hbmh
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".spec.status.provisioningState",description="Phase of provisioning"
@@ -588,12 +732,28 @@ func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string)
 	host.Spec.Status.ErrorType = errType
 	host.Spec.Status.ErrorMessage = errMessage
 	if errType == PermanentError {
+		// set the permanent error annotation.
 		if host.Annotations == nil {
 			host.Annotations = make(map[string]string, 1)
 		}
+
 		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
-		record.Warnf(host, "PermanentErrorSet", "Remove annotation %q, if you want the controller to use the hbmh again.",
-			PermanentErrorAnnotation)
+
+		message := fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
+			errMessage, PermanentErrorAnnotation)
+
+		record.Warn(host, "PermanentErrorSet", message)
+
+		// set the ActionCompleted condition to false with reason PermanentError.
+		v1beta1conditions.MarkFalse(host, ActionCompletedCondition,
+			ActionCompletedPermanentErrorReason, clusterv1beta1.ConditionSeverityError,
+			"%s", message)
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:    HetznerBareMetalHostActionCompletedV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason,
+			Message: message,
+		})
 	}
 }
 
@@ -607,6 +767,8 @@ func (host *HetznerBareMetalHost) ClearError() {
 		host.Spec.Status.ErrorMessage = ""
 	}
 	host.Spec.Status.ErrorCount = 0
+	v1beta1conditions.Delete(host, ActionCompletedCondition)
+	v1beta2conditions.Delete(host, HetznerBareMetalHostActionCompletedV1Beta2Condition)
 }
 
 // HasRebootAnnotation checks for the existence of reboot annotations and returns true if at least one exists.

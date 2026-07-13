@@ -24,11 +24,13 @@ import (
 	"slices"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/record"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -49,7 +51,7 @@ func NewService(scope *scope.ClusterScope) *Service {
 // Reconcile implements life cycle of networks.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
 	// delete the deprecated condition from existing cluster objects
-	v1beta1conditions.Delete(s.scope.HetznerCluster, infrav1.DeprecatedNetworkAttachedCondition)
+	deprecatedv1beta1conditions.Delete(s.scope.HetznerCluster, infrav2.DeprecatedNetworkAttachedV1Beta1Condition)
 
 	if !s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled {
 		return nil
@@ -57,14 +59,21 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 
 	defer func() {
 		if err != nil {
-			v1beta1conditions.MarkFalse(
+			deprecatedv1beta1conditions.MarkFalse(
 				s.scope.HetznerCluster,
-				infrav1.NetworkReadyCondition,
-				infrav1.NetworkReconcileFailedReason,
-				clusterv1beta1.ConditionSeverityWarning,
+				infrav2.NetworkReadyV1Beta1Condition,
+				infrav2.NetworkReconcileFailedV1Beta1Reason,
+				clusterv1.ConditionSeverityWarning,
 				"%s",
 				err.Error(),
 			)
+
+			conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+				Type:    infrav2.HetznerClusterNetworkReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav2.HetznerClusterNetworkReconcilingFailedReason,
+				Message: err.Error(),
+			})
 		}
 	}()
 
@@ -80,7 +89,14 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		}
 	}
 
-	v1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkReadyCondition)
+	deprecatedv1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav2.NetworkReadyV1Beta1Condition)
+
+	conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+		Type:   infrav2.HetznerClusterNetworkReadyCondition,
+		Status: metav1.ConditionTrue,
+		Reason: string(infrav2.HetznerClusterNetworkReadyReason),
+	})
+
 	s.scope.HetznerCluster.Status.Network = statusFromHCloudNetwork(network)
 
 	return nil
@@ -207,7 +223,7 @@ func (s *Service) findNetwork(ctx context.Context) (*hcloud.Network, error) {
 	return networks[0], nil
 }
 
-func statusFromHCloudNetwork(network *hcloud.Network) *infrav1.NetworkStatus {
+func statusFromHCloudNetwork(network *hcloud.Network) *infrav2.NetworkStatus {
 	attachedServerIDs := make([]int64, 0, len(network.Servers))
 	for _, s := range network.Servers {
 		attachedServerIDs = append(attachedServerIDs, s.ID)
@@ -216,7 +232,7 @@ func statusFromHCloudNetwork(network *hcloud.Network) *infrav1.NetworkStatus {
 	// deterministic order to avoid unnecessary updates to the HetznerCluster resource.
 	slices.Sort(attachedServerIDs)
 
-	return &infrav1.NetworkStatus{
+	return &infrav2.NetworkStatus{
 		ID:              network.ID,
 		Labels:          network.Labels,
 		AttachedServers: attachedServerIDs,
@@ -226,6 +242,6 @@ func statusFromHCloudNetwork(network *hcloud.Network) *infrav1.NetworkStatus {
 func (s *Service) labels() map[string]string {
 	clusterTagKey := s.scope.HetznerCluster.ClusterTagKey()
 	return map[string]string{
-		clusterTagKey: string(infrav1.ResourceLifecycleOwned),
+		clusterTagKey: string(infrav2.ResourceLifecycleOwned),
 	}
 }

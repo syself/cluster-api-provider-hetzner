@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 )
 
 const (
@@ -44,6 +45,17 @@ var errUnknownSuffix = errors.New("unknown suffix")
 
 // ImageType defines the accepted image types.
 type ImageType string
+
+// DeviceStringType controls what CAPH passes as the device argument to ImageURLCommand.
+// Allowed values are "" (same as "short"), "short", and "wwn".
+type DeviceStringType string
+
+const (
+	// DeviceStringTypeShort passes the short device name (e.g. "sda") to ImageURLCommand.
+	DeviceStringTypeShort DeviceStringType = "short"
+	// DeviceStringTypeWWN passes the WWN (e.g. "eui.00253885910c8cec") to ImageURLCommand.
+	DeviceStringTypeWWN DeviceStringType = "wwn"
+)
 
 const (
 	// ImageTypeTar defines the image type for tar files.
@@ -86,6 +98,11 @@ type HetznerBareMetalMachineSpec struct {
 
 	// SSHSpec gives a reference on the secret where SSH details are specified as well as ports for SSH.
 	SSHSpec SSHSpec `json:"sshSpec,omitempty"`
+
+	// SkipCheckDisk skips the CheckDisk step during provisioning.
+	// This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
+	// +optional
+	SkipCheckDisk bool `json:"skipCheckDisk,omitempty"`
 }
 
 // HostSelector specifies matching criteria for labels on BareMetalHosts.
@@ -169,10 +186,17 @@ type InstallImage struct {
 	// Docs: https://syself.com/docs/caph/developers/image-url-command
 	//
 	// ImageURLCommand must be set if the machine should be provisioned from Image.URL without
-	// installimage. The command name must start with image-url-command-.
+	// installimage.
 	// +kubebuilder:validation:Optional
 	// +optional
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`
+
+	// DeviceStringType instructs CAPH to either use the short device name, or the WWN when calling
+	// ImageURLCommand. It is not used when ImageURLCommand is not set. "" and "short" both pass
+	// the short device name (e.g. "sda"); "wwn" passes the WWN (e.g. "eui.00253885910c8cec").
+	// +kubebuilder:validation:Enum="";short;wwn
+	// +optional
+	DeviceStringType DeviceStringType `json:"deviceStringType,omitempty"`
 
 	// PostInstallScript (Bash) is used for configuring commands that should be executed after installimage.
 	// It is passed along with the installimage command.
@@ -309,6 +333,12 @@ type LVMDefinition struct {
 }
 
 // HetznerBareMetalMachineStatus defines the observed state of HetznerBareMetalMachine.
+//
+// The v1beta2 HetznerBareMetalMachineStatus has its final API shape (status.conditions as
+// []metav1.Condition, status.initialization, status.deprecated.v1beta1.conditions), which does not
+// map field-for-field onto this v1beta1 status. conversion-gen cannot express that mapping, so it is
+// skipped here and the conversion is hand written in conversion.go.
+// +k8s:conversion-gen=false
 type HetznerBareMetalMachineStatus struct {
 	// LastUpdated identifies when this status was last observed.
 	// +optional
@@ -345,6 +375,26 @@ type HetznerBareMetalMachineStatus struct {
 	// Conditions define the current service state of the HetznerBareMetalMachine.
 	// +optional
 	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
+
+	// v1beta2 groups all the fields that will be added or modified in HetznerBareMetalMachine's status with the V1Beta2 version.
+	// +optional
+	V1Beta2 *HetznerBareMetalMachineV1Beta2Status `json:"v1beta2,omitempty"`
+
+	// LastRemediatedAt records when the most recent successful remediation completed.
+	// Used to prevent reboot loops across successive MHC incidents.
+	// +optional
+	LastRemediatedAt *metav1.Time `json:"lastRemediatedAt,omitempty"`
+}
+
+// HetznerBareMetalMachineV1Beta2Status groups all the fields that will be added or modified in HetznerBareMetalMachine with the V1Beta2 version.
+type HetznerBareMetalMachineV1Beta2Status struct {
+	// conditions represents the observations of a HetznerBareMetalMachine's current state.
+	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady and ServerAvailable.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
@@ -378,6 +428,88 @@ func (hbmm *HetznerBareMetalMachine) GetConditions() clusterv1beta1.Conditions {
 // SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1beta1.Conditions.
 func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1beta1.Conditions) {
 	hbmm.Status.Conditions = conditions
+}
+
+// GetV1Beta2Conditions returns the list of conditions for a HetznerBareMetalMachine API object.
+func (hbmm *HetznerBareMetalMachine) GetV1Beta2Conditions() []metav1.Condition {
+	if hbmm.Status.V1Beta2 == nil {
+		return nil
+	}
+	return hbmm.Status.V1Beta2.Conditions
+}
+
+// SetV1Beta2Conditions sets conditions for a HetznerBareMetalMachine API object.
+func (hbmm *HetznerBareMetalMachine) SetV1Beta2Conditions(conditions []metav1.Condition) {
+	if hbmm.Status.V1Beta2 == nil {
+		hbmm.Status.V1Beta2 = &HetznerBareMetalMachineV1Beta2Status{}
+	}
+	hbmm.Status.V1Beta2.Conditions = conditions
+}
+
+// HetznerBareMetalMachineV1Beta2SummaryOpts returns the v1beta2 summary options for a HetznerBareMetalMachine.
+// It is the single source of truth for which conditions contribute to the Ready summary,
+// used both by BareMetalMachineScope.Close() and by early-exit error paths that bypass the scope.
+//
+// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
+// when multiple conditions are unhealthy, the summary lists all of them in priority
+// order (highest-priority first). The ordering reflects operational importance:
+//  1. HCloudTokenAvailable - invalid credentials block everything.
+//  2. HostAssociated       - host association precedes host readiness; bootstrap readiness is folded in as a reason.
+//  3. Deleting             - deletion progress, which should be surfaced before host readiness.
+//  4. HostReady            - underlying HetznerBareMetalHost readiness.
+//  5. ServerAvailable      - the bare metal machine is fully available; for control planes this is also gated on load balancer attachment.
+func HetznerBareMetalMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
+	return []v1beta2conditions.SummaryOption{
+		// ForConditionTypes lists every condition that contributes to Ready, in
+		// priority order. When multiple conditions are unhealthy the summary
+		// surfaces them in this order, so the most important issue is listed first.
+		v1beta2conditions.ForConditionTypes{
+			HCloudTokenAvailableV1Beta2Condition,
+			HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+			HetznerBareMetalMachineDeletingV1Beta2Condition,
+			HetznerBareMetalMachineHostReadyV1Beta2Condition,
+			HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+		},
+		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
+		// listed condition as Unknown. Some reconcile paths exit before every
+		// condition has been set (for example, before the token is checked or
+		// before a host is associated), and we don't want those early exits to
+		// flip Ready to Unknown.
+		v1beta2conditions.IgnoreTypesIfMissing{
+			HCloudTokenAvailableV1Beta2Condition,
+			HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+			HetznerBareMetalMachineDeletingV1Beta2Condition,
+			HetznerBareMetalMachineHostReadyV1Beta2Condition,
+			HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+		},
+		// CustomMergeStrategy is used only to override the merge reasons, so
+		// the Ready summary uses CAPI's standard Ready reasons (Ready /
+		// NotReady / ReadyUnknown) instead of the generic merge defaults
+		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
+		v1beta2conditions.CustomMergeStrategy{
+			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				v1beta2conditions.GetPriorityFunc(
+					v1beta2conditions.GetDefaultMergePriorityFunc(
+						// conditions with negative polarity
+						HetznerBareMetalMachineDeletingV1Beta2Condition,
+					),
+				),
+				v1beta2conditions.ComputeReasonFunc(
+					v1beta2conditions.GetDefaultComputeMergeReasonFunc(
+						clusterv1beta1.NotReadyV1Beta2Reason,
+						clusterv1beta1.ReadyUnknownV1Beta2Reason,
+						clusterv1beta1.ReadyV1Beta2Reason,
+					),
+				),
+			),
+		},
+	}
 }
 
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.

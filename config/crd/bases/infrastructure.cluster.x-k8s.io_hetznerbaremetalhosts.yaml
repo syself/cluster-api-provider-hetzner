@@ -369,6 +369,16 @@ spec:
                           - volume
                           type: object
                         type: array
+                      deviceStringType:
+                        description: |-
+                          DeviceStringType instructs CAPH to either use the short device name, or the WWN when calling
+                          ImageURLCommand. It is not used when ImageURLCommand is not set. "" and "short" both pass
+                          the short device name (e.g. "sda"); "wwn" passes the WWN (e.g. "eui.00253885910c8cec").
+                        enum:
+                        - ""
+                        - short
+                        - wwn
+                        type: string
                       image:
                         description: Image is the image to be provisioned. It defines
                           the image for baremetal machine.
@@ -396,7 +406,7 @@ spec:
                           Docs: https://syself.com/docs/caph/developers/image-url-command
 
                           ImageURLCommand must be set if the machine should be provisioned from Image.URL without
-                          installimage. The command name must start with image-url-command-.
+                          installimage.
                         type: string
                       logicalVolumeDefinitions:
                         description: LVMDefinitions defines the logical volume definitions
@@ -681,6 +691,76 @@ spec:
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
+                  v1beta2:
+                    description: v1beta2 groups all the fields that will be added
+                      or modified in HetznerBareMetalHost's status with the V1Beta2
+                      version.
+                    properties:
+                      conditions:
+                        description: |-
+                          conditions represents the observations of a HetznerBareMetalHost's current state.
+                          Known condition types are Ready, CredentialsAvailable, RobotCredentialsAvailable, RootDeviceHintsValidated, ProvisionSucceeded, Deleting, RobotRateLimitExceeded.
+                        items:
+                          description: Condition contains details for one aspect of
+                            the current state of this API Resource.
+                          properties:
+                            lastTransitionTime:
+                              description: |-
+                                lastTransitionTime is the last time the condition transitioned from one status to another.
+                                This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                              format: date-time
+                              type: string
+                            message:
+                              description: |-
+                                message is a human readable message indicating details about the transition.
+                                This may be an empty string.
+                              maxLength: 32768
+                              type: string
+                            observedGeneration:
+                              description: |-
+                                observedGeneration represents the .metadata.generation that the condition was set based upon.
+                                For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                                with respect to the current state of the instance.
+                              format: int64
+                              minimum: 0
+                              type: integer
+                            reason:
+                              description: |-
+                                reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                                Producers of specific condition types may define expected values and meanings for this field,
+                                and whether the values are considered a guaranteed API.
+                                The value should be a CamelCase string.
+                                This field may not be empty.
+                              maxLength: 1024
+                              minLength: 1
+                              pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                              type: string
+                            status:
+                              description: status of the condition, one of True, False,
+                                Unknown.
+                              enum:
+                              - "True"
+                              - "False"
+                              - Unknown
+                              type: string
+                            type:
+                              description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                              maxLength: 316
+                              pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                              type: string
+                          required:
+                          - lastTransitionTime
+                          - message
+                          - reason
+                          - status
+                          - type
+                          type: object
+                        maxItems: 32
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - type
+                        x-kubernetes-list-type: map
+                    type: object
                 required:
                 - errorCount
                 - hetznerClusterRef
@@ -689,11 +769,519 @@ spec:
             - serverID
             type: object
           status:
-            description: HetznerBareMetalHostStatus defines the observed state of
-              HetznerBareMetalHost.
+            description: |-
+              HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
+
+              The v1beta1 host stores its controller-generated status in spec.status, so this status subresource
+              carries no data. The v1beta2 shape moves that status into the real status subresource, a cross-field
+              move that conversion-gen cannot express, so the conversion is hand-written at the object level.
             type: object
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - description: Phase of provisioning
+      jsonPath: .status.provisioningState
+      name: Phase
+      type: string
+    - description: HetznerBareMetalMachine using this host
+      jsonPath: .spec.consumerRef.name
+      name: HetznerBareMetalMachine
+      type: string
+    - description: Maintenance Mode
+      jsonPath: .spec.maintenanceMode
+      name: Maintenance
+      type: boolean
+    - description: HetznerBareMetalHost is ready
+      jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
+    - description: Time duration since creation of BaremetalHost
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - description: IPv4 of the host
+      jsonPath: .status.ipv4
+      name: IPv4
+      priority: 1
+      type: string
+    - description: IPv6 of the host
+      jsonPath: .status.ipv6
+      name: IPv6
+      priority: 1
+      type: string
+    - description: CPU threads
+      jsonPath: .status.hardwareDetails.cpu.threads
+      name: CPU
+      priority: 1
+      type: string
+    - description: RAM in GB
+      jsonPath: .status.hardwareDetails.ramGB
+      name: RAM
+      priority: 1
+      type: string
+    - description: Server ID of the host
+      jsonPath: .spec.serverID
+      name: Server ID
+      priority: 1
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=='Ready')].reason
+      name: Reason
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].message
+      name: Message
+      priority: 1
+      type: string
+    name: v1beta2
+    schema:
+      openAPIV3Schema:
+        description: HetznerBareMetalHost is the Schema for the hetznerbaremetalhosts
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
+            properties:
+              consumerRef:
+                description: |-
+                  ConsumerRef is a reference to the HetznerBareMetalMachine
+                  that is using this host. When it is not empty, the host is considered "in use".
+                properties:
+                  apiGroup:
+                    description: APIGroup is the group of the resource being referenced.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  kind:
+                    description: Kind is the kind of the resource being referenced.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: Name is the name of the resource being referenced.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - apiGroup
+                - kind
+                - name
+                type: object
+              description:
+                description: |-
+                  Description is a human-entered text used to help identify the host.
+                  It can be used to store some valuable information about the host.
+                type: string
+              maintenanceMode:
+                description: |-
+                  MaintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
+                  will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
+                  machine. Additionally, the host won't be selected by any Hetzner bare metal machine.
+                type: boolean
+              rootDeviceHints:
+                description: |-
+                  RootDeviceHints provides guidance about how to choose the device for the image
+                  being provisioned. They need to be specified to provision the host.
+                properties:
+                  raid:
+                    description: |-
+                      Raid is used to specify multiple storage devices. It provides the controller with information
+                      on which disks a raid can be established.
+                    properties:
+                      wwn:
+                        description: WWN defines a list of unique storage identifiers
+                          used for raid setups.
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  wwn:
+                    description: |-
+                      WWN is a unique storage identifier used for non-raid setups. The hint
+                      must match the actual value exactly.
+                    type: string
+                type: object
+              serverID:
+                description: |-
+                  ServerID defines the ID of the server provided by Hetzner.
+                  Find it on your Hetzner robot dashboard.
+                type: integer
+            required:
+            - serverID
+            type: object
+          status:
+            description: HetznerBareMetalHostStatus defines the observed state of
+              HetznerBareMetalHost.
+            properties:
+              conditions:
+                description: |-
+                  conditions represents the observations of a HetznerBareMetalHost's current state.
+                  Known condition types are Ready, SSHKeysAvailable, RobotCredentialsAvailable, RootDeviceHintsValidated, ProvisionSucceeded, NodeBootIDRetrieved, RebootSucceeded, Deleting, RobotRateLimitExceeded, ActionCompleted.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              deprecated:
+                description: deprecated groups all the status fields that are deprecated
+                  and will be removed when support for v1beta1 will be dropped.
+                properties:
+                  v1beta1:
+                    description: v1beta1 groups all the status fields that are deprecated
+                      and will be removed when support for v1beta1 will be dropped.
+                    properties:
+                      conditions:
+                        description: |-
+                          conditions define the current service state of the HetznerBareMetalHost.
+
+                          Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
+                        items:
+                          description: |-
+                            Condition defines an observation of a Cluster API resource operational state.
+
+                            Deprecated: This type is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
+                          properties:
+                            lastTransitionTime:
+                              description: |-
+                                lastTransitionTime is the last time the condition transitioned from one status to another.
+                                This should be when the underlying condition changed. If that is not known, then using the time when
+                                the API field changed is acceptable.
+                              format: date-time
+                              type: string
+                            message:
+                              description: |-
+                                message is a human readable message indicating details about the transition.
+                                This field may be empty.
+                              maxLength: 10240
+                              minLength: 1
+                              type: string
+                            reason:
+                              description: |-
+                                reason is the reason for the condition's last transition in CamelCase.
+                                The specific API may choose whether or not this field is considered a guaranteed API.
+                                This field may be empty.
+                              maxLength: 256
+                              minLength: 1
+                              type: string
+                            severity:
+                              description: |-
+                                severity provides an explicit classification of Reason code, so the users or machines can immediately
+                                understand the current situation and act accordingly.
+                                The Severity field MUST be set only when Status=False.
+                              maxLength: 32
+                              type: string
+                            status:
+                              description: status of the condition, one of True, False,
+                                Unknown.
+                              type: string
+                            type:
+                              description: |-
+                                type of condition in CamelCase or in foo.example.com/CamelCase.
+                                Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                                can be useful (see .node.status.conditions), the ability to deconflict is important.
+                              maxLength: 256
+                              minLength: 1
+                              type: string
+                          required:
+                          - lastTransitionTime
+                          - status
+                          - type
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - type
+                        x-kubernetes-list-type: map
+                    type: object
+                type: object
+              errorType:
+                description: errorType indicates the type of failure encountered.
+                type: string
+              hardwareDetails:
+                description: hardwareDetails are automatically gathered and should
+                  not be modified by the user.
+                properties:
+                  cpu:
+                    description: CPU describes one processor on the host.
+                    properties:
+                      arch:
+                        type: string
+                      clockGigahertz:
+                        description: ClockSpeed is a clock speed in MHz
+                        format: double
+                        type: string
+                      cores:
+                        type: integer
+                      model:
+                        type: string
+                      threads:
+                        type: integer
+                    type: object
+                  nics:
+                    items:
+                      description: NIC describes one network interface on the host.
+                      properties:
+                        ip:
+                          description: |-
+                            The IP address of the interface. This will be an IPv4 or IPv6 address
+                            if one is present.  If both IPv4 and IPv6 addresses are present in a
+                            dual-stack environment, two nics will be output, one with each IP.
+                          type: string
+                        mac:
+                          description: The device MAC address
+                          pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+                          type: string
+                        model:
+                          description: The vendor and product IDs of the NIC, e.g.
+                            "0x8086 0x1572"
+                          type: string
+                        name:
+                          description: The name of the network interface, e.g. "en0"
+                          type: string
+                        speedMbps:
+                          description: The speed of the device in Gigabits per second
+                          type: integer
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  ramGB:
+                    type: integer
+                  storage:
+                    items:
+                      description: Storage describes one storage device (disk, SSD,
+                        etc.) on the host.
+                      properties:
+                        hctl:
+                          description: HCTL defines the SCSI location of the device.
+                          type: string
+                        model:
+                          description: Model represents the Hardware model.
+                          type: string
+                        name:
+                          description: |-
+                            The Linux device name of the disk, e.g. "/dev/sda". Note that this
+                            may not be stable across reboots.
+                          type: string
+                        rota:
+                          description: Rota defines if it's an HDD device or not.
+                          type: boolean
+                        serialNumber:
+                          description: SerialNumber denotes the serial number of the
+                            device.
+                          type: string
+                        sizeBytes:
+                          description: SizeBytes is the size of the disk in Bytes.
+                          format: int64
+                          type: integer
+                        sizeGB:
+                          description: SizeGB is the size of the disk in GB.
+                          format: int64
+                          type: integer
+                        vendor:
+                          description: Vendor is the name of the vendor of the device.
+                          type: string
+                        wwn:
+                          description: WWN defines the WWN of the device.
+                          type: string
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                type: object
+              ipv4:
+                description: ipv4 address of the server.
+                type: string
+              ipv6:
+                description: ipv6 address of the server.
+                type: string
+              nodeBootID:
+                description: nodeBootID reflects the BootID of the corresponding Node
+                  resource in the workload-cluster.
+                type: string
+              provisioningState:
+                description: provisioningState is the current state tracked by the
+                  provisioner.
+                type: string
+              rebootTriggeredAt:
+                description: rebootTriggeredAt is the timestamp when the reboot was
+                  initiated.
+                format: date-time
+                type: string
+              rebootTypes:
+                description: rebootTypes is a list of all available reboot types for
+                  API reboots.
+                items:
+                  description: RebootType defines the reboot type of servers via Hetzner
+                    robot API.
+                  type: string
+                type: array
+                x-kubernetes-list-type: atomic
+              rebooted:
+                description: rebooted shows whether the server is currently being
+                  rebooted.
+                type: boolean
+              sshStatus:
+                description: sshStatus contains the name and fingerprint of the SSH
+                  keys that have been used.
+                properties:
+                  currentOS:
+                    description: CurrentOS gives information about the secret where
+                      the os ssh key is stored.
+                    properties:
+                      credentials:
+                        description: |-
+                          SecretReference represents a Secret Reference. It has enough information to retrieve secret
+                          in any namespace
+                        properties:
+                          name:
+                            description: name is unique within a namespace to reference
+                              a secret resource.
+                            type: string
+                          namespace:
+                            description: namespace defines the space within which
+                              the secret name must be unique.
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      credentialsDataHash:
+                        format: byte
+                        type: string
+                      credentialsVersion:
+                        type: string
+                    type: object
+                  currentRescue:
+                    description: CurrentRescue gives information about the secret
+                      where the rescue ssh key is stored.
+                    properties:
+                      credentials:
+                        description: |-
+                          SecretReference represents a Secret Reference. It has enough information to retrieve secret
+                          in any namespace
+                        properties:
+                          name:
+                            description: name is unique within a namespace to reference
+                              a secret resource.
+                            type: string
+                          namespace:
+                            description: namespace defines the space within which
+                              the secret name must be unique.
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      credentialsDataHash:
+                        format: byte
+                        type: string
+                      credentialsVersion:
+                        type: string
+                    type: object
+                  osKey:
+                    description: OSKey contains name and fingerprint of the in HetznerBareMetalMachine
+                      spec specified SSH key.
+                    properties:
+                      fingerprint:
+                        description: Fingerprint defines the fingerprint of the SSH
+                          key - added by the controller.
+                        type: string
+                      name:
+                        description: Name defines the name of the SSH key.
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  rescueKey:
+                    description: RescueKey contains name and fingerprint of the in
+                      HetznerCluster spec specified SSH key.
+                    properties:
+                      fingerprint:
+                        description: Fingerprint defines the fingerprint of the SSH
+                          key - added by the controller.
+                        type: string
+                      name:
+                        description: Name defines the name of the SSH key.
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: false
     subresources:
       status: {}

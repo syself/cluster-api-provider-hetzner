@@ -76,6 +76,28 @@ spec:
                 description: Strategy field defines the remediation strategy to be
                   applied.
                 properties:
+                  cooldown:
+                    default: 30m
+                    description: |-
+                      Cooldown is the minimum time between successive remediations of the same
+                      machine. If a new remediation starts within this window of the previous
+                      successful one, the reboot is skipped and the machine is deleted.
+                      Set to 0s to disable the guard.
+                    type: string
+                    x-kubernetes-validations:
+                    - message: cooldown must be non-negative
+                      rule: duration(self) >= duration('0s')
+                  onExhaustion:
+                    description: |-
+                      OnExhaustion selects what happens when remediation runs out of retries and
+                      the node is still unhealthy. Reuse deletes the machine and frees the host to be
+                      provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
+                      error on the host, which deletes the machine and keeps the host out of the pool
+                      until a human removes the capi.syself.com/permanent-error annotation.
+                    enum:
+                    - Reuse
+                    - Retire
+                    type: string
                   retryLimit:
                     description: RetryLimit sets the maximum number of remediation
                       retries. Zero retries if not set.
@@ -94,8 +116,10 @@ spec:
                 type: object
             type: object
           status:
-            description: HetznerBareMetalRemediationStatus defines the observed state
-              of HetznerBareMetalRemediation.
+            description: |-
+              HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation.
+              The v1beta2 status reshapes the retryCount and lastRemediated fields, so conversion is
+              hand-written in conversion.go instead of generated.
             properties:
               lastRemediated:
                 description: LastRemediated identifies when the host was last remediated
@@ -115,5 +139,142 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - description: Phase of the remediation
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    - description: Time duration since creation of the remediation
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - description: Type of the remediation strategy
+      jsonPath: .spec.strategy.type
+      name: Strategy
+      priority: 1
+      type: string
+    - description: How many times remediation controller should attempt to remediate
+        the host
+      jsonPath: .spec.strategy.retryLimit
+      name: Retry limit
+      priority: 1
+      type: string
+    - description: Timeout for the remediation
+      jsonPath: .spec.strategy.timeoutSeconds
+      name: Timeout
+      priority: 1
+      type: string
+    - description: Timestamp of the last remediation attempt
+      jsonPath: .status.lastRemediated
+      name: Last Remediated
+      priority: 1
+      type: string
+    - description: How many times remediation controller has tried to remediate the
+        node
+      jsonPath: .status.retryCount
+      name: Retry count
+      priority: 1
+      type: string
+    name: v1beta2
+    schema:
+      openAPIV3Schema:
+        description: HetznerBareMetalRemediation is the Schema for the hetznerbaremetalremediations
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HetznerBareMetalRemediationSpec defines the desired state
+              of HetznerBareMetalRemediation.
+            properties:
+              strategy:
+                description: Strategy field defines the remediation strategy to be
+                  applied.
+                properties:
+                  cooldownSeconds:
+                    default: 1800
+                    description: |-
+                      CooldownSeconds is the minimum time, in seconds, between successive
+                      remediations of the same machine. If a new remediation starts within this
+                      window of the previous successful one, the reboot is skipped and the
+                      machine is deleted. An explicit 0 disables the guard and is distinct from an
+                      absent value, which defaults to 1800 (30m).
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  onExhaustion:
+                    description: |-
+                      OnExhaustion selects what happens when remediation runs out of retries and
+                      the node is still unhealthy. Reuse deletes the machine and frees the host to be
+                      provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
+                      error on the host, which deletes the machine and keeps the host out of the pool
+                      until a human removes the capi.syself.com/permanent-error annotation.
+                    enum:
+                    - Reuse
+                    - Retire
+                    type: string
+                  retryLimit:
+                    description: RetryLimit sets the maximum number of remediation
+                      retries. Zero retries if not set.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  timeoutSeconds:
+                    description: TimeoutSeconds sets the timeout, in seconds, between
+                      remediation retries.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  type:
+                    default: Reboot
+                    description: Type represents the type of the remediation strategy.
+                      At the moment, only "Reboot" is supported.
+                    type: string
+                required:
+                - timeoutSeconds
+                type: object
+            type: object
+          status:
+            description: HetznerBareMetalRemediationStatus defines the observed state
+              of HetznerBareMetalRemediation.
+            properties:
+              lastRemediated:
+                description: |-
+                  LastRemediated identifies when the host was last remediated.
+                  A zero value is treated as absent.
+                format: date-time
+                type: string
+              phase:
+                description: |-
+                  Phase represents the current phase of machine remediation.
+                  E.g. Running, Waiting, Deleting machine, Succeeded.
+                type: string
+              retryCount:
+                description: |-
+                  RetryCount records how many times the remediation controller has tried to
+                  remediate the node, for example the number of reboots.
+                format: int32
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: false
     subresources:
       status: {}
