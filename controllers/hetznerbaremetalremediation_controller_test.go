@@ -171,10 +171,12 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 				},
 			},
 			Spec: infrav1.HetznerBareMetalRemediationSpec{
-				Strategy: &infrav1.RemediationStrategy{
-					Type:       "Reboot",
-					RetryLimit: 1,
-					Timeout:    &metav1.Duration{Duration: 1 * time.Second},
+				Strategy: &infrav1.BareMetalRemediationStrategy{
+					RemediationStrategy: infrav1.RemediationStrategy{
+						Type:       "Reboot",
+						RetryLimit: 1,
+						Timeout:    &metav1.Duration{Duration: 1 * time.Second},
+					},
 				},
 			},
 		}
@@ -380,6 +382,32 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						return hetznerBareMetalRemediation.Status.Phase == infrav1.PhaseDeleting &&
 							isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
 					}, timeout).Should(BeTrue())
+				})
+
+				It("does no reboot and deletes the machine when retryLimit is 0", func() {
+					By("creating hetznerBareMetalRemediation object with retryLimit 0")
+					hetznerBareMetalRemediation.Spec.Strategy.RetryLimit = 0
+					Expect(testEnv.Create(ctx, hetznerBareMetalRemediation)).To(Succeed())
+
+					By("checking that no reboot happened and the machine is handed to CAPI for deletion")
+					Eventually(func() error {
+						if err := testEnv.Get(ctx, hetznerBaremetalRemediationkey, hetznerBareMetalRemediation); err != nil {
+							return err
+						}
+						if hetznerBareMetalRemediation.Status.RetryCount != 0 {
+							return fmt.Errorf("expected RetryCount 0, got %d", hetznerBareMetalRemediation.Status.RetryCount)
+						}
+						if hetznerBareMetalRemediation.Status.LastRemediated != nil {
+							return fmt.Errorf("expected LastRemediated to be nil")
+						}
+						if hetznerBareMetalRemediation.Status.Phase != infrav1.PhaseDeleting {
+							return fmt.Errorf("expected Phase %q, got %q", infrav1.PhaseDeleting, hetznerBareMetalRemediation.Status.Phase)
+						}
+						if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
+							return fmt.Errorf("MachineOwnerRemediatedCondition not set")
+						}
+						return nil
+					}, timeout).ShouldNot(HaveOccurred())
 				})
 			})
 		})

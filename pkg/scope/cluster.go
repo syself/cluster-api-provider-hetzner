@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -266,4 +267,50 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 
 	_, err = clientSet.Discovery().RESTClient().Get().AbsPath("/readyz").DoRaw(ctx)
 	return err
+}
+
+// AllControlPlaneNodesReadyForProxyProtocol returns true when every control-plane node
+// in the workload cluster carries the annotation
+// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true".
+// Returns false (no error) when the workload cluster has no control-plane nodes yet.
+func (s *ClusterScope) AllControlPlaneNodesReadyForProxyProtocol(ctx context.Context) (bool, error) {
+	wlClientConfig, err := s.ClientConfig(ctx)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			s.V(1).Info("proxy protocol: kubeconfig secret not found, cluster not yet provisioned")
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to get workload cluster client config: %w", err)
+	}
+	if err := IsControlPlaneReady(ctx, wlClientConfig); err != nil {
+		return false, fmt.Errorf("workload cluster control plane not ready: %w", err)
+	}
+
+	restConfig, err := wlClientConfig.ClientConfig()
+	if err != nil {
+		return false, fmt.Errorf("failed to get workload cluster rest config: %w", err)
+	}
+	wlClient, err := client.New(restConfig, client.Options{})
+	if err != nil {
+		return false, fmt.Errorf("failed to create workload cluster client: %w", err)
+	}
+
+	nodeList := &corev1.NodeList{}
+	if err := wlClient.List(ctx, nodeList, client.MatchingLabels{clusterv1.NodeRoleLabelPrefix + "/control-plane": ""}); err != nil {
+		return false, fmt.Errorf("failed to list control-plane nodes in workload cluster: %w", err)
+	}
+
+	if len(nodeList.Items) == 0 {
+		s.V(1).Info("proxy protocol: no control-plane nodes found")
+		return false, nil
+	}
+	for _, node := range nodeList.Items {
+		if node.Annotations[infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
+			s.V(1).Info("proxy protocol: node missing annotation",
+				"node", node.Name,
+				"annotation", infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation)
+			return false, nil
+		}
+	}
+	return true, nil
 }

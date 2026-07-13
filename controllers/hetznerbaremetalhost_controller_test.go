@@ -33,7 +33,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -1085,8 +1088,8 @@ name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express
 	sshClient.On("GetResultOfInstallImage", mock.Anything).Return(hostpkg.PostInstallScriptFinished, nil)
 }
 
-func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
-	// PermanentError with annotation --> Error should not get removed
+func Test_removePermanentErrorIfAnnotationIsGone_AnnotationPresent(t *testing.T) {
+	// PermanentError with annotation still present: Error should not get removed.
 	bmHost := infrav1.HetznerBareMetalHost{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
@@ -1107,9 +1110,12 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorType)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorCount)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorMessage)
+	require.Contains(t, bmHost.Annotations, infrav1.PermanentErrorAnnotation)
+}
 
-	// PermanentError without annotation --> Error should get removed
-	bmHost = infrav1.HetznerBareMetalHost{
+func Test_removePermanentErrorIfAnnotationIsGone_AnnotationRemoved(t *testing.T) {
+	// PermanentError with annotation removed: Error and both old- and new-style conditions should get removed.
+	bmHost := infrav1.HetznerBareMetalHost{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
@@ -1121,18 +1127,40 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 				ErrorType:    infrav1.PermanentError,
 				ErrorCount:   1,
 				ErrorMessage: "my err",
+				Conditions: clusterv1beta1.Conditions{
+					{
+						Type:    infrav1.ActionCompletedCondition,
+						Status:  corev1.ConditionFalse,
+						Reason:  infrav1.ActionCompletedPermanentErrorReason,
+						Message: "my err",
+					},
+				},
+				V1Beta2: &infrav1.HetznerBareMetalHostV1Beta2Status{
+					Conditions: []metav1.Condition{
+						{
+							Type:    infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition,
+							Status:  metav1.ConditionFalse,
+							Reason:  infrav1.HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason,
+							Message: "my err",
+						},
+					},
+				},
 			},
 		},
 	}
-	removed = removePermanentErrorIfAnnotationIsGone(&bmHost)
+	removed := removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.True(t, removed)
 	require.Empty(t, bmHost.Spec.Status.ErrorType)
 	require.Empty(t, bmHost.Spec.Status.ErrorCount)
 	require.Empty(t, bmHost.Spec.Status.ErrorMessage)
 	require.Equal(t, map[string]string{"other-annotation": "some value"}, bmHost.Annotations)
+	require.Nil(t, v1beta1conditions.Get(&bmHost, infrav1.ActionCompletedCondition))
+	require.Nil(t, v1beta2conditions.Get(&bmHost, infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition))
+}
 
-	// Other Error without annotation --> Error should not get removed
-	bmHost = infrav1.HetznerBareMetalHost{
+func Test_removePermanentErrorIfAnnotationIsGone_NonPermanentError(t *testing.T) {
+	// Other error type: Error should not get removed (guarded on PermanentError).
+	bmHost := infrav1.HetznerBareMetalHost{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{},
@@ -1145,7 +1173,7 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 			},
 		},
 	}
-	removed = removePermanentErrorIfAnnotationIsGone(&bmHost)
+	removed := removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorType)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorCount)

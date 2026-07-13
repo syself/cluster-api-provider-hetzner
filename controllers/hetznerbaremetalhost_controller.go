@@ -606,6 +606,8 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 	return nil
 }
 
+// removePermanentErrorIfAnnotationIsGone clears the permanent error status once the user removes
+// the permanent-error annotation.
 func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost,
 ) (removed bool) {
 	if bmHost.Spec.Status.ErrorType != infrav1.PermanentError {
@@ -618,9 +620,12 @@ func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost
 			return false
 		}
 	}
+
 	bmHost.Spec.Status.ErrorType = ""
 	bmHost.Spec.Status.ErrorMessage = ""
 	bmHost.Spec.Status.ErrorCount = 0
+	v1beta1conditions.Delete(bmHost, infrav1.ActionCompletedCondition)
+	v1beta2conditions.Delete(bmHost, infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition)
 	record.Eventf(bmHost, "PermanentErrorWasRemoved", "The permanent error was removed, because the annotation %q was removed",
 		infrav1.PermanentErrorAnnotation)
 	return true
