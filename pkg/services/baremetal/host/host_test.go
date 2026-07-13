@@ -1585,6 +1585,29 @@ var _ = Describe("actionRegistering", func() {
 			expectedErrorType: infrav1.ErrorTypeConnectionError,
 		}),
 	)
+
+	It("sets a fatal error when the reboot into rescue times out", func() {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithError(infrav1.ErrorTypeHardwareRebootTriggered, "", 1),
+			helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Hour))),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: timeout})
+
+		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		actResult := service.actionRegistering(ctx)
+
+		Expect(actResult).To(BeAssignableToTypeOf(actionFailed{}))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.FatalError))
+		Expect(host.Spec.Status.ErrorMessage).To(ContainSubstring("hardware reboot (to rescue mode) timed out"))
+	})
 })
 
 func registeringSSHMock(storageStdOut string) *sshmock.Client {
@@ -1899,6 +1922,32 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			},
 		),
 	)
+
+	It("sets a fatal error when the reboot into the OS times out", func() {
+		ctx := context.Background()
+		portAfterInstallImage := 24
+
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(portAfterInstallImage),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithError(infrav1.ErrorTypeHardwareRebootTriggered, "", 1),
+			helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Hour))),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: timeout})
+
+		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+
+		actResult := service.actionEnsureProvisioned(ctx)
+
+		Expect(actResult).To(BeAssignableToTypeOf(actionFailed{}))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.FatalError))
+		Expect(host.Spec.Status.ErrorMessage).To(ContainSubstring("hardware reboot (to node) timed out"))
+	})
 })
 
 var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
