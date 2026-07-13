@@ -314,6 +314,39 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
+	// A server with matching labels can already exist here even though ProviderID is unset:
+	// a previous reconcile may have created the HCloud server successfully but lost the
+	// update that would have persisted ProviderID/BootState (e.g. an API server conflict or a
+	// controller restart between CreateServer and Close()). Without this check we would retry
+	// CreateServer with the same deterministic name forever and fail every time with a
+	// name-uniqueness error.
+	existingServer, err := s.findServerByLabels(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("findServerByLabels: %w", err)
+	}
+	if existingServer != nil {
+		s.scope.Info("found existing HCloud server with matching labels, adopting it instead of creating a duplicate",
+			"serverID", existingServer.ID, "serverName", existingServer.Name)
+		updateHCloudMachineStatusFromServer(hm, existingServer)
+		s.scope.SetProviderID(existingServer.ID)
+		v1beta1conditions.MarkTrue(hm, infrav1.ServerCreateSucceededCondition)
+		v1beta2conditions.Set(hm, metav1.Condition{
+			Type:   infrav1.HCloudMachineServerCreatedV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HCloudMachineServerCreatedV1Beta2Reason,
+		})
+		if hm.Spec.ImageURL != "" {
+			s.setBootState(infrav1.HCloudBootStateInitializing)
+			// The create action ID for this server is unknown since we did not create it
+			// ourselves. Treat it as already finished so handleBootStateInitializing does not
+			// wait on an action ID it will never see.
+			hm.Status.ExternalIDs.ActionIDCreateServer = actionDone
+		} else {
+			s.setBootState(infrav1.HCloudBootStateBootingToRealOS)
+		}
+		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
+	}
+
 	// The imageURL flow installs the image via SSH in the rescue system, so it needs a valid
 	// SSH private key. Check that before creating the server, so that no server gets created
 	// when the key is misconfigured. Other failures could also mean a network failure while
@@ -2236,6 +2269,19 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	}
 
 	// server has not been found via id - try to find the server based on its labels
+	server, err = s.findServerByLabels(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if server != nil {
+		s.scope.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer")
+	}
+	return server, nil
+}
+
+// findServerByLabels searches for a server matching this HCloudMachine's labels, without
+// relying on ProviderID. It returns server and error as nil when no server matches.
+func (s *Service) findServerByLabels(ctx context.Context) (*hcloud.Server, error) {
 	opts := hcloud.ServerListOpts{}
 
 	opts.LabelSelector = utils.LabelsToLabelSelector(s.createLabels())
@@ -2254,8 +2300,6 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	if len(servers) == 0 {
 		return nil, nil
 	}
-
-	s.scope.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer", "err", err)
 
 	return servers[0], nil
 }
