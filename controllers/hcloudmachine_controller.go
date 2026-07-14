@@ -426,18 +426,23 @@ func machineConditionsAffectingLoadBalancerReconcileChanged(oldMachine, newMachi
 // changes therefore need to bypass the generic status-update filter so pending
 // add/remove decisions are reevaluated.
 func controlPlaneLoadBalancerTargetsChanged(oldCluster, newCluster *infrav1.HetznerCluster) bool {
-	return !reflect.DeepEqual(
-		normalizeLoadBalancerTargets(oldCluster.Status.ControlPlaneLoadBalancer),
-		normalizeLoadBalancerTargets(newCluster.Status.ControlPlaneLoadBalancer),
-	)
-}
+	var oldTargets []infrav1.LoadBalancerTarget
+	var newTargets []infrav1.LoadBalancerTarget
 
-func normalizeLoadBalancerTargets(loadBalancer *infrav1.LoadBalancerStatus) []infrav1.LoadBalancerTarget {
-	if loadBalancer == nil || len(loadBalancer.Target) == 0 {
-		return nil
+	if oldCluster.Status.ControlPlaneLoadBalancer != nil {
+		oldTargets = oldCluster.Status.ControlPlaneLoadBalancer.Target
 	}
 
-	return loadBalancer.Target
+	if newCluster.Status.ControlPlaneLoadBalancer != nil {
+		newTargets = newCluster.Status.ControlPlaneLoadBalancer.Target
+	}
+
+	// ignore empty vs nil slice.
+	if len(oldTargets) == 0 && len(newTargets) == 0 {
+		return false
+	}
+
+	return !reflect.DeepEqual(oldTargets, newTargets)
 }
 
 // HetznerSecretToHCloudMachines is a handler.ToRequestsFunc to be used to enqueue requests for reconciliation
