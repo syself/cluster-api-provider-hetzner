@@ -987,7 +987,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		record.Warn(hm, "ImageURLCommandFailed", logFile)
+		record.Warn(hm, "ImageURLCommandFailed", v1beta2Msg)
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 			v1beta1Reason, clusterv1beta1.ConditionSeverityWarning,
 			"%s", v1beta1Msg)
@@ -1038,7 +1038,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		// IMAGE_URL_DONE was found in the stdout.
 		s.scope.Info("CustomProvisionerOutput", "logFile", logFile)
-		record.Event(hm, "CustomProvisionerOutput", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
@@ -1046,7 +1045,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 		}
 
-		record.Event(hm, "CustomProvisionerOutputJSON", outputJSON)
 		s.scope.Info("CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 
 		// The image got installed. Now reboot in the real operating system.
@@ -1074,7 +1072,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	case sshclient.ImageURLCommandStateFailed:
-		record.Warn(hm, "InstallImageNotSuccessful", logFile)
 		s.scope.Error(nil, "custom provisioner failed", "logFile", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
@@ -1090,7 +1087,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
 				return reconcile.Result{}, fmt.Errorf("failed to parse: %w", err)
 			}
-			record.Warn(hm, "CustomProvisionerOutputJSON", outputJSON)
 			s.scope.Error(nil, "CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 			if output.Message != "" {
 				msg = output.Message
@@ -1102,6 +1098,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+		record.Warn(hm, "InstallImageNotSuccessful", msg)
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 			"CustomProvisionerFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
