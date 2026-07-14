@@ -2255,21 +2255,10 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 		}
 	}
 
-	// server has not been found via id - try to find the server based on its name
-	server, err = s.findServerByName(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if server != nil {
-		s.scope.Info("DeprecationWarning finding Server by name is no longer needed. We plan to remove that feature and rename findServer to getServer")
-	}
-	return server, nil
-}
+	// server has not been found via id - try to find the server based on its labels
+	opts := hcloud.ServerListOpts{}
 
-// findServerByName searches for a server with this HCloudMachine's name, without relying on
-// ProviderID. It returns server and error as nil when no server matches.
-func (s *Service) findServerByName(ctx context.Context) (*hcloud.Server, error) {
-	opts := hcloud.ServerListOpts{Name: s.scope.Name()}
+	opts.LabelSelector = utils.LabelsToLabelSelector(s.createLabels())
 
 	servers, err := s.scope.HCloudClient.ListServers(ctx, opts)
 	if err != nil {
@@ -2280,6 +2269,28 @@ func (s *Service) findServerByName(ctx context.Context) (*hcloud.Server, error) 
 		err := fmt.Errorf("found %d servers with name %s", len(servers), s.scope.Name())
 		record.Warn(s.scope.HCloudMachine, "MultipleInstances", err.Error())
 		return nil, err
+	}
+
+	if len(servers) == 0 {
+		return nil, nil
+	}
+
+	s.scope.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer", "err", err)
+
+	return servers[0], nil
+}
+
+// findServerByName searches for a server with this HCloudMachine's exact name. Used to recover
+// from a uniqueness error on CreateServer, where relying on ProviderID isn't possible yet.
+// It returns server and error as nil when no server matches.
+func (s *Service) findServerByName(ctx context.Context) (*hcloud.Server, error) {
+	servers, err := s.scope.HCloudClient.ListServers(ctx, hcloud.ServerListOpts{Name: s.scope.Name()})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list servers: %w", err)
+	}
+
+	if len(servers) > 1 {
+		return nil, fmt.Errorf("found %d servers with name %s", len(servers), s.scope.Name())
 	}
 
 	if len(servers) == 0 {

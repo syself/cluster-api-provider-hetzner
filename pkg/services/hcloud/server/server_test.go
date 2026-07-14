@@ -239,9 +239,7 @@ var _ = Describe("handleBootStateUnset", func() {
 	})
 
 	It("marks SSHPrivateKeyAvailableCondition false and requeues when SSH private key secret ref name is empty", func() {
-		hcloudClient := mocks.NewClient(GinkgoT())
-
-		service := newTestService(hcloudMachine, hcloudClient)
+		service := newTestService(hcloudMachine, mocks.NewClient(GinkgoT()))
 		service.scope.HetznerCluster = &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{
 				SSHKeys: infrav1.HetznerSSHKeys{
