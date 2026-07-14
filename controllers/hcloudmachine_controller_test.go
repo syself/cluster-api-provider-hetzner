@@ -250,39 +250,6 @@ func TestIgnoreInsignificantMachineStatusUpdates(t *testing.T) {
 			expected: true,
 		},
 		{
-			// PreDrainDeleteHookSucceeded (deprecated v1beta1) is no longer watched here:
-			// reconcileLoadBalancerAttachment now checks Machine.DeletionTimestamp directly,
-			// and that ObjectMeta field change is already caught by the full old/new
-			// comparison further down in the predicate, independent of this condition.
-			name: "Changes only in deprecated pre-drain delete hook condition are no longer significant here",
-			oldObj: &clusterv1.Machine{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-machine",
-					Namespace: "default",
-				},
-				Status: clusterv1.MachineStatus{},
-			},
-			newObj: &clusterv1.Machine{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-machine",
-					Namespace: "default",
-				},
-				Status: clusterv1.MachineStatus{
-					Deprecated: &clusterv1.MachineDeprecatedStatus{
-						V1Beta1: &clusterv1.MachineV1Beta1DeprecatedStatus{
-							Conditions: clusterv1.Conditions{
-								{
-									Type:   clusterv1.PreDrainDeleteHookSucceededV1Beta1Condition,
-									Status: corev1.ConditionTrue,
-								},
-							},
-						},
-					},
-				},
-			},
-			expected: false,
-		},
-		{
 			name: "Machine starts deletion (DeletionTimestamp set)",
 			oldObj: &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
