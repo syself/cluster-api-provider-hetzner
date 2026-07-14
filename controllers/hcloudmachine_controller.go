@@ -415,10 +415,10 @@ func machineConditionsAffectingLoadBalancerReconcileChanged(oldMachine, newMachi
 	)
 }
 
-// HCloudMachine reconciliation uses HetznerCluster status to decide whether a
-// control-plane server is already attached to the load balancer. Target list
-// changes therefore need to bypass the generic status-update filter so pending
-// add/remove decisions are reevaluated.
+// controlPlaneLoadBalancerTargetsChanged reports whether the load balancer's target list
+// changed. HCloudMachine reconciliation uses this list to decide whether a control-plane
+// server is already attached. Without this check, a target-list change alone would not
+// trigger a reconcile.
 func controlPlaneLoadBalancerTargetsChanged(oldCluster, newCluster *infrav1.HetznerCluster) bool {
 	var oldTargets []infrav1.LoadBalancerTarget
 	var newTargets []infrav1.LoadBalancerTarget
