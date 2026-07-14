@@ -403,10 +403,11 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 	}
 }
 
-// machineConditionsAffectingLoadBalancerReconcileChanged reports whether
-// KubeadmControlPlaneMachineAPIServerPodHealthyCondition changed, since
-// reconcileLoadBalancerAttachment (pkg/services/hcloud/server/server.go) gates LB
-// attachment on it and would otherwise never get reconciled.
+// machineConditionsAffectingLoadBalancerReconcileChanged reports whether the Machine's
+// KubeadmControlPlaneMachineAPIServerPodHealthyCondition changed. reconcileLoadBalancerAttachment
+// (pkg/services/hcloud/server/server.go) uses this condition to decide whether to attach the
+// server to the load balancer. Without this check, a condition change alone would not trigger
+// a reconcile.
 func machineConditionsAffectingLoadBalancerReconcileChanged(oldMachine, newMachine *clusterv1.Machine) bool {
 	return !reflect.DeepEqual(
 		conditions.Get(oldMachine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition),
