@@ -407,17 +407,18 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 // but they arrive as status-only updates. We must treat them as significant so the
 // HCloudMachine controller reconciles when a replacement control plane becomes safe
 // to add to the LB or when an old node becomes ready to be removed from it.
+//
+// reconcileLoadBalancerAttachment (pkg/services/hcloud/server/server.go) gates control-plane
+// load balancer attachment on the native KubeadmControlPlaneMachineAPIServerPodHealthyCondition.
+// We must watch the same condition here, otherwise this check silently never fires. It also
+// removes a server from the load balancer once Machine.DeletionTimestamp is set; that's an
+// ObjectMeta field, not Status, so its change is already caught by the full old/new Machine
+// comparison further down in IgnoreInsignificantMachineStatusUpdates.
 func machineConditionsAffectingLoadBalancerReconcileChanged(oldMachine, newMachine *clusterv1.Machine) bool {
-	for _, conditionType := range []clusterv1.ConditionType{
-		clusterv1.PreDrainDeleteHookSucceededV1Beta1Condition,
-		controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
-	} {
-		if !reflect.DeepEqual(conditions.Get(oldMachine, string(conditionType)), conditions.Get(newMachine, string(conditionType))) {
-			return true
-		}
-	}
-
-	return false
+	return !reflect.DeepEqual(
+		conditions.Get(oldMachine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition),
+		conditions.Get(newMachine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition),
+	)
 }
 
 // HCloudMachine reconciliation uses HetznerCluster status to decide whether a
