@@ -1809,7 +1809,10 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 		// CreateServer and Close()). Adopt the existing server instead of failing forever with
 		// the same uniqueness error on every retry.
 		if hcloud.IsError(err, hcloud.ErrorCodeUniquenessError) {
-			if existingServer, findErr := s.findServerByName(ctx); findErr == nil && existingServer != nil {
+			existingServer, findErr := s.findServerByName(ctx)
+			if findErr != nil {
+				s.scope.Error(findErr, "failed to look up existing server after a uniqueness error on CreateServer")
+			} else if existingServer != nil {
 				s.scope.Info("server already exists after a uniqueness error, adopting it instead of failing",
 					"serverID", existingServer.ID, "serverName", existingServer.Name)
 				hm.Status.SSHKeys = caphSSHKeys
@@ -1819,6 +1822,8 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 					Status: metav1.ConditionTrue,
 					Reason: infrav1.HCloudMachineServerCreatedV1Beta2Reason,
 				})
+				record.Eventf(hm, "AdoptedExistingServer", "Adopted existing server %s (ID %d) after a uniqueness error on create",
+					existingServer.Name, existingServer.ID)
 				return hcloud.ServerCreateResult{Server: existingServer, Action: &hcloud.Action{ID: actionDone}}, nil
 			}
 		}
