@@ -411,7 +411,8 @@ const (
 	HCloudMachineServerSSHKeyNotFoundReason = "SSHKeyNotFound"
 	// HCloudMachineServerPlacementGroupNotFoundReason surfaces when the specified placement group does not exist.
 	HCloudMachineServerPlacementGroupNotFoundReason = "PlacementGroupNotFound"
-	// HCloudMachineServerCreationFailedReason surfaces when the HCloud API CreateServer call fails.
+	// HCloudMachineServerCreationFailedReason surfaces when creating the hcloud server fails,
+	// either because the CreateServer call fails or because the create action fails afterwards.
 	HCloudMachineServerCreationFailedReason = "CreationFailed"
 )
 
@@ -429,13 +430,19 @@ const (
 	HCloudMachineBootStateInitializingTimedOutReason = "BootStateInitializingTimedOut"
 	// HCloudMachineProvisioningServerReason indicates the server is being provisioned.
 	HCloudMachineProvisioningServerReason = "Provisioning"
-	// HCloudMachineServerNotRunningYetReason indicates the server is not running yet.
-	HCloudMachineServerNotRunningYetReason = "ServerNotRunningYet"
 	// HCloudMachineServerStatusUnknownReason indicates the hcloud server returned a status that the controller does not handle.
 	HCloudMachineServerStatusUnknownReason = "ServerStatusUnknown"
+	// HCloudMachineActionIDCreateServerNotSetReason indicates the ActionIDCreateServer status field is not set.
+	HCloudMachineActionIDCreateServerNotSetReason = "ActionIDCreateServerNotSet"
+	// HCloudMachineCreatingServerReason indicates the hcloud server is being created.
+	HCloudMachineCreatingServerReason = "CreatingServer"
+	// HCloudMachineGettingServerCreationStatusFailedReason indicates checking the server creation progress failed.
+	HCloudMachineGettingServerCreationStatusFailedReason = "GettingServerCreationStatusFailed"
 
 	// HCloudMachineWaitingForRescueSystemReason indicates waiting for the rescue system to be enabled.
 	HCloudMachineWaitingForRescueSystemReason = "WaitingForRescueSystem"
+	// HCloudMachineEnablingRescueSystemFailedReason indicates enabling the rescue system failed.
+	HCloudMachineEnablingRescueSystemFailedReason = "EnablingRescueSystemFailed"
 	// HCloudMachineEnablingRescueTimedOutReason indicates enabling rescue system timed out.
 	HCloudMachineEnablingRescueTimedOutReason = "EnablingRescueTimedOut"
 	// HCloudMachineActionIDForEnablingRescueSystemNotSetReason indicates the action ID for enabling rescue is not set.
@@ -453,12 +460,8 @@ const (
 
 	// HCloudMachineGettingSSHPrivateKeyFailedReason indicates getting the SSH private key failed.
 	HCloudMachineGettingSSHPrivateKeyFailedReason = "GettingSSHPrivateKeyFailed"
-	// HCloudMachineGettingSSHClientFailedReason indicates getting the SSH client failed.
-	HCloudMachineGettingSSHClientFailedReason = "GettingSSHClientFailed"
 	// HCloudMachineRetryingSSHConnectionReason indicates the SSH connection is being retried.
 	HCloudMachineRetryingSSHConnectionReason = "RetryingSSHConnection"
-	// HCloudMachineRebootViaSSHFailedReason indicates rebooting via SSH failed.
-	HCloudMachineRebootViaSSHFailedReason = "RebootViaSSHFailed"
 	// HCloudMachineGettingHostnameFailedReason indicates getting the hostname failed.
 	HCloudMachineGettingHostnameFailedReason = "GettingHostnameFailed"
 	// HCloudMachineUnexpectedHostnameReason indicates the remote hostname was unexpected.
