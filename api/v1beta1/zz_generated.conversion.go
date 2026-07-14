@@ -725,6 +725,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*BareMetalRemediationStrategy)(nil), (*v1beta2.BareMetalRemediationStrategy)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_BareMetalRemediationStrategy_To_v1beta2_BareMetalRemediationStrategy(a.(*BareMetalRemediationStrategy), b.(*v1beta2.BareMetalRemediationStrategy), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*CPU)(nil), (*v1beta2.CPU)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_CPU_To_v1beta2_CPU(a.(*CPU), b.(*v1beta2.CPU), scope)
 	}); err != nil {
@@ -802,6 +807,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*RemediationStrategy)(nil), (*v1beta2.RemediationStrategy)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(a.(*RemediationStrategy), b.(*v1beta2.RemediationStrategy), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.BareMetalRemediationStrategy)(nil), (*BareMetalRemediationStrategy)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_BareMetalRemediationStrategy_To_v1beta1_BareMetalRemediationStrategy(a.(*v1beta2.BareMetalRemediationStrategy), b.(*BareMetalRemediationStrategy), scope)
 	}); err != nil {
 		return err
 	}
@@ -1041,6 +1051,7 @@ func Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in *v1beta2.
 
 func autoConvert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStatusExternalIDs(in *HCloudMachineStatusExternalIDs, out *v1beta2.HCloudMachineStatusExternalIDs, s conversion.Scope) error {
 	out.ActionIDEnableRescueSystem = in.ActionIDEnableRescueSystem
+	out.ActionIDCreateServer = in.ActionIDCreateServer
 	return nil
 }
 
@@ -1051,6 +1062,7 @@ func Convert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStat
 
 func autoConvert_v1beta2_HCloudMachineStatusExternalIDs_To_v1beta1_HCloudMachineStatusExternalIDs(in *v1beta2.HCloudMachineStatusExternalIDs, out *HCloudMachineStatusExternalIDs, s conversion.Scope) error {
 	out.ActionIDEnableRescueSystem = in.ActionIDEnableRescueSystem
+	out.ActionIDCreateServer = in.ActionIDCreateServer
 	return nil
 }
 
@@ -1923,8 +1935,8 @@ func Convert_v1beta2_HetznerBareMetalRemediationList_To_v1beta1_HetznerBareMetal
 func autoConvert_v1beta1_HetznerBareMetalRemediationSpec_To_v1beta2_HetznerBareMetalRemediationSpec(in *HetznerBareMetalRemediationSpec, out *v1beta2.HetznerBareMetalRemediationSpec, s conversion.Scope) error {
 	if in.Strategy != nil {
 		in, out := &in.Strategy, &out.Strategy
-		*out = new(v1beta2.RemediationStrategy)
-		if err := Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(*in, *out, s); err != nil {
+		*out = new(v1beta2.BareMetalRemediationStrategy)
+		if err := Convert_v1beta1_BareMetalRemediationStrategy_To_v1beta2_BareMetalRemediationStrategy(*in, *out, s); err != nil {
 			return err
 		}
 	} else {
@@ -1941,8 +1953,8 @@ func Convert_v1beta1_HetznerBareMetalRemediationSpec_To_v1beta2_HetznerBareMetal
 func autoConvert_v1beta2_HetznerBareMetalRemediationSpec_To_v1beta1_HetznerBareMetalRemediationSpec(in *v1beta2.HetznerBareMetalRemediationSpec, out *HetznerBareMetalRemediationSpec, s conversion.Scope) error {
 	if in.Strategy != nil {
 		in, out := &in.Strategy, &out.Strategy
-		*out = new(RemediationStrategy)
-		if err := Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(*in, *out, s); err != nil {
+		*out = new(BareMetalRemediationStrategy)
+		if err := Convert_v1beta2_BareMetalRemediationStrategy_To_v1beta1_BareMetalRemediationStrategy(*in, *out, s); err != nil {
 			return err
 		}
 	} else {
