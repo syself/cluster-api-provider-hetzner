@@ -47,10 +47,11 @@ const (
 
 	// ProxyProtocolForControlPlaneLoadBalancerAnnotation is used only when enabling proxy protocol
 	// on an EXISTING cluster (migration path). It must be present with value "true" on ALL
-	// control-plane nodes before CAPH recreates the LB service with proxy protocol enabled.
-	// The annotation is set by an external service (e.g. a node-configuration daemonset) once the
-	// node is ready to receive PROXY-protocol connections. CAPH reads this annotation — it never
-	// writes it.
+	// control-plane machines before CAPH recreates the LB service with proxy protocol enabled.
+	// The annotation is stamped on the control-plane machine template, so it is present exactly on
+	// the machines whose template expects proxy protocol; machines from an earlier template do not
+	// carry it. CAPH reads it on the control-plane machines together with their ServerAvailable
+	// condition. CAPH reads this annotation, it never writes it.
 	//
 	// For NEW clusters created with EnableProxyProtocol: true, this annotation is never read:
 	// the LB service is created with proxy protocol from the start, so no migration is needed.

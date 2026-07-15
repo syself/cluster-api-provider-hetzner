@@ -321,36 +321,37 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 
 	// kubeAPIServiceExists: whether the kube-API service already exists on the LB.
 	// New cluster: service absent → create immediately with EnableProxyProtocol from spec (no annotation check).
-	// Existing cluster migration: service present without proxy protocol → wait for all CP nodes to carry the
-	// annotation before recreating, to avoid sending malformed PROXY-protocol headers to unprepared backends.
+	// Existing cluster migration: service present without proxy protocol → wait for all control-plane
+	// machines to carry the annotation and be available before recreating, to avoid sending malformed
+	// PROXY-protocol headers to unprepared backends.
 	existingKubeAPIService, kubeAPIServiceExists := existingServicesByPort[kubeAPIServicePort]
 	proxyProtocolAlreadyActive := kubeAPIServiceExists && existingKubeAPIService.Proxyprotocol
 
 	// proxyProtocolShouldGetEnabled: whether proxy protocol should get enabled now.
-	// The workload cluster is only contacted when the spec wants proxy protocol but the LB
-	// service doesn't have it yet. For new clusters or when already active, no call is made.
+	// The control-plane machines are only checked when the spec wants proxy protocol but the LB
+	// service doesn't have it yet. For new clusters or when already active, no check is made.
 	var proxyProtocolShouldGetEnabled bool
 	var requeueForProxyProtocol bool
 	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && kubeAPIServiceExists && !proxyProtocolAlreadyActive {
 		var err error
-		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneNodesReadyForProxyProtocol(ctx)
+		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneMachinesReadyForProxyProtocol(ctx)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 		if !proxyProtocolShouldGetEnabled {
-			s.scope.V(1).Info("proxy protocol: not all CP nodes ready yet, requeueing")
+			s.scope.V(1).Info("proxy protocol: not all control-plane machines ready yet, requeueing")
 			requeueForProxyProtocol = true
 		}
 	}
 	// Enabling proxy protocol is a one-way operation: delete the existing service and
-	// recreate it with proxy protocol on once all CP nodes signal readiness.
+	// recreate it with proxy protocol on once all control-plane machines signal readiness.
 	if proxyProtocolShouldGetEnabled && !proxyProtocolAlreadyActive {
 		toDelete = append(toDelete, kubeAPIServicePort)
 		toCreate = append(toCreate, kubeAPIServicePort)
 	}
 
 	// kubeAPIProxyProtocol: the proxy protocol value to use when creating the kube-API service.
-	// For existing clusters, wait for CP nodes to signal readiness before enabling.
+	// For existing clusters, wait for control-plane machines to signal readiness before enabling.
 	// For new clusters, use the spec value directly.
 	kubeAPIProxyProtocol := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
 	if kubeAPIServiceExists {
