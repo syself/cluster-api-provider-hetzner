@@ -354,12 +354,23 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 		// Terminal errors like invalid_input (e.g. unsupported location for server type)
 		// or resource_unavailable (e.g. server location disabled) will never succeed on retry.
-		// Mark the machine as irrecoverably failed and stop reconciling.
-		if hcloud.IsError(err, hcloud.ErrorCodeInvalidInput) || hcloud.IsError(err, hcloud.ErrorCodeResourceUnavailable) {
+		// A uniqueness_error that createServer's own recovery (adopting the existing server)
+		// could not resolve is equally terminal: retrying CreateServer with the same name will
+		// hit the exact same error forever. Mark the machine as irrecoverably failed and stop
+		// reconciling in all these cases.
+		if hcloud.IsError(err, hcloud.ErrorCodeInvalidInput) || hcloud.IsError(err, hcloud.ErrorCodeResourceUnavailable) ||
+			hcloud.IsError(err, hcloud.ErrorCodeUniquenessError) {
 			msg := fmt.Sprintf(
 				"Server creation failed with an irrecoverable error: %s. If the requested resources (server type or location) become available again, delete the Machine to trigger a new creation attempt.",
 				err.Error(),
 			)
+			if hcloud.IsError(err, hcloud.ErrorCodeUniquenessError) {
+				msg = fmt.Sprintf(
+					"Server creation failed because a server named %q already exists and it could not be adopted automatically: %s. "+
+						"Delete the conflicting HCloud server, or delete this Machine to trigger a new creation attempt.",
+					s.scope.Name(), err.Error(),
+				)
+			}
 			v1beta1conditions.MarkFalse(
 				s.scope.HCloudMachine,
 				infrav1.ServerCreateSucceededCondition,
