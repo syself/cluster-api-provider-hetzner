@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -333,6 +334,46 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			Eventually(func() bool {
 				return apierrors.IsNotFound(testEnv.Get(ctx, key, host))
 			}, timeout, time.Second).Should(BeTrue())
+		})
+	})
+
+	Context("Fresh, unclaimed host (as created by a user, before any machine claims it)", func() {
+		It("persists status without hitting the spec.status.hetznerClusterRef required-field validation error", func() {
+			// Unlike the other hosts in this suite (created via helpers.BareMetalHost + the typed
+			// client, which always marshals a spec.status object, empty or not), this one is
+			// created the way a real user creates it: via an unstructured object carrying only
+			// what a plain YAML manifest would contain. That means no
+			// "status" key under spec at all, matching how kubectl/GitOps actually submits a new
+			// HetznerBareMetalHost. HetznerClusterRef is only set once a HetznerBareMetalMachine
+			// claims the host (see setHostSpec), so for a fresh, unclaimed host spec.status starts
+			// out completely absent from the stored object - not merely present-with-empty-string.
+			freshHostName := utils.GenerateName(nil, "fresh-host")
+			freshHost := &unstructured.Unstructured{}
+			freshHost.SetGroupVersionKind(infrav1.GroupVersion.WithKind("HetznerBareMetalHost"))
+			freshHost.SetName(freshHostName)
+			freshHost.SetNamespace(testNs.Name)
+			Expect(unstructured.SetNestedField(freshHost.Object, int64(987654321), "spec", "serverID")).To(Succeed())
+			Expect(testEnv.Create(ctx, freshHost)).To(Succeed())
+			defer func() {
+				Expect(testEnv.Cleanup(ctx, freshHost)).To(Succeed())
+			}()
+
+			freshKey := client.ObjectKey{Namespace: testNs.Name, Name: freshHostName}
+
+			// The very first status patch the reconciler ever issues for this host (adding
+			// the finalizer together with the initial v1beta2 Ready condition) introduces
+			// spec.status for the first time. Before the fix, that patch never included
+			// hetznerClusterRef (unchanged, so omitted from the merge patch), and the API
+			// server rejected the result because spec.status did not exist yet and
+			// hetznerClusterRef was a required field. That made this Eventually block time
+			// out forever instead of observing the v1beta2 conditions appear.
+			typedHost := &infrav1.HetznerBareMetalHost{}
+			Eventually(func() []metav1.Condition {
+				if err := testEnv.Get(ctx, freshKey, typedHost); err != nil {
+					return nil
+				}
+				return typedHost.GetV1Beta2Conditions()
+			}, timeout).ShouldNot(BeEmpty())
 		})
 	})
 
