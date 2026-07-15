@@ -144,7 +144,17 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	var server *hcloud.Server
 
-	if s.scope.HCloudMachine.Spec.ProviderID != nil {
+	// Only fetch the live server for the states that actually need it (an "IsCreated" check,
+	// a server.Status transition, or the network/LB attachment reconcile). The remaining states
+	// (Initializing, EnablingRescue, BootingToRescue, RunningImageCommand) drive their progress
+	// via GetAction polling and/or SSH, so skipping the fetch there avoids an hcloud API call on
+	// every reconcile while we wait (see issue #2163).
+	bootState := s.scope.HCloudMachine.Status.BootState
+	needsLiveServer := bootState == infrav1.HCloudBootStateUnset ||
+		bootState == infrav1.HCloudBootStateBootingToRealOS ||
+		bootState == infrav1.HCloudBootStateOperatingSystemRunning
+
+	if s.scope.HCloudMachine.Spec.ProviderID != nil && needsLiveServer {
 		server, err = s.findServer(ctx)
 		if err != nil {
 			// If it is an unauthorized error i.e. wrong HCloudToken do not return an error.
@@ -221,23 +231,23 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		"bootState", s.scope.HCloudMachine.Status.BootState,
 		"sinceBootStateChanged", sinceBootStateChanged)
 
-	switch s.scope.HCloudMachine.Status.BootState {
+	switch bootState {
 	case infrav1.HCloudBootStateUnset:
 		return s.handleBootStateUnset(ctx)
 	case infrav1.HCloudBootStateInitializing:
-		return s.handleBootStateInitializing(ctx, server)
+		return s.handleBootStateInitializing(ctx)
 	case infrav1.HCloudBootStateEnablingRescue:
-		return s.handleBootStateEnablingRescue(ctx, server)
+		return s.handleBootStateEnablingRescue(ctx)
 	case infrav1.HCloudBootStateBootingToRescue:
-		return s.handleBootStateBootingToRescue(ctx, server)
+		return s.handleBootStateBootingToRescue(ctx)
 	case infrav1.HCloudBootStateRunningImageCommand:
-		return s.handleBootStateRunningImageCommand(ctx, server)
+		return s.handleBootStateRunningImageCommand(ctx)
 	case infrav1.HCloudBootStateBootingToRealOS:
 		return s.handleBootingToRealOS(ctx, server)
 	case infrav1.HCloudBootStateOperatingSystemRunning:
 		return s.handleOperatingSystemRunning(ctx, server)
 	default:
-		return reconcile.Result{}, fmt.Errorf("unknown BootState: %s", s.scope.HCloudMachine.Status.BootState)
+		return reconcile.Result{}, fmt.Errorf("unknown BootState: %s", bootState)
 	}
 }
 
@@ -441,7 +451,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 }
 
 // handleBootStateInitializing is for provisioning with imageURL and image-url-command.
-func (s *Service) handleBootStateInitializing(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
+func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcile.Result, reterr error) {
 	hm := s.scope.HCloudMachine
 
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
@@ -483,8 +493,6 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 		})
 		return reconcile.Result{}, nil
 	}
-
-	updateHCloudMachineStatusFromServer(hm, server)
 
 	// ActionIDCreateServer gets stored by createServerFromImageURL before the boot state becomes
 	// Initializing. This guard catches it early if that behavior ever changes.
@@ -599,7 +607,11 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 		Type:    hcloud.ServerRescueTypeLinux64,
 		SSHKeys: hcloudSSHKeys,
 	}
-	result, err := s.scope.HCloudClient.EnableRescueSystem(ctx, server, rescueOpts)
+	serverStub, err := s.serverStubFromProviderID()
+	if err != nil {
+		return res, fmt.Errorf("serverStubFromProviderID failed: %w", err)
+	}
+	result, err := s.scope.HCloudClient.EnableRescueSystem(ctx, serverStub, rescueOpts)
 	if err != nil {
 		if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 			// a fresh server is locked only for a short time after create, so a short retry
@@ -637,7 +649,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 }
 
 // handleBootStateEnablingRescue is for provisioning with imageURL and image-url-command.
-func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
+func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
@@ -678,8 +690,6 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		})
 		return reconcile.Result{}, nil
 	}
-
-	updateHCloudMachineStatusFromServer(hm, server)
 
 	// ActionIDEnableRescueSystem gets stored by handleBootStateInitializing before the boot
 	// state becomes EnablingRescue. This guard catches it early if that behavior ever changes.
@@ -794,25 +804,17 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
-	if !server.RescueEnabled {
-		msg := "rescue system is not enabled yet? Requeue"
-		s.scope.Error(nil, msg)
-		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"RescueNotEnabledYet", clusterv1beta1.ConditionSeverityWarning,
-			"%s", msg)
-		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
-			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineRescueNotEnabledYetV1Beta2Reason,
-			Message: msg,
-		})
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	// The enable_rescue action (checked above) already reports success, which is the
+	// authoritative signal that the rescue system is enabled - no live GetServer call needed
+	// to double-check via server.RescueEnabled.
+	//
+	// The server was created with StartAfterCreate=false and has never been started, so
+	// powering it on boots it directly into the rescue system.
+	serverStub, err := s.serverStubFromProviderID()
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("serverStubFromProviderID failed: %w", err)
 	}
-
-	// Now we know that the rescue-system was enabled. The server was created with
-	// StartAfterCreate=false and has never been started, so powering it on boots it
-	// directly into the rescue system.
-	if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
+	if err := s.scope.HCloudClient.PowerOnServer(ctx, serverStub); err != nil {
 		if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 			// a fresh server is locked only for a short time after create, so a short retry
 			// interval is enough
@@ -840,13 +842,14 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		Reason:  infrav1.HCloudMachineBootingToRescueV1Beta2Reason,
 		Message: "power on to rescue started",
 	})
-	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	// The next state (BootingToRescue) polls purely via SSH, with no hcloud API cost, so
+	// requeue immediately instead of waiting.
+	return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 }
 
 // handleBootStateBootingToRescue is for provisioning with imageURL and image-url-command.
-func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
+func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
-	updateHCloudMachineStatusFromServer(hm, server)
 
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
 	if durationOfState > 6*time.Minute {
@@ -888,24 +891,10 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		return reconcile.Result{}, nil
 	}
 
-	if server.RescueEnabled {
-		// RescueEnabled is true until the server completes its reboot into the rescue system.
-		// Once the server has booted into rescue, Hetzner clears this flag automatically.
-		// We wait here until that happens before attempting to SSH.
-		msg := "Server has not yet rebooted into rescue system"
-		s.scope.Info(msg)
-		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"WaitingForRebootIntoRescue", clusterv1beta1.ConditionSeverityInfo,
-			"%s", msg)
-		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
-			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineWaitForRescueEnabledToBeFalseV1Beta2Reason,
-			Message: msg,
-		})
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
+	// The server is freshly created and was never started before this boot cycle, so there is no
+	// prior OS it could mistakenly reach over SSH. Attempt SSH directly instead of first checking
+	// server.RescueEnabled via a live GetServer call - ECONNREFUSED below already covers "server
+	// has not yet rebooted into rescue system".
 	sshClient, err := s.getSSHClient(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (waiting for rescue running): %w", err)
@@ -927,7 +916,8 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 				Reason:  infrav1.HCloudMachineRetryingSSHConnectionV1Beta2Reason,
 				Message: msg,
 			})
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			// Pure SSH retry, no hcloud API cost, so requeue immediately.
+			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 		}
 		err = fmt.Errorf("get hostname failed: %w", err)
 		s.scope.Error(err, "")
@@ -1036,13 +1026,14 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		Message: "custom provisioner running",
 	})
 	s.setBootState(infrav1.HCloudBootStateRunningImageCommand)
-	return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
+	// The next state (RunningImageCommand) polls purely via SSH, with no hcloud API cost, so
+	// requeue immediately instead of waiting.
+	return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 }
 
 // handleBootStateRunningImageCommand is for provisioning with imageURL and image-url-command.
-func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
+func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
-	updateHCloudMachineStatusFromServer(hm, server)
 
 	hcloudSSHClient, err := s.getSSHClient(ctx)
 	if err != nil {
@@ -1102,7 +1093,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
 			s.scope.Error(err, "failed to read output.json")
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+			// Pure SSH retry, no hcloud API cost, so requeue immediately.
+			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 		}
 		msg := "custom provisioner running"
 
@@ -1112,7 +1104,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			output, err := imageurlcommand.Parse(outputJSON)
 			if err != nil {
 				s.scope.Error(err, "failed to parse image URL command output")
-				return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+				return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 			}
 
 			if output.Message != "" {
@@ -1128,7 +1120,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			Reason:  infrav1.HCloudMachineCustomProvisionerRunningV1Beta2Reason,
 			Message: msg,
 		})
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		// IMAGE_URL_DONE was found in the stdout.
@@ -1137,7 +1129,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
 			s.scope.Error(err, "failed to read output.json")
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 		}
 
 		s.scope.Info("CustomProvisionerOutputJSON", "outputJSON", outputJSON)
@@ -1172,7 +1164,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
 			s.scope.Error(err, "failed to read output.json")
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 		}
 
 		msg := "custom provisioner failed"
@@ -2182,6 +2174,17 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 	)
 
 	return nil
+}
+
+// serverStubFromProviderID builds a minimal *hcloud.Server carrying only the ID parsed from
+// Spec.ProviderID. It is used for hcloud API calls (e.g. actions on a server) that only ever read
+// server.ID off the passed struct, so no live GetServer fetch is needed to obtain it.
+func (s *Service) serverStubFromProviderID() (*hcloud.Server, error) {
+	id, err := s.scope.ServerIDFromProviderID()
+	if err != nil {
+		return nil, fmt.Errorf("ServerIDFromProviderID failed: %w", err)
+	}
+	return &hcloud.Server{ID: id}, nil
 }
 
 // findServer attempts to locate the HCloud server for the underlying HCloudMachine.
