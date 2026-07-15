@@ -96,6 +96,7 @@ var (
 	preProvisionCommand                string
 	skipWebhooks                       bool
 	skipCRDMigrationPhases             []string
+	metricPerServerID                  bool
 )
 
 // strictManager is a ctrl.Manager that creates controller-runtime clients that enforce strict
@@ -129,7 +130,7 @@ func main() {
 	fs.DurationVar(&syncPeriod, "sync-period", 3*time.Minute, "The minimum interval at which watched resources are reconciled (e.g. 3m)")
 	fs.DurationVar(&rateLimitWaitTime, "rate-limit", 5*time.Minute, "The rate limiting for HCloud controller (e.g. 5m)")
 	fs.BoolVar(&hcloudclient.DebugAPICalls, "debug-hcloud-api-calls", false, "Debug all calls to the hcloud API.")
-	fs.BoolVar(&hcloudclient.MetricPerServerID, "hcloud-metric-per-server-id", false, "Add a server_id label to hcloud API call metrics. Adds one Prometheus time series per distinct server ID, so do not enable this permanently on a long-lived production manager. Intended for measuring API call volume during a bounded run, e.g. e2e tests (see issue #2163).")
+	fs.BoolVar(&metricPerServerID, "metric-per-server-id", false, "Add a server_id label to hcloud and robot (bare metal) API call metrics. Adds one Prometheus time series per distinct server ID, so do not enable this permanently on a long-lived production manager. Intended for measuring API call volume during a bounded run, e.g. e2e tests (see issue #2163).")
 	fs.StringVar(&preProvisionCommand, "pre-provision-command", "", "Command to run (in rescue-system) before installing the image on bare metal servers. You can use that to check if the machine is healthy before installing the image. If the exit value is non-zero, the machine is considered unhealthy. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir.")
 	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up of webhooks. Together with --leader-elect=false, you can use `go run main.go` to run CAPH in a cluster connected via KUBECONFIG. You should scale down the caph deployment to 0 before doing that. This is only for testing!")
 	fs.StringSliceVar(&skipCRDMigrationPhases, "skip-crd-migration-phases", []string{}, "List of CRD migration phases to skip. Valid values are: StorageVersionMigration, CleanupManagedFields.")
@@ -138,6 +139,10 @@ func main() {
 	pflag.Parse()
 
 	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
+
+	// One flag drives the per-server-id metric on both API clients, see --metric-per-server-id above.
+	hcloudclient.MetricPerServerID = metricPerServerID
+	robotclient.MetricPerServerID = metricPerServerID
 
 	// If preProvisionCommand is set, check if the file exists and validate the basename.
 	if preProvisionCommand != "" {

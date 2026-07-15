@@ -92,7 +92,7 @@ providers:
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
           - old: "        - --leader-elect=true"
-            new: "        - --leader-elect=true\n        - --metrics-bind-address=:8080\n        - --hcloud-metric-per-server-id=true"
+            new: "        - --leader-elect=true\n        - --metrics-bind-address=:8080\n        - --metric-per-server-id=true"
         files:
           - sourcePath: "../../../metadata.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"

@@ -253,7 +253,7 @@ var _ = SynchronizedAfterSuite(func() {
 	}
 }, func() {
 	// After all ParallelNodes.
-	printHcloudGetServerCallsTables(hcloudMetricsPath(artifactFolder, bootstrapClusterProxy.GetName()))
+	printThirdPartyAPICallsTables(thirdPartyAPIMetricsPath(artifactFolder, bootstrapClusterProxy.GetName()))
 	if !skipCleanup {
 		tearDown(ctx, bootstrapClusterProvider, nil)
 	}
@@ -1017,8 +1017,8 @@ func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.C
 	}, config.GetIntervals(bootstrapClusterProxy.GetName(), "wait-controllers")...)
 
 	// Periodically dumps /metrics from the caph-controller-manager pod, so we can print a
-	// summary of hcloud API calls per server ID at the end of the run (see issue #2163).
-	// Requires --hcloud-metric-per-server-id and --metrics-bind-address=:8080 on the manager
+	// summary of hcloud and robot API calls per server ID at the end of the run (see issue #2163).
+	// Requires --metric-per-server-id and --metrics-bind-address=:8080 on the manager
 	// (set via replacements in test/e2e/config/hetzner.yaml).
 	framework.WatchPodMetrics(ctx, framework.WatchPodMetricsInput{
 		GetLister: bootstrapClusterProxy.GetClient(),
@@ -1029,19 +1029,23 @@ func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.C
 				Namespace: "caph-system",
 			},
 		},
-		MetricsPath: hcloudMetricsPath(artifactFolder, bootstrapClusterProxy.GetName()),
+		MetricsPath: thirdPartyAPIMetricsPath(artifactFolder, bootstrapClusterProxy.GetName()),
 	})
 }
 
-// hcloudMetricsPath returns the directory WatchPodMetrics dumps caph-controller-manager's
+// thirdPartyAPIMetricsPath returns the directory WatchPodMetrics dumps caph-controller-manager's
 // /metrics snapshots into.
-func hcloudMetricsPath(artifactFolder, clusterName string) string {
+func thirdPartyAPIMetricsPath(artifactFolder, clusterName string) string {
 	return filepath.Join(artifactFolder, "clusters", clusterName, "metrics")
 }
 
 var getServerCallsByServerIDRegexp = regexp.MustCompile(`caph_hcloud_getserver_calls_total\{server_id="(\d+)"\}\s+([0-9eE+.-]+)`)
 
 var getServerCallsByBootStateRegexp = regexp.MustCompile(`caph_hcloud_getserver_calls_by_bootstate_total\{boot_state="([^"]*)"\}\s+([0-9eE+.-]+)`)
+
+var getBMServerCallsByServerIDRegexp = regexp.MustCompile(`caph_robot_getbmserver_calls_total\{server_id="(\d+)"\}\s+([0-9eE+.-]+)`)
+
+var getBMServerCallsByStateRegexp = regexp.MustCompile(`caph_robot_getbmserver_calls_by_state_total\{provisioning_state="([^"]*)"\}\s+([0-9eE+.-]+)`)
 
 // countsByLabel parses the /metrics snapshots dumped by WatchPodMetrics for the given
 // counter regexp (capture group 1: label value, group 2: counter value) and returns the
@@ -1079,7 +1083,8 @@ func countsByLabel(metricsPath string, metricRegexp *regexp.Regexp) map[string]i
 }
 
 // printCountTable prints a table of counts per label value, sorted descending, plus the total.
-func printCountTable(title, labelName string, countByLabel map[string]int) {
+// callName is the API call being counted (e.g. "GetServer", "GetBMServer"), used in the printed lines.
+func printCountTable(title, labelName, callName string, countByLabel map[string]int) {
 	type row struct {
 		label string
 		count int
@@ -1098,16 +1103,19 @@ func printCountTable(title, labelName string, countByLabel map[string]int) {
 		return
 	}
 	for _, r := range rows {
-		log(fmt.Sprintf("  %s=%-20s GetServer calls=%d", labelName, r.label, r.count))
+		log(fmt.Sprintf("  %s=%-20s %s calls=%d", labelName, r.label, callName, r.count))
 	}
-	log(fmt.Sprintf("  TOTAL GetServer calls=%d across %d %s(s)", total, len(rows), labelName))
+	log(fmt.Sprintf("  TOTAL %s calls=%d across %d %s(s)", callName, total, len(rows), labelName))
 }
 
-// printHcloudGetServerCallsTables parses the /metrics snapshots dumped by WatchPodMetrics and
-// prints GetServer call tables per server ID and per BootState (see issue #2163).
-func printHcloudGetServerCallsTables(metricsPath string) {
-	printCountTable("GetServer calls per server ID", "server_id", countsByLabel(metricsPath, getServerCallsByServerIDRegexp))
-	printCountTable("GetServer calls per BootState/caller", "boot_state", countsByLabel(metricsPath, getServerCallsByBootStateRegexp))
+// printThirdPartyAPICallsTables parses the /metrics snapshots dumped by WatchPodMetrics and
+// prints hcloud GetServer and robot GetBMServer call tables, each broken down per server ID and
+// per reconcile state (see issue #2163 and docs/caph/04-developers/07-third-party-api-metrics.md).
+func printThirdPartyAPICallsTables(metricsPath string) {
+	printCountTable("hcloud GetServer calls per server ID", "server_id", "GetServer", countsByLabel(metricsPath, getServerCallsByServerIDRegexp))
+	printCountTable("hcloud GetServer calls per BootState/caller", "boot_state", "GetServer", countsByLabel(metricsPath, getServerCallsByBootStateRegexp))
+	printCountTable("robot GetBMServer calls per server ID", "server_id", "GetBMServer", countsByLabel(metricsPath, getBMServerCallsByServerIDRegexp))
+	printCountTable("robot GetBMServer calls per ProvisioningState", "provisioning_state", "GetBMServer", countsByLabel(metricsPath, getBMServerCallsByStateRegexp))
 }
 
 func tearDown(ctx context.Context, bootstrapClusterProvider bootstrap.ClusterProvider, bootstrapClusterProxy framework.ClusterProxy) {
