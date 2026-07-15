@@ -117,7 +117,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		}
 	}
 
-	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = statusFromHCloudLB(lb, s.scope.HetznerCluster.Status.Network != nil, log)
+	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = statusFromHCloudLB(lb, s.scope.HetznerCluster.Status.Network != nil, kubeAPIServicePortFromSpec(s.scope.HetznerCluster), log)
 
 	// check whether load balancer name, algorithm or type has been changed
 	if err := s.reconcileLBProperties(ctx, lb); err != nil {
@@ -300,11 +300,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		existingServicesByPort[service.ListenPort] = service
 	}
 
-	// ControlPlaneEndpoint is a pointer in v1beta1; zero-value port means unknown.
-	var kubeAPIServicePort int
-	if s.scope.HetznerCluster.Spec.ControlPlaneEndpoint != nil {
-		kubeAPIServicePort = int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)
-	}
+	kubeAPIServicePort := kubeAPIServicePortFromSpec(s.scope.HetznerCluster)
 
 	for _, serviceInSpec := range extraServicesSpec {
 		wantServiceListenPorts = append(wantServiceListenPorts, serviceInSpec.ListenPort)
@@ -678,8 +674,17 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 	return lb, nil
 }
 
+// kubeAPIServicePortFromSpec returns the listen port of the kube-apiserver load balancer service.
+// ControlPlaneEndpoint is a pointer in v1beta1; a returned 0 means the port is not known yet.
+func kubeAPIServicePortFromSpec(hc *infrav1.HetznerCluster) int {
+	if hc.Spec.ControlPlaneEndpoint == nil {
+		return 0
+	}
+	return int(hc.Spec.ControlPlaneEndpoint.Port)
+}
+
 // statusFromHCloudLB gets the information of the Hetzner load balancer and returns it in the status object.
-func statusFromHCloudLB(lb *hcloud.LoadBalancer, hasNetwork bool, log logr.Logger) *infrav1.LoadBalancerStatus {
+func statusFromHCloudLB(lb *hcloud.LoadBalancer, hasNetwork bool, kubeAPIServicePort int, log logr.Logger) *infrav1.LoadBalancerStatus {
 	var internalIP string
 	if hasNetwork && len(lb.PrivateNet) > 0 {
 		internalIP = lb.PrivateNet[0].IP.String()
@@ -705,12 +710,21 @@ func statusFromHCloudLB(lb *hcloud.LoadBalancer, hasNetwork bool, log logr.Logge
 		}
 	}
 
+	var proxyProtocolEnabled bool
+	for _, service := range lb.Services {
+		if service.ListenPort == kubeAPIServicePort {
+			proxyProtocolEnabled = service.Proxyprotocol
+			break
+		}
+	}
+
 	return &infrav1.LoadBalancerStatus{
-		ID:         lb.ID,
-		IPv4:       lb.PublicNet.IPv4.IP.String(),
-		IPv6:       lb.PublicNet.IPv6.IP.String(),
-		InternalIP: internalIP,
-		Target:     targetObjects,
-		Protected:  lb.Protection.Delete,
+		ID:                   lb.ID,
+		IPv4:                 lb.PublicNet.IPv4.IP.String(),
+		IPv6:                 lb.PublicNet.IPv6.IP.String(),
+		InternalIP:           internalIP,
+		Target:               targetObjects,
+		Protected:            lb.Protection.Delete,
+		ProxyProtocolEnabled: proxyProtocolEnabled,
 	}
 }
