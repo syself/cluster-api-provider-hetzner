@@ -61,7 +61,6 @@ have a `TestRecordAPICallByCallerCapturesRealCaller` regression test pinning thi
 
 | Flag | Applies to | Default | Effect |
 | --- | --- | --- | --- |
-| `--debug-hcloud-api-calls` | hcloud only | `false` | Logs every hcloud API call (method, URL, status code, truncated token, calling stack trace) at log level V(1) (`--log-level=debug`). No equivalent flag exists for Robot yet — see gaps below. |
 | `--metric-per-server-id` | hcloud **and** Robot | `false` | Adds a `server_id` label to `GetServer`/`GetBMServer` call metrics (see table above). One Prometheus time series per distinct server ID — only enable for a bounded debugging run (e.g. e2e tests), never permanently on a long-lived production manager. |
 
 `--metric-per-server-id` was originally added as `--hcloud-metric-per-server-id` (hcloud-only) and
@@ -91,20 +90,13 @@ exactly this: it sets `--metric-per-server-id=true`, periodically scrapes `/metr
 manager pod, and at the end of the run prints a table per server ID and per state for both APIs
 (see `printThirdPartyAPICallsTables` in `test/e2e/e2e_suite_test.go`).
 
-To see the full detail (URL, status code, calling stack) for hcloud calls, run with
-`--debug-hcloud-api-calls=true --log-level=debug`. For Robot API calls, the equivalent log lines
-are always emitted (see gaps below) — just run with `--log-level=debug`.
+Robot API calls are also logged in full detail (method, URL, status code, calling stack) at log
+level V(1) — run with `--log-level=debug` to see them.
 
 ## Known gaps / suggested follow-ups
 
 Not implemented in this change, listed here so they don't get lost:
 
-* **Robot debug logging is unconditional.** `LoggingTransport.RoundTrip` in `robot_client.go`
-  always computes a cleaned stack trace (`runtime/debug.Stack()`) for every Robot API call, then
-  only actually logs it at V(1). hcloud's equivalent (`--debug-hcloud-api-calls`) only pays that
-  cost when explicitly enabled. Adding a `--debug-robot-api-calls` flag (default `false`, mirroring
-  the hcloud one) would make the two consistent and avoid the always-on stack-trace overhead on
-  Robot API calls in production.
 * **No object identity in metrics/logs.** The `caller` label identifies *which Go function* made
   a call, but not *which* `HCloudMachine` / `HetznerBareMetalHost` / `HetznerCluster` triggered it.
   For per-object investigation you still need to correlate with controller logs (which do include
