@@ -21,6 +21,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -115,7 +117,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile network attachment: %w", err)
 	}
 
-	if err := s.reconcileServices(ctx, lb); err != nil {
+	if res, err := s.reconcileServices(ctx, lb); err != nil {
 		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav2.LoadBalancerReadyV1Beta1Condition,
@@ -133,6 +135,8 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		})
 
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile services: %w", err)
+	} else if res != (reconcile.Result{}) {
+		return res, nil
 	}
 
 	deprecatedv1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav2.LoadBalancerReadyV1Beta1Condition)
@@ -258,27 +262,26 @@ func (s *Service) reconcileLBProperties(ctx context.Context, lb *hcloud.LoadBala
 	return multierr
 }
 
-func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer) error {
+func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer) (reconcile.Result, error) {
 	extraServicesSpec := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices
 
-	// build slices and maps to make diffs
-	haveServiceListenPorts := make([]int, 0, len(lb.Services))
 	wantServiceListenPorts := make([]int, 0, len(extraServicesSpec)+1)
 	wantServiceListenPortsMap := make(map[int]infrav2.LoadBalancerServiceSpec, len(extraServicesSpec)+1)
 
-	// filter kubeAPI service out
+	existingServicesByPort := make(map[int]hcloud.LoadBalancerService, len(lb.Services))
 	for _, service := range lb.Services {
-		haveServiceListenPorts = append(haveServiceListenPorts, service.ListenPort)
+		existingServicesByPort[service.ListenPort] = service
 	}
+
+	kubeAPIServicePort := int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)
 
 	for _, serviceInSpec := range extraServicesSpec {
 		wantServiceListenPorts = append(wantServiceListenPorts, serviceInSpec.ListenPort)
 		wantServiceListenPortsMap[serviceInSpec.ListenPort] = serviceInSpec
 	}
 
-	// add kubeAPI service if exists
-	if s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
-		kubeAPIServicePort := int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)
+	// add kubeAPI service if the endpoint port is known
+	if kubeAPIServicePort != 0 {
 		wantServiceListenPorts = append(wantServiceListenPorts, kubeAPIServicePort)
 		wantServiceListenPortsMap[kubeAPIServicePort] = infrav2.LoadBalancerServiceSpec{
 			Protocol:        "tcp",
@@ -287,27 +290,68 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		}
 	}
 
-	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, haveServiceListenPorts)
+	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, slices.Collect(maps.Keys(existingServicesByPort)))
 
-	// delete services which are registered for lb but are not in specs
+	// kubeAPIServiceExists: whether the kube-API service already exists on the LB.
+	// New cluster: service absent → create immediately with EnableProxyProtocol from spec (no annotation check).
+	// Existing cluster migration: service present without proxy protocol → wait for all CP nodes to carry the
+	// annotation before recreating, to avoid sending malformed PROXY-protocol headers to unprepared backends.
+	existingKubeAPIService, kubeAPIServiceExists := existingServicesByPort[kubeAPIServicePort]
+	proxyProtocolAlreadyActive := kubeAPIServiceExists && existingKubeAPIService.Proxyprotocol
+
+	// proxyProtocolShouldGetEnabled: whether proxy protocol should get enabled now.
+	// The workload cluster is only contacted when the spec wants proxy protocol but the LB
+	// service doesn't have it yet. For new clusters or when already active, no call is made.
+	var proxyProtocolShouldGetEnabled bool
+	var requeueForProxyProtocol bool
+	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && kubeAPIServiceExists && !proxyProtocolAlreadyActive {
+		var err error
+		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneNodesReadyForProxyProtocol(ctx)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if !proxyProtocolShouldGetEnabled {
+			s.scope.V(1).Info("proxy protocol: not all CP nodes ready yet, requeueing")
+			requeueForProxyProtocol = true
+		}
+	}
+	// Enabling proxy protocol is a one-way operation: delete the existing service and
+	// recreate it with proxy protocol on once all CP nodes signal readiness.
+	if proxyProtocolShouldGetEnabled && !proxyProtocolAlreadyActive {
+		toDelete = append(toDelete, kubeAPIServicePort)
+		toCreate = append(toCreate, kubeAPIServicePort)
+	}
+
+	// kubeAPIProxyProtocol: the proxy protocol value to use when creating the kube-API service.
+	// For existing clusters, wait for CP nodes to signal readiness before enabling.
+	// For new clusters, use the spec value directly.
+	kubeAPIProxyProtocol := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
+	if kubeAPIServiceExists {
+		kubeAPIProxyProtocol = proxyProtocolShouldGetEnabled
+	}
+
+	// delete services that are no longer in the spec, or the kube-API service being recreated
+	// to enable proxy protocol
 	var multierr error
 
 	for _, listenPort := range toDelete {
-		if _, ok := wantServiceListenPortsMap[listenPort]; !ok {
-			if err := s.scope.HCloudClient.DeleteServiceFromLoadBalancer(ctx, lb, listenPort); err != nil {
-				// return immediately on rate limit
-				hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteServiceFromLoadBalancer")
-				multierr = errors.Join(multierr, fmt.Errorf("failed to delete service from load balancer: %w", err))
-				if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-					return multierr
-				}
+		if err := s.scope.HCloudClient.DeleteServiceFromLoadBalancer(ctx, lb, listenPort); err != nil {
+			// return immediately on rate limit
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteServiceFromLoadBalancer")
+			multierr = errors.Join(multierr, fmt.Errorf("failed to delete service from load balancer: %w", err))
+			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				return reconcile.Result{}, multierr
 			}
 		}
 	}
 
-	// create services which are in specs and not yet in API
+	// create services that are in the spec but not yet on the LB
 	for i, listenPort := range toCreate {
 		proxyProtocol := false
+		if listenPort == kubeAPIServicePort {
+			// Proxy protocol is only relevant for the kube-apiserver port (default 6443).
+			proxyProtocol = kubeAPIProxyProtocol
+		}
 		destinationPort := wantServiceListenPortsMap[listenPort].DestinationPort
 		serviceOpts := hcloud.LoadBalancerAddServiceOpts{
 			Protocol:        hcloud.LoadBalancerServiceProtocol(wantServiceListenPortsMap[listenPort].Protocol),
@@ -320,11 +364,14 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "AddServiceToLoadBalancer")
 			multierr = errors.Join(multierr, fmt.Errorf("failed to add service to load balancer: %w", err))
 			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-				return multierr
+				return reconcile.Result{}, multierr
 			}
 		}
 	}
-	return multierr
+	if requeueForProxyProtocol {
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, multierr
+	}
+	return reconcile.Result{}, multierr
 }
 
 func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, error) {

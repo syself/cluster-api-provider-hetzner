@@ -587,24 +587,22 @@ func (_c *Client_CreatePlacementGroup_Call) RunAndReturn(run func(context.Contex
 }
 
 // CreateServer provides a mock function with given fields: _a0, _a1
-func (_m *Client) CreateServer(_a0 context.Context, _a1 hcloud.ServerCreateOpts) (*hcloud.Server, error) {
+func (_m *Client) CreateServer(_a0 context.Context, _a1 hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateServer")
 	}
 
-	var r0 *hcloud.Server
+	var r0 hcloud.ServerCreateResult
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, hcloud.ServerCreateOpts) (*hcloud.Server, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error)); ok {
 		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, hcloud.ServerCreateOpts) *hcloud.Server); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, hcloud.ServerCreateOpts) hcloud.ServerCreateResult); ok {
 		r0 = rf(_a0, _a1)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*hcloud.Server)
-		}
+		r0 = ret.Get(0).(hcloud.ServerCreateResult)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, hcloud.ServerCreateOpts) error); ok {
@@ -635,12 +633,12 @@ func (_c *Client_CreateServer_Call) Run(run func(_a0 context.Context, _a1 hcloud
 	return _c
 }
 
-func (_c *Client_CreateServer_Call) Return(_a0 *hcloud.Server, _a1 error) *Client_CreateServer_Call {
+func (_c *Client_CreateServer_Call) Return(_a0 hcloud.ServerCreateResult, _a1 error) *Client_CreateServer_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Client_CreateServer_Call) RunAndReturn(run func(context.Context, hcloud.ServerCreateOpts) (*hcloud.Server, error)) *Client_CreateServer_Call {
+func (_c *Client_CreateServer_Call) RunAndReturn(run func(context.Context, hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error)) *Client_CreateServer_Call {
 	_c.Call.Return(run)
 	return _c
 }
