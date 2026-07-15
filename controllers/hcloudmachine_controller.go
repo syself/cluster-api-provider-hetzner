@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -403,16 +404,14 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 	}
 }
 
-// machineConditionsAffectingLoadBalancerReconcileChanged reports whether the Machine's
-// KubeadmControlPlaneMachineAPIServerPodHealthyCondition changed. reconcileLoadBalancerAttachment
-// (pkg/services/hcloud/server/server.go) uses this condition to decide whether to attach the
-// server to the load balancer. Without this check, a condition change alone would not trigger
+// machineAPIServerPodHealthyConditionChanged reports whether the Machine's
+// KubeadmControlPlaneMachineAPIServerPodHealthyCondition status changed. reconcileLoadBalancerAttachment
+// (pkg/services/hcloud/server/server.go) uses conditions.IsTrue on this condition to decide whether to
+// attach the server to the load balancer. Without this check, a condition change alone would not trigger
 // a reconcile.
-func machineConditionsAffectingLoadBalancerReconcileChanged(oldMachine, newMachine *clusterv1.Machine) bool {
-	return !reflect.DeepEqual(
-		conditions.Get(oldMachine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition),
-		conditions.Get(newMachine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition),
-	)
+func machineAPIServerPodHealthyConditionChanged(oldMachine, newMachine *clusterv1.Machine) bool {
+	return conditions.IsTrue(oldMachine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition) !=
+		conditions.IsTrue(newMachine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition)
 }
 
 // controlPlaneLoadBalancerTargetsChanged reports whether the load balancer's target list
@@ -431,12 +430,7 @@ func controlPlaneLoadBalancerTargetsChanged(oldCluster, newCluster *infrav1.Hetz
 		newTargets = newCluster.Status.ControlPlaneLoadBalancer.Target
 	}
 
-	// ignore empty vs nil slice.
-	if len(oldTargets) == 0 && len(newTargets) == 0 {
-		return false
-	}
-
-	return !reflect.DeepEqual(oldTargets, newTargets)
+	return !slices.Equal(oldTargets, newTargets)
 }
 
 // HetznerSecretToHCloudMachines is a handler.ToRequestsFunc to be used to enqueue requests for reconciliation
@@ -607,7 +601,7 @@ func IgnoreInsignificantMachineStatusUpdates(logger logr.Logger) predicate.Funcs
 			oldMachine.ResourceVersion = ""
 			newMachine.ResourceVersion = ""
 
-			if machineConditionsAffectingLoadBalancerReconcileChanged(oldMachine, newMachine) {
+			if machineAPIServerPodHealthyConditionChanged(oldMachine, newMachine) {
 				log.V(1).Info("Machine -> HCloudMachine event for load balancer related condition change")
 				return true
 			}

@@ -327,6 +327,38 @@ func TestIgnoreInsignificantHetznerClusterUpdates_TargetChanges(t *testing.T) {
 	if !predicate.Update(updateEvent) {
 		t.Errorf("expected control plane load balancer target change to trigger reconcile")
 	}
+
+	t.Run("unchanged targets", func(t *testing.T) {
+		unchangedObj := oldObj.DeepCopy()
+		unchangedObj.ResourceVersion = "2"
+
+		updateEvent := event.UpdateEvent{
+			ObjectOld: oldObj,
+			ObjectNew: unchangedObj,
+		}
+		if predicate.Update(updateEvent) {
+			t.Errorf("expected unchanged control plane load balancer targets to not trigger reconcile")
+		}
+	})
+
+	t.Run("nil ControlPlaneLoadBalancer", func(t *testing.T) {
+		oldNilLB := &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-cluster",
+				Namespace: "default",
+			},
+		}
+		newNilLB := oldNilLB.DeepCopy()
+		newNilLB.ResourceVersion = "2"
+
+		updateEvent := event.UpdateEvent{
+			ObjectOld: oldNilLB,
+			ObjectNew: newNilLB,
+		}
+		if predicate.Update(updateEvent) {
+			t.Errorf("expected nil control plane load balancer on both sides to not trigger reconcile")
+		}
+	})
 }
 
 func TestIgnoreInsignificantSecretUpdates(t *testing.T) {

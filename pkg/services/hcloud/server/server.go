@@ -1530,10 +1530,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		return reconcile.Result{}, nil
 	}
 
-	// remove server from load balancer if it's being deleted. The Machine controller only
-	// starts tearing a Machine down (including waiting on the pre-drain hook) once
-	// DeletionTimestamp is set, so checking it directly is equivalent and avoids depending
-	// on the deprecated v1beta1 PreDrainDeleteHookSucceeded condition.
+	// remove the server as soon as the Machine starts deleting.
 	if !s.scope.Machine.DeletionTimestamp.IsZero() {
 		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to delete server %s with ID %d from loadbalancer: %w", server.Name, server.ID, err)
