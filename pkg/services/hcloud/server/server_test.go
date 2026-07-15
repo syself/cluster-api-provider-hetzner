@@ -1149,7 +1149,12 @@ var _ = Describe("Reconcile", func() {
 		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(nil, nil)
 		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return(nil, nil)
 
-		By("calling reconcile")
+		By("reconciling once: the pre-BootState migration path sets BootingToRealOS without calling GetServer")
+		_, err = service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
+
+		By("reconciling again: BootingToRealOS calls GetServer, which reports the server as gone")
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 
@@ -1819,11 +1824,16 @@ var _ = Describe("Reconcile", func() {
 		By("setting the ProviderID on the HCloudMachine")
 		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://1234567")
 
+		By("reconciling once: the pre-BootState migration path sets BootingToRealOS without calling GetServer")
+		_, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
+
 		By("ensuring that the mock hcloud client return unauthorized error on GetServer")
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: invalid HCloud token", hcloudclient.ErrUnauthorized)).Once()
 
 		By("calling reconcile")
-		_, err := service.Reconcile(ctx)
+		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 
 		By("ensuring condition HCloudCredentialsInvalid is set")
