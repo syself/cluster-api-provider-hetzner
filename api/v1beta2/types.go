@@ -267,6 +267,13 @@ type LoadBalancerStatus struct {
 	// +listType=atomic
 	Target    []LoadBalancerTarget `json:"targets,omitempty"`
 	Protected bool                 `json:"protected,omitempty"`
+
+	// ProxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
+	// has proxy protocol enabled, as observed on the actual HCloud load balancer. This can lag
+	// behind spec.controlPlaneLoadBalancer.enableProxyProtocol while the migration to proxy
+	// protocol is in progress (see the field's docs for details).
+	// +optional
+	ProxyProtocolEnabled bool `json:"proxyProtocolEnabled,omitempty"`
 }
 
 // LoadBalancerTarget defines the target of a load balancer.
