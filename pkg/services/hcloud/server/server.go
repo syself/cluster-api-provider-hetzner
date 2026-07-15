@@ -1027,12 +1027,12 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	}
 
 	v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-		"HCloudImageURLCommandRunning", clusterv1beta1.ConditionSeverityInfo,
+		"CustomProvisionerRunning", clusterv1beta1.ConditionSeverityInfo,
 		"custom provisioner running")
 	v1beta2conditions.Set(hm, metav1.Condition{
 		Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 		Status:  metav1.ConditionFalse,
-		Reason:  infrav1.HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason,
+		Reason:  infrav1.HCloudMachineCustomProvisionerRunningV1Beta2Reason,
 		Message: "custom provisioner running",
 	})
 	s.setBootState(infrav1.HCloudBootStateRunningImageCommand)
