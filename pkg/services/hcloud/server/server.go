@@ -144,14 +144,13 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	var server *hcloud.Server
 
-	// Only fetch the live server for the states that actually need it (an "IsCreated" check,
-	// a server.Status transition, or the network/LB attachment reconcile). The remaining states
-	// (Initializing, EnablingRescue, BootingToRescue, RunningImageCommand) drive their progress
+	// Only fetch the live server for the states that actually need it (a server.Status
+	// transition, or the network/LB attachment reconcile). The remaining states (Unset,
+	// Initializing, EnablingRescue, BootingToRescue, RunningImageCommand) drive their progress
 	// via GetAction polling and/or SSH, so skipping the fetch there avoids an hcloud API call on
 	// every reconcile while we wait (see issue #2163).
 	bootState := s.scope.HCloudMachine.Status.BootState
-	needsLiveServer := bootState == infrav1.HCloudBootStateUnset ||
-		bootState == infrav1.HCloudBootStateBootingToRealOS ||
+	needsLiveServer := bootState == infrav1.HCloudBootStateBootingToRealOS ||
 		bootState == infrav1.HCloudBootStateOperatingSystemRunning
 
 	if s.scope.HCloudMachine.Spec.ProviderID != nil && needsLiveServer {
