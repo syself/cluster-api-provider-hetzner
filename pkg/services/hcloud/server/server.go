@@ -804,10 +804,6 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
-	// The enable_rescue action (checked above) already reports success, which is the
-	// authoritative signal that the rescue system is enabled - no live GetServer call needed
-	// to double-check via server.RescueEnabled.
-	//
 	// The server was created with StartAfterCreate=false and has never been started, so
 	// powering it on boots it directly into the rescue system.
 	serverStub, err := s.serverStubFromProviderID()
