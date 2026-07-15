@@ -257,6 +257,8 @@ type HetznerBareMetalHostSpec struct {
 type ControllerGeneratedStatus struct {
 	// HetznerClusterRef is the name of the HetznerCluster object which is
 	// needed as some necessary information is stored there, e.g. the hrobot password.
+	// It is empty until the host is claimed by a HetznerBareMetalMachine.
+	// +kubebuilder:default:=""
 	HetznerClusterRef string `json:"hetznerClusterRef"`
 
 	// UserData holds the reference to the Secret containing the user
