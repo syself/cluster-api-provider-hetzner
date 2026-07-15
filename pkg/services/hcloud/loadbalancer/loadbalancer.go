@@ -393,6 +393,12 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
 				return reconcile.Result{}, multierr
 			}
+		} else if listenPort == kubeAPIServicePort {
+			// Status.ControlPlaneLoadBalancer was snapshotted from the LB state fetched at the
+			// start of Reconcile, before this service was (re)created, so it still shows the old
+			// value. Update it now so callers observe the change in this reconcile instead of
+			// waiting for the next one (e.g. the next full resync, up to --sync-period later).
+			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled = proxyProtocol
 		}
 	}
 

@@ -17,6 +17,7 @@ limitations under the License.
 package loadbalancer
 
 import (
+	"context"
 	"errors"
 
 	"github.com/go-logr/logr"
@@ -26,6 +27,8 @@ import (
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
 
 var _ = Describe("Loadbalancer", func() {
@@ -86,6 +89,39 @@ var _ = Describe("Loadbalancer", func() {
 			sts := statusFromHCloudLB(lb, false, 6443, logr.Discard())
 			Expect(sts.ProxyProtocolEnabled).To(BeFalse())
 		})
+	})
+})
+
+var _ = Describe("reconcileServices", func() {
+	It("sets status.controlPlaneLoadBalancer.proxyProtocolEnabled as soon as the kube-API service is created with proxy protocol, without waiting for the next reconcile", func() {
+		hcloudClient := fakeclient.NewHCloudClientFactory().NewClient("")
+		createdLB, err := hcloudClient.CreateLoadBalancer(context.Background(), hcloud.LoadBalancerCreateOpts{
+			Name:      "test-lb",
+			Algorithm: &hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeRoundRobin},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		hetznerCluster := &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{Port: 6443},
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled:             true,
+					EnableProxyProtocol: true,
+					Port:                6443,
+				},
+			},
+			Status: infrav1.HetznerClusterStatus{
+				// Simulates the snapshot taken from the LB state at the start of Reconcile,
+				// before the kube-API service (and thus proxy protocol) existed on the LB.
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{},
+			},
+		}
+
+		svc := &Service{&scope.ClusterScope{HetznerCluster: hetznerCluster, HCloudClient: hcloudClient}}
+
+		_, err = svc.reconcileServices(context.Background(), createdLB)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled).To(BeTrue())
 	})
 })
 
