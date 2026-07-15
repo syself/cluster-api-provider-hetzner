@@ -258,8 +258,8 @@ type ControllerGeneratedStatus struct {
 	// HetznerClusterRef is the name of the HetznerCluster object which is
 	// needed as some necessary information is stored there, e.g. the hrobot password.
 	// It is empty until the host is claimed by a HetznerBareMetalMachine.
-	// +kubebuilder:default:=""
-	HetznerClusterRef string `json:"hetznerClusterRef"`
+	// +optional
+	HetznerClusterRef string `json:"hetznerClusterRef,omitempty"`
 
 	// UserData holds the reference to the Secret containing the user
 	// data to be passed to the host before it boots.

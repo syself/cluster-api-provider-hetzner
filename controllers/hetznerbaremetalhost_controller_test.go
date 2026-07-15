@@ -340,9 +340,9 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 	Context("Fresh, unclaimed host (as created by a user, before any machine claims it)", func() {
 		It("persists status without hitting the spec.status.hetznerClusterRef required-field validation error", func() {
 			// Unlike the other hosts in this suite (created via helpers.BareMetalHost + the typed
-			// client, which always marshals HetznerClusterRef as "" since the field lacks
-			// omitempty), this one is created the way a real user creates it: via an unstructured
-			// object carrying only what a plain YAML manifest would contain. That means no
+			// client, which always marshals a spec.status object, empty or not), this one is
+			// created the way a real user creates it: via an unstructured object carrying only
+			// what a plain YAML manifest would contain. That means no
 			// "status" key under spec at all, matching how kubectl/GitOps actually submits a new
 			// HetznerBareMetalHost. HetznerClusterRef is only set once a HetznerBareMetalMachine
 			// claims the host (see setHostSpec), so for a fresh, unclaimed host spec.status starts
@@ -365,8 +365,8 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			// spec.status for the first time. Before the fix, that patch never included
 			// hetznerClusterRef (unchanged, so omitted from the merge patch), and the API
 			// server rejected the result because spec.status did not exist yet and
-			// hetznerClusterRef had no default. That made this Eventually block time out
-			// forever instead of observing the v1beta2 conditions appear.
+			// hetznerClusterRef was a required field. That made this Eventually block time
+			// out forever instead of observing the v1beta2 conditions appear.
 			typedHost := &infrav1.HetznerBareMetalHost{}
 			Eventually(func() []metav1.Condition {
 				if err := testEnv.Get(ctx, freshKey, typedHost); err != nil {

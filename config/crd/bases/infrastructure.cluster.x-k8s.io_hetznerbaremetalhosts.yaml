@@ -336,7 +336,6 @@ spec:
                         type: array
                     type: object
                   hetznerClusterRef:
-                    default: ""
                     description: |-
                       HetznerClusterRef is the name of the HetznerCluster object which is
                       needed as some necessary information is stored there, e.g. the hrobot password.
@@ -765,7 +764,6 @@ spec:
                     type: object
                 required:
                 - errorCount
-                - hetznerClusterRef
                 type: object
             required:
             - serverID
