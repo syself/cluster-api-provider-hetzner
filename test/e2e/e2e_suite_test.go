@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -252,6 +253,7 @@ var _ = SynchronizedAfterSuite(func() {
 	}
 }, func() {
 	// After all ParallelNodes.
+	printThirdPartyAPICallsTables(thirdPartyAPIMetricsPath(artifactFolder, bootstrapClusterProxy.GetName()))
 	if !skipCleanup {
 		tearDown(ctx, bootstrapClusterProvider, nil)
 	}
@@ -1013,6 +1015,107 @@ func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.C
 		InfrastructureProviders: config.InfrastructureProviders(),
 		LogFolder:               filepath.Join(artifactFolder, "clusters", bootstrapClusterProxy.GetName()),
 	}, config.GetIntervals(bootstrapClusterProxy.GetName(), "wait-controllers")...)
+
+	// Periodically dumps /metrics from the caph-controller-manager pod, so we can print a
+	// summary of hcloud and robot API calls per server ID at the end of the run (see issue #2163).
+	// Requires --metric-per-server-id and --metrics-bind-address=:8080 on the manager
+	// (set via replacements in test/e2e/config/hetzner.yaml).
+	framework.WatchPodMetrics(ctx, framework.WatchPodMetricsInput{
+		GetLister: bootstrapClusterProxy.GetClient(),
+		ClientSet: bootstrapClusterProxy.GetClientSet(),
+		Deployment: &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "caph-controller-manager",
+				Namespace: "caph-system",
+			},
+		},
+		MetricsPath: thirdPartyAPIMetricsPath(artifactFolder, bootstrapClusterProxy.GetName()),
+	})
+}
+
+// thirdPartyAPIMetricsPath returns the directory WatchPodMetrics dumps caph-controller-manager's
+// /metrics snapshots into.
+func thirdPartyAPIMetricsPath(artifactFolder, clusterName string) string {
+	return filepath.Join(artifactFolder, "clusters", clusterName, "metrics")
+}
+
+var getServerCallsByServerIDRegexp = regexp.MustCompile(`caph_hcloud_getserver_calls_total\{server_id="(\d+)"\}\s+([0-9eE+.-]+)`)
+
+var getServerCallsByBootStateRegexp = regexp.MustCompile(`caph_hcloud_getserver_calls_by_bootstate_total\{boot_state="([^"]*)"\}\s+([0-9eE+.-]+)`)
+
+var getBMServerCallsByServerIDRegexp = regexp.MustCompile(`caph_robot_getbmserver_calls_total\{server_id="(\d+)"\}\s+([0-9eE+.-]+)`)
+
+var getBMServerCallsByStateRegexp = regexp.MustCompile(`caph_robot_getbmserver_calls_by_state_total\{provisioning_state="([^"]*)"\}\s+([0-9eE+.-]+)`)
+
+// countsByLabel parses the /metrics snapshots dumped by WatchPodMetrics for the given
+// counter regexp (capture group 1: label value, group 2: counter value) and returns the
+// summed counts per label value across all pods.
+func countsByLabel(metricsPath string, metricRegexp *regexp.Regexp) map[string]int {
+	files, err := filepath.Glob(filepath.Join(metricsPath, "caph-controller-manager", "*", "metrics.txt"))
+	if err != nil {
+		log(fmt.Sprintf("countsByLabel: failed to glob metrics files: %v", err))
+		return nil
+	}
+	if len(files) == 0 {
+		log("countsByLabel: no metrics.txt files found under " + metricsPath)
+		return nil
+	}
+
+	countByLabel := map[string]int{}
+	for _, file := range files {
+		data, err := os.ReadFile(file) //nolint:gosec
+		if err != nil {
+			log(fmt.Sprintf("countsByLabel: failed to read %q: %v", file, err))
+			continue
+		}
+		for _, match := range metricRegexp.FindAllStringSubmatch(string(data), -1) {
+			label, valueStr := match[1], match[2]
+			value, err := strconv.ParseFloat(valueStr, 64)
+			if err != nil {
+				continue
+			}
+			// Each file is one pod's full counter snapshot (not a delta), and there is exactly
+			// one file per pod, so summing across files sums across pods correctly.
+			countByLabel[label] += int(value)
+		}
+	}
+	return countByLabel
+}
+
+// printCountTable prints a table of counts per label value, sorted descending, plus the total.
+// callName is the API call being counted (e.g. "GetServer", "GetBMServer"), used in the printed lines.
+func printCountTable(title, labelName, callName string, countByLabel map[string]int) {
+	type row struct {
+		label string
+		count int
+	}
+	rows := make([]row, 0, len(countByLabel))
+	total := 0
+	for label, count := range countByLabel {
+		rows = append(rows, row{label, count})
+		total += count
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].count > rows[j].count })
+
+	log("--------------------------------------------------- " + title + " (issue #2163)")
+	if len(rows) == 0 {
+		log("  no samples found")
+		return
+	}
+	for _, r := range rows {
+		log(fmt.Sprintf("  %s=%-20s %s calls=%d", labelName, r.label, callName, r.count))
+	}
+	log(fmt.Sprintf("  TOTAL %s calls=%d across %d %s(s)", callName, total, len(rows), labelName))
+}
+
+// printThirdPartyAPICallsTables parses the /metrics snapshots dumped by WatchPodMetrics and
+// prints hcloud GetServer and robot GetBMServer call tables, each broken down per server ID and
+// per reconcile state (see issue #2163 and docs/caph/04-developers/07-third-party-api-metrics.md).
+func printThirdPartyAPICallsTables(metricsPath string) {
+	printCountTable("hcloud GetServer calls per server ID", "server_id", "GetServer", countsByLabel(metricsPath, getServerCallsByServerIDRegexp))
+	printCountTable("hcloud GetServer calls per BootState/caller", "boot_state", "GetServer", countsByLabel(metricsPath, getServerCallsByBootStateRegexp))
+	printCountTable("robot GetBMServer calls per server ID", "server_id", "GetBMServer", countsByLabel(metricsPath, getBMServerCallsByServerIDRegexp))
+	printCountTable("robot GetBMServer calls per ProvisioningState", "provisioning_state", "GetBMServer", countsByLabel(metricsPath, getBMServerCallsByStateRegexp))
 }
 
 func tearDown(ctx context.Context, bootstrapClusterProvider bootstrap.ClusterProvider, bootstrapClusterProxy framework.ClusterProxy) {

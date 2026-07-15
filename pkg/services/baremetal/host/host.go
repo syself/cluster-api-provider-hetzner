@@ -47,6 +47,7 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/imageurlcommand"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -146,6 +147,7 @@ func (s *Service) recordActionFailure(errorType infrav1.ErrorType, errorMessage 
 func (s *Service) actionPreparing(ctx context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StatePreparing)
 
+	robotclient.RecordGetBMServerCallByState(string(s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState))
 	server, err := s.scope.RobotClient.GetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID)
 	if err != nil {
 		// If Robot API returned "unauthorized" error - mark condition RobotCredentialsAvailable as false

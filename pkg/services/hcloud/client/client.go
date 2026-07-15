@@ -23,10 +23,13 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	"github.com/prometheus/client_golang/prometheus"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
@@ -112,6 +115,71 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, e
 // DebugAPICalls loggs all hcloud API calls if true.
 var DebugAPICalls bool
 
+// MetricPerServerID adds a server_id label to hcloud API call metrics if true. Mirrors
+// robotclient.MetricPerServerID; both are wired to the same --metric-per-server-id flag.
+// This adds one Prometheus time series per distinct server ID, so it must not be
+// enabled permanently on a long-lived production manager.
+var MetricPerServerID bool
+
+// getServerCallsTotal counts calls to GetServer, labeled by server ID. Only
+// incremented when MetricPerServerID is true. Used to measure API call volume
+// during provisioning (see issue #2163).
+var getServerCallsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "caph_hcloud_getserver_calls_total",
+	Help: "Number of GetServer calls to the HCloud API, labeled by server ID. Only populated when --metric-per-server-id is set.",
+}, []string{"server_id"})
+
+// getServerCallsByBootStateTotal counts GetServer calls labeled by the caller's BootState (or an
+// equivalent fixed label for non-boot-state callers, e.g. remediation). Unlike
+// getServerCallsTotal, this is always on: BootState has a small, fixed set of values, so
+// cardinality stays bounded regardless of fleet size. Used to identify which code path drives
+// the most GetServer calls (see issue #2163).
+var getServerCallsByBootStateTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "caph_hcloud_getserver_calls_by_bootstate_total",
+	Help: "Number of GetServer calls to the HCloud API, labeled by the caller's BootState (or a fixed value for non-boot-state callers like remediation).",
+}, []string{"boot_state"})
+
+func init() {
+	metrics.Registry.MustRegister(getServerCallsTotal)
+	metrics.Registry.MustRegister(getServerCallsByBootStateTotal)
+	metrics.Registry.MustRegister(apiCallsByCallerTotal)
+}
+
+// RecordGetServerCallByBootState increments the per-BootState GetServer call counter. Callers
+// that know which BootState (or equivalent code path) triggered a GetServer call should call
+// this alongside the GetServer call itself.
+func RecordGetServerCallByBootState(bootState string) {
+	getServerCallsByBootStateTotal.WithLabelValues(bootState).Inc()
+}
+
+// modulePrefix is trimmed from runtime function names so caller labels stay short, e.g.
+// "pkg/services/hcloud/server.(*Service).findServer" instead of the fully qualified import path.
+const modulePrefix = "github.com/syself/cluster-api-provider-hetzner/"
+
+// apiCallsByCallerTotal counts every hcloud API client method call, labeled by the calling caph
+// Go function (caller) and the client method name (method). Unlike getServerCallsTotal, this is
+// always on and covers every method, not just GetServer: cardinality is bounded by the number of
+// call sites in the caph source code, not by fleet size, so it is safe to run permanently. Use
+// this to find which caph code triggers a given hcloud API call (see docs/caph/04-developers/07-third-party-api-metrics.md).
+var apiCallsByCallerTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "caph_hcloud_api_calls_by_caller_total",
+	Help: "Number of hcloud API client method calls, labeled by the calling caph Go function (caller) and the hcloud client method name (method).",
+}, []string{"caller", "method"})
+
+// recordAPICallByCaller records that method was called, labeled by the caph Go function that
+// called it. It must be called directly from the realClient method it instruments: skip depth 2
+// in runtime.Caller means 0 is recordAPICallByCaller itself, 1 is the realClient method, and 2 is
+// the caph code that called that method.
+func recordAPICallByCaller(method string) {
+	caller := "unknown"
+	if pc, _, _, ok := runtime.Caller(2); ok {
+		if fn := runtime.FuncForPC(pc); fn != nil {
+			caller = strings.TrimPrefix(fn.Name(), modulePrefix)
+		}
+	}
+	apiCallsByCallerTotal.WithLabelValues(caller, method).Inc()
+}
+
 // NewClient creates new HCloud clients.
 func (f *factory) NewClient(hcloudToken string) Client {
 	httpClient := &http.Client{}
@@ -147,16 +215,19 @@ type realClient struct {
 }
 
 func (c *realClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error) {
+	recordAPICallByCaller("CreateLoadBalancer")
 	res, _, err := c.client.LoadBalancer.Create(ctx, opts)
 	return res.LoadBalancer, err
 }
 
 func (c *realClient) DeleteLoadBalancer(ctx context.Context, id int64) error {
+	recordAPICallByCaller("DeleteLoadBalancer")
 	_, err := c.client.LoadBalancer.Delete(ctx, &hcloud.LoadBalancer{ID: id})
 	return err
 }
 
 func (c *realClient) ListLoadBalancers(ctx context.Context, opts hcloud.LoadBalancerListOpts) ([]*hcloud.LoadBalancer, error) {
+	recordAPICallByCaller("ListLoadBalancers")
 	resp, err := c.client.LoadBalancer.AllWithOpts(ctx, opts)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
 		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
@@ -165,31 +236,37 @@ func (c *realClient) ListLoadBalancers(ctx context.Context, opts hcloud.LoadBala
 }
 
 func (c *realClient) AttachLoadBalancerToNetwork(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAttachToNetworkOpts) error {
+	recordAPICallByCaller("AttachLoadBalancerToNetwork")
 	_, _, err := c.client.LoadBalancer.AttachToNetwork(ctx, lb, opts)
 	return err
 }
 
 func (c *realClient) ChangeLoadBalancerType(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerChangeTypeOpts) error {
+	recordAPICallByCaller("ChangeLoadBalancerType")
 	_, _, err := c.client.LoadBalancer.ChangeType(ctx, lb, opts)
 	return err
 }
 
 func (c *realClient) ChangeLoadBalancerAlgorithm(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerChangeAlgorithmOpts) error {
+	recordAPICallByCaller("ChangeLoadBalancerAlgorithm")
 	_, _, err := c.client.LoadBalancer.ChangeAlgorithm(ctx, lb, opts)
 	return err
 }
 
 func (c *realClient) UpdateLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerUpdateOpts) (*hcloud.LoadBalancer, error) {
+	recordAPICallByCaller("UpdateLoadBalancer")
 	res, _, err := c.client.LoadBalancer.Update(ctx, lb, opts)
 	return res, err
 }
 
 func (c *realClient) AddTargetServerToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddServerTargetOpts, lb *hcloud.LoadBalancer) error {
+	recordAPICallByCaller("AddTargetServerToLoadBalancer")
 	_, _, err := c.client.LoadBalancer.AddServerTarget(ctx, lb, opts)
 	return err
 }
 
 func (c *realClient) AddIPTargetToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddIPTargetOpts, lb *hcloud.LoadBalancer) error {
+	recordAPICallByCaller("AddIPTargetToLoadBalancer")
 	_, _, err := c.client.LoadBalancer.AddIPTarget(ctx, lb, opts)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
 		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
@@ -198,6 +275,7 @@ func (c *realClient) AddIPTargetToLoadBalancer(ctx context.Context, opts hcloud.
 }
 
 func (c *realClient) DeleteTargetServerOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, server *hcloud.Server) error {
+	recordAPICallByCaller("DeleteTargetServerOfLoadBalancer")
 	_, _, err := c.client.LoadBalancer.RemoveServerTarget(ctx, lb, server)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
 		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
@@ -206,6 +284,7 @@ func (c *realClient) DeleteTargetServerOfLoadBalancer(ctx context.Context, lb *h
 }
 
 func (c *realClient) DeleteIPTargetOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, ip net.IP) error {
+	recordAPICallByCaller("DeleteIPTargetOfLoadBalancer")
 	_, _, err := c.client.LoadBalancer.RemoveIPTarget(ctx, lb, ip)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
 		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
@@ -214,30 +293,36 @@ func (c *realClient) DeleteIPTargetOfLoadBalancer(ctx context.Context, lb *hclou
 }
 
 func (c *realClient) AddServiceToLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAddServiceOpts) error {
+	recordAPICallByCaller("AddServiceToLoadBalancer")
 	_, _, err := c.client.LoadBalancer.AddService(ctx, lb, opts)
 	return err
 }
 
 func (c *realClient) DeleteServiceFromLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int) error {
+	recordAPICallByCaller("DeleteServiceFromLoadBalancer")
 	_, _, err := c.client.LoadBalancer.DeleteService(ctx, lb, listenPort)
 	return err
 }
 
 func (c *realClient) ListImages(ctx context.Context, opts hcloud.ImageListOpts) ([]*hcloud.Image, error) {
+	recordAPICallByCaller("ListImages")
 	return c.client.Image.AllWithOpts(ctx, opts)
 }
 
 func (c *realClient) CreateServer(ctx context.Context, opts hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error) {
+	recordAPICallByCaller("CreateServer")
 	res, _, err := c.client.Server.Create(ctx, opts)
 	return res, err
 }
 
 func (c *realClient) AttachServerToNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) error {
+	recordAPICallByCaller("AttachServerToNetwork")
 	_, _, err := c.client.Server.AttachToNetwork(ctx, server, opts)
 	return err
 }
 
 func (c *realClient) ListServers(ctx context.Context, opts hcloud.ServerListOpts) ([]*hcloud.Server, error) {
+	recordAPICallByCaller("ListServers")
 	resp, err := c.client.Server.AllWithOpts(ctx, opts)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
 		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
@@ -249,6 +334,10 @@ func (c *realClient) ListServers(ctx context.Context, opts hcloud.ServerListOpts
 // It returns both server and error as nil when the server does not exist, as hcloud-go's GetByID
 // returns nil for non-existent server without an error.
 func (c *realClient) GetServer(ctx context.Context, id int64) (*hcloud.Server, error) {
+	recordAPICallByCaller("GetServer")
+	if MetricPerServerID {
+		getServerCallsTotal.WithLabelValues(strconv.FormatInt(id, 10)).Inc()
+	}
 	res, _, err := c.client.Server.GetByID(ctx, id)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
 		return res, fmt.Errorf("%w: %w", ErrUnauthorized, err)
@@ -257,6 +346,7 @@ func (c *realClient) GetServer(ctx context.Context, id int64) (*hcloud.Server, e
 }
 
 func (c *realClient) ListServerTypes(ctx context.Context) ([]*hcloud.ServerType, error) {
+	recordAPICallByCaller("ListServerTypes")
 	resp, err := c.client.ServerType.All(ctx)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
 		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
@@ -265,6 +355,7 @@ func (c *realClient) ListServerTypes(ctx context.Context) ([]*hcloud.ServerType,
 }
 
 func (c *realClient) GetServerType(ctx context.Context, name string) (*hcloud.ServerType, error) {
+	recordAPICallByCaller("GetServerType")
 	res, _, err := c.client.ServerType.GetByName(ctx, name)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
 		return res, fmt.Errorf("%w: %w", ErrUnauthorized, err)
@@ -273,31 +364,37 @@ func (c *realClient) GetServerType(ctx context.Context, name string) (*hcloud.Se
 }
 
 func (c *realClient) ShutdownServer(ctx context.Context, server *hcloud.Server) error {
+	recordAPICallByCaller("ShutdownServer")
 	_, _, err := c.client.Server.Shutdown(ctx, server)
 	return err
 }
 
 func (c *realClient) RebootServer(ctx context.Context, server *hcloud.Server) error {
+	recordAPICallByCaller("RebootServer")
 	_, _, err := c.client.Server.Reboot(ctx, server)
 	return err
 }
 
 func (c *realClient) PowerOnServer(ctx context.Context, server *hcloud.Server) error {
+	recordAPICallByCaller("PowerOnServer")
 	_, _, err := c.client.Server.Poweron(ctx, server)
 	return err
 }
 
 func (c *realClient) DeleteServer(ctx context.Context, server *hcloud.Server) error {
+	recordAPICallByCaller("DeleteServer")
 	_, _, err := c.client.Server.DeleteWithResult(ctx, server)
 	return err
 }
 
 func (c *realClient) CreateNetwork(ctx context.Context, opts hcloud.NetworkCreateOpts) (*hcloud.Network, error) {
+	recordAPICallByCaller("CreateNetwork")
 	res, _, err := c.client.Network.Create(ctx, opts)
 	return res, err
 }
 
 func (c *realClient) ListNetworks(ctx context.Context, opts hcloud.NetworkListOpts) ([]*hcloud.Network, error) {
+	recordAPICallByCaller("ListNetworks")
 	resp, err := c.client.Network.AllWithOpts(ctx, opts)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
 		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
@@ -306,35 +403,42 @@ func (c *realClient) ListNetworks(ctx context.Context, opts hcloud.NetworkListOp
 }
 
 func (c *realClient) DeleteNetwork(ctx context.Context, network *hcloud.Network) error {
+	recordAPICallByCaller("DeleteNetwork")
 	_, err := c.client.Network.Delete(ctx, network)
 	return err
 }
 
 func (c *realClient) ListSSHKeys(ctx context.Context, opts hcloud.SSHKeyListOpts) ([]*hcloud.SSHKey, error) {
+	recordAPICallByCaller("ListSSHKeys")
 	res, _, err := c.client.SSHKey.List(ctx, opts)
 	return res, err
 }
 
 func (c *realClient) CreatePlacementGroup(ctx context.Context, opts hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error) {
+	recordAPICallByCaller("CreatePlacementGroup")
 	res, _, err := c.client.PlacementGroup.Create(ctx, opts)
 	return res.PlacementGroup, err
 }
 
 func (c *realClient) DeletePlacementGroup(ctx context.Context, id int64) error {
+	recordAPICallByCaller("DeletePlacementGroup")
 	_, err := c.client.PlacementGroup.Delete(ctx, &hcloud.PlacementGroup{ID: id})
 	return err
 }
 
 func (c *realClient) ListPlacementGroups(ctx context.Context, opts hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error) {
+	recordAPICallByCaller("ListPlacementGroups")
 	return c.client.PlacementGroup.AllWithOpts(ctx, opts)
 }
 
 func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hcloud.Server, pg *hcloud.PlacementGroup) error {
+	recordAPICallByCaller("AddServerToPlacementGroup")
 	_, _, err := c.client.Server.AddToPlacementGroup(ctx, server, pg)
 	return err
 }
 
 func (c *realClient) EnableRescueSystem(ctx context.Context, server *hcloud.Server, rescueOpts *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
+	recordAPICallByCaller("EnableRescueSystem")
 	result, _, err := c.client.Server.EnableRescue(ctx, server, *rescueOpts)
 	if err != nil {
 		return result, fmt.Errorf("EnableRescue failed for %d: %w", server.ID, err)
@@ -343,6 +447,7 @@ func (c *realClient) EnableRescueSystem(ctx context.Context, server *hcloud.Serv
 }
 
 func (c *realClient) Reboot(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
+	recordAPICallByCaller("Reboot")
 	action, _, err := c.client.Server.Reboot(ctx, server)
 	if err != nil {
 		return action, fmt.Errorf("Reboot failed for %d: %w", server.ID, err)
@@ -351,6 +456,7 @@ func (c *realClient) Reboot(ctx context.Context, server *hcloud.Server) (*hcloud
 }
 
 func (c *realClient) GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error) {
+	recordAPICallByCaller("GetAction")
 	action, _, err := c.client.Action.GetByID(ctx, actionID)
 	if err != nil {
 		if strings.Contains(err.Error(), errStringUnauthorized) {
