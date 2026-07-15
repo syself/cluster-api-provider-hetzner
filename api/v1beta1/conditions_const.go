@@ -433,8 +433,6 @@ const (
 	HCloudMachineStartImageURLCommandFailedV1Beta2Reason = "StartImageURLCommandFailed"
 	// HCloudMachineStartImageURLCommandNonZeroExitCodeV1Beta2Reason indicates the image URL command returned a non-zero exit code.
 	HCloudMachineStartImageURLCommandNonZeroExitCodeV1Beta2Reason = "StartImageURLCommandNonZeroExitCode"
-	// HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason indicates the image URL command is running.
-	HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason = "HCloudImageURLCommandRunning"
 	// HCloudMachineRunningImageURLCommandTimedOutV1Beta2Reason indicates the running image command timed out.
 	HCloudMachineRunningImageURLCommandTimedOutV1Beta2Reason = "RunningImageURLCommandTimedOut"
 	// HCloudMachineImageURLCommandFailedV1Beta2Reason indicates the image command failed.
