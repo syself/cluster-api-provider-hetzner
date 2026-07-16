@@ -454,15 +454,28 @@ func (c *sshClient) connKey() connKey {
 
 // isTransportError reports whether err indicates a problem with the
 // underlying SSH transport (dead connection, broken session) rather than a
-// remote command that simply exited non-zero. Only transport errors should
-// evict a pooled connection; a remote command exiting non-zero is a normal,
-// expected outcome that must not throw away a healthy connection.
+// remote command that simply completed. Only transport errors should evict a
+// pooled connection.
+//
+// Two outcomes are treated as normal command completion, not a transport
+// failure:
+//   - *ssh.ExitError: the remote command exited with a non-zero status.
+//   - *ssh.ExitMissingError: the session was torn down without the server
+//     confirming an exit status. This is the expected outcome for commands
+//     like "reboot" that kill their own session; see the special-case
+//     handling in Reboot(). A pooled connection that actually died for a
+//     genuine transport reason is still caught: the liveness probe in
+//     getSSHClient evicts it before the next call reuses it.
 func isTransportError(err error) bool {
 	if err == nil {
 		return false
 	}
 	var exitErr *ssh.ExitError
-	return !errors.As(err, &exitErr)
+	if errors.As(err, &exitErr) {
+		return false
+	}
+	var exitMissingErr *ssh.ExitMissingError
+	return !errors.As(err, &exitMissingErr)
 }
 
 var _ = Client(&sshClient{})

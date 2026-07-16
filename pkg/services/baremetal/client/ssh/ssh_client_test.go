@@ -114,6 +114,28 @@ func TestOutput_String(t *testing.T) {
 	}, "mystdout. Stderr: mystderr. Err: some err")
 }
 
+func Test_isTransportError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil error", nil, false},
+		{"non-zero exit status", &ssh.ExitError{}, false},
+		{
+			"session torn down without exit status (e.g. reboot killing the session)",
+			&ssh.ExitMissingError{},
+			false,
+		},
+		{"genuine transport failure", fmt.Errorf("broken pipe"), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isTransportError(tt.err))
+		})
+	}
+}
+
 // fakeSSHServer is a minimal in-process SSH server used to test the
 // connection pool without a real rescue-system host. It accepts any
 // public key and answers every "exec" request with a trivial exit-0
