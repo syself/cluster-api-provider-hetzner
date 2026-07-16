@@ -33,8 +33,7 @@ import (
 	"k8s.io/utils/ptr"
 	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -1083,7 +1082,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		record.Warn(hm, "ImageURLCommandFailed", logFile)
+		record.Warn(hm, "ImageURLCommandFailed", v1beta2Msg)
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 			v1beta1Reason, clusterv1beta1.ConditionSeverityWarning,
 			"%s", v1beta1Msg)
@@ -1133,7 +1132,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		// IMAGE_URL_DONE was found in the stdout.
 		s.scope.Info("CustomProvisionerOutput", "logFile", logFile)
-		record.Event(hm, "CustomProvisionerOutput", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
@@ -1141,7 +1139,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
-		record.Event(hm, "CustomProvisionerOutputJSON", outputJSON)
 		s.scope.Info("CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 
 		// The image got installed. Now reboot in the real operating system.
@@ -1169,7 +1166,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	case sshclient.ImageURLCommandStateFailed:
-		record.Warn(hm, "InstallImageNotSuccessful", logFile)
 		s.scope.Error(nil, "custom provisioner failed", "logFile", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
@@ -1185,7 +1181,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
 				return reconcile.Result{}, fmt.Errorf("failed to parse: %w", err)
 			}
-			record.Warn(hm, "CustomProvisionerOutputJSON", outputJSON)
 			s.scope.Error(nil, "CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 			if output.Message != "" {
 				msg = output.Message
@@ -1197,6 +1192,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+		record.Warn(hm, "InstallImageNotSuccessful", msg)
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 			"CustomProvisionerFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
@@ -1534,11 +1530,8 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		return reconcile.Result{}, nil
 	}
 
-	// remove server from load balancer if it's being deleted.
-	// s.scope.Machine is a CAPI core v1beta2 Machine, so its legacy conditions
-	// live at Status.Deprecated.V1Beta1.Conditions — use deprecatedv1beta1conditions,
-	// not v1beta1conditions. See .golangci.yaml for the full mapping.
-	if deprecatedv1beta1conditions.Has(s.scope.Machine, clusterv1.PreDrainDeleteHookSucceededV1Beta1Condition) {
+	// remove the server as soon as the Machine starts deleting.
+	if !s.scope.Machine.DeletionTimestamp.IsZero() {
 		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to delete server %s with ID %d from loadbalancer: %w", server.Name, server.ID, err)
 		}
@@ -1570,7 +1563,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 
 	apiServerPodHealthy := !s.scope.Cluster.Spec.ControlPlaneRef.IsDefined() ||
 		s.scope.Cluster.Spec.ControlPlaneRef.Kind != "KubeadmControlPlane" ||
-		deprecatedv1beta1conditions.IsTrue(s.scope.Machine, controlplanev1.MachineAPIServerPodHealthyV1Beta1Condition)
+		conditions.IsTrue(s.scope.Machine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition)
 
 	// we attach only nodes with kube-apiserver pod healthy to avoid downtime, skipped for the first node
 	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 && !apiServerPodHealthy {

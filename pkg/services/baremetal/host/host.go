@@ -668,7 +668,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 
 		failed, err := s.handleIncompleteBoot(ctx, true, isSSHTimeoutError, isSSHConnectionRefusedError)
 		if failed {
-			return s.recordActionFailure(infrav1.PermanentError, err.Error())
+			return s.recordActionFailure(infrav1.FatalError, err.Error())
 		}
 		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
@@ -1314,7 +1314,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
 		s.scope.Error(nil, msg, "logFile", logFile)
-		record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandTimedOut", logFile)
+		record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandTimedOut", msg)
 
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandTimedOut", clusterv1beta1.ConditionSeverityWarning,
@@ -1364,14 +1364,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		// IMAGE_URL_DONE was found in the stdout.
 		s.scope.Info("CustomProvisionerOutput", "logFile", logFile)
-		record.Event(s.scope.HetznerBareMetalHost, "CustomProvisionerOutput", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
 			s.scope.Error(err, "failed to read output.json")
 			return actionContinue{delay: 10 * time.Second}
 		}
-		record.Event(s.scope.HetznerBareMetalHost, "CustomProvisionerOutputJSON", outputJSON)
 		s.scope.Info("CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 
 		// Update name in robot API
@@ -1398,7 +1396,6 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		return actionComplete{}
 
 	case sshclient.ImageURLCommandStateFailed:
-		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", logFile)
 		s.scope.Error(nil, "custom provisioner failed", "logFile", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
@@ -1414,12 +1411,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
 				return actionError{err: fmt.Errorf("failed to parse: %w", err)}
 			}
-			record.Warn(s.scope.HetznerBareMetalHost, "CustomProvisionerOutputJSON", outputJSON)
 			s.scope.Error(nil, "CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 			if output.Message != "" {
 				msg = output.Message
 			}
 		}
+		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", msg)
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
@@ -2047,7 +2044,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 			}
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
 				infrav1.StateEnsureProvisioned, msg)
-			return s.recordActionFailure(infrav1.ProvisioningError, msg)
+			return s.recordActionFailure(infrav1.FatalError, msg)
 		}
 		if err != nil {
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
