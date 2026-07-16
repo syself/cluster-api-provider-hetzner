@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stoewer/go-strcase"
 	"github.com/syself/hrobot-go/models"
 	"golang.org/x/crypto/ssh"
@@ -698,13 +699,22 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	}
 	record.Eventf(s.scope.HetznerBareMetalHost, "GetHardwareDetails", msg)
 
-	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails == nil {
-		hardwareDetails, err := getHardwareDetails(ctx, sshClient)
-		if err != nil {
-			return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
-		}
-		s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
+	hardwareDetails, err := getHardwareDetails(ctx, sshClient)
+	if err != nil {
+		return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
 	}
+
+	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails != nil {
+		diff := cmp.Diff(*s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails, hardwareDetails)
+		if diff != "" {
+			s.scope.Info("HardwareDetails changed", "diff", diff)
+			record.Eventf(s.scope.HetznerBareMetalHost, "HardwareDetails changed", diff)
+		}
+	}
+	// In case of a change in the disks, the WWNs got updated. This might lead to an outdated
+	// RootDeviceHints, which the user sets to decide which disk to use for provisioning, even if
+	// the server was already provisioned before. This will get caught by validateRootDeviceHints below.
+	s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
 
 	if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints == nil {
 		v1beta1conditions.MarkFalse(
@@ -1418,12 +1428,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		}
 		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", msg)
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
+			"CustomProvisionerFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(host, metav1.Condition{
 			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "ImageURLCommandFailed",
+			Reason:  "CustomProvisionerFailed",
 			Message: msg,
 		})
 		return s.recordActionFailure(infrav1.FatalError, msg)

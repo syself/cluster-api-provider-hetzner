@@ -54,6 +54,11 @@ func newTestHetznerCluster() *infrav2.HetznerCluster {
 			},
 			ControlPlaneEndpoint: infrav2.APIEndpoint{Port: testKubeAPIListenPort},
 		},
+		Status: infrav2.HetznerClusterStatus{
+			// reconcileServices is always called after Reconcile has already populated this
+			// from statusFromHCloudLB, so mirror that invariant here.
+			ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{},
+		},
 	}
 }
 
@@ -109,6 +114,25 @@ func TestReconcileServices_NewCluster_EnableProxyProtocol_AddsServiceWithProxyPr
 	_, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
 	require.True(t, *capturedOpts.Proxyprotocol)
+	mockClient.AssertExpectations(t)
+}
+
+// TestReconcileServices_EnableProxyProtocol_UpdatesStatusInSameReconcile verifies that
+// status.controlPlaneLoadBalancer.proxyProtocolEnabled is set as soon as the kube-API service is
+// (re)created with proxy protocol, instead of waiting for the next reconcile to pick it up.
+func TestReconcileServices_EnableProxyProtocol_UpdatesStatusInSameReconcile(t *testing.T) {
+	hetznerCluster := newTestHetznerCluster()
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+
+	mockClient := &mocks.Client{}
+	svc := newTestService(t, hetznerCluster, mockClient)
+	hcloudLB := &hcloud.LoadBalancer{}
+
+	mockClient.On("AddServiceToLoadBalancer", mock.Anything, hcloudLB, mock.Anything).Return(nil)
+
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	require.True(t, hetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled)
 	mockClient.AssertExpectations(t)
 }
 
