@@ -20,6 +20,39 @@ func (_m *Factory) EXPECT() *Factory_Expecter {
 	return &Factory_Expecter{mock: &_m.Mock}
 }
 
+// Evict provides a mock function with given fields: ip
+func (_m *Factory) Evict(ip string) {
+	_m.Called(ip)
+}
+
+// Factory_Evict_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Evict'
+type Factory_Evict_Call struct {
+	*mock.Call
+}
+
+// Evict is a helper method to define mock.On call
+//   - ip string
+func (_e *Factory_Expecter) Evict(ip interface{}) *Factory_Evict_Call {
+	return &Factory_Evict_Call{Call: _e.mock.On("Evict", ip)}
+}
+
+func (_c *Factory_Evict_Call) Run(run func(ip string)) *Factory_Evict_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *Factory_Evict_Call) Return() *Factory_Evict_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *Factory_Evict_Call) RunAndReturn(run func(string)) *Factory_Evict_Call {
+	_c.Run(run)
+	return _c
+}
+
 // NewClient provides a mock function with given fields: _a0
 func (_m *Factory) NewClient(_a0 sshclient.Input) sshclient.Client {
 	ret := _m.Called(_a0)

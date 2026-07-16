@@ -21,6 +21,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	_ "embed"
 	"encoding/base64"
 	"errors"
@@ -33,6 +34,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -48,6 +50,19 @@ const (
 	imageURLCommandLog   = "/root/image-url-command.log"
 	outputJSONPath       = "/root/output.json"
 	outputJSONMaxRetries = 10
+
+	// connIdleTimeout is how long a pooled connection may sit unused before the
+	// idle sweep closes it. It is comfortably above the ~10s poll interval used
+	// while a host is in the rescue system, but short enough that an
+	// abandoned/failed/deleted host's connection doesn't linger.
+	connIdleTimeout = 2 * time.Minute
+
+	// connSweepInterval is how often the idle sweep runs.
+	connSweepInterval = 30 * time.Second
+
+	// connKeepAliveRequest is used to cheaply check whether a pooled connection
+	// is still alive before handing it out.
+	connKeepAliveRequest = "keepalive@openssh.com"
 )
 
 //go:embed detect-linux-on-another-disk.sh
@@ -229,16 +244,70 @@ type Client interface {
 // Factory is the interface for creating new Client objects.
 type Factory interface {
 	NewClient(Input) Client
+
+	// Evict closes and removes any pooled connection to the given IP, regardless
+	// of port or private key. Callers should call this once a host leaves the
+	// rescue-related states, so the connection cache doesn't linger beyond the
+	// window where reuse is actually useful.
+	Evict(ip string)
 }
 
-type sshFactory struct{}
-
-// NewFactory creates a new factory for SSH clients.
-func NewFactory() Factory {
-	return &sshFactory{}
+// connKey identifies a pooled connection. The private key is hashed (not
+// stored/compared as plain text) so that a rotated SSH secret (rescue key
+// changed, or the same IP now needs the OS key after installimage) naturally
+// lands on a different pool entry instead of accidentally reusing a
+// connection authenticated with the wrong key.
+type connKey struct {
+	ip      string
+	port    int
+	keyHash [sha256.Size]byte
 }
 
-var _ = Factory(&sshFactory{})
+func newConnKey(ip string, port int, privateKey string) connKey {
+	return connKey{
+		ip:      ip,
+		port:    port,
+		keyHash: sha256.Sum256([]byte(privateKey)),
+	}
+}
+
+// pooledConn wraps a shared *ssh.Client. Its mutex serializes get-or-create
+// and evict operations for this one entry, so concurrent callers for the same
+// connKey neither dial twice nor race on lastUsed/client.
+type pooledConn struct {
+	mu       sync.Mutex
+	client   *ssh.Client
+	lastUsed time.Time
+}
+
+type sshFactory struct {
+	mu    sync.RWMutex
+	conns map[connKey]*pooledConn
+
+	idleTimeout   time.Duration
+	sweepInterval time.Duration
+}
+
+// NewFactory creates a new factory for SSH clients. The idle-connection sweep
+// it starts runs until ctx is done, at which point all pooled connections are
+// closed.
+func NewFactory(ctx context.Context) Factory {
+	return newFactory(ctx, connIdleTimeout, connSweepInterval)
+}
+
+// newFactory is the actual constructor; tests use it with a shorter idle
+// timeout/sweep interval so they don't have to wait connIdleTimeout for real.
+func newFactory(ctx context.Context, idleTimeout, sweepInterval time.Duration) *sshFactory {
+	f := &sshFactory{
+		conns:         make(map[connKey]*pooledConn),
+		idleTimeout:   idleTimeout,
+		sweepInterval: sweepInterval,
+	}
+	go f.sweepIdleConns(ctx)
+	return f
+}
+
+var _ = Factory(&sshFactory{conns: make(map[connKey]*pooledConn)})
 
 // NewClient implements the NewClient method of the factory interface.
 func (f *sshFactory) NewClient(in Input) Client {
@@ -246,6 +315,129 @@ func (f *sshFactory) NewClient(in Input) Client {
 		privateSSHKey: in.PrivateKey,
 		ip:            in.IP,
 		port:          in.Port,
+		factory:       f,
+	}
+}
+
+// entry returns the pooled entry for key, creating an empty one if necessary.
+// The returned entry's client may be nil, meaning no connection is cached yet.
+func (f *sshFactory) entry(key connKey) *pooledConn {
+	f.mu.RLock()
+	pc, ok := f.conns[key]
+	f.mu.RUnlock()
+	if ok {
+		return pc
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if pc, ok := f.conns[key]; ok {
+		return pc
+	}
+	pc = &pooledConn{}
+	f.conns[key] = pc
+	return pc
+}
+
+// evict removes and closes the pooled entry for key, if any.
+func (f *sshFactory) evict(key connKey) {
+	f.mu.Lock()
+	pc, ok := f.conns[key]
+	if ok {
+		delete(f.conns, key)
+	}
+	f.mu.Unlock()
+	if !ok {
+		return
+	}
+
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if pc.client != nil {
+		_ = pc.client.Close()
+		pc.client = nil
+	}
+}
+
+// Evict implements the Evict method of the factory interface.
+func (f *sshFactory) Evict(ip string) {
+	f.mu.Lock()
+	var toClose []*pooledConn
+	for key, pc := range f.conns {
+		if key.ip == ip {
+			toClose = append(toClose, pc)
+			delete(f.conns, key)
+		}
+	}
+	f.mu.Unlock()
+
+	for _, pc := range toClose {
+		pc.mu.Lock()
+		if pc.client != nil {
+			_ = pc.client.Close()
+			pc.client = nil
+		}
+		pc.mu.Unlock()
+	}
+}
+
+// sweepIdleConns periodically closes pooled connections that have been idle
+// for longer than connIdleTimeout. It runs until ctx is done, at which point
+// it closes every remaining pooled connection.
+func (f *sshFactory) sweepIdleConns(ctx context.Context) {
+	ticker := time.NewTicker(f.sweepInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			f.closeAll()
+			return
+		case <-ticker.C:
+			f.evictIdle()
+		}
+	}
+}
+
+func (f *sshFactory) evictIdle() {
+	now := time.Now()
+
+	f.mu.Lock()
+	var toClose []*pooledConn
+	for key, pc := range f.conns {
+		pc.mu.Lock()
+		idle := pc.client != nil && now.Sub(pc.lastUsed) > f.idleTimeout
+		pc.mu.Unlock()
+		if idle {
+			toClose = append(toClose, pc)
+			delete(f.conns, key)
+		}
+	}
+	f.mu.Unlock()
+
+	for _, pc := range toClose {
+		pc.mu.Lock()
+		if pc.client != nil {
+			_ = pc.client.Close()
+			pc.client = nil
+		}
+		pc.mu.Unlock()
+	}
+}
+
+func (f *sshFactory) closeAll() {
+	f.mu.Lock()
+	conns := f.conns
+	f.conns = make(map[connKey]*pooledConn)
+	f.mu.Unlock()
+
+	for _, pc := range conns {
+		pc.mu.Lock()
+		if pc.client != nil {
+			_ = pc.client.Close()
+			pc.client = nil
+		}
+		pc.mu.Unlock()
 	}
 }
 
@@ -253,6 +445,24 @@ type sshClient struct {
 	ip            string
 	privateSSHKey string
 	port          int
+	factory       *sshFactory
+}
+
+func (c *sshClient) connKey() connKey {
+	return newConnKey(c.ip, c.port, c.privateSSHKey)
+}
+
+// isTransportError reports whether err indicates a problem with the
+// underlying SSH transport (dead connection, broken session) rather than a
+// remote command that simply exited non-zero. Only transport errors should
+// evict a pooled connection; a remote command exiting non-zero is a normal,
+// expected outcome that must not throw away a healthy connection.
+func isTransportError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var exitErr *ssh.ExitError
+	return !errors.As(err, &exitErr)
 }
 
 var _ = Client(&sshClient{})
@@ -612,7 +822,55 @@ func IsTimeoutError(err error) bool {
 	return strings.Contains(err.Error(), ErrTimeout.Error())
 }
 
+// getSSHClient returns a shared *ssh.Client for this machine, reusing a
+// pooled connection when one exists and is still alive, dialing a fresh one
+// otherwise. The returned client must not be closed by the caller: it is
+// owned by the pool and may be in use by other callers concurrently or
+// reused by a later call for the same machine.
 func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, error) {
+	pc := c.factory.entry(c.connKey())
+
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+
+	if pc.client != nil {
+		if isConnAlive(pc.client) {
+			pc.lastUsed = time.Now()
+			return pc.client, nil
+		}
+		_ = pc.client.Close()
+		pc.client = nil
+	}
+
+	client, err := c.dial(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pc.client = client
+	pc.lastUsed = time.Now()
+	return client, nil
+}
+
+// isConnAlive does a cheap liveness probe on an existing connection so a
+// pooled connection killed by the remote end (reboot, idle timeout, ...)
+// isn't handed out as if it were still usable.
+func isConnAlive(client *ssh.Client) bool {
+	done := make(chan bool, 1)
+	go func() {
+		_, _, err := client.SendRequest(connKeepAliveRequest, true, nil)
+		done <- err == nil
+	}()
+
+	select {
+	case ok := <-done:
+		return ok
+	case <-time.After(sshTimeOut):
+		return false
+	}
+}
+
+// dial opens a brand new TCP connection and performs the SSH handshake.
+func (c *sshClient) dial(ctx context.Context) (*ssh.Client, error) {
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(c.privateSSHKey))
 	if err != nil {
@@ -657,31 +915,44 @@ func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, error) {
 	return ssh.NewClient(sshConn, chans, reqs), nil
 }
 
+// runSSH runs command over the pooled connection for this machine. If the
+// connection turns out to be dead (a transport-level failure, not merely a
+// non-zero exit status), the pooled entry is evicted and the command is
+// retried once over a freshly dialed connection.
 func (c *sshClient) runSSH(ctx context.Context, command string) Output {
+	out, transportErr := c.runSSHOnce(ctx, command)
+	if !transportErr {
+		return out
+	}
+	c.factory.evict(c.connKey())
+	out, _ = c.runSSHOnce(ctx, command)
+	return out
+}
+
+// runSSHOnce runs command once over the pooled connection. The returned bool
+// reports whether the failure (if any) was a transport-level failure, in
+// which case the caller should evict the pooled entry and may retry.
+func (c *sshClient) runSSHOnce(ctx context.Context, command string) (Output, bool) {
 	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
 
 	client, err := c.getSSHClient(ctx)
 	if err != nil {
-		return Output{Err: err}
+		return Output{Err: err}, false
 	}
-	defer func() {
-		if err := client.Close(); err != nil {
-			logger.Error(err, "failed to close ssh client")
-		}
-	}()
-
-	// If ctx fires, close the transport so any in-flight call (NewSession,
-	// sess.Run) returns. stop() deregisters the callback on normal exit.
-	stop := context.AfterFunc(ctx, func() { _ = client.Close() })
-	defer stop()
 
 	sess, err := client.NewSession()
 	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return Output{Err: ctxErr}
+			return Output{Err: ctxErr}, false
 		}
-		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}
+		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}, true
 	}
+
+	// If ctx fires, close the session (not the shared client) so any in-flight
+	// sess.Run returns. stop() deregisters the callback on normal exit.
+	stop := context.AfterFunc(ctx, func() { _ = sess.Close() })
+	defer stop()
+
 	defer func() {
 		if err := sess.Close(); err != nil && !errors.Is(err, io.EOF) {
 			logger.Error(err, "failed to close ssh session")
@@ -700,8 +971,10 @@ func (c *sshClient) runSSH(ctx context.Context, command string) Output {
 			StdOut: stdoutBuffer.String(),
 			StdErr: stderrBuffer.String(),
 			Err:    ctxErr,
-		}
+		}, false
 	}
+
+	transportErr := isTransportError(err)
 	if err != nil {
 		err = fmt.Errorf("ssh command failed (%s): %w", c.connectionDetails(), err)
 	}
@@ -709,7 +982,7 @@ func (c *sshClient) runSSH(ctx context.Context, command string) Output {
 		StdOut: stdoutBuffer.String(),
 		StdErr: stderrBuffer.String(),
 		Err:    err,
-	}
+	}, transportErr
 }
 
 func (c *sshClient) connectionDetails() string {
@@ -765,20 +1038,14 @@ func removeUselessLinesFromCloudInitOutput(s string) string {
 }
 
 func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command string) (int, string, error) {
-	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
-
 	client, err := c.getSSHClient(ctx)
 	if err != nil {
 		return 0, "", err
 	}
-	defer func() {
-		if err := client.Close(); err != nil {
-			logger.Error(err, "failed to close ssh client")
-		}
-	}()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
+		c.factory.evict(c.connKey())
 		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
 	}
 
@@ -793,6 +1060,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	dest := "/root/" + baseName
 	err = scpClient.CopyFromFile(ctx, *f, dest, "0700")
 	if err != nil {
+		c.factory.evict(c.connKey())
 		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
 	}
 
@@ -842,14 +1110,10 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	if err != nil {
 		return 0, "", err
 	}
-	defer func() {
-		if err := client.Close(); err != nil {
-			logger.Error(err, "failed to close ssh client")
-		}
-	}()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
+		c.factory.evict(c.connKey())
 		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
 	}
 
@@ -859,6 +1123,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	dest := "/root/" + baseName
 	err = scpClient.CopyFromFile(ctx, *fdCommand, dest, "0700")
 	if err != nil {
+		c.factory.evict(c.connKey())
 		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
 	}
 
@@ -866,6 +1131,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	dest = "/root/bootstrap.data"
 	err = scpClient.CopyFile(ctx, reader, dest, "0700")
 	if err != nil {
+		c.factory.evict(c.connKey())
 		return 0, "", fmt.Errorf("error copying bootstrap data to %s:%d:%s %w", c.ip, c.port, dest, err)
 	}
 
@@ -944,10 +1210,10 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get ssh client: %w", err)
 	}
-	defer client.Close()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
+		c.factory.evict(c.connKey())
 		return "", fmt.Errorf("failed to create scp client: %w", err)
 	}
 	defer scpClient.Close()
@@ -964,6 +1230,7 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 
 		var buf bytes.Buffer
 		if err := scpClient.CopyFromRemotePassThru(ctx, &buf, outputJSONPath, nil); err != nil {
+			c.factory.evict(c.connKey())
 			return "", fmt.Errorf("failed to copy output.json from rescue system to caph: %w", err)
 		}
 
