@@ -450,7 +450,14 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOp
 	// Set name
 	name := utils.GenerateName(nil, fmt.Sprintf("%s-kube-apiserver-", hc.Name))
 
-	proxyprotocol := false
+	// A freshly created load balancer takes proxy protocol straight from the spec. This is the
+	// only place the kube-apiserver service is created with no prior service to migrate from, so
+	// the control-plane-readiness gate in reconcileServices (which guards turning proxy protocol
+	// on for an already-serving load balancer) does not apply. Without this, a new cluster with
+	// EnableProxyProtocol set to true would create the service with proxy protocol off and then
+	// wait on the migration gate forever, because its control-plane machines never reach Ready
+	// until proxy protocol is already serving.
+	proxyprotocol := hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
 
 	var network *hcloud.Network
 	if hc.Status.Network != nil {

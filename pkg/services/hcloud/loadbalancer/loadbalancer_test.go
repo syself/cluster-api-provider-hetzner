@@ -212,6 +212,20 @@ var _ = Describe("createOptsFromSpec", func() {
 		Expect(createOpts).To(Equal(wantCreateOpts))
 	})
 
+	It("creates the kube-apiserver service with proxy protocol on when EnableProxyProtocol is true", func() {
+		hetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+		proxyprotocol := true
+		wantCreateOpts.Services[0].Proxyprotocol = &proxyprotocol
+
+		createOpts, err := createOptsFromSpec(hetznerCluster)
+		Expect(err).To(BeNil())
+
+		// ignore random name
+		createOpts.Name = ""
+
+		Expect(createOpts).To(Equal(wantCreateOpts))
+	})
+
 	It("returns ErrControlPlaneEndpointNotSet", func() {
 		hetznerCluster.Spec.ControlPlaneEndpoint = nil
 
