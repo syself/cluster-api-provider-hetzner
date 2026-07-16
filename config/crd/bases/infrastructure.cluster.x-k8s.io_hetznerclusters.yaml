@@ -460,6 +460,13 @@ spec:
                     type: string
                   protected:
                     type: boolean
+                  proxyProtocolEnabled:
+                    description: |-
+                      ProxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
+                      has proxy protocol enabled, as observed on the actual HCloud load balancer. This can lag
+                      behind spec.controlPlaneLoadBalancer.enableProxyProtocol while the migration to proxy
+                      protocol is in progress (see the field's docs for details).
+                    type: boolean
                   targets:
                     items:
                       description: LoadBalancerTarget defines the target of a load
@@ -1075,6 +1082,13 @@ spec:
                   ipv6:
                     type: string
                   protected:
+                    type: boolean
+                  proxyProtocolEnabled:
+                    description: |-
+                      ProxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
+                      has proxy protocol enabled, as observed on the actual HCloud load balancer. This can lag
+                      behind spec.controlPlaneLoadBalancer.enableProxyProtocol while the migration to proxy
+                      protocol is in progress (see the field's docs for details).
                     type: boolean
                   targets:
                     items:
