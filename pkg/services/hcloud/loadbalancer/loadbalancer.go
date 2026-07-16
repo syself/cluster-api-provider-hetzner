@@ -90,7 +90,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		}
 	}
 
-	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = statusFromHCloudLB(lb, s.scope.HetznerCluster.Status.Network != nil, log)
+	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = statusFromHCloudLB(lb, s.scope.HetznerCluster.Status.Network != nil, int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port), log)
 
 	// check whether load balancer name, algorithm or type has been changed
 	if err := s.reconcileLBProperties(ctx, lb); err != nil {
@@ -366,6 +366,12 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
 				return reconcile.Result{}, multierr
 			}
+		} else if listenPort == kubeAPIServicePort {
+			// Status.ControlPlaneLoadBalancer was snapshotted from the LB state fetched at the
+			// start of Reconcile, before this service was (re)created, so it still shows the old
+			// value. Update it now so callers observe the change in this reconcile instead of
+			// waiting for the next one (e.g. the next full resync, up to --sync-period later).
+			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled = proxyProtocol
 		}
 	}
 	if requeueForProxyProtocol {
@@ -643,7 +649,7 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 }
 
 // statusFromHCloudLB gets the information of the Hetzner load balancer and returns it in the status object.
-func statusFromHCloudLB(lb *hcloud.LoadBalancer, hasNetwork bool, log logr.Logger) *infrav2.LoadBalancerStatus {
+func statusFromHCloudLB(lb *hcloud.LoadBalancer, hasNetwork bool, kubeAPIServicePort int, log logr.Logger) *infrav2.LoadBalancerStatus {
 	var internalIP string
 	if hasNetwork && len(lb.PrivateNet) > 0 {
 		internalIP = lb.PrivateNet[0].IP.String()
@@ -669,12 +675,21 @@ func statusFromHCloudLB(lb *hcloud.LoadBalancer, hasNetwork bool, log logr.Logge
 		}
 	}
 
+	var proxyProtocolEnabled bool
+	for _, service := range lb.Services {
+		if service.ListenPort == kubeAPIServicePort {
+			proxyProtocolEnabled = service.Proxyprotocol
+			break
+		}
+	}
+
 	return &infrav2.LoadBalancerStatus{
-		ID:         lb.ID,
-		IPv4:       lb.PublicNet.IPv4.IP.String(),
-		IPv6:       lb.PublicNet.IPv6.IP.String(),
-		InternalIP: internalIP,
-		Target:     targetObjects,
-		Protected:  lb.Protection.Delete,
+		ID:                   lb.ID,
+		IPv4:                 lb.PublicNet.IPv4.IP.String(),
+		IPv6:                 lb.PublicNet.IPv6.IP.String(),
+		InternalIP:           internalIP,
+		Target:               targetObjects,
+		Protected:            lb.Protection.Delete,
+		ProxyProtocolEnabled: proxyProtocolEnabled,
 	}
 }

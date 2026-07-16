@@ -2617,6 +2617,7 @@ func autoConvert_v1beta1_LoadBalancerStatus_To_v1beta2_LoadBalancerStatus(in *Lo
 	out.InternalIP = in.InternalIP
 	out.Target = *(*[]v1beta2.LoadBalancerTarget)(unsafe.Pointer(&in.Target))
 	out.Protected = in.Protected
+	out.ProxyProtocolEnabled = in.ProxyProtocolEnabled
 	return nil
 }
 
@@ -2632,6 +2633,7 @@ func autoConvert_v1beta2_LoadBalancerStatus_To_v1beta1_LoadBalancerStatus(in *v1
 	out.InternalIP = in.InternalIP
 	out.Target = *(*[]LoadBalancerTarget)(unsafe.Pointer(&in.Target))
 	out.Protected = in.Protected
+	out.ProxyProtocolEnabled = in.ProxyProtocolEnabled
 	return nil
 }
 
