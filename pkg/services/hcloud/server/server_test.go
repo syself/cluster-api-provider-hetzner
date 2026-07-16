@@ -1959,7 +1959,7 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 	)
 
 	BeforeEach(func() {
-		client := fakehcloudclient.NewHCloudClientFactory().NewClient("")
+		client := mocks.NewClient(GinkgoT())
 		server = newTestServer()
 
 		hcloudMachine = &infrav1.HCloudMachine{
@@ -1974,6 +1974,8 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 		}
 
 		service = newTestService(hcloudMachine, client)
+		service.scope.SetProviderID(server.ID)
+		client.On("GetServer", mock.Anything, server.ID).Return(server, nil)
 
 		// Mark capi Machine as control plane so the load balancer branch runs.
 		service.scope.Machine.Labels = map[string]string{
@@ -2007,7 +2009,7 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 			},
 		}
 
-		res, err := service.handleOperatingSystemRunning(context.Background(), server)
+		res, err := service.handleOperatingSystemRunning(context.Background())
 		Expect(err).To(Succeed())
 		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
 
@@ -2017,7 +2019,7 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 
 	It("sets Ready and ServerAvailableCondition when reconcileLoadBalancerAttachment returns an empty Result", func() {
 		// No load balancer → reconcileLoadBalancerAttachment returns an empty Result.
-		res, err := service.handleOperatingSystemRunning(context.Background(), server)
+		res, err := service.handleOperatingSystemRunning(context.Background())
 		Expect(err).To(Succeed())
 		Expect(res).To(Equal(reconcile.Result{}))
 

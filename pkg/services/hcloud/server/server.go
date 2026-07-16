@@ -141,92 +141,13 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	v1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav1.BootstrapReadyCondition)
 
-	var server *hcloud.Server
-
-	// Only fetch the live server for the states that actually need it (a server.Status
-	// transition, or the network/LB attachment reconcile). The remaining states (Unset,
-	// Initializing, EnablingRescue, BootingToRescue, RunningImageCommand) drive their progress
-	// via GetAction polling and/or SSH, so skipping the fetch there avoids an hcloud API call on
-	// every reconcile while we wait (see issue #2163).
-	bootState := s.scope.HCloudMachine.Status.BootState
-	needsLiveServer := bootState == infrav1.HCloudBootStateBootingToRealOS ||
-		bootState == infrav1.HCloudBootStateOperatingSystemRunning
-
-	if s.scope.HCloudMachine.Spec.ProviderID != nil && needsLiveServer {
-		server, err = s.findServer(ctx)
-		if err != nil {
-			// If it is an unauthorized error i.e. wrong HCloudToken do not return an error.
-			// As there is no point retrying with invalid credentials.
-			if errors.Is(err, hcloudclient.ErrUnauthorized) {
-				v1beta1conditions.MarkFalse(
-					s.scope.HCloudMachine,
-					infrav1.HCloudTokenAvailableCondition,
-					infrav1.HCloudCredentialsInvalidReason,
-					clusterv1beta1.ConditionSeverityError,
-					"wrong hcloud token",
-				)
-				v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-					Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
-					Status:  metav1.ConditionFalse,
-					Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
-					Message: "wrong hcloud token",
-				})
-
-				return reconcile.Result{}, nil
-			}
-
-			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-				if !s.scope.HCloudMachine.Status.Ready {
-					hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HCloudMachine, err, "findServer")
-					return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
-				}
-				return reconcile.Result{}, nil
-			}
-
-			return reconcile.Result{}, fmt.Errorf("findServer: %w", err)
-		}
-
-		v1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
-		v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-			Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
-			Status: metav1.ConditionTrue,
-			Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
-		})
-
-		// findServer returns nil for both server and error if the server was not found.
-		if server == nil {
-			// The server no longer exists in HCloud, it was deleted.
-			// We set MachineError. CAPI will delete machine.
-			msg := fmt.Sprintf("hcloud server (%q) no longer available. Setting MachineError.",
-				*s.scope.HCloudMachine.Spec.ProviderID)
-
-			s.scope.Error(errors.New(msg), msg)
-
-			err := s.scope.SetErrorAndRemediate(ctx, msg)
-			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("SetErrorAndRemediate failed: %w", err)
-			}
-			record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)
-			v1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
-				"NoHCloudServerFound", clusterv1beta1.ConditionSeverityWarning,
-				"%s", msg)
-			v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineServerNotFoundV1Beta2Reason,
-				Message: msg,
-			})
-			// no need to requeue.
-			return reconcile.Result{}, nil
-		}
-	}
-
 	sinceBootStateChanged := time.Duration(0)
 	if !s.scope.HCloudMachine.Status.BootStateSince.IsZero() {
 		sinceBootStateChanged = time.Since(s.scope.HCloudMachine.Status.BootStateSince.Time).Round(time.Millisecond)
 	}
+	bootState := s.scope.HCloudMachine.Status.BootState
 	s.scope.V(1).Info("Reconciling BootState",
-		"bootState", s.scope.HCloudMachine.Status.BootState,
+		"bootState", bootState,
 		"sinceBootStateChanged", sinceBootStateChanged)
 
 	switch bootState {
@@ -241,12 +162,99 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	case infrav1.HCloudBootStateRunningImageCommand:
 		return s.handleBootStateRunningImageCommand(ctx)
 	case infrav1.HCloudBootStateBootingToRealOS:
-		return s.handleBootingToRealOS(ctx, server)
+		return s.handleBootingToRealOS(ctx)
 	case infrav1.HCloudBootStateOperatingSystemRunning:
-		return s.handleOperatingSystemRunning(ctx, server)
+		return s.handleOperatingSystemRunning(ctx)
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown BootState: %s", bootState)
 	}
+}
+
+// resultOrError carries the (result, error) pair getLiveServer wants its caller to return
+// immediately. Bundling them into one pointer (nil = keep going) makes it impossible for a caller
+// to observe a non-nil error without also seeing the signal to stop, unlike a separate `done
+// bool` alongside `err`.
+type resultOrError struct {
+	res reconcile.Result
+	err error
+}
+
+// getLiveServer fetches the live hcloud server. It is only called by the two states
+// (BootingToRealOS, OperatingSystemRunning) that need a server.Status transition or the
+// network/LB attachment reconcile. The remaining states (Unset, Initializing, EnablingRescue,
+// BootingToRescue, RunningImageCommand) drive their progress via GetAction polling and/or SSH, so
+// they never call this and avoid an hcloud API call on every reconcile while they wait.
+//
+// If the returned *resultOrError is non-nil, the caller must return (its res, its err)
+// immediately. Otherwise server is non-nil and there is nothing to return early.
+func (s *Service) getLiveServer(ctx context.Context) (*hcloud.Server, *resultOrError) {
+	server, err := s.findServer(ctx)
+	if err != nil {
+		// If it is an unauthorized error i.e. wrong HCloudToken do not return an error.
+		// As there is no point retrying with invalid credentials.
+		if errors.Is(err, hcloudclient.ErrUnauthorized) {
+			v1beta1conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.HCloudTokenAvailableCondition,
+				infrav1.HCloudCredentialsInvalidReason,
+				clusterv1beta1.ConditionSeverityError,
+				"wrong hcloud token",
+			)
+			v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
+				Message: "wrong hcloud token",
+			})
+
+			return nil, &resultOrError{}
+		}
+
+		if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+			if !s.scope.HCloudMachine.Status.Ready {
+				hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HCloudMachine, err, "findServer")
+				return nil, &resultOrError{res: reconcile.Result{RequeueAfter: 30 * time.Second}}
+			}
+			return nil, &resultOrError{}
+		}
+
+		return nil, &resultOrError{err: fmt.Errorf("findServer: %w", err)}
+	}
+
+	v1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
+	v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+		Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
+	})
+
+	// findServer returns nil for both server and error if the server was not found.
+	if server == nil {
+		// The server no longer exists in HCloud, it was deleted.
+		// We set MachineError. CAPI will delete machine.
+		msg := fmt.Sprintf("hcloud server (%q) no longer available. Setting MachineError.",
+			*s.scope.HCloudMachine.Spec.ProviderID)
+
+		s.scope.Error(errors.New(msg), msg)
+
+		if err := s.scope.SetErrorAndRemediate(ctx, msg); err != nil {
+			return nil, &resultOrError{err: fmt.Errorf("SetErrorAndRemediate failed: %w", err)}
+		}
+		record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)
+		v1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+			"NoHCloudServerFound", clusterv1beta1.ConditionSeverityWarning,
+			"%s", msg)
+		v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HCloudMachineServerNotFoundV1Beta2Reason,
+			Message: msg,
+		})
+		// no need to requeue.
+		return nil, &resultOrError{}
+	}
+
+	return server, nil
 }
 
 // handleBootStateUnset is first state for both ways (imageName/snapshot and imageURL).
@@ -1201,8 +1209,13 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 }
 
 // handleBootingToRealOS is used for both ways (imageName/snapshot and imageURL).
-func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
+func (s *Service) handleBootingToRealOS(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
+
+	server, resultOrError := s.getLiveServer(ctx)
+	if resultOrError != nil {
+		return resultOrError.res, resultOrError.err
+	}
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
@@ -1296,8 +1309,13 @@ func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Serv
 }
 
 // handleOperatingSystemRunning is the final state. It is used for both ways (imageName/snapshot and imageURL).
-func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
+func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
+
+	server, resultOrError := s.getLiveServer(ctx)
+	if resultOrError != nil {
+		return resultOrError.res, resultOrError.err
+	}
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	// Clean up old Status fields
