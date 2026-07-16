@@ -1701,7 +1701,7 @@ NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJ
 		Expect(events).To(ContainElement(ContainSubstring("HardwareDetails Changed")))
 	})
 
-	It("still updates HardwareDetails when the hardware change makes RootDeviceHints invalid", func() {
+	It("invalidates RootDeviceHints in cases where a hardware change leads to different wwns", func() {
 		host := helpers.BareMetalHost(
 			"test-host",
 			"default",

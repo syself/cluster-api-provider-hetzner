@@ -711,6 +711,9 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			record.Eventf(s.scope.HetznerBareMetalHost, "HardwareDetails changed", diff)
 		}
 	}
+	// In case of a change in the disks, the WWNs got updated. This might lead to an outdated
+	// RootDeviceHints, which the user sets to decide which disk to use for provisioning, even if
+	// the server was already provisioned before. This will get caught by validateRootDeviceHints below.
 	s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
 
 	if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints == nil {
