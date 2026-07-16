@@ -929,36 +929,27 @@ func (c *sshClient) dial(ctx context.Context) (*ssh.Client, error) {
 }
 
 // runSSH runs command over the pooled connection for this machine. If the
-// connection turns out to be dead (a transport-level failure, not merely a
-// non-zero exit status), the pooled entry is evicted and the command is
-// retried once over a freshly dialed connection.
+// command fails due to a transport-level problem (dead connection, broken
+// session) rather than merely exiting non-zero, the pooled entry is evicted
+// so the next call dials a fresh connection. The failed command itself is
+// not retried here: retrying blindly risks re-issuing a non-idempotent
+// command that may already have run on the remote side before the transport
+// failed, and the reconcile loop's own polling already re-issues it safely.
 func (c *sshClient) runSSH(ctx context.Context, command string) Output {
-	out, transportErr := c.runSSHOnce(ctx, command)
-	if !transportErr {
-		return out
-	}
-	c.factory.evict(c.connKey())
-	out, _ = c.runSSHOnce(ctx, command)
-	return out
-}
-
-// runSSHOnce runs command once over the pooled connection. The returned bool
-// reports whether the failure (if any) was a transport-level failure, in
-// which case the caller should evict the pooled entry and may retry.
-func (c *sshClient) runSSHOnce(ctx context.Context, command string) (Output, bool) {
 	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
 
 	client, err := c.getSSHClient(ctx)
 	if err != nil {
-		return Output{Err: err}, false
+		return Output{Err: err}
 	}
 
 	sess, err := client.NewSession()
 	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return Output{Err: ctxErr}, false
+			return Output{Err: ctxErr}
 		}
-		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}, true
+		c.factory.evict(c.connKey())
+		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}
 	}
 
 	// If ctx fires, close the session (not the shared client) so any in-flight
@@ -984,10 +975,12 @@ func (c *sshClient) runSSHOnce(ctx context.Context, command string) (Output, boo
 			StdOut: stdoutBuffer.String(),
 			StdErr: stderrBuffer.String(),
 			Err:    ctxErr,
-		}, false
+		}
 	}
 
-	transportErr := isTransportError(err)
+	if isTransportError(err) {
+		c.factory.evict(c.connKey())
+	}
 	if err != nil {
 		err = fmt.Errorf("ssh command failed (%s): %w", c.connectionDetails(), err)
 	}
@@ -995,7 +988,7 @@ func (c *sshClient) runSSHOnce(ctx context.Context, command string) (Output, boo
 		StdOut: stdoutBuffer.String(),
 		StdErr: stderrBuffer.String(),
 		Err:    err,
-	}, transportErr
+	}
 }
 
 func (c *sshClient) connectionDetails() string {
