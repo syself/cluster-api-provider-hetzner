@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -51,27 +50,21 @@ func controlPlaneObjectMeta(namespace, name, clusterName string, annotated bool)
 	}
 }
 
-func serverAvailableConditions(available bool) clusterv1beta1.Conditions {
-	if !available {
-		return nil
-	}
-	return clusterv1beta1.Conditions{
-		{Type: infrav1.ServerAvailableCondition, Status: corev1.ConditionTrue},
-	}
-}
-
-func hcloudControlPlane(namespace, name, clusterName string, annotated, available bool) *infrav1.HCloudMachine {
-	return &infrav1.HCloudMachine{
+func controlPlaneMachine(namespace, name, clusterName string, annotated, ready bool) *clusterv1.Machine {
+	m := &clusterv1.Machine{
 		ObjectMeta: controlPlaneObjectMeta(namespace, name, clusterName, annotated),
-		Status:     infrav1.HCloudMachineStatus{Conditions: serverAvailableConditions(available)},
 	}
-}
-
-func bareMetalControlPlane(namespace, name, clusterName string, annotated, available bool) *infrav1.HetznerBareMetalMachine {
-	return &infrav1.HetznerBareMetalMachine{
-		ObjectMeta: controlPlaneObjectMeta(namespace, name, clusterName, annotated),
-		Status:     infrav1.HetznerBareMetalMachineStatus{Conditions: serverAvailableConditions(available)},
+	if ready {
+		m.Status.Conditions = []metav1.Condition{
+			{
+				Type:               clusterv1.ReadyCondition,
+				Status:             metav1.ConditionTrue,
+				Reason:             "Ready",
+				LastTransitionTime: metav1.Now(),
+			},
+		}
 	}
+	return m
 }
 
 func TestAllControlPlaneMachinesReadyForProxyProtocol(t *testing.T) {
@@ -96,35 +89,27 @@ func TestAllControlPlaneMachinesReadyForProxyProtocol(t *testing.T) {
 			want:     false,
 		},
 		{
-			name: "all hcloud control planes annotated and available",
+			name: "all control planes annotated and ready",
 			machines: []client.Object{
-				hcloudControlPlane(namespace, "cp-1", clusterName, true, true),
-				hcloudControlPlane(namespace, "cp-2", clusterName, true, true),
-				hcloudControlPlane(namespace, "cp-3", clusterName, true, true),
-			},
-			want: true,
-		},
-		{
-			name: "mixed hcloud and bare metal, all ready",
-			machines: []client.Object{
-				hcloudControlPlane(namespace, "cp-1", clusterName, true, true),
-				bareMetalControlPlane(namespace, "cp-2", clusterName, true, true),
+				controlPlaneMachine(namespace, "cp-1", clusterName, true, true),
+				controlPlaneMachine(namespace, "cp-2", clusterName, true, true),
+				controlPlaneMachine(namespace, "cp-3", clusterName, true, true),
 			},
 			want: true,
 		},
 		{
 			name: "one machine still from the old template misses the annotation",
 			machines: []client.Object{
-				hcloudControlPlane(namespace, "cp-1", clusterName, true, true),
-				hcloudControlPlane(namespace, "cp-2", clusterName, false, true),
+				controlPlaneMachine(namespace, "cp-1", clusterName, true, true),
+				controlPlaneMachine(namespace, "cp-2", clusterName, false, true),
 			},
 			want: false,
 		},
 		{
-			name: "one machine not available yet",
+			name: "one machine not ready yet",
 			machines: []client.Object{
-				hcloudControlPlane(namespace, "cp-1", clusterName, true, true),
-				bareMetalControlPlane(namespace, "cp-2", clusterName, true, false),
+				controlPlaneMachine(namespace, "cp-1", clusterName, true, true),
+				controlPlaneMachine(namespace, "cp-2", clusterName, true, false),
 			},
 			want: false,
 		},
@@ -133,8 +118,9 @@ func TestAllControlPlaneMachinesReadyForProxyProtocol(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			objects := append([]client.Object{}, tt.machines...)
-			// A worker machine of the same cluster must never affect the result.
-			objects = append(objects, &infrav1.HCloudMachine{
+			// A worker machine of the same cluster (no control-plane label) must never
+			// affect the result.
+			objects = append(objects, &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "worker-1",
 					Namespace: namespace,

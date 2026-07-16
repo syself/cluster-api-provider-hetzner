@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -272,15 +273,20 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 
 // AllControlPlaneMachinesReadyForProxyProtocol returns true when the control plane is
 // fully rolled out to the machine template that expects PROXY protocol at the load
-// balancer. It reads only this provider's own machines in the management cluster, never
-// the workload cluster: every control-plane HCloudMachine and HetznerBareMetalMachine of
-// the cluster must carry the annotation
-// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true", which the
-// control-plane machine template stamps, and must have its ServerAvailable condition
-// true, which means the instance is up. Machines from an earlier template do not carry
-// the annotation, so the check stays false until the last of them is replaced. It
-// returns false (no error) while the cluster has no control-plane machines yet.
+// balancer. It lists the cluster's control-plane Machines in the management cluster (one
+// list, so it covers both HCloud and bare-metal control planes) and requires every one to
+// carry the annotation capi.syself.com/proxy-protocol-for-controlplane-loadbalancer:
+// "true", which the control-plane machine template stamps and Cluster API propagates onto
+// the Machine, and to have its Ready condition true.
+//
+// Gating on the Machine's Ready condition, not just the instance being up, means the load
+// balancer switch happens only once every control plane is replaced and healthy, so it
+// never flips while a machine is unhealthy and a MachineHealthCheck could remediate it.
+// Machines from an earlier template do not carry the annotation, so the check stays false
+// until the last of them is replaced. It returns false (no error) while the cluster has no
+// control-plane machines yet.
 func (s *ClusterScope) AllControlPlaneMachinesReadyForProxyProtocol(ctx context.Context) (bool, error) {
+	machines := &clusterv1.MachineList{}
 	listOptions := []client.ListOption{
 		client.InNamespace(s.Cluster.Namespace),
 		client.MatchingLabels{
@@ -288,29 +294,17 @@ func (s *ClusterScope) AllControlPlaneMachinesReadyForProxyProtocol(ctx context.
 			clusterv1.MachineControlPlaneLabel: "",
 		},
 	}
-
-	hcloudMachines := &infrav1.HCloudMachineList{}
-	if err := s.Client.List(ctx, hcloudMachines, listOptions...); err != nil {
-		return false, fmt.Errorf("failed to list control-plane HCloudMachines: %w", err)
+	if err := s.Client.List(ctx, machines, listOptions...); err != nil {
+		return false, fmt.Errorf("failed to list control-plane Machines: %w", err)
 	}
 
-	bareMetalMachines := &infrav1.HetznerBareMetalMachineList{}
-	if err := s.Client.List(ctx, bareMetalMachines, listOptions...); err != nil {
-		return false, fmt.Errorf("failed to list control-plane HetznerBareMetalMachines: %w", err)
-	}
-
-	if len(hcloudMachines.Items)+len(bareMetalMachines.Items) == 0 {
+	if len(machines.Items) == 0 {
 		s.V(1).Info("proxy protocol: no control-plane machines found yet")
 		return false, nil
 	}
 
-	for i := range hcloudMachines.Items {
-		if !s.controlPlaneMachineReadyForProxyProtocol(&hcloudMachines.Items[i]) {
-			return false, nil
-		}
-	}
-	for i := range bareMetalMachines.Items {
-		if !s.controlPlaneMachineReadyForProxyProtocol(&bareMetalMachines.Items[i]) {
+	for i := range machines.Items {
+		if !s.controlPlaneMachineReadyForProxyProtocol(&machines.Items[i]) {
 			return false, nil
 		}
 	}
@@ -318,17 +312,17 @@ func (s *ClusterScope) AllControlPlaneMachinesReadyForProxyProtocol(ctx context.
 	return true, nil
 }
 
-// controlPlaneMachineReadyForProxyProtocol reports whether one control-plane
-// infrastructure machine is on the template that expects PROXY protocol, meaning it
-// carries the annotation, and is up, meaning its ServerAvailable condition is true.
-func (s *ClusterScope) controlPlaneMachineReadyForProxyProtocol(machine v1beta1conditions.Getter) bool {
+// controlPlaneMachineReadyForProxyProtocol reports whether one control-plane Machine is on
+// the template that expects PROXY protocol, meaning it carries the annotation, and is
+// ready from the Machine's own perspective, meaning its Ready condition is true.
+func (s *ClusterScope) controlPlaneMachineReadyForProxyProtocol(machine *clusterv1.Machine) bool {
 	if machine.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
 		s.V(1).Info("proxy protocol: control-plane machine is missing the annotation", "machine", machine.GetName())
 		return false
 	}
 
-	if !v1beta1conditions.IsTrue(machine, infrav1.ServerAvailableCondition) {
-		s.V(1).Info("proxy protocol: control-plane machine is not available yet", "machine", machine.GetName())
+	if !meta.IsStatusConditionTrue(machine.Status.Conditions, clusterv1.ReadyCondition) {
+		s.V(1).Info("proxy protocol: control-plane machine is not ready yet", "machine", machine.GetName())
 		return false
 	}
 
