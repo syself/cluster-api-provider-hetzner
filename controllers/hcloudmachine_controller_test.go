@@ -32,6 +32,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
@@ -216,6 +217,58 @@ func TestIgnoreInsignificantMachineStatusUpdates(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "Changes in APIServerPodHealthy condition",
+			oldObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: clusterv1.MachineStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+							Status: metav1.ConditionFalse,
+						},
+					},
+				},
+			},
+			newObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: clusterv1.MachineStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Machine starts deletion (DeletionTimestamp set)",
+			oldObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: clusterv1.MachineStatus{},
+			},
+			newObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "test-machine",
+					Namespace:         "default",
+					DeletionTimestamp: ptr.To(metav1.Now()),
+					Finalizers:        []string{"test-finalizer"},
+				},
+				Status: clusterv1.MachineStatus{},
+			},
+			expected: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -230,6 +283,82 @@ func TestIgnoreInsignificantMachineStatusUpdates(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestIgnoreInsignificantHetznerClusterUpdates_TargetChanges(t *testing.T) {
+	logger := klog.Background()
+	predicate := IgnoreInsignificantHetznerClusterUpdates(logger)
+
+	oldObj := &infrav1.HetznerCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "default",
+		},
+		Status: infrav1.HetznerClusterStatus{
+			ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+				ID: 1,
+				Target: []infrav1.LoadBalancerTarget{
+					{
+						Type:     infrav1.LoadBalancerTargetTypeServer,
+						ServerID: 1,
+					},
+				},
+			},
+		},
+	}
+
+	newObj := oldObj.DeepCopy()
+	newObj.ResourceVersion = "2"
+	newObj.Status.ControlPlaneLoadBalancer.Target = []infrav1.LoadBalancerTarget{
+		{
+			Type:     infrav1.LoadBalancerTargetTypeServer,
+			ServerID: 1,
+		},
+		{
+			Type:     infrav1.LoadBalancerTargetTypeServer,
+			ServerID: 2,
+		},
+	}
+
+	updateEvent := event.UpdateEvent{
+		ObjectOld: oldObj,
+		ObjectNew: newObj,
+	}
+	if !predicate.Update(updateEvent) {
+		t.Errorf("expected control plane load balancer target change to trigger reconcile")
+	}
+
+	t.Run("unchanged targets", func(t *testing.T) {
+		unchangedObj := oldObj.DeepCopy()
+		unchangedObj.ResourceVersion = "2"
+
+		updateEvent := event.UpdateEvent{
+			ObjectOld: oldObj,
+			ObjectNew: unchangedObj,
+		}
+		if predicate.Update(updateEvent) {
+			t.Errorf("expected unchanged control plane load balancer targets to not trigger reconcile")
+		}
+	})
+
+	t.Run("nil ControlPlaneLoadBalancer", func(t *testing.T) {
+		oldNilLB := &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-cluster",
+				Namespace: "default",
+			},
+		}
+		newNilLB := oldNilLB.DeepCopy()
+		newNilLB.ResourceVersion = "2"
+
+		updateEvent := event.UpdateEvent{
+			ObjectOld: oldNilLB,
+			ObjectNew: newNilLB,
+		}
+		if predicate.Update(updateEvent) {
+			t.Errorf("expected nil control plane load balancer on both sides to not trigger reconcile")
+		}
+	})
 }
 
 func TestIgnoreInsignificantSecretUpdates(t *testing.T) {
@@ -389,7 +518,9 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-reconciler")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-reconciler")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 		hcloudClient = testEnv.HCloudClientFactory.NewClient("fake-token")
 
@@ -859,7 +990,9 @@ var _ = Describe("Hetzner secret", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -1060,7 +1193,9 @@ var _ = Describe("HCloudMachine validation", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hcloudMachine = &infrav1.HCloudMachine{
