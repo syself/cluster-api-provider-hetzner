@@ -370,6 +370,9 @@ func (f *sshFactory) evict(key connKey) {
 }
 
 // Evict implements the Evict method of the factory interface.
+// It is a no-op if no pooled connection exists for ip: callers use Evict as
+// best-effort cleanup after a state transition, without checking beforehand
+// whether a connection is actually pooled.
 func (f *sshFactory) Evict(ip string) {
 	f.mu.Lock()
 	var toClose []*pooledConn
