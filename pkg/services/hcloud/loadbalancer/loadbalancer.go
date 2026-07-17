@@ -450,14 +450,22 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOp
 	// Set name
 	name := utils.GenerateName(nil, fmt.Sprintf("%s-kube-apiserver-", hc.Name))
 
-	// A freshly created load balancer takes proxy protocol straight from the spec. This is the
-	// only place the kube-apiserver service is created with no prior service to migrate from, so
-	// the control-plane-readiness gate in reconcileServices (which guards turning proxy protocol
-	// on for an already-serving load balancer) does not apply. Without this, a new cluster with
-	// EnableProxyProtocol set to true would create the service with proxy protocol off and then
-	// wait on the migration gate forever, because its control-plane machines never reach Ready
-	// until proxy protocol is already serving.
-	proxyprotocol := hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
+	// A freshly created load balancer takes proxy protocol straight from the spec, but only when
+	// the cluster has never had a load balancer before (hc.Status.ControlPlaneLoadBalancer is
+	// still nil): that's the only place the kube-apiserver service is created with no prior
+	// service to migrate from, so the control-plane-readiness gate in reconcileServices (which
+	// guards turning proxy protocol on for an already-serving load balancer) does not apply.
+	// Without this, a genuinely new cluster with EnableProxyProtocol set to true would create the
+	// service with proxy protocol off and then wait on the migration gate forever, because its
+	// control-plane machines never reach Ready until proxy protocol is already serving.
+	//
+	// If Status.ControlPlaneLoadBalancer is already set, this load balancer previously existed
+	// for this cluster and is only being (re)created now because it was lost (e.g. deleted
+	// out-of-band) or is a not-yet-created fixed-name/BYO load balancer. Such a cluster may still
+	// be mid-migration with control-plane machines that aren't ready for proxy protocol yet, so
+	// fall back to proxy protocol off here and let reconcileServices's normal migration-gated
+	// toDelete/toCreate flow decide whether and when to enable it.
+	proxyprotocol := hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && hc.Status.ControlPlaneLoadBalancer == nil
 
 	var network *hcloud.Network
 	if hc.Status.Network != nil {
