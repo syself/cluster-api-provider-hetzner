@@ -337,6 +337,8 @@ func (f *sshFactory) entry(key connKey) *pooledConn {
 		return pc
 	}
 
+	// Double-checked locking: the RLock miss above doesn't rule out a
+	// concurrent insert, so re-check under the write lock before creating.
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if pc, ok := f.conns[key]; ok {
