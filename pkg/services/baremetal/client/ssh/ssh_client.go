@@ -273,7 +273,9 @@ func newConnKey(ip string, port int, privateKey string) connKey {
 
 // pooledConn wraps a shared *ssh.Client. Its mutex serializes get-or-create
 // and evict operations for this one entry, so concurrent callers for the same
-// connKey neither dial twice nor race on lastUsed/client.
+// connKey neither dial twice nor race on lastUsed/client. See getSSHClient
+// for why the lock is held across the liveness probe and dial, not just the
+// map/field access.
 type pooledConn struct {
 	mu       sync.Mutex
 	client   *ssh.Client
@@ -849,6 +851,18 @@ func IsTimeoutError(err error) bool {
 // otherwise. The returned client must not be closed by the caller: it is
 // owned by the pool and may be in use by other callers concurrently or
 // reused by a later call for the same machine.
+//
+// pc.mu is held for the entire call, including the liveness probe and, on a
+// miss, the full dial (TCP connect + SSH handshake) -- worst case around
+// 2*sshTimeOut. That serializes concurrent callers targeting the same
+// (ip, port, keyHash), which is deliberate: it guarantees at most one dial in
+// flight per pooled entry, so two callers racing to establish the same
+// connection can't both pay for a handshake or clobber each other's pc.client
+// write. Releasing the lock before dialing would remove that guarantee. This
+// is a non-issue in practice because each host is normally driven by a single
+// reconciler goroutine at a time; if that ever changes for a given (ip, port,
+// key), calls to it will queue up behind this lock rather than run
+// concurrently.
 func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, error) {
 	pc := c.factory.entry(c.connKey())
 
