@@ -298,7 +298,9 @@ type sshFactory struct {
 
 // NewFactory creates a new factory for SSH clients. The idle-connection sweep
 // it starts runs until ctx is done, at which point all pooled connections are
-// closed.
+// closed. ctx should be the controller manager's long-lived context, not a
+// per-Reconcile context: the factory and its pooled connections must outlive
+// any single Reconcile call.
 func NewFactory(ctx context.Context) Factory {
 	return newFactory(ctx, connIdleTimeout, connSweepInterval)
 }
