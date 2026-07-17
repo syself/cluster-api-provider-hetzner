@@ -455,9 +455,6 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOp
 	// still nil): that's the only place the kube-apiserver service is created with no prior
 	// service to migrate from, so the control-plane-readiness gate in reconcileServices (which
 	// guards turning proxy protocol on for an already-serving load balancer) does not apply.
-	// Without this, a genuinely new cluster with EnableProxyProtocol set to true would create the
-	// service with proxy protocol off and then wait on the migration gate forever, because its
-	// control-plane machines never reach Ready until proxy protocol is already serving.
 	//
 	// If Status.ControlPlaneLoadBalancer is already set, this load balancer previously existed
 	// for this cluster and is only being (re)created now because it was lost (e.g. deleted
