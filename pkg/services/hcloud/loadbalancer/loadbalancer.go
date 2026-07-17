@@ -322,7 +322,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	// kubeAPIServiceExists: whether the kube-API service already exists on the LB.
 	// New cluster: service absent → create immediately with EnableProxyProtocol from spec (no annotation check).
 	// Existing cluster migration: service present without proxy protocol → wait for all control-plane
-	// machines to carry the annotation before recreating, to avoid sending malformed
+	// machines to carry the annotation before switching it on in place, to avoid sending malformed
 	// PROXY-protocol headers to unprepared backends.
 	existingKubeAPIService, kubeAPIServiceExists := existingServicesByPort[kubeAPIServicePort]
 	proxyProtocolAlreadyActive := kubeAPIServiceExists && existingKubeAPIService.Proxyprotocol
@@ -343,23 +343,8 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 			requeueForProxyProtocol = true
 		}
 	}
-	// Enabling proxy protocol is a one-way operation: delete the existing service and
-	// recreate it with proxy protocol on once all control-plane machines signal readiness.
-	if proxyProtocolShouldGetEnabled && !proxyProtocolAlreadyActive {
-		toDelete = append(toDelete, kubeAPIServicePort)
-		toCreate = append(toCreate, kubeAPIServicePort)
-	}
 
-	// kubeAPIProxyProtocol: the proxy protocol value to use when creating the kube-API service.
-	// For existing clusters, wait for control-plane machines to signal readiness before enabling.
-	// For new clusters, use the spec value directly.
-	kubeAPIProxyProtocol := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
-	if kubeAPIServiceExists {
-		kubeAPIProxyProtocol = proxyProtocolShouldGetEnabled
-	}
-
-	// delete services that are no longer in the spec, or the kube-API service being recreated
-	// to enable proxy protocol
+	// delete services that are no longer in the spec
 	var multierr error
 
 	for _, listenPort := range toDelete {
@@ -377,8 +362,9 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	for i, listenPort := range toCreate {
 		proxyProtocol := false
 		if listenPort == kubeAPIServicePort {
-			// Proxy protocol is only relevant for the kube-apiserver port (default 6443).
-			proxyProtocol = kubeAPIProxyProtocol
+			// The kube-API service only reaches this loop when it doesn't exist on the LB yet
+			// (new cluster), so the spec value can be used directly with no annotation check.
+			proxyProtocol = s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
 		}
 		destinationPort := wantServiceListenPortsMap[listenPort].DestinationPort
 		serviceOpts := hcloud.LoadBalancerAddServiceOpts{
@@ -396,10 +382,29 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 			}
 		} else if listenPort == kubeAPIServicePort {
 			// Status.ControlPlaneLoadBalancer was snapshotted from the LB state fetched at the
-			// start of Reconcile, before this service was (re)created, so it still shows the old
+			// start of Reconcile, before this service was created, so it still shows the old
 			// value. Update it now so callers observe the change in this reconcile instead of
 			// waiting for the next one (e.g. the next full resync, up to --sync-period later).
 			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled = proxyProtocol
+		}
+	}
+
+	// Enabling proxy protocol on an existing kube-API service is a one-way switch, applied
+	// in place via UpdateServiceOnLoadBalancer rather than delete+recreate: HCloud's
+	// update_service action can flip Proxyprotocol on a live service, so the kube-API service
+	// is never briefly absent from the LB while every client hitting it would be refused.
+	if proxyProtocolShouldGetEnabled && !proxyProtocolAlreadyActive {
+		proxyProtocol := true
+		updateOpts := hcloud.LoadBalancerUpdateServiceOpts{Proxyprotocol: &proxyProtocol}
+		if err := s.scope.HCloudClient.UpdateServiceOnLoadBalancer(ctx, lb, kubeAPIServicePort, updateOpts); err != nil {
+			// return immediately on rate limit
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateServiceOnLoadBalancer")
+			multierr = errors.Join(multierr, fmt.Errorf("failed to update kube-API service on load balancer to enable proxy protocol: %w", err))
+			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				return reconcile.Result{}, multierr
+			}
+		} else {
+			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled = true
 		}
 	}
 
