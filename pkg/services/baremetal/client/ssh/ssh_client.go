@@ -61,7 +61,13 @@ const (
 	connSweepInterval = 30 * time.Second
 
 	// connKeepAliveRequest is used to cheaply check whether a pooled connection
-	// is still alive before handing it out.
+	// is still alive before handing it out. It is not a real SSH protocol
+	// feature: the "name@domain" form (RFC 4251 4.6.1) marks it as a
+	// vendor-specific global request, so it can never collide with a name an
+	// RFC or another implementation defines. OpenSSH originated this
+	// particular name for exactly this liveness-probing purpose, and other
+	// implementations copied the convention; the peer is never expected to
+	// recognize it. See isConnAlive for why that's fine.
 	connKeepAliveRequest = "keepalive@openssh.com"
 )
 
@@ -890,6 +896,13 @@ func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, error) {
 // isConnAlive does a cheap liveness probe on an existing connection so a
 // pooled connection killed by the remote end (reboot, idle timeout, ...)
 // isn't handed out as if it were still usable.
+//
+// The probe works because the SSH protocol (RFC 4254 4) requires a peer that
+// gets a global request it doesn't understand to still reply, with failure,
+// if a reply was requested. So client.SendRequest is expected to come back
+// with ok=false here -- that's ignored. Only err is checked: err == nil means
+// some reply arrived at all, i.e. the transport is still processing
+// messages; err != nil (or the timeout below firing first) means it isn't.
 func isConnAlive(client *ssh.Client) bool {
 	done := make(chan bool, 1)
 	go func() {
