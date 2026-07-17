@@ -176,8 +176,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 // BootingToRescue, RunningImageCommand) drive their progress via GetAction polling and/or SSH, so
 // they never call this and avoid an hcloud API call on every reconcile while they wait.
 //
-// If done is true, the caller must return (res, err) immediately. Otherwise server is non-nil.
-func (s *Service) getLiveServer(ctx context.Context) (server *hcloud.Server, res reconcile.Result, err error, done bool) {
+// If server is nil, the caller must return (res, err) immediately.
+func (s *Service) getLiveServer(ctx context.Context) (server *hcloud.Server, res reconcile.Result, err error) {
 	server, err = s.findServer(ctx)
 	if err != nil {
 		// If it is an unauthorized error i.e. wrong HCloudToken do not return an error.
@@ -197,18 +197,18 @@ func (s *Service) getLiveServer(ctx context.Context) (server *hcloud.Server, res
 				Message: "wrong hcloud token",
 			})
 
-			return nil, reconcile.Result{}, nil, true
+			return nil, reconcile.Result{}, nil
 		}
 
 		if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
 			if !s.scope.HCloudMachine.Status.Ready {
 				hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HCloudMachine, err, "findServer")
-				return nil, reconcile.Result{RequeueAfter: 30 * time.Second}, nil, true
+				return nil, reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 			}
-			return nil, reconcile.Result{}, nil, true
+			return nil, reconcile.Result{}, nil
 		}
 
-		return nil, reconcile.Result{}, fmt.Errorf("findServer: %w", err), true
+		return nil, reconcile.Result{}, fmt.Errorf("findServer: %w", err)
 	}
 
 	v1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
@@ -228,7 +228,7 @@ func (s *Service) getLiveServer(ctx context.Context) (server *hcloud.Server, res
 		s.scope.Error(errors.New(msg), msg)
 
 		if err := s.scope.SetErrorAndRemediate(ctx, msg); err != nil {
-			return nil, reconcile.Result{}, fmt.Errorf("SetErrorAndRemediate failed: %w", err), true
+			return nil, reconcile.Result{}, fmt.Errorf("SetErrorAndRemediate failed: %w", err)
 		}
 		record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)
 		v1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
@@ -241,10 +241,10 @@ func (s *Service) getLiveServer(ctx context.Context) (server *hcloud.Server, res
 			Message: msg,
 		})
 		// no need to requeue.
-		return nil, reconcile.Result{}, nil, true
+		return nil, reconcile.Result{}, nil
 	}
 
-	return server, reconcile.Result{}, nil, false
+	return server, reconcile.Result{}, nil
 }
 
 // handleBootStateUnset is first state for both ways (imageName/snapshot and imageURL).
@@ -1204,8 +1204,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 func (s *Service) handleBootingToRealOS(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 
-	server, res, err, done := s.getLiveServer(ctx)
-	if done {
+	server, res, err := s.getLiveServer(ctx)
+	if server == nil {
 		return res, err
 	}
 	updateHCloudMachineStatusFromServer(hm, server)
@@ -1304,8 +1304,8 @@ func (s *Service) handleBootingToRealOS(ctx context.Context) (res reconcile.Resu
 func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 
-	server, res, err, done := s.getLiveServer(ctx)
-	if done {
+	server, res, err := s.getLiveServer(ctx)
+	if server == nil {
 		return res, err
 	}
 	updateHCloudMachineStatusFromServer(hm, server)
