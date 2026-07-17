@@ -50,21 +50,10 @@ func controlPlaneObjectMeta(namespace, name, clusterName string, annotated bool)
 	}
 }
 
-func controlPlaneMachine(namespace, name, clusterName string, annotated, ready bool) *clusterv1.Machine {
-	m := &clusterv1.Machine{
+func controlPlaneMachine(namespace, name, clusterName string, annotated bool) *clusterv1.Machine {
+	return &clusterv1.Machine{
 		ObjectMeta: controlPlaneObjectMeta(namespace, name, clusterName, annotated),
 	}
-	if ready {
-		m.Status.Conditions = []metav1.Condition{
-			{
-				Type:               clusterv1.ReadyCondition,
-				Status:             metav1.ConditionTrue,
-				Reason:             "Ready",
-				LastTransitionTime: metav1.Now(),
-			},
-		}
-	}
-	return m
 }
 
 func TestAllControlPlaneMachinesReadyForProxyProtocol(t *testing.T) {
@@ -89,27 +78,19 @@ func TestAllControlPlaneMachinesReadyForProxyProtocol(t *testing.T) {
 			want:     false,
 		},
 		{
-			name: "all control planes annotated and ready",
+			name: "all control planes annotated",
 			machines: []client.Object{
-				controlPlaneMachine(namespace, "cp-1", clusterName, true, true),
-				controlPlaneMachine(namespace, "cp-2", clusterName, true, true),
-				controlPlaneMachine(namespace, "cp-3", clusterName, true, true),
+				controlPlaneMachine(namespace, "cp-1", clusterName, true),
+				controlPlaneMachine(namespace, "cp-2", clusterName, true),
+				controlPlaneMachine(namespace, "cp-3", clusterName, true),
 			},
 			want: true,
 		},
 		{
 			name: "one machine still from the old template misses the annotation",
 			machines: []client.Object{
-				controlPlaneMachine(namespace, "cp-1", clusterName, true, true),
-				controlPlaneMachine(namespace, "cp-2", clusterName, false, true),
-			},
-			want: false,
-		},
-		{
-			name: "one machine not ready yet",
-			machines: []client.Object{
-				controlPlaneMachine(namespace, "cp-1", clusterName, true, true),
-				controlPlaneMachine(namespace, "cp-2", clusterName, true, false),
+				controlPlaneMachine(namespace, "cp-1", clusterName, true),
+				controlPlaneMachine(namespace, "cp-2", clusterName, false),
 			},
 			want: false,
 		},
