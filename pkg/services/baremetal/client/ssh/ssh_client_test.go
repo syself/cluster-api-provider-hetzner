@@ -123,9 +123,9 @@ func Test_isTransportError(t *testing.T) {
 		{"nil error", nil, false},
 		{"non-zero exit status", &ssh.ExitError{}, false},
 		{
-			"session torn down without exit status (e.g. reboot killing the session)",
+			"session torn down without exit status (ambiguous: reboot or a dead transport, treated as transport)",
 			&ssh.ExitMissingError{},
-			false,
+			true,
 		},
 		{"genuine transport failure", fmt.Errorf("broken pipe"), true},
 	}
@@ -384,6 +384,139 @@ func Test_ConnectionPool_EvictClosesConnectionForIP(t *testing.T) {
 	out = client.GetHostName(ctx)
 	require.NoError(t, out.Err)
 	require.Equal(t, 2, server.handshakes(), "Evict should force the next call to dial a fresh connection")
+}
+
+// midCommandDropServer is a minimal in-process SSH server that accepts an
+// "exec" request and then immediately drops the raw TCP connection without
+// ever sending output or an exit status -- unlike a clean session teardown
+// (e.g. "reboot" closing its own session), this simulates the transport
+// itself dying while a command is in flight.
+type midCommandDropServer struct {
+	addr string
+}
+
+func newMidCommandDropServer(t *testing.T) *midCommandDropServer {
+	t.Helper()
+
+	hostKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	signer, err := ssh.NewSignerFromKey(hostKey)
+	require.NoError(t, err)
+
+	config := &ssh.ServerConfig{
+		PublicKeyCallback: func(_ ssh.ConnMetadata, _ ssh.PublicKey) (*ssh.Permissions, error) {
+			return &ssh.Permissions{}, nil
+		},
+	}
+	config.AddHostKey(signer)
+
+	var lc net.ListenConfig
+	ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = ln.Close() })
+
+	s := &midCommandDropServer{addr: ln.Addr().String()}
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go s.handleConn(conn, config)
+		}
+	}()
+	return s
+}
+
+func (s *midCommandDropServer) handleConn(conn net.Conn, config *ssh.ServerConfig) {
+	_, chans, reqs, err := ssh.NewServerConn(conn, config)
+	if err != nil {
+		return
+	}
+	go ssh.DiscardRequests(reqs)
+
+	for newChan := range chans {
+		if newChan.ChannelType() != "session" {
+			_ = newChan.Reject(ssh.UnknownChannelType, "unsupported channel type")
+			continue
+		}
+		_, requests, err := newChan.Accept()
+		if err != nil {
+			continue
+		}
+		go func() {
+			for req := range requests {
+				if req.Type != "exec" {
+					if req.WantReply {
+						_ = req.Reply(false, nil)
+					}
+					continue
+				}
+				if req.WantReply {
+					_ = req.Reply(true, nil)
+				}
+				// Drop the raw connection now, before any output or
+				// exit-status is sent: the command is "in flight" from the
+				// client's point of view.
+				_ = conn.Close()
+				return
+			}
+		}()
+	}
+}
+
+func Test_ConnectionPool_EvictsOnMidCommandTransportError(t *testing.T) {
+	server := newMidCommandDropServer(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	// Long idle timeout/sweep interval: this test asserts that runSSH itself
+	// evicts the pooled entry on a transport error, so the idle sweep must
+	// not be able to interfere with that assertion.
+	factory := newFactory(ctx, time.Hour, time.Hour)
+	host, portStr, err := net.SplitHostPort(server.addr)
+	require.NoError(t, err)
+	var port int
+	_, err = fmt.Sscanf(portStr, "%d", &port)
+	require.NoError(t, err)
+
+	client := factory.NewClient(Input{IP: host, Port: port, PrivateKey: generateTestClientKeyPEM(t)})
+
+	out := client.GetHostName(ctx)
+	require.Error(t, out.Err, "a connection dropped mid-command must surface as an error")
+	t.Logf("runSSH returned: %v", out.Err)
+
+	factory.mu.RLock()
+	defer factory.mu.RUnlock()
+	require.Empty(t, factory.conns, "runSSH must evict the pooled entry after a mid-command transport failure")
+}
+
+// Test_Reboot_TreatsSessionTornDownWithoutExitStatusAsSuccess guards the
+// specific behavior that made isTransportError's classification tricky:
+// "reboot" tears down its own session the same way an unrelated dead
+// transport would (see midCommandDropServer), and Reboot() must still report
+// success -- while the pooled connection is evicted regardless, proving that
+// the eviction itself does not alter the returned Output.
+func Test_Reboot_TreatsSessionTornDownWithoutExitStatusAsSuccess(t *testing.T) {
+	server := newMidCommandDropServer(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	factory := newFactory(ctx, time.Hour, time.Hour)
+	host, portStr, err := net.SplitHostPort(server.addr)
+	require.NoError(t, err)
+	var port int
+	_, err = fmt.Sscanf(portStr, "%d", &port)
+	require.NoError(t, err)
+
+	client := factory.NewClient(Input{IP: host, Port: port, PrivateKey: generateTestClientKeyPEM(t)})
+
+	out := client.Reboot(ctx)
+	require.NoError(t, out.Err, "Reboot() must treat a session torn down without an exit status as success")
+
+	factory.mu.RLock()
+	defer factory.mu.RUnlock()
+	require.Empty(t, factory.conns, "the pooled connection should still be evicted even though Reboot() reports success")
 }
 
 func Test_ExecutePreProvisionCommand_withRealServer(t *testing.T) {

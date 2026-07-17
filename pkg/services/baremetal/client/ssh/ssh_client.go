@@ -454,28 +454,25 @@ func (c *sshClient) connKey() connKey {
 
 // isTransportError reports whether err indicates a problem with the
 // underlying SSH transport (dead connection, broken session) rather than a
-// remote command that simply completed. Only transport errors should evict a
-// pooled connection.
+// remote command that simply exited non-zero. Only transport errors should
+// evict a pooled connection; a remote command exiting non-zero is a normal,
+// expected outcome that must not throw away a healthy connection.
 //
-// Two outcomes are treated as normal command completion, not a transport
-// failure:
-//   - *ssh.ExitError: the remote command exited with a non-zero status.
-//   - *ssh.ExitMissingError: the session was torn down without the server
-//     confirming an exit status. This is the expected outcome for commands
-//     like "reboot" that kill their own session; see the special-case
-//     handling in Reboot(). A pooled connection that actually died for a
-//     genuine transport reason is still caught: the liveness probe in
-//     getSSHClient evicts it before the next call reuses it.
+// Note: *ssh.ExitMissingError (session torn down without an exit status) is
+// treated as a transport error here, even though it is also the expected
+// outcome for a command like "reboot" that kills its own session: the
+// golang.org/x/crypto/ssh session layer returns this exact error both when a
+// session is closed cleanly without an exit status and when the underlying
+// connection dies mid-command, so the two cannot be told apart at this
+// level. That's fine because evicting only ever removes the pooled entry; it
+// does not alter or retry the command, so it cannot corrupt the returned
+// Output the way a retry-and-replace would.
 func isTransportError(err error) bool {
 	if err == nil {
 		return false
 	}
 	var exitErr *ssh.ExitError
-	if errors.As(err, &exitErr) {
-		return false
-	}
-	var exitMissingErr *ssh.ExitMissingError
-	return !errors.As(err, &exitMissingErr)
+	return !errors.As(err, &exitErr)
 }
 
 // evictUnlessCanceled evicts the pooled connection for this client, unless
