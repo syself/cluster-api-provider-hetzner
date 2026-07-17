@@ -284,7 +284,7 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 func (s *ClusterScope) AllControlPlaneMachinesReadyForProxyProtocol(ctx context.Context) (bool, error) {
 	machines := &clusterv1.MachineList{}
 	listOptions := []client.ListOption{
-		client.InNamespace(s.Cluster.Namespace),
+		client.InNamespace(s.Namespace()),
 		client.MatchingLabels{
 			clusterv1.ClusterNameLabel:         s.Cluster.Name,
 			clusterv1.MachineControlPlaneLabel: "",

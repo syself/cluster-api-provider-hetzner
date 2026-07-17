@@ -115,6 +115,9 @@ func TestAllControlPlaneMachinesReadyForProxyProtocol(t *testing.T) {
 				Cluster: &clusterv1.Cluster{
 					ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace},
 				},
+				HetznerCluster: &infrav1.HetznerCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace},
+				},
 			}
 
 			got, err := s.AllControlPlaneMachinesReadyForProxyProtocol(context.Background())
