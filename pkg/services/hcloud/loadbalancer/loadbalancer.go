@@ -456,12 +456,18 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOp
 	// service to migrate from, so the control-plane-readiness gate in reconcileServices (which
 	// guards turning proxy protocol on for an already-serving load balancer) does not apply.
 	//
-	// If Status.ControlPlaneLoadBalancer is already set, this load balancer previously existed
-	// for this cluster and is only being (re)created now because it was lost (e.g. deleted
-	// out-of-band) or is a not-yet-created fixed-name/BYO load balancer. Such a cluster may still
-	// be mid-migration with control-plane machines that aren't ready for proxy protocol yet, so
-	// fall back to proxy protocol off here and let reconcileServices's normal migration-gated
-	// toDelete/toCreate flow decide whether and when to enable it.
+	// If Status.ControlPlaneLoadBalancer is already set, this cluster previously had an
+	// auto-created load balancer that is only being recreated now because it was lost (e.g.
+	// deleted out-of-band); it may still be mid-migration with control-plane machines that aren't
+	// ready for proxy protocol yet, so fall back to proxy protocol off here and let
+	// reconcileServices's normal migration-gated toDelete/toCreate flow decide whether and when
+	// to enable it.
+	//
+	// A fixed-name/BYO load balancer (Spec.ControlPlaneLoadBalancer.Name set) never reaches this
+	// function at all — Reconcile routes it through ownExistingLoadBalancer instead. The first
+	// time reconcileServices creates a kube-apiserver service on that load balancer, it already
+	// takes EnableProxyProtocol straight from spec (kubeAPIServiceExists is false), the same way a
+	// genuinely new cluster does.
 	proxyprotocol := hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && hc.Status.ControlPlaneLoadBalancer == nil
 
 	var network *hcloud.Network
