@@ -30,8 +30,8 @@ func (f *mockedSSHClientFactory) NewClient(_ sshclient.Input) sshclient.Client {
 	return f.sshMockClient
 }
 
-// Evict implements sshclient.Factory. There is no connection pool to evict from in tests.
-func (f *mockedSSHClientFactory) Evict(_ string) {}
+// EvictConnectionsForIP implements sshclient.Factory. There is no connection pool to evict from in tests.
+func (f *mockedSSHClientFactory) EvictConnectionsForIP(_ string) {}
 
 // NewSSHFactory creates a new factory for SSH clients.
 func NewSSHFactory(sshMockClient *sshmock.Client) sshclient.Factory {

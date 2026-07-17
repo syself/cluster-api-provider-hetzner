@@ -379,11 +379,11 @@ func Test_ConnectionPool_EvictClosesConnectionForIP(t *testing.T) {
 	require.NoError(t, out.Err)
 	require.Equal(t, 1, server.handshakes())
 
-	factory.Evict(host)
+	factory.EvictConnectionsForIP(host)
 
 	out = client.GetHostName(ctx)
 	require.NoError(t, out.Err)
-	require.Equal(t, 2, server.handshakes(), "Evict should force the next call to dial a fresh connection")
+	require.Equal(t, 2, server.handshakes(), "EvictConnectionsForIP should force the next call to dial a fresh connection")
 }
 
 // midCommandDropServer is a minimal in-process SSH server that accepts an

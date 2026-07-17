@@ -251,11 +251,11 @@ type Client interface {
 type Factory interface {
 	NewClient(Input) Client
 
-	// Evict closes and removes any pooled connection to the given IP, regardless
-	// of port or private key. Callers should call this once a host leaves the
-	// rescue-related states, so the connection cache doesn't linger beyond the
-	// window where reuse is actually useful.
-	Evict(ip string)
+	// EvictConnectionsForIP closes and removes any pooled connection to the
+	// given IP, regardless of port or private key. Callers should call this
+	// once a host leaves the rescue-related states, so the connection cache
+	// doesn't linger beyond the window where reuse is actually useful.
+	EvictConnectionsForIP(ip string)
 }
 
 // connKey identifies a pooled connection. The private key is hashed (not
@@ -279,7 +279,7 @@ func newConnKey(ip string, port int, privateKey string) connKey {
 
 // pooledConn wraps a shared *ssh.Client. Its mutex serializes get-or-create
 // and evict operations for this one entry, so concurrent callers for the same
-// connKey neither dial twice nor race on lastUsed/client. See getSSHClient
+// connKey neither dial twice nor race on lastUsed or client. See getSSHClient
 // for why the lock is held across the liveness probe and dial, not just the
 // map/field access.
 type pooledConn struct {
@@ -317,7 +317,7 @@ func newFactory(ctx context.Context, idleTimeout, sweepInterval time.Duration) *
 	return f
 }
 
-var _ = Factory(&sshFactory{conns: make(map[connKey]*pooledConn)})
+var _ Factory = (*sshFactory)(nil)
 
 // NewClient implements the NewClient method of the factory interface.
 func (f *sshFactory) NewClient(in Input) Client {
@@ -339,8 +339,9 @@ func (f *sshFactory) entry(key connKey) *pooledConn {
 		return pc
 	}
 
-	// Double-checked locking: the RLock miss above doesn't rule out a
-	// concurrent insert, so re-check under the write lock before creating.
+	// Before inserting a new connection for the key we need to check again
+	// that it is really not set yet. In theory, some other goroutine could
+	// have inserted it in the mean time.
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if pc, ok := f.conns[key]; ok {
@@ -351,7 +352,18 @@ func (f *sshFactory) entry(key connKey) *pooledConn {
 	return pc
 }
 
-// evict removes and closes the pooled entry for key, if any.
+// evict removes the pooled entry for key from the map first and closes the
+// connection afterwards, outside of f.mu.
+//
+// Deleting from the map does not destroy the pooledConn: pc is a pointer, and
+// the local variable (plus any goroutine that already looked the entry up)
+// keeps the object alive, so it is still safe to use after the delete. What
+// the delete does achieve is that no *new* caller can find this entry; anyone
+// arriving from now on creates a fresh entry and dials a new connection.
+//
+// Closing outside of f.mu matters because Close() writes to the network and
+// can block. Holding the map lock across it would stall every other pool
+// operation for the duration.
 func (f *sshFactory) evict(key connKey) {
 	f.mu.Lock()
 	pc, ok := f.conns[key]
@@ -371,11 +383,14 @@ func (f *sshFactory) evict(key connKey) {
 	}
 }
 
-// Evict implements the Evict method of the factory interface.
-// It is a no-op if no pooled connection exists for ip: callers use Evict as
-// best-effort cleanup after a state transition, without checking beforehand
-// whether a connection is actually pooled.
-func (f *sshFactory) Evict(ip string) {
+// EvictConnectionsForIP implements the EvictConnectionsForIP method of the
+// factory interface. It is a no-op if no pooled connection exists for ip:
+// callers use it as best-effort cleanup after a state transition, without
+// checking beforehand whether a connection is actually pooled.
+//
+// It removes the entries from the map before closing them, for the same
+// reasons as evict() above.
+func (f *sshFactory) EvictConnectionsForIP(ip string) {
 	f.mu.Lock()
 	var toClose []*pooledConn
 	for key, pc := range f.conns {
