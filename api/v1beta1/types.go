@@ -223,11 +223,11 @@ type LoadBalancerSpec struct {
 	//
 	// For existing clusters that want to enable proxy protocol after the fact, CAPH waits until
 	// every control-plane machine carries the annotation
-	// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" before switching the LB
-	// service to proxy protocol in place. The annotation is stamped on the control-plane machine
-	// template, so a machine from an earlier template does not carry it and the check stays false
-	// until the rollout completes. This prevents backends still expecting plain TCP from receiving
-	// malformed PROXY-protocol headers.
+	// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" before recreating the LB
+	// service with proxy protocol. The annotation is stamped on the control-plane machine template,
+	// so a machine from an earlier template does not carry it and the check stays false until the
+	// rollout completes. This prevents backends still expecting plain TCP from receiving malformed
+	// PROXY-protocol headers.
 	//
 	// Enabling proxy protocol is a one-way operation — it is never turned back off.
 	// +optional

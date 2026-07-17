@@ -421,39 +421,9 @@ func (c *cacheHCloudClient) AddServiceToLoadBalancer(_ context.Context, lb *hclo
 	}
 
 	// Add it
-	service := hcloud.LoadBalancerService{ListenPort: *opts.ListenPort, DestinationPort: *opts.DestinationPort}
-	if opts.Proxyprotocol != nil {
-		service.Proxyprotocol = *opts.Proxyprotocol
-	}
-	c.loadBalancerCache.idMap[lb.ID].Services = append(c.loadBalancerCache.idMap[lb.ID].Services, service)
+	c.loadBalancerCache.idMap[lb.ID].Services = append(
+		c.loadBalancerCache.idMap[lb.ID].Services, hcloud.LoadBalancerService{ListenPort: *opts.ListenPort, DestinationPort: *opts.DestinationPort})
 	return nil
-}
-
-func (c *cacheHCloudClient) UpdateServiceOnLoadBalancer(_ context.Context, lb *hcloud.LoadBalancer, listenPort int, opts hcloud.LoadBalancerUpdateServiceOpts) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	// Check if loadBalancer exists
-	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
-		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
-	}
-
-	for i, s := range c.loadBalancerCache.idMap[lb.ID].Services {
-		if s.ListenPort != listenPort {
-			continue
-		}
-		if opts.Proxyprotocol != nil {
-			c.loadBalancerCache.idMap[lb.ID].Services[i].Proxyprotocol = *opts.Proxyprotocol
-		}
-		if opts.DestinationPort != nil {
-			c.loadBalancerCache.idMap[lb.ID].Services[i].DestinationPort = *opts.DestinationPort
-		}
-		if opts.Protocol != "" {
-			c.loadBalancerCache.idMap[lb.ID].Services[i].Protocol = opts.Protocol
-		}
-		return nil
-	}
-
-	return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 }
 
 func (c *cacheHCloudClient) DeleteServiceFromLoadBalancer(_ context.Context, lb *hcloud.LoadBalancer, listenPort int) error {
