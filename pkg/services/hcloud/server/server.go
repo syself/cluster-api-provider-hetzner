@@ -176,7 +176,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 // BootingToRescue, RunningImageCommand) drive their progress via GetAction polling and/or SSH, so
 // they never call this and avoid an hcloud API call on every reconcile while they wait.
 //
-// If server is nil, the caller must return (res, err) immediately.
+// Unless it returns a live server together with an empty res and a nil err, the caller must return
+// (res, err) immediately. Some stop-paths (invalid token, rate limit, deleted server) deliberately
+// return an empty res and a nil err, so a nil server is a stop signal in its own right.
 func (s *Service) getLiveServer(ctx context.Context) (server *hcloud.Server, res reconcile.Result, err error) {
 	server, err = s.findServer(ctx)
 	if err != nil {
@@ -1205,7 +1207,7 @@ func (s *Service) handleBootingToRealOS(ctx context.Context) (res reconcile.Resu
 	hm := s.scope.HCloudMachine
 
 	server, res, err := s.getLiveServer(ctx)
-	if server == nil {
+	if server == nil || err != nil || !res.IsZero() {
 		return res, err
 	}
 	updateHCloudMachineStatusFromServer(hm, server)
@@ -1305,7 +1307,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconci
 	hm := s.scope.HCloudMachine
 
 	server, res, err := s.getLiveServer(ctx)
-	if server == nil {
+	if server == nil || err != nil || !res.IsZero() {
 		return res, err
 	}
 	updateHCloudMachineStatusFromServer(hm, server)
