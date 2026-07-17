@@ -478,6 +478,18 @@ func isTransportError(err error) bool {
 	return !errors.As(err, &exitMissingErr)
 }
 
+// evictUnlessCanceled evicts the pooled connection for this client, unless
+// ctx was canceled. The scp-based methods below evict on any copy failure,
+// since go-scp does not expose a way to distinguish a genuine transport
+// failure from a remote-side protocol error (e.g. "no such file"). But a
+// canceled ctx says nothing about the connection's health -- it only means
+// the caller stopped waiting -- so it must never trigger an eviction.
+func (c *sshClient) evictUnlessCanceled(ctx context.Context) {
+	if ctx.Err() == nil {
+		c.factory.evict(c.connKey())
+	}
+}
+
 var _ = Client(&sshClient{})
 
 // GetHostName implements the GetHostName method of the SSHClient interface.
@@ -1066,7 +1078,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	dest := "/root/" + baseName
 	err = scpClient.CopyFromFile(ctx, *f, dest, "0700")
 	if err != nil {
-		c.factory.evict(c.connKey())
+		c.evictUnlessCanceled(ctx)
 		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
 	}
 
@@ -1129,7 +1141,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	dest := "/root/" + baseName
 	err = scpClient.CopyFromFile(ctx, *fdCommand, dest, "0700")
 	if err != nil {
-		c.factory.evict(c.connKey())
+		c.evictUnlessCanceled(ctx)
 		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
 	}
 
@@ -1137,7 +1149,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	dest = "/root/bootstrap.data"
 	err = scpClient.CopyFile(ctx, reader, dest, "0700")
 	if err != nil {
-		c.factory.evict(c.connKey())
+		c.evictUnlessCanceled(ctx)
 		return 0, "", fmt.Errorf("error copying bootstrap data to %s:%d:%s %w", c.ip, c.port, dest, err)
 	}
 
@@ -1236,7 +1248,7 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 
 		var buf bytes.Buffer
 		if err := scpClient.CopyFromRemotePassThru(ctx, &buf, outputJSONPath, nil); err != nil {
-			c.factory.evict(c.connKey())
+			c.evictUnlessCanceled(ctx)
 			return "", fmt.Errorf("failed to copy output.json from rescue system to caph: %w", err)
 		}
 
