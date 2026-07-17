@@ -520,6 +520,36 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 
+	It("marks HCloudTokenAvailable true when GetAction succeeds", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootStateSince: metav1.Now(),
+				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
+					ActionIDEnableRescueSystem: 123456,
+				},
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetAction", mock.Anything, int64(123456)).Return(&hcloud.Action{
+			ID:      123456,
+			Status:  hcloud.ActionStatusRunning,
+			Started: time.Now(),
+		}, nil).Once()
+
+		res, err := service.handleBootStateEnablingRescue(context.Background())
+
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
+		Expect(v1beta1conditions.IsTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudTokenAvailableV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
 	It("routes GetAction rate-limit errors through handleRateLimit", func() {
 		hcloudMachine := &infrav1.HCloudMachine{
 			ObjectMeta: metav1.ObjectMeta{
@@ -581,6 +611,37 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "PowerOnServerFailed")).To(BeTrue())
 		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachinePoweringOnServerFailedV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudMachine.Status.BootState).ToNot(Equal(infrav1.HCloudBootStateBootingToRescue))
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("sets HCloudTokenAvailable to false when PowerOnServer returns unauthorized", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ProviderID: ptr.To("hcloud://1"),
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootStateSince: metav1.Now(),
+				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
+					ActionIDEnableRescueSystem: actionDone,
+				},
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("PowerOnServer", mock.Anything, mock.Anything).Return(
+			fmt.Errorf("%w: invalid HCloud token", hcloudclient.ErrUnauthorized)).Once()
+
+		res, err := service.handleBootStateEnablingRescue(context.Background())
+
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(hcloudMachine.Status.BootState).ToNot(Equal(infrav1.HCloudBootStateBootingToRescue))
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
@@ -670,6 +731,123 @@ var _ = Describe("handleBootStateInitializing", func() {
 		Expect(err.Error()).To(ContainSubstring("GetAction failed"))
 		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "GettingServerCreationStatusFailed")).To(BeTrue())
 		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionUnknown, infrav1.HCloudMachineGettingServerCreationStatusFailedV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("marks HCloudTokenAvailable true when GetAction succeeds", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootStateSince: metav1.Now(),
+				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
+					ActionIDCreateServer: 998877,
+				},
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetAction", mock.Anything, int64(998877)).Return(&hcloud.Action{
+			ID:      998877,
+			Status:  hcloud.ActionStatusRunning,
+			Started: time.Now(),
+		}, nil).Once()
+
+		res, err := service.handleBootStateInitializing(context.Background())
+
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
+		Expect(v1beta1conditions.IsTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudTokenAvailableV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("sets HCloudTokenAvailable to false when EnableRescueSystem returns unauthorized", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+		machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
+			Client:    testEnv.GetClient(),
+			APIReader: testEnv.GetAPIReader(),
+
+			HCloudClient: hcloudClient,
+			Logger:       GinkgoLogr,
+
+			Cluster: &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "clustername",
+					Namespace: "default",
+				},
+			},
+
+			HetznerCluster: &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "clustername",
+					Namespace: "default",
+				},
+				Spec: infrav1.HetznerClusterSpec{
+					HetznerSecret: infrav1.HetznerSecretRef{
+						Name: "secretname",
+						Key: infrav1.HetznerSecretKeyRef{
+							SSHKey: "hcloud-ssh-key-name",
+						},
+					},
+				},
+			},
+
+			HCloudMachine: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-machine",
+					Namespace: "default",
+				},
+				Spec: infrav1.HCloudMachineSpec{
+					ProviderID: ptr.To("hcloud://1"),
+				},
+				Status: infrav1.HCloudMachineStatus{
+					BootStateSince: metav1.Now(),
+					ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
+						ActionIDCreateServer: actionDone,
+					},
+				},
+			},
+
+			HetznerSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "secretname",
+					Namespace: "default",
+				},
+				Data: map[string][]byte{
+					"hcloud-ssh-key-name": []byte("sshKey1"),
+				},
+			},
+			Machine: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-machine",
+					Namespace: "default",
+				},
+			},
+			SSHClientFactory: testEnv.HCloudSSHClientFactory,
+		})
+		Expect(err).To(BeNil())
+
+		service := &Service{scope: machineScope}
+		hcloudMachine := service.scope.HCloudMachine
+
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return([]*hcloud.SSHKey{
+			{
+				ID:   1,
+				Name: "sshKey1",
+			},
+		}, nil).Once()
+		hcloudClient.On("EnableRescueSystem", mock.Anything, mock.Anything, mock.Anything).Return(
+			hcloud.ServerEnableRescueResult{}, fmt.Errorf("%w: invalid HCloud token", hcloudclient.ErrUnauthorized)).Once()
+
+		res, err := service.handleBootStateInitializing(context.Background())
+
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 })
