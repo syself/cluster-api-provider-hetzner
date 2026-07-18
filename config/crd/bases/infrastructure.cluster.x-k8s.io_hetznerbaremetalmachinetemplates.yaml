@@ -196,8 +196,9 @@ spec:
                               type: object
                             type: array
                           partitions:
-                            description: Partitions define the additional Partitions
-                              to be created in installimage.
+                            description: |-
+                              Partitions define the additional Partitions to be created in installimage.
+                              Must be non-empty when imageURLCommand is not set.
                             items:
                               description: Partition defines the additional Partitions
                                 to be created.
@@ -253,7 +254,6 @@ spec:
                             type: integer
                         required:
                         - image
-                        - partitions
                         type: object
                       providerID:
                         description: |-
@@ -520,8 +520,9 @@ spec:
                             type: array
                             x-kubernetes-list-type: atomic
                           partitions:
-                            description: Partitions define the additional Partitions
-                              to be created in installimage.
+                            description: |-
+                              Partitions define the additional Partitions to be created in installimage.
+                              Must be non-empty when imageURLCommand is not set.
                             items:
                               description: Partition defines the additional Partitions
                                 to be created.
@@ -578,7 +579,6 @@ spec:
                             type: integer
                         required:
                         - image
-                        - partitions
                         type: object
                       providerID:
                         description: |-

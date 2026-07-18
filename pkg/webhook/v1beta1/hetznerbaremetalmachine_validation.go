@@ -90,6 +90,13 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav1.HetznerBareMetalMach
 				)
 			}
 		}
+
+		if len(installImage.Partitions) == 0 {
+			allErrs = append(allErrs,
+				field.Required(field.NewPath("spec", "installImage", "partitions"),
+					"partitions must be set when imageURLCommand is not set"),
+			)
+		}
 	}
 
 	// validate host selector
