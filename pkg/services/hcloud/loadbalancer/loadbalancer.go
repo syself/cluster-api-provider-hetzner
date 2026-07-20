@@ -389,10 +389,9 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		}
 	}
 
-	// Enabling proxy protocol on an existing kube-API service is a one-way switch, applied
-	// in place via UpdateServiceOnLoadBalancer rather than delete+recreate: HCloud's
-	// update_service action can flip Proxyprotocol on a live service, so the kube-API service
-	// is never briefly absent from the LB while every client hitting it would be refused.
+	// Enabling proxy protocol on an existing kube-API service is applied in place via
+	// UpdateServiceOnLoadBalancer. HCloud's update_service action flips Proxyprotocol on the
+	// live service, so the kube-API service is never absent from the LB and stays reachable.
 	if proxyProtocolShouldGetEnabled && !proxyProtocolAlreadyActive {
 		proxyProtocol := true
 		updateOpts := hcloud.LoadBalancerUpdateServiceOpts{Proxyprotocol: &proxyProtocol}
