@@ -1310,9 +1310,10 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconci
 
 // getLiveServer fetches the live hcloud server. It is only called by the two states
 // (BootingToRealOS, OperatingSystemRunning) that need a server.Status transition or the
-// network/LB attachment reconcile. The remaining states (Unset, Initializing, EnablingRescue,
-// BootingToRescue, RunningImageCommand) drive their progress via GetAction polling and/or SSH, so
-// they never call this and avoid an hcloud API call on every reconcile while they wait.
+// network/LB attachment reconcile. Unset does not call this because the server does not exist
+// yet. Initializing, EnablingRescue, BootingToRescue and RunningImageCommand drive their progress
+// via GetAction polling and/or SSH, so they never call this and avoid an hcloud API call on every
+// reconcile while they wait.
 //
 // Unless it returns a live server together with an empty res and a nil err, the caller must return
 // (res, err) immediately. Some stop-paths (invalid token, rate limit, deleted server) deliberately
@@ -1435,26 +1436,13 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	if err != nil {
 		// If it is an unauthorized error i.e. wrong HCloudToken do not return an error.
 		// As there is no point retrying with invalid credentials.
-		if errors.Is(err, hcloudclient.ErrUnauthorized) {
-			v1beta1conditions.MarkFalse(
-				s.scope.HCloudMachine,
-				infrav1.HCloudTokenAvailableCondition,
-				infrav1.HCloudCredentialsInvalidReason,
-				clusterv1beta1.ConditionSeverityError,
-				"wrong hcloud token",
-			)
-			v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
-				Message: "wrong hcloud token",
-			})
-
+		if handleUnauthorized(s.scope.HCloudMachine, err) {
 			return reconcile.Result{}, nil
 		}
 
 		return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "findServer", "failed to find server for deletion")
 	}
+	markHCloudTokenAvailable(s.scope.HCloudMachine)
 
 	// if no server has been found, then nothing can be deleted
 	if server == nil {
@@ -2190,34 +2178,12 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	serverID, err := s.scope.ServerIDFromProviderID()
 	if err == nil {
 		server, err = s.scope.HCloudClient.GetServer(ctx, serverID)
+		// findServer stays a plain fetch. Its callers (getLiveServer, Delete) set the
+		// HCloudTokenAvailable condition from the result; GetServer already wraps a wrong-token
+		// error with ErrUnauthorized so they can detect it.
 		if err != nil {
-			// If it is an unauthorized error i.e. wrong HCloudToken, set HCloudCredentialsInvalid condition.
-			if errors.Is(err, hcloudclient.ErrUnauthorized) {
-				v1beta1conditions.MarkFalse(
-					s.scope.HCloudMachine,
-					infrav1.HCloudTokenAvailableCondition,
-					infrav1.HCloudCredentialsInvalidReason,
-					clusterv1beta1.ConditionSeverityError,
-					"wrong hcloud token",
-				)
-				v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-					Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
-					Status:  metav1.ConditionFalse,
-					Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
-					Message: "wrong hcloud token",
-				})
-				return nil, err
-			}
-
 			return nil, fmt.Errorf("failed to get server %d: %w", serverID, err)
 		}
-
-		v1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
-		v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-			Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
-			Status: metav1.ConditionTrue,
-			Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
-		})
 
 		// if server has been found, return it
 		if server != nil {
