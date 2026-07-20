@@ -1320,9 +1320,10 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
 		Expect(*service.scope.HCloudMachine.Spec.ProviderID).To(Equal("hcloud://42"))
 		Expect(v1beta1conditions.IsTrue(service.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudMachineServerCreatedV1Beta2Reason)).To(BeTrue())
 	})
 
-	It("marks the machine as irrecoverably failed if a uniqueness error on CreateServer cannot be resolved by adoption", func() {
+	It("requeues to retry when a uniqueness error on CreateServer cannot be resolved by adoption", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1374,15 +1375,15 @@ var _ = Describe("Reconcile", func() {
 		hcloudClient.On("ListServers", mock.Anything, hcloud.ServerListOpts{Name: "my-machine"}).Return([]*hcloud.Server{}, nil)
 
 		By("calling reconcile")
-		_, err = service.Reconcile(ctx)
-
-		By("ensuring reconcile does not return an error, so the machine does not get retried forever")
+		result, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 
-		By("ensuring the machine is marked as irrecoverably failed instead of being retried forever")
+		By("ensuring the machine requeues to retry instead of being marked irrecoverable")
+		Expect(result.RequeueAfter).To(Equal(10 * time.Minute))
 		Expect(v1beta1conditions.IsFalse(service.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)).To(BeTrue())
 		Expect(v1beta1conditions.GetReason(service.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)).
-			To(Equal(infrav1.ServerCreateFailedIrrecoverableErrorReason))
+			To(Equal(infrav1.ServerCreateFailedReason))
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineServerCreationFailedV1Beta2Reason)).To(BeTrue())
 	})
 
 	It("recovers from a uniqueness error on CreateServer by adopting the existing server (imageURL)", func() {
@@ -1457,6 +1458,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDCreateServer).To(Equal(int64(actionDone)))
 		Expect(*service.scope.HCloudMachine.Spec.ProviderID).To(Equal("hcloud://42"))
 		Expect(v1beta1conditions.IsTrue(service.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudMachineServerCreatedV1Beta2Reason)).To(BeTrue())
 
 		By("reconciling again: handleBootStateInitializing must not wait on a create action, since ActionIDCreateServer is already actionDone")
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
