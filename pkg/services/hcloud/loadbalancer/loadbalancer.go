@@ -362,8 +362,9 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	for i, listenPort := range toCreate {
 		proxyProtocol := false
 		if listenPort == kubeAPIServicePort {
-			// The kube-API service only reaches this loop when it doesn't exist on the LB yet
-			// (new cluster), so the spec value can be used directly with no annotation check.
+			// Proxy protocol is only relevant for the kube-API service, which is created here
+			// straight from the spec value. The annotation check only guards enabling proxy
+			// protocol on a service that already exists.
 			proxyProtocol = s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
 		}
 		destinationPort := wantServiceListenPortsMap[listenPort].DestinationPort
@@ -389,9 +390,9 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		}
 	}
 
-	// Enabling proxy protocol on an existing kube-API service is applied in place via
-	// UpdateServiceOnLoadBalancer. HCloud's update_service action flips Proxyprotocol on the
-	// live service, so the kube-API service is never absent from the LB and stays reachable.
+	// If proxy protocol is not active yet but should be, activate it in place. HCloud's
+	// update_service flips Proxyprotocol on the live service, so the kube-API service is
+	// never absent from the LB.
 	if proxyProtocolShouldGetEnabled && !proxyProtocolAlreadyActive {
 		proxyProtocol := true
 		updateOpts := hcloud.LoadBalancerUpdateServiceOpts{Proxyprotocol: &proxyProtocol}
