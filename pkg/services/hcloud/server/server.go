@@ -1837,7 +1837,7 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 			// concrete fix instead of the raw uniqueness error.
 			msg = fmt.Sprintf(
 				"Server creation failed because a server named %q already exists and it could not be adopted automatically: %s. "+
-					"Delete the conflicting HCloud server, or delete this Machine so its replacement is created with a new name.",
+					"Check for a dangling HCloud server with this name and delete it, or delete this Machine so its replacement is created with a new name.",
 				hm.Name, err.Error())
 		}
 		s.scope.Error(nil, msg)
