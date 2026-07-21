@@ -337,19 +337,6 @@ var _ = Describe("createOptsFromSpec", func() {
 		Expect(createOpts).To(Equal(wantCreateOpts))
 	})
 
-	It("does not enable proxy protocol directly when the cluster already had a load balancer before (e.g. it was lost and is being recreated)", func() {
-		hetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
-		hetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{IPv4: "1.2.3.4"}
-
-		createOpts, err := createOptsFromSpec(hetznerCluster)
-		Expect(err).To(BeNil())
-
-		// ignore random name
-		createOpts.Name = ""
-
-		Expect(createOpts).To(Equal(wantCreateOpts))
-	})
-
 	It("returns ErrControlPlaneEndpointNotSet", func() {
 		hetznerCluster.Spec.ControlPlaneEndpoint = nil
 

@@ -231,15 +231,6 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 
 	// reconcile the load balancers
 	res, err := loadbalancer.NewService(clusterScope).Reconcile(ctx)
-
-	// Set the control-plane endpoint from the load-balancer IP as soon as it is known,
-	// before honoring any requeue from the load-balancer reconcile. The proxy-protocol
-	// migration requeues until every control-plane machine is ready, but those machines
-	// are only created once KubeadmControlPlane sees the endpoint. Setting it here first
-	// breaks that deadlock on a fresh cluster; the deferred scope Close persists it even
-	// on the requeue return below.
-	processControlPlaneEndpoint(hetznerCluster)
-
 	if res != emptyResult {
 		return res, nil
 	}
@@ -251,6 +242,8 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	if err := placementgroup.NewService(clusterScope).Reconcile(ctx); err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
+
+	processControlPlaneEndpoint(hetznerCluster)
 
 	// delete deprecated conditions of old clusters
 	v1beta1conditions.Delete(clusterScope.HetznerCluster, infrav1.DeprecatedHetznerClusterTargetClusterReadyCondition)

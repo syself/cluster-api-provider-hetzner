@@ -270,7 +270,7 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 	return err
 }
 
-// AllControlPlaneMachinesReadyForProxyProtocol returns true when the control plane is
+// AllControlPlaneMachinesAnnotatedForProxyProtocol returns true when the control plane is
 // fully rolled out to the machine template that expects PROXY protocol at the load
 // balancer. It lists the cluster's control-plane Machines in the management cluster (the
 // Cluster API Machine, so one list covers every control plane whatever its infrastructure)
@@ -281,7 +281,7 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 // Machines from an earlier template do not carry the annotation, so the check stays false
 // until the last of them is replaced. It returns false (no error) while the cluster has no
 // control-plane machines yet.
-func (s *ClusterScope) AllControlPlaneMachinesReadyForProxyProtocol(ctx context.Context) (bool, error) {
+func (s *ClusterScope) AllControlPlaneMachinesAnnotatedForProxyProtocol(ctx context.Context) (bool, error) {
 	machines := &clusterv1.MachineList{}
 	listOptions := []client.ListOption{
 		client.InNamespace(s.Namespace()),

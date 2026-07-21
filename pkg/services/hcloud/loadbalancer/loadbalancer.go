@@ -322,8 +322,9 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	// Two cases for the kube-API service:
 	//   - present without proxy protocol → an existing cluster enabling it: wait until every
 	//     control-plane machine is annotated, then switch it on in place below.
-	//   - absent → create it below from the spec value (a new cluster does not reach this;
-	//     createOptsFromSpec creates the service together with the load balancer).
+	//   - absent → create it below from the spec value. The service is only absent when an
+	//     existing load balancer is taken over instead of creating a new one, or if the service
+	//     got manually deleted.
 	existingKubeAPIService, kubeAPIServiceExists := existingServicesByPort[kubeAPIServicePort]
 	proxyProtocolAlreadyActive := kubeAPIServiceExists && existingKubeAPIService.Proxyprotocol
 
@@ -334,7 +335,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	var requeueForProxyProtocol bool
 	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && kubeAPIServiceExists && !proxyProtocolAlreadyActive {
 		var err error
-		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneMachinesReadyForProxyProtocol(ctx)
+		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneMachinesAnnotatedForProxyProtocol(ctx)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -455,10 +456,7 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOp
 	// Set name
 	name := utils.GenerateName(nil, fmt.Sprintf("%s-kube-apiserver-", hc.Name))
 
-	// Take proxy protocol from the spec, but only for a new cluster (Status still nil). If this
-	// load balancer is being recreated for a cluster that already had one, leave it off and let
-	// reconcileServices switch it on once the control-plane machines are ready.
-	proxyprotocol := hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && hc.Status.ControlPlaneLoadBalancer == nil
+	proxyprotocol := hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
 
 	var network *hcloud.Network
 	if hc.Status.Network != nil {

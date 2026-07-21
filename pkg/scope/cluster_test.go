@@ -56,7 +56,7 @@ func controlPlaneMachine(namespace, name, clusterName string, annotated bool) *c
 	}
 }
 
-func TestAllControlPlaneMachinesReadyForProxyProtocol(t *testing.T) {
+func TestAllControlPlaneMachinesAnnotatedForProxyProtocol(t *testing.T) {
 	const (
 		namespace   = "default"
 		clusterName = "test-cluster"
@@ -120,7 +120,7 @@ func TestAllControlPlaneMachinesReadyForProxyProtocol(t *testing.T) {
 				},
 			}
 
-			got, err := s.AllControlPlaneMachinesReadyForProxyProtocol(context.Background())
+			got, err := s.AllControlPlaneMachinesAnnotatedForProxyProtocol(context.Background())
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
 		})
