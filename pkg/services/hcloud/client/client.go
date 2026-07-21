@@ -290,6 +290,9 @@ func (c *realClient) RebootServer(ctx context.Context, server *hcloud.Server) er
 
 func (c *realClient) PowerOnServer(ctx context.Context, server *hcloud.Server) error {
 	_, _, err := c.client.Server.Poweron(ctx, server)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
 	return err
 }
 
@@ -343,6 +346,9 @@ func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hclo
 func (c *realClient) EnableRescueSystem(ctx context.Context, server *hcloud.Server, rescueOpts *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
 	result, _, err := c.client.Server.EnableRescue(ctx, server, *rescueOpts)
 	if err != nil {
+		if strings.Contains(err.Error(), errStringUnauthorized) {
+			return result, fmt.Errorf("%w: EnableRescue failed for %d: %w", ErrUnauthorized, server.ID, err)
+		}
 		return result, fmt.Errorf("EnableRescue failed for %d: %w", server.ID, err)
 	}
 	return result, nil
