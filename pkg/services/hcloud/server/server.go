@@ -2178,9 +2178,6 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	serverID, err := s.scope.ServerIDFromProviderID()
 	if err == nil {
 		server, err = s.scope.HCloudClient.GetServer(ctx, serverID)
-		// findServer stays a plain fetch. Its callers (getLiveServer, Delete) set the
-		// HCloudTokenAvailable condition from the result; GetServer already wraps a wrong-token
-		// error with ErrUnauthorized so they can detect it.
 		if err != nil {
 			return nil, fmt.Errorf("failed to get server %d: %w", serverID, err)
 		}
