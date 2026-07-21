@@ -1622,7 +1622,7 @@ var _ = Describe("Reconcile", func() {
 			}
 		}
 		GinkgoWriter.Printf("GetServer was called %d times during provisioning (imageURL)\n", getServerCalls)
-		Expect(getServerCalls).To(BeNumerically("<=", 1), "GetServer should not be called more than 1 time during imageURL provisioning (see issue #2163)")
+		Expect(getServerCalls).To(BeNumerically("<=", 1), "GetServer should not be called more than 1 time during imageURL provisioning")
 	})
 
 	It("ignores status in output.json when IMAGE_URL_DONE in stdout", func() {
@@ -1635,9 +1635,9 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
-		// RunningImageCommand no longer fetches the live server (see issue #2163), so
-		// Status.Addresses (needed by getSSHClient) has to be set directly, mirroring what
-		// updateHCloudMachineStatusFromServer would have set from newTestServer() (IP 1.2.3.4).
+		// This state connects to the server over SSH, and getSSHClient reads the target IP from
+		// Status.Addresses. The full provisioning flow fills that in at server creation; this test
+		// starts in RunningImageCommand, so it sets Status.Addresses directly.
 		service.scope.HCloudMachine.Status.Addresses = []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineExternalIP, Address: "1.2.3.4"},
 		}
@@ -1674,9 +1674,9 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
-		// RunningImageCommand no longer fetches the live server (see issue #2163), so
-		// Status.Addresses (needed by getSSHClient) has to be set directly, mirroring what
-		// updateHCloudMachineStatusFromServer would have set from newTestServer() (IP 1.2.3.4).
+		// This state connects to the server over SSH, and getSSHClient reads the target IP from
+		// Status.Addresses. The full provisioning flow fills that in at server creation; this test
+		// starts in RunningImageCommand, so it sets Status.Addresses directly.
 		service.scope.HCloudMachine.Status.Addresses = []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineExternalIP, Address: "1.2.3.4"},
 		}
@@ -1715,9 +1715,9 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
-		// RunningImageCommand no longer fetches the live server (see issue #2163), so
-		// Status.Addresses (needed by getSSHClient) has to be set directly, mirroring what
-		// updateHCloudMachineStatusFromServer would have set from newTestServer() (IP 1.2.3.4).
+		// This state connects to the server over SSH, and getSSHClient reads the target IP from
+		// Status.Addresses. The full provisioning flow fills that in at server creation; this test
+		// starts in RunningImageCommand, so it sets Status.Addresses directly.
 		service.scope.HCloudMachine.Status.Addresses = []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineExternalIP, Address: "1.2.3.4"},
 		}
@@ -1746,9 +1746,9 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
-		// RunningImageCommand no longer fetches the live server (see issue #2163), so
-		// Status.Addresses (needed by getSSHClient) has to be set directly, mirroring what
-		// updateHCloudMachineStatusFromServer would have set from newTestServer() (IP 1.2.3.4).
+		// This state connects to the server over SSH, and getSSHClient reads the target IP from
+		// Status.Addresses. The full provisioning flow fills that in at server creation; this test
+		// starts in RunningImageCommand, so it sets Status.Addresses directly.
 		service.scope.HCloudMachine.Status.Addresses = []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineExternalIP, Address: "1.2.3.4"},
 		}
@@ -1776,9 +1776,9 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
-		// RunningImageCommand no longer fetches the live server (see issue #2163), so
-		// Status.Addresses (needed by getSSHClient) has to be set directly, mirroring what
-		// updateHCloudMachineStatusFromServer would have set from newTestServer() (IP 1.2.3.4).
+		// This state connects to the server over SSH, and getSSHClient reads the target IP from
+		// Status.Addresses. The full provisioning flow fills that in at server creation; this test
+		// starts in RunningImageCommand, so it sets Status.Addresses directly.
 		service.scope.HCloudMachine.Status.Addresses = []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineExternalIP, Address: "1.2.3.4"},
 		}
@@ -1806,9 +1806,9 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
-		// RunningImageCommand no longer fetches the live server (see issue #2163), so
-		// Status.Addresses (needed by getSSHClient) has to be set directly, mirroring what
-		// updateHCloudMachineStatusFromServer would have set from newTestServer() (IP 1.2.3.4).
+		// This state connects to the server over SSH, and getSSHClient reads the target IP from
+		// Status.Addresses. The full provisioning flow fills that in at server creation; this test
+		// starts in RunningImageCommand, so it sets Status.Addresses directly.
 		service.scope.HCloudMachine.Status.Addresses = []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineExternalIP, Address: "1.2.3.4"},
 		}
@@ -1836,9 +1836,9 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
-		// RunningImageCommand no longer fetches the live server (see issue #2163), so
-		// Status.Addresses (needed by getSSHClient) has to be set directly, mirroring what
-		// updateHCloudMachineStatusFromServer would have set from newTestServer() (IP 1.2.3.4).
+		// This state connects to the server over SSH, and getSSHClient reads the target IP from
+		// Status.Addresses. The full provisioning flow fills that in at server creation; this test
+		// starts in RunningImageCommand, so it sets Status.Addresses directly.
 		service.scope.HCloudMachine.Status.Addresses = []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineExternalIP, Address: "1.2.3.4"},
 		}
@@ -1878,9 +1878,9 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateBootingToRescue
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
-		// BootingToRescue no longer fetches the live server or checks server.RescueEnabled
-		// (see issue #2163): it goes straight to SSH, so Status.Addresses (needed by
-		// getSSHClient) has to be set directly here.
+		// This state connects to the server over SSH, and getSSHClient reads the target IP from
+		// Status.Addresses. The full provisioning flow fills that in at server creation; this test
+		// starts in BootingToRescue, so it sets Status.Addresses directly.
 		service.scope.HCloudMachine.Status.Addresses = []clusterv1beta1.MachineAddress{
 			{Type: clusterv1beta1.MachineExternalIP, Address: "1.2.3.4"},
 		}
