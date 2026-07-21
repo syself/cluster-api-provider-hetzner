@@ -356,26 +356,8 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		// invalid_input/resource_unavailable, this can clear from the outside when the conflicting
 		// server is deleted. Nothing watches HCloud, so we requeue on a slow interval to retry the
 		// create, otherwise deleting the conflicting server would never trigger a new attempt.
+		// createServer already set ServerCreateSucceededCondition to false, so we only requeue here.
 		if hcloud.IsError(err, hcloud.ErrorCodeUniquenessError) {
-			msg := fmt.Sprintf(
-				"a server named %q already exists and could not be adopted, retrying: %s. "+
-					"Delete the conflicting HCloud server, or delete this Machine to create a new one.",
-				s.scope.Name(), err.Error(),
-			)
-			v1beta1conditions.MarkFalse(
-				s.scope.HCloudMachine,
-				infrav1.ServerCreateSucceededCondition,
-				infrav1.ServerCreateFailedReason,
-				clusterv1beta1.ConditionSeverityWarning,
-				"%s",
-				msg,
-			)
-			v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-				Type:    infrav1.HCloudMachineServerCreatedV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineServerCreationFailedV1Beta2Reason,
-				Message: msg,
-			})
 			return reconcile.Result{RequeueAfter: 10 * time.Minute}, nil
 		}
 
@@ -1850,6 +1832,14 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 		}
 
 		msg = fmt.Sprintf("%s: %s", msg, err.Error())
+		if hcloud.IsError(err, hcloud.ErrorCodeUniquenessError) {
+			// The name is taken and we could not adopt the existing server. Give the operator the
+			// concrete fix instead of the raw uniqueness error.
+			msg = fmt.Sprintf(
+				"Server creation failed because a server named %q already exists and it could not be adopted automatically: %s. "+
+					"Delete the conflicting HCloud server, or delete this Machine to trigger a new creation attempt.",
+				hm.Name, err.Error())
+		}
 		s.scope.Error(nil, msg)
 		// No condition was set yet. Set a general condition to false.
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,

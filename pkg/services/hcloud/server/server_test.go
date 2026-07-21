@@ -1384,6 +1384,8 @@ var _ = Describe("Reconcile", func() {
 		Expect(v1beta1conditions.GetReason(service.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)).
 			To(Equal(infrav1.ServerCreateFailedReason))
 		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineServerCreationFailedV1Beta2Reason)).To(BeTrue())
+		Expect(v1beta1conditions.GetMessage(service.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)).
+			To(ContainSubstring("could not be adopted"))
 	})
 
 	It("recovers from a uniqueness error on CreateServer by adopting the existing server (imageURL)", func() {
