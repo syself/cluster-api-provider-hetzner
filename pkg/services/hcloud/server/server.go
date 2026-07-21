@@ -351,12 +351,12 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			return reconcile.Result{}, nil
 		}
 
-		// A uniqueness_error that createServer's own recovery (adopting the existing server) could
-		// not resolve means a server with this name already exists but is not this machine's. Unlike
-		// invalid_input/resource_unavailable, this can clear from the outside when the conflicting
-		// server is deleted. Nothing watches HCloud, so we requeue on a slow interval to retry the
-		// create, otherwise deleting the conflicting server would never trigger a new attempt.
-		// createServer already set ServerCreateSucceededCondition to false, so we only requeue here.
+		// createServer hit a uniqueness_error that adoption (taking over an existing server) could
+		// not resolve. Unlike invalid_input/resource_unavailable, this can clear from the outside:
+		// the conflicting server may be deleted, or this Machine may be replaced with a new name.
+		// Nothing watches HCloud, so we requeue on a slow interval to retry, otherwise such a change
+		// would never trigger a new attempt. createServer already set ServerCreateSucceededCondition
+		// to false, so we only requeue here.
 		if hcloud.IsError(err, hcloud.ErrorCodeUniquenessError) {
 			return reconcile.Result{RequeueAfter: 10 * time.Minute}, nil
 		}
@@ -1837,7 +1837,7 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 			// concrete fix instead of the raw uniqueness error.
 			msg = fmt.Sprintf(
 				"Server creation failed because a server named %q already exists and it could not be adopted automatically: %s. "+
-					"Delete the conflicting HCloud server, or delete this Machine to trigger a new creation attempt.",
+					"Delete the conflicting HCloud server, or delete this Machine so its replacement is created with a new name.",
 				hm.Name, err.Error())
 		}
 		s.scope.Error(nil, msg)
