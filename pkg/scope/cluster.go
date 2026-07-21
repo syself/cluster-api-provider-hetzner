@@ -272,11 +272,11 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 
 // AllControlPlaneMachinesReadyForProxyProtocol returns true when the control plane is
 // fully rolled out to the machine template that expects PROXY protocol at the load
-// balancer. It lists the cluster's control-plane Machines in the management cluster (one
-// list, so it covers both HCloud and bare-metal control planes) and requires every one to
-// carry the annotation capi.syself.com/proxy-protocol-for-controlplane-loadbalancer:
-// "true", which the control-plane machine template stamps and Cluster API propagates onto
-// the Machine.
+// balancer. It lists the cluster's control-plane Machines in the management cluster (the
+// Cluster API Machine, so one list covers every control plane whatever its infrastructure)
+// and requires every one to carry the annotation
+// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true", which the
+// control-plane machine template sets and Cluster API propagates onto the Machine.
 //
 // Machines from an earlier template do not carry the annotation, so the check stays false
 // until the last of them is replaced. It returns false (no error) while the cluster has no
@@ -300,21 +300,12 @@ func (s *ClusterScope) AllControlPlaneMachinesReadyForProxyProtocol(ctx context.
 	}
 
 	for i := range machines.Items {
-		if !s.controlPlaneMachineReadyForProxyProtocol(&machines.Items[i]) {
+		machine := &machines.Items[i]
+		if machine.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
+			s.V(1).Info("proxy protocol: control-plane machine is missing the annotation", "machine", machine.GetName())
 			return false, nil
 		}
 	}
 
 	return true, nil
-}
-
-// controlPlaneMachineReadyForProxyProtocol reports whether one control-plane Machine is on
-// the template that expects PROXY protocol, meaning it carries the annotation.
-func (s *ClusterScope) controlPlaneMachineReadyForProxyProtocol(machine *clusterv1.Machine) bool {
-	if machine.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
-		s.V(1).Info("proxy protocol: control-plane machine is missing the annotation", "machine", machine.GetName())
-		return false
-	}
-
-	return true
 }

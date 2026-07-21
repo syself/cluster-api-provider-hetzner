@@ -319,17 +319,17 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 
 	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, slices.Collect(maps.Keys(existingServicesByPort)))
 
-	// kubeAPIServiceExists: whether the kube-API service already exists on the LB.
-	// New cluster: service absent → create immediately with EnableProxyProtocol from spec (no annotation check).
-	// Existing cluster migration: service present without proxy protocol → wait for all control-plane
-	// machines to carry the annotation before switching it on in place, to avoid sending malformed
-	// PROXY-protocol headers to unprepared backends.
+	// Two cases for the kube-API service:
+	//   - present without proxy protocol → an existing cluster enabling it: wait until every
+	//     control-plane machine is annotated, then switch it on in place below.
+	//   - absent → create it below from the spec value (a new cluster does not reach this;
+	//     createOptsFromSpec creates the service together with the load balancer).
 	existingKubeAPIService, kubeAPIServiceExists := existingServicesByPort[kubeAPIServicePort]
 	proxyProtocolAlreadyActive := kubeAPIServiceExists && existingKubeAPIService.Proxyprotocol
 
 	// proxyProtocolShouldGetEnabled: whether proxy protocol should get enabled now.
 	// The control-plane machines are only checked when the spec wants proxy protocol but the LB
-	// service doesn't have it yet. For new clusters or when already active, no check is made.
+	// service doesn't have it yet. When the service is absent or already has it, no check is made.
 	var proxyProtocolShouldGetEnabled bool
 	var requeueForProxyProtocol bool
 	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && kubeAPIServiceExists && !proxyProtocolAlreadyActive {
@@ -455,24 +455,9 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOp
 	// Set name
 	name := utils.GenerateName(nil, fmt.Sprintf("%s-kube-apiserver-", hc.Name))
 
-	// A freshly created load balancer takes proxy protocol straight from the spec, but only when
-	// the cluster has never had a load balancer before (hc.Status.ControlPlaneLoadBalancer is
-	// still nil): that's the only place the kube-apiserver service is created with no prior
-	// service to migrate from, so the control-plane-readiness gate in reconcileServices (which
-	// guards turning proxy protocol on for an already-serving load balancer) does not apply.
-	//
-	// If Status.ControlPlaneLoadBalancer is already set, this cluster previously had an
-	// auto-created load balancer that is only being recreated now because it was lost (e.g.
-	// deleted out-of-band); it may still be mid-migration with control-plane machines that aren't
-	// ready for proxy protocol yet, so fall back to proxy protocol off here and let
-	// reconcileServices's normal migration-gated toDelete/toCreate flow decide whether and when
-	// to enable it.
-	//
-	// A fixed-name/BYO load balancer (Spec.ControlPlaneLoadBalancer.Name set) never reaches this
-	// function at all — Reconcile routes it through ownExistingLoadBalancer instead. The first
-	// time reconcileServices creates a kube-apiserver service on that load balancer, it already
-	// takes EnableProxyProtocol straight from spec (kubeAPIServiceExists is false), the same way a
-	// genuinely new cluster does.
+	// Take proxy protocol from the spec, but only for a new cluster (Status still nil). If this
+	// load balancer is being recreated for a cluster that already had one, leave it off and let
+	// reconcileServices switch it on once the control-plane machines are ready.
 	proxyprotocol := hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && hc.Status.ControlPlaneLoadBalancer == nil
 
 	var network *hcloud.Network
