@@ -24,7 +24,6 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -271,48 +270,42 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 	return err
 }
 
-// AllControlPlaneNodesReadyForProxyProtocol returns true when every control-plane node
-// in the workload cluster carries the annotation
-// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true".
-// Returns false (no error) when the workload cluster has no control-plane nodes yet.
-func (s *ClusterScope) AllControlPlaneNodesReadyForProxyProtocol(ctx context.Context) (bool, error) {
-	wlClientConfig, err := s.ClientConfig(ctx)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			s.V(1).Info("proxy protocol: kubeconfig secret not found, cluster not yet provisioned")
-			return false, nil
-		}
-		return false, fmt.Errorf("failed to get workload cluster client config: %w", err)
+// AllControlPlaneMachinesAnnotatedForProxyProtocol returns true when the control plane is
+// fully rolled out to the machine template that expects PROXY protocol at the load
+// balancer. It lists the cluster's control-plane Machines in the management cluster (the
+// Cluster API Machine, so one list covers every control plane whatever its infrastructure)
+// and requires every one to carry the annotation
+// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true", which the
+// control-plane machine template sets and Cluster API propagates onto the Machine.
+//
+// Machines from an earlier template do not carry the annotation, so the check stays false
+// until the last of them is replaced. It returns false (no error) while the cluster has no
+// control-plane machines yet.
+func (s *ClusterScope) AllControlPlaneMachinesAnnotatedForProxyProtocol(ctx context.Context) (bool, error) {
+	machines := &clusterv1.MachineList{}
+	listOptions := []client.ListOption{
+		client.InNamespace(s.Namespace()),
+		client.MatchingLabels{
+			clusterv1.ClusterNameLabel:         s.Cluster.Name,
+			clusterv1.MachineControlPlaneLabel: "",
+		},
 	}
-	if err := IsControlPlaneReady(ctx, wlClientConfig); err != nil {
-		return false, fmt.Errorf("workload cluster control plane not ready: %w", err)
-	}
-
-	restConfig, err := wlClientConfig.ClientConfig()
-	if err != nil {
-		return false, fmt.Errorf("failed to get workload cluster rest config: %w", err)
-	}
-	wlClient, err := client.New(restConfig, client.Options{})
-	if err != nil {
-		return false, fmt.Errorf("failed to create workload cluster client: %w", err)
+	if err := s.Client.List(ctx, machines, listOptions...); err != nil {
+		return false, fmt.Errorf("failed to list control-plane Machines: %w", err)
 	}
 
-	nodeList := &corev1.NodeList{}
-	if err := wlClient.List(ctx, nodeList, client.MatchingLabels{clusterv1.NodeRoleLabelPrefix + "/control-plane": ""}); err != nil {
-		return false, fmt.Errorf("failed to list control-plane nodes in workload cluster: %w", err)
-	}
-
-	if len(nodeList.Items) == 0 {
-		s.V(1).Info("proxy protocol: no control-plane nodes found")
+	if len(machines.Items) == 0 {
+		s.V(1).Info("proxy protocol: no control-plane machines found yet")
 		return false, nil
 	}
-	for _, node := range nodeList.Items {
-		if node.Annotations[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
-			s.V(1).Info("proxy protocol: node missing annotation",
-				"node", node.Name,
-				"annotation", infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation)
+
+	for i := range machines.Items {
+		machine := &machines.Items[i]
+		if machine.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
+			s.V(1).Info("proxy protocol: control-plane machine is missing the annotation", "machine", machine.GetName())
 			return false, nil
 		}
 	}
+
 	return true, nil
 }

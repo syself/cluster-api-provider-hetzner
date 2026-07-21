@@ -319,46 +319,33 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 
 	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, slices.Collect(maps.Keys(existingServicesByPort)))
 
-	// kubeAPIServiceExists: whether the kube-API service already exists on the LB.
-	// New cluster: service absent → create immediately with EnableProxyProtocol from spec (no annotation check).
-	// Existing cluster migration: service present without proxy protocol → wait for all CP nodes to carry the
-	// annotation before recreating, to avoid sending malformed PROXY-protocol headers to unprepared backends.
+	// Two cases for the kube-API service:
+	//   - present without proxy protocol → an existing cluster enabling it: wait until every
+	//     control-plane machine is annotated, then switch it on in place below.
+	//   - absent → create it below from the spec value. The service is only absent when an
+	//     existing load balancer is taken over instead of creating a new one, or if the service
+	//     got manually deleted.
 	existingKubeAPIService, kubeAPIServiceExists := existingServicesByPort[kubeAPIServicePort]
 	proxyProtocolAlreadyActive := kubeAPIServiceExists && existingKubeAPIService.Proxyprotocol
 
 	// proxyProtocolShouldGetEnabled: whether proxy protocol should get enabled now.
-	// The workload cluster is only contacted when the spec wants proxy protocol but the LB
-	// service doesn't have it yet. For new clusters or when already active, no call is made.
+	// The control-plane machines are only checked when the spec wants proxy protocol but the LB
+	// service doesn't have it yet. When the service is absent or already has it, no check is made.
 	var proxyProtocolShouldGetEnabled bool
 	var requeueForProxyProtocol bool
 	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && kubeAPIServiceExists && !proxyProtocolAlreadyActive {
 		var err error
-		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneNodesReadyForProxyProtocol(ctx)
+		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneMachinesAnnotatedForProxyProtocol(ctx)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 		if !proxyProtocolShouldGetEnabled {
-			s.scope.V(1).Info("proxy protocol: not all CP nodes ready yet, requeueing")
+			s.scope.V(1).Info("proxy protocol: not all control-plane machines annotated yet, requeueing")
 			requeueForProxyProtocol = true
 		}
 	}
-	// Enabling proxy protocol is a one-way operation: delete the existing service and
-	// recreate it with proxy protocol on once all CP nodes signal readiness.
-	if proxyProtocolShouldGetEnabled && !proxyProtocolAlreadyActive {
-		toDelete = append(toDelete, kubeAPIServicePort)
-		toCreate = append(toCreate, kubeAPIServicePort)
-	}
 
-	// kubeAPIProxyProtocol: the proxy protocol value to use when creating the kube-API service.
-	// For existing clusters, wait for CP nodes to signal readiness before enabling.
-	// For new clusters, use the spec value directly.
-	kubeAPIProxyProtocol := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
-	if kubeAPIServiceExists {
-		kubeAPIProxyProtocol = proxyProtocolShouldGetEnabled
-	}
-
-	// delete services that are no longer in the spec, or the kube-API service being recreated
-	// to enable proxy protocol
+	// delete services that are no longer in the spec
 	var multierr error
 
 	for _, listenPort := range toDelete {
@@ -376,8 +363,10 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	for i, listenPort := range toCreate {
 		proxyProtocol := false
 		if listenPort == kubeAPIServicePort {
-			// Proxy protocol is only relevant for the kube-apiserver port (default 6443).
-			proxyProtocol = kubeAPIProxyProtocol
+			// Proxy protocol is only relevant for the kube-API service, which is created here
+			// straight from the spec value. The annotation check only guards enabling proxy
+			// protocol on a service that already exists.
+			proxyProtocol = s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
 		}
 		destinationPort := wantServiceListenPortsMap[listenPort].DestinationPort
 		serviceOpts := hcloud.LoadBalancerAddServiceOpts{
@@ -395,7 +384,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 			}
 		} else if listenPort == kubeAPIServicePort {
 			// Status.ControlPlaneLoadBalancer was snapshotted from the LB state fetched at the
-			// start of Reconcile, before this service was (re)created, so it still shows the old
+			// start of Reconcile, before this service was created, so it still shows the old
 			// value. Update it now so callers observe the change in this reconcile instead of
 			// waiting for the next one (e.g. the next full resync, up to --sync-period later).
 			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled = proxyProtocol
@@ -404,6 +393,24 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 
 	if requeueForProxyProtocol {
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, multierr
+	}
+
+	// If proxy protocol is not active yet but should be, activate it in place. HCloud's
+	// update_service flips Proxyprotocol on the live service, so the kube-API service is
+	// never absent from the LB.
+	if proxyProtocolShouldGetEnabled && !proxyProtocolAlreadyActive {
+		proxyProtocol := true
+		updateOpts := hcloud.LoadBalancerUpdateServiceOpts{Proxyprotocol: &proxyProtocol}
+		if err := s.scope.HCloudClient.UpdateServiceOnLoadBalancer(ctx, lb, kubeAPIServicePort, updateOpts); err != nil {
+			// return immediately on rate limit
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateServiceOnLoadBalancer")
+			multierr = errors.Join(multierr, fmt.Errorf("failed to update kube-API service on load balancer to enable proxy protocol: %w", err))
+			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				return reconcile.Result{}, multierr
+			}
+		} else {
+			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled = true
+		}
 	}
 	return reconcile.Result{}, multierr
 }
@@ -449,7 +456,7 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOp
 	// Set name
 	name := utils.GenerateName(nil, fmt.Sprintf("%s-kube-apiserver-", hc.Name))
 
-	proxyprotocol := false
+	proxyprotocol := hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
 
 	var network *hcloud.Network
 	if hc.Status.Network != nil {

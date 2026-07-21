@@ -1704,6 +1704,27 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		}
 	})
 
+	t.Run("does not panic and returns false if load balancer is enabled but Status.ControlPlaneLoadBalancer itself is nil (load balancer not reconciled yet)", func(t *testing.T) {
+		hetznerCluster := &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled: true,
+				},
+				ControlPlaneEndpoint: nil,
+			},
+		}
+
+		processControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
+			t.Fatalf("ControlPlaneEndpoint should not change. It should remain nil")
+		}
+
+		if hetznerCluster.Status.Ready != false {
+			t.Fatalf("return value should be false")
+		}
+	})
+
 	t.Run("return true if load balancer is enabled, IPv4 is not nil, and ControlPlaneEndpoint is nil. Values of ControlPlaneEndpoint.Host and ControlPlaneEndpoint.Port will get updated", func(t *testing.T) {
 		hetznerCluster := &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{
