@@ -390,6 +390,10 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		}
 	}
 
+	if requeueForProxyProtocol {
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, multierr
+	}
+
 	// If proxy protocol is not active yet but should be, activate it in place. HCloud's
 	// update_service flips Proxyprotocol on the live service, so the kube-API service is
 	// never absent from the LB.
@@ -406,10 +410,6 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		} else {
 			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled = true
 		}
-	}
-
-	if requeueForProxyProtocol {
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, multierr
 	}
 	return reconcile.Result{}, multierr
 }
