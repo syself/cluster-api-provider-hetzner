@@ -52,6 +52,7 @@ type Client interface {
 	AddIPTargetToLoadBalancer(context.Context, hcloud.LoadBalancerAddIPTargetOpts, *hcloud.LoadBalancer) error
 	DeleteIPTargetOfLoadBalancer(context.Context, *hcloud.LoadBalancer, net.IP) error
 	AddServiceToLoadBalancer(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerAddServiceOpts) error
+	UpdateServiceOnLoadBalancer(context.Context, *hcloud.LoadBalancer, int, hcloud.LoadBalancerUpdateServiceOpts) error
 	DeleteServiceFromLoadBalancer(context.Context, *hcloud.LoadBalancer, int) error
 	ListImages(context.Context, hcloud.ImageListOpts) ([]*hcloud.Image, error)
 	CreateServer(context.Context, hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error)
@@ -215,6 +216,11 @@ func (c *realClient) DeleteIPTargetOfLoadBalancer(ctx context.Context, lb *hclou
 
 func (c *realClient) AddServiceToLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAddServiceOpts) error {
 	_, _, err := c.client.LoadBalancer.AddService(ctx, lb, opts)
+	return err
+}
+
+func (c *realClient) UpdateServiceOnLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int, opts hcloud.LoadBalancerUpdateServiceOpts) error {
+	_, _, err := c.client.LoadBalancer.UpdateService(ctx, lb, listenPort, opts)
 	return err
 }
 
