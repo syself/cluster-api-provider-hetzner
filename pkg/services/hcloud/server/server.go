@@ -281,6 +281,16 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			return reconcile.Result{}, nil
 		}
 
+		// createServer hit a uniqueness_error that adoption (taking over an existing server) could
+		// not resolve. Unlike invalid_input/resource_unavailable, this can clear from the outside:
+		// the conflicting server may be deleted, or this Machine may be replaced with a new name.
+		// Nothing watches HCloud, so we requeue on a slow interval to retry, otherwise such a change
+		// would never trigger a new attempt. createServer already set ServerCreateSucceededCondition
+		// to false, so we only requeue here.
+		if hcloud.IsError(err, hcloud.ErrorCodeUniquenessError) {
+			return reconcile.Result{RequeueAfter: 10 * time.Minute}, nil
+		}
+
 		// Terminal errors like invalid_input (e.g. unsupported location for server type)
 		// or resource_unavailable (e.g. server location disabled) will never succeed on retry.
 		// Mark the machine as irrecoverably failed and stop reconciling.
@@ -1831,7 +1841,40 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 			return hcloud.ServerCreateResult{}, fmt.Errorf("%s: %w", msg, err)
 		}
 
+		// A server with this exact name already exists. This happens if a previous reconcile
+		// created the HCloud server successfully but lost the update that would have persisted
+		// ProviderID/BootState (e.g. an API server conflict or a controller restart between
+		// CreateServer and Close()). Adopt the existing server instead of failing forever with
+		// the same uniqueness error on every retry.
+		if hcloud.IsError(err, hcloud.ErrorCodeUniquenessError) {
+			existingServer, findErr := s.findServerByName(ctx)
+			if findErr != nil {
+				s.scope.Error(findErr, "failed to look up existing server after a uniqueness error on CreateServer")
+			} else if existingServer != nil {
+				s.scope.Info("server already exists after a uniqueness error, adopting it instead of failing",
+					"serverID", existingServer.ID, "serverName", existingServer.Name)
+				hm.Status.SSHKeys = caphSSHKeys
+				v1beta1conditions.MarkTrue(hm, infrav1.ServerCreateSucceededCondition)
+				v1beta2conditions.Set(hm, metav1.Condition{
+					Type:   infrav1.HCloudMachineServerCreatedV1Beta2Condition,
+					Status: metav1.ConditionTrue,
+					Reason: infrav1.HCloudMachineServerCreatedV1Beta2Reason,
+				})
+				record.Eventf(hm, "AdoptedExistingServer", "Adopted existing server %s (ID %d) after a uniqueness error on create",
+					existingServer.Name, existingServer.ID)
+				return hcloud.ServerCreateResult{Server: existingServer, Action: &hcloud.Action{ID: actionDone}}, nil
+			}
+		}
+
 		msg = fmt.Sprintf("%s: %s", msg, err.Error())
+		if hcloud.IsError(err, hcloud.ErrorCodeUniquenessError) {
+			// The name is taken and we could not adopt the existing server. Give the operator the
+			// concrete fix instead of the raw uniqueness error.
+			msg = fmt.Sprintf(
+				"Server creation failed because a server named %q already exists and it could not be adopted automatically: %s. "+
+					"Delete the conflicting HCloud server, or delete this Machine to get a replacement with a new name (deleting the Machine object leaves the original server behind as a dangling server). ",
+				hm.Name, err.Error())
+		}
 		s.scope.Error(nil, msg)
 		// No condition was set yet. Set a general condition to false.
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,
@@ -2259,6 +2302,26 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	}
 
 	s.scope.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer", "err", err)
+
+	return servers[0], nil
+}
+
+// findServerByName searches for a server with this HCloudMachine's exact name. Used to recover
+// from a uniqueness error on CreateServer, where relying on ProviderID isn't possible yet.
+// It returns server and error as nil when no server matches.
+func (s *Service) findServerByName(ctx context.Context) (*hcloud.Server, error) {
+	servers, err := s.scope.HCloudClient.ListServers(ctx, hcloud.ServerListOpts{Name: s.scope.Name()})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list servers: %w", err)
+	}
+
+	if len(servers) > 1 {
+		return nil, fmt.Errorf("found %d servers with name %s", len(servers), s.scope.Name())
+	}
+
+	if len(servers) == 0 {
+		return nil, nil
+	}
 
 	return servers[0], nil
 }
