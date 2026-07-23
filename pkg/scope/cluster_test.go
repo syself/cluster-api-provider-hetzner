@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
@@ -50,13 +51,19 @@ func controlPlaneObjectMeta(namespace, name, clusterName string, annotated bool)
 	}
 }
 
-func controlPlaneMachine(namespace, name, clusterName string, annotated bool) *clusterv1.Machine {
-	return &clusterv1.Machine{
+func controlPlaneHCloudMachine(namespace, name, clusterName string, annotated bool) *infrav1.HCloudMachine {
+	return &infrav1.HCloudMachine{
 		ObjectMeta: controlPlaneObjectMeta(namespace, name, clusterName, annotated),
 	}
 }
 
-func TestAllControlPlaneMachinesAnnotatedForProxyProtocol(t *testing.T) {
+func controlPlaneBareMetalMachine(namespace, name, clusterName string, annotated bool) *infrav1.HetznerBareMetalMachine {
+	return &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: controlPlaneObjectMeta(namespace, name, clusterName, annotated),
+	}
+}
+
+func TestAllControlPlaneInfraMachinesAnnotatedForProxyProtocol(t *testing.T) {
 	const (
 		namespace   = "default"
 		clusterName = "test-cluster"
@@ -65,6 +72,7 @@ func TestAllControlPlaneMachinesAnnotatedForProxyProtocol(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(infrav2.AddToScheme(scheme))
 
 	tests := []struct {
@@ -73,24 +81,40 @@ func TestAllControlPlaneMachinesAnnotatedForProxyProtocol(t *testing.T) {
 		want     bool
 	}{
 		{
-			name:     "no control-plane machines yet",
+			name:     "no control-plane infrastructure machines yet",
 			machines: nil,
 			want:     false,
 		},
 		{
-			name: "all control planes annotated",
+			name: "all hcloud control planes annotated",
 			machines: []client.Object{
-				controlPlaneMachine(namespace, "cp-1", clusterName, true),
-				controlPlaneMachine(namespace, "cp-2", clusterName, true),
-				controlPlaneMachine(namespace, "cp-3", clusterName, true),
+				controlPlaneHCloudMachine(namespace, "cp-1", clusterName, true),
+				controlPlaneHCloudMachine(namespace, "cp-2", clusterName, true),
+				controlPlaneHCloudMachine(namespace, "cp-3", clusterName, true),
 			},
 			want: true,
 		},
 		{
-			name: "one machine still from the old template misses the annotation",
+			name: "mixed hcloud and bare-metal control planes all annotated",
 			machines: []client.Object{
-				controlPlaneMachine(namespace, "cp-1", clusterName, true),
-				controlPlaneMachine(namespace, "cp-2", clusterName, false),
+				controlPlaneHCloudMachine(namespace, "cp-1", clusterName, true),
+				controlPlaneBareMetalMachine(namespace, "cp-2", clusterName, true),
+			},
+			want: true,
+		},
+		{
+			name: "one hcloud machine still from the old template misses the annotation",
+			machines: []client.Object{
+				controlPlaneHCloudMachine(namespace, "cp-1", clusterName, true),
+				controlPlaneHCloudMachine(namespace, "cp-2", clusterName, false),
+			},
+			want: false,
+		},
+		{
+			name: "one bare-metal machine still from the old template misses the annotation",
+			machines: []client.Object{
+				controlPlaneHCloudMachine(namespace, "cp-1", clusterName, true),
+				controlPlaneBareMetalMachine(namespace, "cp-2", clusterName, false),
 			},
 			want: false,
 		},
@@ -99,9 +123,9 @@ func TestAllControlPlaneMachinesAnnotatedForProxyProtocol(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			objects := append([]client.Object{}, tt.machines...)
-			// A worker machine of the same cluster (no control-plane label) must never
+			// A worker infrastructure machine of the same cluster (no control-plane label) must never
 			// affect the result.
-			objects = append(objects, &clusterv1.Machine{
+			objects = append(objects, &infrav1.HCloudMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "worker-1",
 					Namespace: namespace,
@@ -120,7 +144,7 @@ func TestAllControlPlaneMachinesAnnotatedForProxyProtocol(t *testing.T) {
 				},
 			}
 
-			got, err := s.AllControlPlaneMachinesAnnotatedForProxyProtocol(context.Background())
+			got, err := s.AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(context.Background())
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
 		})
