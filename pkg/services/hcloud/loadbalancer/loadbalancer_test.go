@@ -136,12 +136,12 @@ var _ = Describe("reconcileServices proxy protocol migration", func() {
 		clusterName = "test-cluster"
 	)
 
-	controlPlaneMachine := func(name string, annotated bool) *clusterv1.Machine {
+	controlPlaneMachine := func(name string, annotated bool) *infrav1.HCloudMachine {
 		annotations := map[string]string{}
 		if annotated {
 			annotations[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] = "true"
 		}
-		return &clusterv1.Machine{
+		return &infrav1.HCloudMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
@@ -204,7 +204,7 @@ var _ = Describe("reconcileServices proxy protocol migration", func() {
 		return NewService(clusterScope), createdLB
 	}
 
-	It("switches proxy protocol on in place once all control-plane machines are annotated, without deleting the service", func() {
+	It("switches proxy protocol on in place once all control-plane infrastructure machines are annotated, without deleting the service", func() {
 		svc, lb := newServiceWithExistingKubeAPIService(
 			controlPlaneMachine("cp-1", true),
 			controlPlaneMachine("cp-2", true),
@@ -220,7 +220,7 @@ var _ = Describe("reconcileServices proxy protocol migration", func() {
 		Expect(svc.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled).To(BeTrue())
 	})
 
-	It("requeues and leaves proxy protocol off while a control-plane machine is missing the annotation", func() {
+	It("requeues and leaves proxy protocol off while a control-plane infrastructure machine is missing the annotation", func() {
 		svc, lb := newServiceWithExistingKubeAPIService(
 			controlPlaneMachine("cp-1", true),
 			controlPlaneMachine("cp-2", false),
