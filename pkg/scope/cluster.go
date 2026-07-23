@@ -273,9 +273,11 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 // AllControlPlaneInfraMachinesAnnotatedForProxyProtocol returns true when every control-plane
 // infrastructure machine (HCloudMachine and HetznerBareMetalMachine) carries the annotation
 // capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true", which is set on the
-// control-plane infrastructure machine template's spec.template.metadata. It lists the machines in
-// the management cluster, so it needs no workload-cluster client, and returns false (no error) while
-// the cluster has no control-plane infrastructure machines yet.
+// control-plane infrastructure machine template's spec.template.metadata.
+//
+// Machines from an earlier template do not carry the annotation, so the check stays false
+// until the last of them is replaced. It returns false (no error) while the cluster has no
+// control-plane infrastructure machines yet.
 func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx context.Context) (bool, error) {
 	listOptions := []client.ListOption{
 		client.InNamespace(s.Namespace()),
@@ -291,6 +293,7 @@ func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx
 	if err := s.Client.List(ctx, hcloudMachines, listOptions...); err != nil {
 		return false, fmt.Errorf("failed to list control-plane HCloudMachines: %w", err)
 	}
+
 	for i := range hcloudMachines.Items {
 		m := &hcloudMachines.Items[i]
 		if m.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
@@ -304,6 +307,7 @@ func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx
 	if err := s.Client.List(ctx, bmMachines, listOptions...); err != nil {
 		return false, fmt.Errorf("failed to list control-plane HetznerBareMetalMachines: %w", err)
 	}
+
 	for i := range bmMachines.Items {
 		m := &bmMachines.Items[i]
 		if m.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
