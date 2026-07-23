@@ -270,19 +270,13 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 	return err
 }
 
-// AllControlPlaneMachinesAnnotatedForProxyProtocol returns true when the control plane is
-// fully rolled out to the machine template that expects PROXY protocol at the load
-// balancer. It lists the cluster's control-plane Machines in the management cluster (the
-// Cluster API Machine, so one list covers every control plane whatever its infrastructure)
-// and requires every one to carry the annotation
-// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true", which the
-// control-plane machine template sets and Cluster API propagates onto the Machine.
-//
-// Machines from an earlier template do not carry the annotation, so the check stays false
-// until the last of them is replaced. It returns false (no error) while the cluster has no
-// control-plane machines yet.
-func (s *ClusterScope) AllControlPlaneMachinesAnnotatedForProxyProtocol(ctx context.Context) (bool, error) {
-	machines := &clusterv1.MachineList{}
+// AllControlPlaneInfraMachinesAnnotatedForProxyProtocol returns true when every control-plane
+// infrastructure machine (HCloudMachine and HetznerBareMetalMachine) carries the annotation
+// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true", which is set on the
+// control-plane infrastructure machine template's spec.template.metadata. It lists the machines in
+// the management cluster, so it needs no workload-cluster client, and returns false (no error) while
+// the cluster has no control-plane infrastructure machines yet.
+func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx context.Context) (bool, error) {
 	listOptions := []client.ListOption{
 		client.InNamespace(s.Namespace()),
 		client.MatchingLabels{
@@ -290,21 +284,38 @@ func (s *ClusterScope) AllControlPlaneMachinesAnnotatedForProxyProtocol(ctx cont
 			clusterv1.MachineControlPlaneLabel: "",
 		},
 	}
-	if err := s.Client.List(ctx, machines, listOptions...); err != nil {
-		return false, fmt.Errorf("failed to list control-plane Machines: %w", err)
-	}
 
-	if len(machines.Items) == 0 {
-		s.V(1).Info("proxy protocol: no control-plane machines found yet")
-		return false, nil
-	}
+	found := 0
 
-	for i := range machines.Items {
-		machine := &machines.Items[i]
-		if machine.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
-			s.V(1).Info("proxy protocol: control-plane machine is missing the annotation", "machine", machine.GetName())
+	hcloudMachines := &infrav1.HCloudMachineList{}
+	if err := s.Client.List(ctx, hcloudMachines, listOptions...); err != nil {
+		return false, fmt.Errorf("failed to list control-plane HCloudMachines: %w", err)
+	}
+	for i := range hcloudMachines.Items {
+		m := &hcloudMachines.Items[i]
+		if m.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
+			s.V(1).Info("proxy protocol: control-plane HCloudMachine is missing the annotation", "hcloudMachine", m.GetName())
 			return false, nil
 		}
+		found++
+	}
+
+	bmMachines := &infrav1.HetznerBareMetalMachineList{}
+	if err := s.Client.List(ctx, bmMachines, listOptions...); err != nil {
+		return false, fmt.Errorf("failed to list control-plane HetznerBareMetalMachines: %w", err)
+	}
+	for i := range bmMachines.Items {
+		m := &bmMachines.Items[i]
+		if m.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
+			s.V(1).Info("proxy protocol: control-plane HetznerBareMetalMachine is missing the annotation", "hetznerBareMetalMachine", m.GetName())
+			return false, nil
+		}
+		found++
+	}
+
+	if found == 0 {
+		s.V(1).Info("proxy protocol: no control-plane infrastructure machines found yet")
+		return false, nil
 	}
 
 	return true, nil
