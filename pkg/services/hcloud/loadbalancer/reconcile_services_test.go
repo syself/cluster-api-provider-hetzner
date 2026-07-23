@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -213,6 +214,120 @@ func TestReconcileServices_ProxyProtocolAlreadyActive_NoChanges(t *testing.T) {
 	hcloudLB := &hcloud.LoadBalancer{
 		Services: []hcloud.LoadBalancerService{
 			{ListenPort: testKubeAPIListenPort, Proxyprotocol: true},
+		},
+	}
+
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+// TestReconcileServices_HealthCheckSet_AddsKubeAPIServiceWithHealthCheck verifies that the health
+// check from spec is carried into AddServiceToLoadBalancer when the kube-API service is created
+// via reconcileServices instead of via createOptsFromSpec (e.g. taking over an existing LB).
+func TestReconcileServices_HealthCheckSet_AddsKubeAPIServiceWithHealthCheck(t *testing.T) {
+	hetznerCluster := newTestHetznerCluster()
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+		Type: "http",
+		Path: ptr.To("/readyz"),
+	}
+
+	mockClient := &mocks.Client{}
+	svc := newTestService(t, hetznerCluster, mockClient)
+	hcloudLB := &hcloud.LoadBalancer{}
+
+	var capturedOpts hcloud.LoadBalancerAddServiceOpts
+	mockClient.On("AddServiceToLoadBalancer", mock.Anything, hcloudLB, mock.Anything).
+		Run(func(args mock.Arguments) {
+			capturedOpts = args.Get(2).(hcloud.LoadBalancerAddServiceOpts)
+		}).
+		Return(nil)
+
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	require.NotNil(t, capturedOpts.HealthCheck)
+	require.Equal(t, hcloud.LoadBalancerServiceProtocolHTTP, capturedOpts.HealthCheck.Protocol)
+	require.Equal(t, "/readyz", *capturedOpts.HealthCheck.HTTP.Path)
+	mockClient.AssertExpectations(t)
+}
+
+// TestReconcileServices_HealthCheckMismatch_UpdatesInPlace verifies that when the kube-API
+// service already exists with a health check that doesn't match spec, it is updated in place via
+// UpdateServiceOnLoadBalancer without a rollout gate (unlike proxy protocol).
+func TestReconcileServices_HealthCheckMismatch_UpdatesInPlace(t *testing.T) {
+	hetznerCluster := newTestHetznerCluster()
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+		Type: "http",
+		Path: ptr.To("/readyz"),
+	}
+
+	mockClient := &mocks.Client{}
+	svc := newTestService(t, hetznerCluster, mockClient)
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{
+				ListenPort:  testKubeAPIListenPort,
+				HealthCheck: hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP},
+			},
+		},
+	}
+
+	var capturedOpts hcloud.LoadBalancerUpdateServiceOpts
+	mockClient.On("UpdateServiceOnLoadBalancer", mock.Anything, hcloudLB, testKubeAPIListenPort, mock.Anything).
+		Run(func(args mock.Arguments) {
+			capturedOpts = args.Get(3).(hcloud.LoadBalancerUpdateServiceOpts)
+		}).
+		Return(nil)
+
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	require.NotNil(t, capturedOpts.HealthCheck)
+	require.Equal(t, hcloud.LoadBalancerServiceProtocolHTTP, capturedOpts.HealthCheck.Protocol)
+	require.Equal(t, "/readyz", *capturedOpts.HealthCheck.HTTP.Path)
+	mockClient.AssertExpectations(t)
+}
+
+// TestReconcileServices_HealthCheckMatchesLive_NoUpdateCall verifies that no update is issued
+// when the live health check already matches the fields set in spec.
+func TestReconcileServices_HealthCheckMatchesLive_NoUpdateCall(t *testing.T) {
+	hetznerCluster := newTestHetznerCluster()
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{Type: "tcp"}
+
+	mockClient := &mocks.Client{}
+	svc := newTestService(t, hetznerCluster, mockClient)
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{
+				ListenPort:  testKubeAPIListenPort,
+				HealthCheck: hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP},
+			},
+		},
+	}
+
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	// AssertExpectations fails if AddServiceToLoadBalancer/UpdateServiceOnLoadBalancer were called
+	// without a matching .On(...) — none were set up here, so any call would fail the test.
+	mockClient.AssertExpectations(t)
+}
+
+// TestReconcileServices_HealthCheckUnset_LeavesLiveConfigAlone verifies that CAPH never touches
+// the load balancer's health check when spec.healthCheck is omitted, even if the live service's
+// health check doesn't match Hetzner's own tcp default (e.g. configured out-of-band).
+func TestReconcileServices_HealthCheckUnset_LeavesLiveConfigAlone(t *testing.T) {
+	hetznerCluster := newTestHetznerCluster()
+
+	mockClient := &mocks.Client{}
+	svc := newTestService(t, hetznerCluster, mockClient)
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{
+				ListenPort: testKubeAPIListenPort,
+				HealthCheck: hcloud.LoadBalancerServiceHealthCheck{
+					Protocol: hcloud.LoadBalancerServiceProtocolHTTP,
+					HTTP:     &hcloud.LoadBalancerServiceHealthCheckHTTP{Path: "/custom"},
+				},
+			},
 		},
 	}
 

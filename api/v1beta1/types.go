@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // LoadBalancerAlgorithmType defines the Algorithm type.
@@ -232,6 +233,55 @@ type LoadBalancerSpec struct {
 	// Enabling proxy protocol is a one-way operation — it is never turned back off.
 	// +optional
 	EnableProxyProtocol bool `json:"enableProxyProtocol,omitempty"`
+
+	// HealthCheck configures the health check the load balancer uses to determine whether the
+	// kube-apiserver service on a control-plane node is healthy. If omitted, the load balancer's
+	// default behavior (a plain TCP check, with Hetzner's default interval, timeout and retries)
+	// is unchanged.
+	//
+	// Switching Type to http or https lets the load balancer check the kube-apiserver's actual
+	// readiness (e.g. path "/readyz") instead of just whether the port accepts connections. Doing
+	// so requires the kube-apiserver to serve that path without authentication, since the load
+	// balancer's health check request is unauthenticated. This is not configured by CAPH; the
+	// cluster operator must allow anonymous access to the configured path on the apiserver.
+	// +optional
+	HealthCheck *LoadBalancerHealthCheckSpec `json:"healthCheck,omitempty"`
+}
+
+// LoadBalancerHealthCheckSpec configures the health check a load balancer service uses.
+type LoadBalancerHealthCheckSpec struct {
+	// Type is the protocol used for the health check. If omitted, "tcp" is used, matching the
+	// load balancer's own default behavior.
+	// +optional
+	// +kubebuilder:validation:Enum=tcp;http;https
+	// +kubebuilder:default=tcp
+	Type string `json:"type,omitempty"`
+
+	// Interval is the time between two consecutive health checks. If omitted, Hetzner's default
+	// (15s) is used.
+	// +optional
+	Interval *metav1.Duration `json:"interval,omitempty"`
+
+	// Timeout is the time to wait for a health check attempt to succeed. If omitted, Hetzner's
+	// default (10s) is used.
+	// +optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
+
+	// Retries is the number of consecutive failed health checks before a target is considered
+	// unhealthy. If omitted, Hetzner's default (3) is used.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	Retries *int `json:"retries,omitempty"`
+
+	// Path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
+	// Type is http or https.
+	// +optional
+	Path *string `json:"path,omitempty"`
+
+	// Domain sets the Host header sent with the HTTP(S) health check request. Only valid when
+	// Type is http or https.
+	// +optional
+	Domain *string `json:"domain,omitempty"`
 }
 
 // LoadBalancerServiceSpec defines a load balancer Target.
