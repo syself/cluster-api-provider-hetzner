@@ -154,6 +154,56 @@ spec:
                           type: string
                       type: object
                     type: array
+                  healthCheck:
+                    description: |-
+                      HealthCheck configures the health check the load balancer uses to determine whether the
+                      kube-apiserver service on a control-plane node is healthy. If omitted, the load balancer's
+                      default behavior (a plain TCP check, with Hetzner's default interval, timeout and retries)
+                      is unchanged.
+
+                      Switching Type to http or https lets the load balancer check the kube-apiserver's actual
+                      readiness (e.g. path "/readyz") instead of just whether the port accepts connections. Doing
+                      so requires the kube-apiserver to serve that path without authentication, since the load
+                      balancer's health check request is unauthenticated. This is not configured by CAPH; the
+                      cluster operator must allow anonymous access to the configured path on the apiserver.
+                    properties:
+                      domain:
+                        description: |-
+                          Domain sets the Host header sent with the HTTP(S) health check request. Only valid when
+                          Type is http or https.
+                        type: string
+                      interval:
+                        description: |-
+                          Interval is the time between two consecutive health checks. If omitted, Hetzner's default
+                          (15s) is used.
+                        type: string
+                      path:
+                        description: |-
+                          Path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
+                          Type is http or https.
+                        type: string
+                      retries:
+                        description: |-
+                          Retries is the number of consecutive failed health checks before a target is considered
+                          unhealthy. If omitted, Hetzner's default (3) is used.
+                        minimum: 1
+                        type: integer
+                      timeout:
+                        description: |-
+                          Timeout is the time to wait for a health check attempt to succeed. If omitted, Hetzner's
+                          default (10s) is used.
+                        type: string
+                      type:
+                        default: tcp
+                        description: |-
+                          Type is the protocol used for the health check. If omitted, "tcp" is used, matching the
+                          load balancer's own default behavior.
+                        enum:
+                        - tcp
+                        - http
+                        - https
+                        type: string
+                    type: object
                   name:
                     description: Name defines the name of the load balancer. It can
                       be specified in order to use an existing load balancer.
@@ -769,6 +819,56 @@ spec:
                       type: object
                     type: array
                     x-kubernetes-list-type: atomic
+                  healthCheck:
+                    description: |-
+                      HealthCheck configures the health check the load balancer uses to determine whether the
+                      kube-apiserver service on a control-plane node is healthy. If omitted, the load balancer's
+                      default behavior (a plain TCP check, with Hetzner's default interval, timeout and retries)
+                      is unchanged.
+
+                      Switching Type to http or https lets the load balancer check the kube-apiserver's actual
+                      readiness (e.g. path "/readyz") instead of just whether the port accepts connections. Doing
+                      so requires the kube-apiserver to serve that path without authentication, since the load
+                      balancer's health check request is unauthenticated. This is not configured by CAPH; the
+                      cluster operator must allow anonymous access to the configured path on the apiserver.
+                    properties:
+                      domain:
+                        description: |-
+                          Domain sets the Host header sent with the HTTP(S) health check request. Only valid when
+                          Type is http or https.
+                        type: string
+                      interval:
+                        description: |-
+                          Interval is the time between two consecutive health checks. If omitted, Hetzner's default
+                          (15s) is used.
+                        type: string
+                      path:
+                        description: |-
+                          Path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
+                          Type is http or https.
+                        type: string
+                      retries:
+                        description: |-
+                          Retries is the number of consecutive failed health checks before a target is considered
+                          unhealthy. If omitted, Hetzner's default (3) is used.
+                        minimum: 1
+                        type: integer
+                      timeout:
+                        description: |-
+                          Timeout is the time to wait for a health check attempt to succeed. If omitted, Hetzner's
+                          default (10s) is used.
+                        type: string
+                      type:
+                        default: tcp
+                        description: |-
+                          Type is the protocol used for the health check. If omitted, "tcp" is used, matching the
+                          load balancer's own default behavior.
+                        enum:
+                        - tcp
+                        - http
+                        - https
+                        type: string
+                    type: object
                   name:
                     description: Name defines the name of the load balancer. It can
                       be specified in order to use an existing load balancer.

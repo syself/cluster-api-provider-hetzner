@@ -17,10 +17,14 @@ limitations under the License.
 package loadbalancer
 
 import (
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
@@ -176,5 +180,159 @@ var _ = Describe("createOptsFromSpec", func() {
 		createOpts := createOptsFromSpec(hetznerCluster)
 
 		Expect(*createOpts.Services[0].ListenPort).To(Equal(0))
+	})
+
+	It("omits the health check when the spec doesn't set one", func() {
+		createOpts := createOptsFromSpec(hetznerCluster)
+
+		Expect(createOpts.Services[0].HealthCheck).To(BeNil())
+	})
+
+	It("carries an http health check into the kube-API service", func() {
+		hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+			Type:     "http",
+			Interval: &metav1.Duration{Duration: 5 * time.Second},
+			Timeout:  &metav1.Duration{Duration: 2 * time.Second},
+			Retries:  ptr.To(5),
+			Domain:   ptr.To("example.com"),
+			Path:     ptr.To("/readyz"),
+		}
+
+		createOpts := createOptsFromSpec(hetznerCluster)
+
+		interval := 5 * time.Second
+		timeout := 2 * time.Second
+		retries := 5
+		domain := "example.com"
+		path := "/readyz"
+		tls := false
+		Expect(createOpts.Services[0].HealthCheck).To(Equal(&hcloud.LoadBalancerCreateOptsServiceHealthCheck{
+			Protocol: hcloud.LoadBalancerServiceProtocolHTTP,
+			Interval: &interval,
+			Timeout:  &timeout,
+			Retries:  &retries,
+			HTTP: &hcloud.LoadBalancerCreateOptsServiceHealthCheckHTTP{
+				Domain: &domain,
+				Path:   &path,
+				TLS:    &tls,
+			},
+		}))
+	})
+})
+
+var _ = Describe("health check option builders", func() {
+	spec := func(healthCheckType string) *infrav2.LoadBalancerHealthCheckSpec {
+		return &infrav2.LoadBalancerHealthCheckSpec{
+			Type:     healthCheckType,
+			Interval: &metav1.Duration{Duration: 5 * time.Second},
+			Timeout:  &metav1.Duration{Duration: 2 * time.Second},
+			Retries:  ptr.To(5),
+			Domain:   ptr.To("example.com"),
+			Path:     ptr.To("/readyz"),
+		}
+	}
+
+	Describe("healthCheckCreateOpts", func() {
+		It("returns nil when the spec is nil", func() {
+			Expect(healthCheckCreateOpts(nil)).To(BeNil())
+		})
+
+		It("omits the HTTP sub-options for a tcp health check", func() {
+			opts := healthCheckCreateOpts(spec("tcp"))
+			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolTCP))
+			Expect(opts.HTTP).To(BeNil())
+		})
+
+		It("sets TLS for an https health check", func() {
+			opts := healthCheckCreateOpts(spec("https"))
+			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolHTTPS))
+			Expect(opts.HTTP).NotTo(BeNil())
+			Expect(*opts.HTTP.TLS).To(BeTrue())
+			Expect(*opts.HTTP.Domain).To(Equal("example.com"))
+			Expect(*opts.HTTP.Path).To(Equal("/readyz"))
+		})
+	})
+
+	Describe("healthCheckAddOpts", func() {
+		It("returns nil when the spec is nil", func() {
+			Expect(healthCheckAddOpts(nil)).To(BeNil())
+		})
+
+		It("mirrors the spec for an http health check", func() {
+			opts := healthCheckAddOpts(spec("http"))
+			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolHTTP))
+			Expect(*opts.Retries).To(Equal(5))
+			Expect(*opts.HTTP.TLS).To(BeFalse())
+		})
+	})
+
+	Describe("healthCheckUpdateOpts", func() {
+		It("returns nil when the spec is nil", func() {
+			Expect(healthCheckUpdateOpts(nil)).To(BeNil())
+		})
+
+		It("mirrors the spec for an http health check", func() {
+			opts := healthCheckUpdateOpts(spec("http"))
+			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolHTTP))
+			Expect(*opts.Interval).To(Equal(5 * time.Second))
+			Expect(*opts.HTTP.Domain).To(Equal("example.com"))
+		})
+	})
+
+	Describe("healthCheckNeedsUpdate", func() {
+		// lb.Services[0] (listen port 443) is an http health check with domain "example.com",
+		// path "/", interval 15s, timeout 10s, retries 3, TLS false (see loadbalancer_suite_test.go).
+		var got hcloud.LoadBalancerServiceHealthCheck
+		BeforeEach(func() {
+			got = lb.Services[0].HealthCheck
+		})
+
+		It("reports no update needed when the spec matches the live state", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{
+				Type:     "http",
+				Interval: &metav1.Duration{Duration: 15 * time.Second},
+				Timeout:  &metav1.Duration{Duration: 10 * time.Second},
+				Retries:  ptr.To(3),
+				Domain:   ptr.To("example.com"),
+				Path:     ptr.To("/"),
+			}
+			Expect(healthCheckNeedsUpdate(want, got)).To(BeFalse())
+		})
+
+		It("ignores fields the spec leaves unset", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{Type: "http"}
+			Expect(healthCheckNeedsUpdate(want, got)).To(BeFalse())
+		})
+
+		It("reports an update when the protocol differs", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{Type: "tcp"}
+			Expect(healthCheckNeedsUpdate(want, got)).To(BeTrue())
+		})
+
+		It("reports an update when the interval differs", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{
+				Type:     "http",
+				Interval: &metav1.Duration{Duration: 30 * time.Second},
+			}
+			Expect(healthCheckNeedsUpdate(want, got)).To(BeTrue())
+		})
+
+		It("reports an update when the path differs", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{
+				Type: "http",
+				Path: ptr.To("/readyz"),
+			}
+			Expect(healthCheckNeedsUpdate(want, got)).To(BeTrue())
+		})
+
+		It("reports an update when switching from http to https", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{Type: "https"}
+			Expect(healthCheckNeedsUpdate(want, got)).To(BeTrue())
+		})
+
+		It("treats an empty type as tcp and reports the mismatch against the http fixture", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{}
+			Expect(healthCheckNeedsUpdate(want, got)).To(BeTrue())
+		})
 	})
 })

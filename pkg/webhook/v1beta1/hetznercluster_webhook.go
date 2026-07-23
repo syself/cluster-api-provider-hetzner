@@ -126,6 +126,10 @@ func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav1.Hetzn
 		allErrs = append(allErrs, err)
 	}
 
+	if err := validateLoadBalancerHealthCheck(r.Spec.ControlPlaneLoadBalancer.HealthCheck); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
@@ -201,7 +205,35 @@ func (*HetznerClusterWebhook) ValidateUpdate(_ context.Context, oldC, r *infrav1
 		allErrs = append(allErrs, err)
 	}
 
+	if err := validateLoadBalancerHealthCheck(r.Spec.ControlPlaneLoadBalancer.HealthCheck); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+}
+
+// validateLoadBalancerHealthCheck rejects HTTP(S)-only fields set while the health check type is
+// tcp. All other combinations, including any change to an already-set health check, are allowed.
+func validateLoadBalancerHealthCheck(hc *infrav1.LoadBalancerHealthCheckSpec) *field.Error {
+	if hc == nil || hc.Type == "http" || hc.Type == "https" {
+		return nil
+	}
+
+	if hc.Path != nil {
+		return field.Invalid(
+			field.NewPath("spec", "controlPlaneLoadBalancer", "healthCheck", "path"),
+			*hc.Path, "path must not be set when type is tcp",
+		)
+	}
+
+	if hc.Domain != nil {
+		return field.Invalid(
+			field.NewPath("spec", "controlPlaneLoadBalancer", "healthCheck", "domain"),
+			*hc.Domain, "domain must not be set when type is tcp",
+		)
+	}
+
+	return nil
 }
 
 func validateHetznerSecretKey(r *infrav1.HetznerCluster) *field.Error {

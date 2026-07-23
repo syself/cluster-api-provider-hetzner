@@ -28,6 +28,27 @@ If you are using your own load balancer, you need to point towards it (by settin
 `controlPlaneLoadBalancer.name`) and configure the load balancer to target the control planes of the
 cluster.
 
+## HTTP(S) health checks for the control plane load balancer
+
+By default the Hetzner load balancer checks the kube-apiserver service with a plain TCP check: it
+only verifies that the port accepts connections, not that the apiserver is actually ready to serve
+requests. Setting `controlPlaneLoadBalancer.healthCheck.type` to `http` or `https` switches the
+load balancer to request a path (e.g. `/readyz`) instead, so unhealthy control-plane nodes are
+taken out of rotation instead of continuing to receive traffic.
+
+This is opt-in and requires the kube-apiserver to serve the configured path without
+authentication, since the load balancer's health check request is unauthenticated. CAPH does not
+configure this for you; you must allow anonymous access to the configured path yourself, e.g. via
+kubeadm's default `system:public-info-viewer` RBAC binding or an
+[AuthenticationConfiguration](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#anonymous-requests)
+that scopes anonymous access to that path only. If this tradeoff isn't acceptable for your
+environment, leave `healthCheck` unset to keep the plain TCP check.
+
+If `healthCheck` is omitted entirely, Hetzner's defaults (tcp, 15s interval, 10s timeout, 3
+retries) apply unchanged, and CAPH never touches the load balancer's health check configuration.
+Any sub-field left unset (e.g. `interval`) also defers to Hetzner's default for that field.
+`path` and `domain` are only valid when `type` is `http` or `https`.
+
 ## Overview of HetznerCluster.Spec
 
 | Key                                                      | Type       | Default          | Required | Description                                                                                                                                   |
@@ -61,6 +82,14 @@ cluster.
 | `controlPlaneLoadBalancer.extraServices[].protocol`        | `string`   |                  | yes      | Defines protocol. Must be one of https, http, or tcp                                                                                          |
 | `controlPlaneLoadBalancer.extraServices[].listenPort`      | `int`      |                  | yes      | Defines listen port. Must be in range 1-65535                                                                                                 |
 | `controlPlaneLoadBalancer.extraServices[].destinationPort` | `int`      |                  | yes      | Defines destination port. Must be in range 1-65535                                                                                            |
+| `controlPlaneLoadBalancer.enableProxyProtocol`           | `bool`     | `false`          | no       | Enables proxy protocol on the kube-apiserver load balancer service. Cannot be disabled once enabled                                          |
+| `controlPlaneLoadBalancer.healthCheck`                   | `object`   |                  | no       | Configures the health check for the kube-apiserver load balancer service. If omitted, Hetzner's default (tcp, 15s interval, 10s timeout, 3 retries) is unchanged. See [above](#https-health-checks-for-the-control-plane-load-balancer) |
+| `controlPlaneLoadBalancer.healthCheck.type`              | `string`   | `tcp`            | no       | Protocol used for the health check. One of tcp, http, https                                                                                   |
+| `controlPlaneLoadBalancer.healthCheck.interval`          | `duration` |                  | no       | Time between two consecutive health checks, e.g. `"15s"`. If omitted, Hetzner's default (15s) is used                                        |
+| `controlPlaneLoadBalancer.healthCheck.timeout`           | `duration` |                  | no       | Time to wait for a health check attempt to succeed, e.g. `"10s"`. If omitted, Hetzner's default (10s) is used                                 |
+| `controlPlaneLoadBalancer.healthCheck.retries`           | `int`      |                  | no       | Number of consecutive failed health checks before a target is considered unhealthy. If omitted, Hetzner's default (3) is used                |
+| `controlPlaneLoadBalancer.healthCheck.path`              | `string`   |                  | no       | HTTP(S) path requested for the health check, e.g. `"/readyz"`. Only valid when type is http or https                                          |
+| `controlPlaneLoadBalancer.healthCheck.domain`            | `string`   |                  | no       | Host header sent with the HTTP(S) health check request. Only valid when type is http or https                                                |
 | `hcloudPlacementGroups`                                   | `[]object` |                  | no       | List of placement groups that should be defined in Hetzner API                                                                                |
 | `hcloudPlacementGroups[].name`                              | `string`   |                  | yes      | Name of placement group                                                                                                                       |
 | `hcloudPlacementGroups[].type`                              | `string`   | `type`           | no       | Type of placement group. Hetzner only supports 'spread'                                                                                       |
