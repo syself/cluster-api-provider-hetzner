@@ -1098,7 +1098,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		record.Warn(hm, "InstallImageNotSuccessful", msg)
+		record.Warn(hm, "CustomProvisionerFailed", msg)
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 			"CustomProvisionerFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
