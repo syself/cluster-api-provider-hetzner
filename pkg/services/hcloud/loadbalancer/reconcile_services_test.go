@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -224,10 +225,133 @@ func TestReconcileServices_ProxyProtocolAlreadyActive_NoChanges(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
-func controlPlaneMachineForProxy(name string, annotated bool) *infrav1.HCloudMachine {
+// TestReconcileServices_HealthCheckSet_AddsKubeAPIServiceWithHealthCheck verifies that the health
+// check from spec is carried into AddServiceToLoadBalancer when the kube-API service is created
+// via reconcileServices instead of via createOptsFromSpec (e.g. taking over an existing LB).
+func TestReconcileServices_HealthCheckSet_AddsKubeAPIServiceWithHealthCheck(t *testing.T) {
+	hetznerCluster := newTestHetznerCluster()
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+		Protocol: "http",
+		Path:     ptr.To("/readyz"),
+	}
+
+	mockClient := &mocks.Client{}
+	svc := newTestService(t, hetznerCluster, mockClient)
+	hcloudLB := &hcloud.LoadBalancer{}
+
+	var capturedOpts hcloud.LoadBalancerAddServiceOpts
+	mockClient.On("AddServiceToLoadBalancer", mock.Anything, hcloudLB, mock.Anything).
+		Run(func(args mock.Arguments) {
+			capturedOpts = args.Get(2).(hcloud.LoadBalancerAddServiceOpts)
+		}).
+		Return(nil)
+
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	require.NotNil(t, capturedOpts.HealthCheck)
+	require.Equal(t, hcloud.LoadBalancerServiceProtocolHTTP, capturedOpts.HealthCheck.Protocol)
+	require.Equal(t, "/readyz", *capturedOpts.HealthCheck.HTTP.Path)
+	mockClient.AssertExpectations(t)
+}
+
+// TestReconcileServices_HealthCheckPathChange_UpdatesInPlaceWithoutGate verifies that a change
+// which stays within http/https (here: a path change) is applied immediately via
+// UpdateServiceOnLoadBalancer, without checking the control-plane rollout gate — only a switch
+// away from tcp needs that gate, since only that switch can mark a not-yet-ready backend
+// unhealthy.
+func TestReconcileServices_HealthCheckPathChange_UpdatesInPlaceWithoutGate(t *testing.T) {
+	hetznerCluster := newTestHetznerCluster()
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+		Protocol: "http",
+		Path:     ptr.To("/readyz"),
+	}
+
+	mockClient := &mocks.Client{}
+	// scope.Client is intentionally left nil: reaching it would panic, so this also proves the
+	// gate is never consulted for a change that stays within http/https.
+	svc := newTestService(t, hetznerCluster, mockClient)
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{
+				ListenPort: testKubeAPIListenPort,
+				HealthCheck: hcloud.LoadBalancerServiceHealthCheck{
+					Protocol: hcloud.LoadBalancerServiceProtocolHTTP,
+					Port:     testLBDestPort,
+					HTTP:     &hcloud.LoadBalancerServiceHealthCheckHTTP{Path: "/oldpath"},
+				},
+			},
+		},
+	}
+
+	var capturedOpts hcloud.LoadBalancerUpdateServiceOpts
+	mockClient.On("UpdateServiceOnLoadBalancer", mock.Anything, hcloudLB, testKubeAPIListenPort, mock.Anything).
+		Run(func(args mock.Arguments) {
+			capturedOpts = args.Get(3).(hcloud.LoadBalancerUpdateServiceOpts)
+		}).
+		Return(nil)
+
+	res, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	require.Zero(t, res.RequeueAfter)
+	require.NotNil(t, capturedOpts.HealthCheck)
+	require.Equal(t, hcloud.LoadBalancerServiceProtocolHTTP, capturedOpts.HealthCheck.Protocol)
+	require.Equal(t, "/readyz", *capturedOpts.HealthCheck.HTTP.Path)
+	mockClient.AssertExpectations(t)
+}
+
+// TestReconcileServices_HealthCheckMatchesLive_NoUpdateCall verifies that no update is issued
+// when the live health check already matches the fields set in spec.
+func TestReconcileServices_HealthCheckMatchesLive_NoUpdateCall(t *testing.T) {
+	hetznerCluster := newTestHetznerCluster()
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{Protocol: "tcp"}
+
+	mockClient := &mocks.Client{}
+	svc := newTestService(t, hetznerCluster, mockClient)
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{
+				ListenPort:  testKubeAPIListenPort,
+				HealthCheck: hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP, Port: testLBDestPort},
+			},
+		},
+	}
+
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	// AssertExpectations fails if AddServiceToLoadBalancer/UpdateServiceOnLoadBalancer were called
+	// without a matching .On(...) — none were set up here, so any call would fail the test.
+	mockClient.AssertExpectations(t)
+}
+
+// TestReconcileServices_HealthCheckUnset_LeavesLiveConfigAlone verifies that CAPH never touches
+// the load balancer's health check when spec.healthCheck is omitted, even if the live service's
+// health check doesn't match Hetzner's own tcp default (e.g. configured out-of-band).
+func TestReconcileServices_HealthCheckUnset_LeavesLiveConfigAlone(t *testing.T) {
+	hetznerCluster := newTestHetznerCluster()
+
+	mockClient := &mocks.Client{}
+	svc := newTestService(t, hetznerCluster, mockClient)
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{
+				ListenPort: testKubeAPIListenPort,
+				HealthCheck: hcloud.LoadBalancerServiceHealthCheck{
+					Protocol: hcloud.LoadBalancerServiceProtocolHTTP,
+					HTTP:     &hcloud.LoadBalancerServiceHealthCheckHTTP{Path: "/custom"},
+				},
+			},
+		},
+	}
+
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t)
+}
+
+func controlPlaneMachineWithAnnotation(name, annotation string, annotated bool) *infrav1.HCloudMachine {
 	annotations := map[string]string{}
 	if annotated {
-		annotations[infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation] = "true"
+		annotations[annotation] = "true"
 	}
 	return &infrav1.HCloudMachine{
 		ObjectMeta: metav1.ObjectMeta{
@@ -242,13 +366,23 @@ func controlPlaneMachineForProxy(name string, annotated bool) *infrav1.HCloudMac
 	}
 }
 
-// newProxyMigrationService builds a Service whose proxy-protocol readiness is decided from the
-// given control-plane machines in the management cluster.
-func newProxyMigrationService(t *testing.T, mockClient *mocks.Client, machines ...client.Object) *Service {
+func controlPlaneMachineForProxy(name string, annotated bool) *infrav1.HCloudMachine {
+	return controlPlaneMachineWithAnnotation(name, infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation, annotated)
+}
+
+func controlPlaneMachineForHTTPHealthCheck(name string, annotated bool) *infrav1.HCloudMachine {
+	return controlPlaneMachineWithAnnotation(name, infrav2.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated)
+}
+
+// newMigrationTestService builds a Service backed by a fake management-cluster client seeded with
+// the given control-plane infrastructure machines, for tests that gate a change on
+// AllControlPlaneInfraMachinesAnnotatedFor{ProxyProtocol,HTTPHealthCheck}. configureSpec sets
+// whatever part of the spec the test is migrating.
+func newMigrationTestService(t *testing.T, mockClient *mocks.Client, configureSpec func(*infrav2.HetznerCluster), machines ...client.Object) *Service {
 	t.Helper()
 	hetznerCluster := newTestHetznerCluster()
 	hetznerCluster.Namespace = metav1.NamespaceDefault
-	hetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+	configureSpec(hetznerCluster)
 
 	scheme := runtime.NewScheme()
 	_ = clusterv1.AddToScheme(scheme)
@@ -261,6 +395,27 @@ func newProxyMigrationService(t *testing.T, mockClient *mocks.Client, machines .
 		ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: metav1.NamespaceDefault},
 	}
 	return svc
+}
+
+// newProxyMigrationService builds a Service whose proxy-protocol readiness is decided from the
+// given control-plane machines in the management cluster.
+func newProxyMigrationService(t *testing.T, mockClient *mocks.Client, machines ...client.Object) *Service {
+	t.Helper()
+	return newMigrationTestService(t, mockClient, func(hc *infrav2.HetznerCluster) {
+		hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+	}, machines...)
+}
+
+// newHealthCheckMigrationService builds a Service whose http-health-check readiness is decided
+// from the given control-plane machines in the management cluster.
+func newHealthCheckMigrationService(t *testing.T, mockClient *mocks.Client, machines ...client.Object) *Service {
+	t.Helper()
+	return newMigrationTestService(t, mockClient, func(hc *infrav2.HetznerCluster) {
+		hc.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+			Protocol: "http",
+			Path:     ptr.To("/readyz"),
+		}
+	}, machines...)
 }
 
 // TestReconcileServices_ProxyProtocolMigration_MachinesNotReady verifies that proxy protocol is
@@ -350,4 +505,102 @@ func TestReconcileServices_ProxyProtocolMigration_MachinesNotReady_StillReconcil
 	require.Equal(t, extraListenPort, *capturedOpts.ListenPort)
 	require.Equal(t, extraDestPort, *capturedOpts.DestinationPort)
 	require.NotZero(t, result.RequeueAfter, "should requeue while waiting for proxy protocol migration")
+}
+
+// TestReconcileServices_HealthCheckMigration_MachinesNotReady_Requeues verifies that switching
+// the kube-API service's health check from tcp to http is NOT applied while a control-plane
+// machine has not yet been annotated for it, mirroring the proxy-protocol migration gate.
+func TestReconcileServices_HealthCheckMigration_MachinesNotReady_Requeues(t *testing.T) {
+	mockClient := &mocks.Client{}
+	svc := newHealthCheckMigrationService(t, mockClient,
+		controlPlaneMachineForHTTPHealthCheck("cp-1", true),
+		controlPlaneMachineForHTTPHealthCheck("cp-2", false),
+	)
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{
+				ListenPort:  testKubeAPIListenPort,
+				HealthCheck: hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP, Port: testLBDestPort},
+			},
+		},
+	}
+
+	res, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	require.NotZero(t, res.RequeueAfter, "should requeue while a control-plane machine is not annotated")
+	// No UpdateServiceOnLoadBalancer expectation was set up, so AssertExpectations fails here if
+	// the tcp check got switched to http anyway.
+	mockClient.AssertExpectations(t)
+}
+
+// TestReconcileServices_HealthCheckMigration_MachinesReady_SwitchesInPlace verifies that once
+// every control-plane machine is annotated, the health check is switched from tcp to http in
+// place via UpdateServiceOnLoadBalancer.
+func TestReconcileServices_HealthCheckMigration_MachinesReady_SwitchesInPlace(t *testing.T) {
+	mockClient := &mocks.Client{}
+	svc := newHealthCheckMigrationService(t, mockClient,
+		controlPlaneMachineForHTTPHealthCheck("cp-1", true),
+		controlPlaneMachineForHTTPHealthCheck("cp-2", true),
+	)
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{
+				ListenPort:  testKubeAPIListenPort,
+				HealthCheck: hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP, Port: testLBDestPort},
+			},
+		},
+	}
+
+	var capturedOpts hcloud.LoadBalancerUpdateServiceOpts
+	mockClient.On("UpdateServiceOnLoadBalancer", mock.Anything, hcloudLB, testKubeAPIListenPort, mock.Anything).
+		Run(func(args mock.Arguments) {
+			capturedOpts = args.Get(3).(hcloud.LoadBalancerUpdateServiceOpts)
+		}).
+		Return(nil)
+
+	res, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	require.Zero(t, res.RequeueAfter)
+	require.NotNil(t, capturedOpts.HealthCheck)
+	require.Equal(t, hcloud.LoadBalancerServiceProtocolHTTP, capturedOpts.HealthCheck.Protocol)
+	require.Equal(t, "/readyz", *capturedOpts.HealthCheck.HTTP.Path)
+	mockClient.AssertExpectations(t)
+}
+
+// TestReconcileServices_HealthCheckMigration_MachinesNotReady_StillReconcilesExtraServices
+// verifies that while the health-check migration is waiting (a control-plane machine not yet
+// annotated), the function still reconciles extraServices instead of returning early.
+func TestReconcileServices_HealthCheckMigration_MachinesNotReady_StillReconcilesExtraServices(t *testing.T) {
+	const extraListenPort = 8080
+	const extraDestPort = 8081
+
+	mockClient := &mocks.Client{}
+	svc := newHealthCheckMigrationService(t, mockClient,
+		controlPlaneMachineForHTTPHealthCheck("cp-1", true),
+		controlPlaneMachineForHTTPHealthCheck("cp-2", false),
+	)
+	svc.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices = []infrav2.LoadBalancerServiceSpec{
+		{Protocol: "tcp", ListenPort: extraListenPort, DestinationPort: extraDestPort},
+	}
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{ListenPort: testKubeAPIListenPort, HealthCheck: hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP, Port: testLBDestPort}},
+			// extraService is missing from the LB — should be added even while waiting for the health-check migration
+		},
+	}
+
+	var capturedOpts hcloud.LoadBalancerAddServiceOpts
+	mockClient.On("AddServiceToLoadBalancer", mock.Anything, hcloudLB, mock.Anything).
+		Run(func(args mock.Arguments) {
+			capturedOpts = args.Get(2).(hcloud.LoadBalancerAddServiceOpts)
+		}).
+		Return(nil)
+
+	result, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	mockClient.AssertExpectations(t) // fails here if AddServiceToLoadBalancer was never called
+	require.NotNil(t, capturedOpts.ListenPort, "AddServiceToLoadBalancer should have been called for extra service")
+	require.Equal(t, extraListenPort, *capturedOpts.ListenPort)
+	require.Equal(t, extraDestPort, *capturedOpts.DestinationPort)
+	require.NotZero(t, result.RequeueAfter, "should requeue while waiting for the health-check migration")
 }

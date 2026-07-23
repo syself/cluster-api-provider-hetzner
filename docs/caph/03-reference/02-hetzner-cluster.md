@@ -28,6 +28,51 @@ If you are using your own load balancer, you need to point towards it (by settin
 `controlPlaneLoadBalancer.name`) and configure the load balancer to target the control planes of the
 cluster.
 
+## HTTP(S) health checks for the control plane load balancer
+
+By default the Hetzner load balancer checks the kube-apiserver service with a plain TCP check: it
+only verifies that the port accepts connections, not that the apiserver is actually ready to serve
+requests. Setting `controlPlaneLoadBalancer.healthCheck.protocol` to `http` or `https` switches the
+load balancer to request a path (e.g. `/readyz`) instead, so unhealthy control-plane nodes are
+taken out of rotation instead of continuing to receive traffic. Field names mirror the Hetzner
+Cloud API's load balancer `health_check` object.
+
+This is opt-in and requires the kube-apiserver to serve the configured path without
+authentication, since the load balancer's health check request is unauthenticated. CAPH does not
+configure this for you; you must allow anonymous access to the configured path yourself, e.g. via
+kubeadm's default `system:public-info-viewer` RBAC binding or an
+[AuthenticationConfiguration](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#anonymous-requests)
+that scopes anonymous access to that path only. If this tradeoff isn't acceptable for your
+environment, leave `healthCheck` unset to keep the plain TCP check.
+
+CAPH only sends the fields you set; a field you never set keeps Hetzner's own default (tcp, 15s
+interval, 10s timeout, 3 retries — see the linked API reference above for the current defaults).
+`path`, `domain`, `response` and `statusCodes` are only valid when `protocol` is `http` or `https`.
+Use `healthCheck.port` when the health-check endpoint is served on a different port than the API
+server itself; left unset, the check runs against the service's own destination port.
+
+Leaving `healthCheck` out entirely means CAPH does not manage the health check at all, so a load
+balancer you point CAPH at (or one that already has a check applied) keeps whatever check it has.
+That also means deleting `healthCheck` after an http check was applied does not undo it — to get a
+tcp check back, keep the field and set `healthCheck.protocol: tcp`.
+
+### Safe migration on an existing cluster
+
+Switching an existing cluster's health check from tcp to http or https is a one-way migration: if
+the load balancer switched immediately, every control-plane node running an older image that
+doesn't yet answer the configured path would be marked unhealthy at once, taking the API server
+offline. To avoid that, CAPH gates the switch the same way it gates enabling
+`enableProxyProtocol`: it waits until every control-plane machine carries the annotation
+`capi.syself.com/http-health-check-for-controlplane-loadbalancer: "true"` — set on the
+control-plane machine template — before switching the load balancer's health check in place. Until
+then the tcp check stays active and CAPH requeues.
+
+This gate applies to every switch away from tcp, not only the first one. A new cluster whose spec
+already sets an http or https check is created with that check from the start (no annotation
+needed). The wait only covers the switch away from tcp: setting `protocol` back to `tcp`, and any
+change that stays within http/https (e.g. a new `path`, `port` or `statusCodes`), is applied on the
+next reconcile without waiting for the gate.
+
 ## Overview of HetznerCluster.Spec
 
 | Key                                                      | Type       | Default          | Required | Description                                                                                                                                   |
@@ -62,6 +107,17 @@ cluster.
 | `controlPlaneLoadBalancer.extraServices[].listenPort`      | `int`      |                  | yes      | Defines listen port. Must be in range 1-65535                                                                                                 |
 | `controlPlaneLoadBalancer.extraServices[].destinationPort` | `int`      |                  | yes      | Defines destination port. Must be in range 1-65535                                                                                            |
 | `controlPlaneLoadBalancer.targetAddressFamily`            | `string`   | `dualstack`      | no       | Which addresses of a bare metal control plane server are attached as load balancer targets. One of `ipv4`, `ipv6`, `dualstack`. Has no effect on HCloud servers. See [Bare metal control planes and the load balancer](/docs/caph/02-topics/05-baremetal/05-load-balancer-targets.md) |
+| `controlPlaneLoadBalancer.enableProxyProtocol`           | `bool`     | `false`          | no       | Enables proxy protocol on the kube-apiserver load balancer service. Cannot be disabled once enabled                                          |
+| `controlPlaneLoadBalancer.healthCheck`                   | `object`   |                  | no       | Configures the health check for the kube-apiserver load balancer service. If omitted, Hetzner's default (tcp, 15s interval, 10s timeout, 3 retries) is unchanged. See [above](#https-health-checks-for-the-control-plane-load-balancer) |
+| `controlPlaneLoadBalancer.healthCheck.protocol`          | `string`   | `tcp`            | no       | Protocol used for the health check. One of tcp, http, https                                                                                   |
+| `controlPlaneLoadBalancer.healthCheck.port`              | `int`      | service port     | no       | Port the check runs against. If omitted, the service's destination port is used                                                               |
+| `controlPlaneLoadBalancer.healthCheck.intervalSeconds`   | `int`      |                  | no       | Time in seconds between two consecutive health checks. If omitted, Hetzner's default (15s) is used                                            |
+| `controlPlaneLoadBalancer.healthCheck.timeoutSeconds`    | `int`      |                  | no       | Time in seconds to wait for a health check attempt to succeed. If omitted, Hetzner's default (10s) is used                                    |
+| `controlPlaneLoadBalancer.healthCheck.retries`           | `int`      |                  | no       | Number of consecutive failed health checks before a target is considered unhealthy. If omitted, Hetzner's default (3) is used                |
+| `controlPlaneLoadBalancer.healthCheck.path`              | `string`   |                  | no       | HTTP(S) path requested for the health check, e.g. `"/readyz"`. Only valid when protocol is http or https                                      |
+| `controlPlaneLoadBalancer.healthCheck.domain`            | `string`   |                  | no       | Host header sent with the HTTP(S) health check request. Only valid when protocol is http or https                                             |
+| `controlPlaneLoadBalancer.healthCheck.response`          | `string`   |                  | no       | String that must be contained in the HTTP(S) response for the check to pass. Only valid when protocol is http or https                       |
+| `controlPlaneLoadBalancer.healthCheck.statusCodes`       | `[]string` |                  | no       | HTTP(S) response status codes counted as healthy, e.g. `["200"]` or `["2??"]`. Defaults to Hetzner's default (`["2??", "3??"]`) when empty. Only valid when protocol is http or https |
 | `hcloudPlacementGroups`                                   | `[]object` |                  | no       | List of placement groups that should be defined in Hetzner API                                                                                |
 | `hcloudPlacementGroups[].name`                              | `string`   |                  | yes      | Name of placement group                                                                                                                       |
 | `hcloudPlacementGroups[].type`                              | `string`   | `type`           | no       | Type of placement group. Hetzner only supports 'spread'                                                                                       |
