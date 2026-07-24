@@ -52,6 +52,10 @@ type HetznerBareMetalMachineTemplateList struct {
 }
 
 // HetznerBareMetalMachineTemplateResource describes the data needed to create a HetznerBareMetalMachine from a template.
+//
+// In v1beta2 the template metadata changes type from clusterv1beta1.ObjectMeta to clusterv1.ObjectMeta,
+// so conversion-gen cannot map it. The conversion is hand written in conversion.go.
+// +k8s:conversion-gen=false
 type HetznerBareMetalMachineTemplateResource struct {
 	// Standard object's metadata.
 	// +optional

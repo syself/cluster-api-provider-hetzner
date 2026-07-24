@@ -51,9 +51,34 @@ spec:
               of HetznerBareMetalMachineTemplate.
             properties:
               template:
-                description: HetznerBareMetalMachineTemplateResource describes the
-                  data needed to create a HetznerBareMetalMachine from a template.
+                description: |-
+                  HetznerBareMetalMachineTemplateResource describes the data needed to create a HetznerBareMetalMachine from a template.
+
+                  In v1beta2 the template metadata changes type from clusterv1beta1.ObjectMeta to clusterv1.ObjectMeta,
+                  so conversion-gen cannot map it. The conversion is hand written in conversion.go.
                 properties:
+                  metadata:
+                    description: Standard object's metadata.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          annotations is an unstructured key value map stored with a resource that may be
+                          set by external tools to store and retrieve arbitrary metadata. They are not
+                          queryable and should be preserved when modifying objects.
+                          More info: http://kubernetes.io/docs/user-guide/annotations
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          labels is a map of string keys and values that can be used to organize and categorize
+                          (scope and select) objects. May match selectors of replication controllers
+                          and services.
+                          More info: http://kubernetes.io/docs/user-guide/labels
+                        type: object
+                    type: object
                   spec:
                     description: Spec is the specification of the desired behavior
                       of the machine.
@@ -374,6 +399,29 @@ spec:
                 description: HetznerBareMetalMachineTemplateResource describes the
                   data needed to create a HetznerBareMetalMachine from a template.
                 properties:
+                  metadata:
+                    description: Standard object's metadata.
+                    minProperties: 1
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          annotations is an unstructured key value map stored with a resource that may be
+                          set by external tools to store and retrieve arbitrary metadata. They are not
+                          queryable and should be preserved when modifying objects.
+                          More info: http://kubernetes.io/docs/user-guide/annotations
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          labels is a map of string keys and values that can be used to organize and categorize
+                          (scope and select) objects. May match selectors of replication controllers
+                          and services.
+                          More info: http://kubernetes.io/docs/user-guide/labels
+                        type: object
+                    type: object
                   spec:
                     description: Spec is the specification of the desired behavior
                       of the machine.
