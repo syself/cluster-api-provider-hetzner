@@ -669,7 +669,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 
 		failed, err := s.handleIncompleteBoot(ctx, true, isSSHTimeoutError, isSSHConnectionRefusedError)
 		if failed {
-			return s.recordActionFailure(infrav1.PermanentError, err.Error())
+			return s.recordActionFailure(infrav1.FatalError, err.Error())
 		}
 		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
@@ -2054,7 +2054,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 			}
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
 				infrav1.StateEnsureProvisioned, msg)
-			return s.recordActionFailure(infrav1.ProvisioningError, msg)
+			return s.recordActionFailure(infrav1.FatalError, msg)
 		}
 		if err != nil {
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
