@@ -232,6 +232,18 @@ type LoadBalancerSpec struct {
 	// Enabling proxy protocol is a one-way operation — it is never turned back off.
 	// +optional
 	EnableProxyProtocol bool `json:"enableProxyProtocol,omitempty"`
+
+	// HealthCheck configures the health check the load balancer runs against the
+	// kube-apiserver service targets. When it is omitted, the service uses a plain
+	// TCP check on the service port, so a target counts as healthy as soon as the
+	// port accepts a connection.
+	//
+	// Set an http or https check with a Path to have the load balancer route only
+	// to a target whose API server answers that path (for example a readiness
+	// endpoint), and drop a target that stops answering it. Only the kube-apiserver
+	// service is affected; extra services are never given a custom health check.
+	// +optional
+	HealthCheck *LoadBalancerServiceHealthCheck `json:"healthCheck,omitempty"`
 }
 
 // LoadBalancerServiceSpec defines a load balancer Target.
@@ -249,6 +261,55 @@ type LoadBalancerServiceSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	DestinationPort int `json:"destinationPort,omitempty"`
+}
+
+// LoadBalancerServiceHealthCheck configures the health check the load balancer runs
+// against the kube-apiserver service targets. When it is not set, the service uses
+// the default TCP check on the service port.
+type LoadBalancerServiceHealthCheck struct {
+	// Protocol is the health-check protocol: tcp, http, or https. tcp checks that
+	// the port accepts a connection. http and https send a request to Path and
+	// count the target healthy when the response status is in StatusCodes.
+	// +kubebuilder:validation:Enum=tcp;http;https
+	// +kubebuilder:default=tcp
+	Protocol string `json:"protocol"`
+
+	// Path is the request path for an http or https check, for example "/readyz".
+	// It is required for http and https and ignored for tcp.
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// Port is the target port the check runs against. It defaults to the service's
+	// destination port.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port *int `json:"port,omitempty"`
+
+	// StatusCodes are the HTTP response status codes counted as healthy, for
+	// example ["200"]. Single codes ("200") and ranges ("2xx") are both allowed.
+	// It applies to http and https checks and defaults to the load balancer default
+	// when empty.
+	// +optional
+	StatusCodes []string `json:"statusCodes,omitempty"`
+
+	// IntervalSeconds is how often the check runs, in seconds. It defaults to the
+	// load balancer default when unset.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	IntervalSeconds *int `json:"intervalSeconds,omitempty"`
+
+	// TimeoutSeconds is how long the check waits for a response, in seconds. It
+	// defaults to the load balancer default when unset.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	TimeoutSeconds *int `json:"timeoutSeconds,omitempty"`
+
+	// Retries is how many consecutive failed checks mark a target unhealthy. It
+	// defaults to the load balancer default when unset.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	Retries *int `json:"retries,omitempty"`
 }
 
 // LoadBalancerStatus defines the observed state of the control plane load balancer.

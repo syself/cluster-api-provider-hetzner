@@ -154,6 +154,71 @@ spec:
                           type: string
                       type: object
                     type: array
+                  healthCheck:
+                    description: |-
+                      HealthCheck configures the health check the load balancer runs against the
+                      kube-apiserver service targets. When it is omitted, the service uses a plain
+                      TCP check on the service port, so a target counts as healthy as soon as the
+                      port accepts a connection.
+
+                      Set an http or https check with a Path to have the load balancer route only
+                      to a target whose API server answers that path (for example a readiness
+                      endpoint), and drop a target that stops answering it. Only the kube-apiserver
+                      service is affected; extra services are never given a custom health check.
+                    properties:
+                      intervalSeconds:
+                        description: |-
+                          IntervalSeconds is how often the check runs, in seconds. It defaults to the
+                          load balancer default when unset.
+                        minimum: 1
+                        type: integer
+                      path:
+                        description: |-
+                          Path is the request path for an http or https check, for example "/readyz".
+                          It is required for http and https and ignored for tcp.
+                        type: string
+                      port:
+                        description: |-
+                          Port is the target port the check runs against. It defaults to the service's
+                          destination port.
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                      protocol:
+                        default: tcp
+                        description: |-
+                          Protocol is the health-check protocol: tcp, http, or https. tcp checks that
+                          the port accepts a connection. http and https send a request to Path and
+                          count the target healthy when the response status is in StatusCodes.
+                        enum:
+                        - tcp
+                        - http
+                        - https
+                        type: string
+                      retries:
+                        description: |-
+                          Retries is how many consecutive failed checks mark a target unhealthy. It
+                          defaults to the load balancer default when unset.
+                        minimum: 0
+                        type: integer
+                      statusCodes:
+                        description: |-
+                          StatusCodes are the HTTP response status codes counted as healthy, for
+                          example ["200"]. Single codes ("200") and ranges ("2xx") are both allowed.
+                          It applies to http and https checks and defaults to the load balancer default
+                          when empty.
+                        items:
+                          type: string
+                        type: array
+                      timeoutSeconds:
+                        description: |-
+                          TimeoutSeconds is how long the check waits for a response, in seconds. It
+                          defaults to the load balancer default when unset.
+                        minimum: 1
+                        type: integer
+                    required:
+                    - protocol
+                    type: object
                   name:
                     description: Name defines the name of the load balancer. It can
                       be specified in order to use an existing load balancer.
