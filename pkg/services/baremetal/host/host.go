@@ -1324,7 +1324,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
 		s.scope.Error(nil, msg, "logFile", logFile)
-		record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandTimedOut", logFile)
+		record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandTimedOut", msg)
 
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandTimedOut", clusterv1beta1.ConditionSeverityWarning,
@@ -1374,14 +1374,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		// IMAGE_URL_DONE was found in the stdout.
 		s.scope.Info("CustomProvisionerOutput", "logFile", logFile)
-		record.Event(s.scope.HetznerBareMetalHost, "CustomProvisionerOutput", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
 			s.scope.Error(err, "failed to read output.json")
 			return actionContinue{delay: 10 * time.Second}
 		}
-		record.Event(s.scope.HetznerBareMetalHost, "CustomProvisionerOutputJSON", outputJSON)
 		s.scope.Info("CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 
 		// Update name in robot API
@@ -1408,7 +1406,6 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		return actionComplete{}
 
 	case sshclient.ImageURLCommandStateFailed:
-		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", logFile)
 		s.scope.Error(nil, "custom provisioner failed", "logFile", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
@@ -1424,12 +1421,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
 				return actionError{err: fmt.Errorf("failed to parse: %w", err)}
 			}
-			record.Warn(s.scope.HetznerBareMetalHost, "CustomProvisionerOutputJSON", outputJSON)
 			s.scope.Error(nil, "CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 			if output.Message != "" {
 				msg = output.Message
 			}
 		}
+		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", msg)
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"CustomProvisionerFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)

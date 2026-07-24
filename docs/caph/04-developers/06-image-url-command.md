@@ -101,9 +101,9 @@ process is still running.
 
 The controller uses url.ParseRequestURI (Go function) to validate the imageURL.
 
-A Kubernetes event will be created in both (success, failure) cases containing the output (stdout
-and stderr) of the script. If the script takes longer than 20 minutes, the controller cancels the
-provisioning.
+The full output (stdout and stderr) of the script is written to the controller log. On failure or
+timeout CAPH also creates a Warning event, but with a short message only, never the full output. If
+the script takes longer than 20 minutes, the controller cancels the provisioning.
 
 ## Steps
 
@@ -114,17 +114,16 @@ provisioning.
   the file which will be in the corresponding condition, so that users can see the current state of
   the process. This is optional.
 * When the process has terminated, CAPH checks if IMAGE_URL_DONE is in the last line of the output.
-  If not, the process is considered to have failed. The machine gets deprovisioned. Two Events
-  (level=Warning) get created: One containing the output of the process, one containing the
-  output.json file (if it exists).
-* When IMAGE_URL_DONE was found, the process is considered to have succeeded. Two Events
-  (level=Info) get created: One containing the output of the process, one containing the output.json
-  file (if it exists).
+  If not, the process is considered to have failed. The machine gets deprovisioned. CAPH creates a
+  Warning event with a short message. The full output of the process and the output.json content (if
+  it exists) are written to the controller log.
+* When IMAGE_URL_DONE was found, the process is considered to have succeeded. The output of the
+  process and the output.json content (if it exists) are written to the controller log.
 
 ## output.json (optional)
 
 The command may write `/root/output.json` at any point during execution. The file is an option to
-give information from the node and to publish it as event. It's not about success or not.
+give information from the node and to write it to the controller log. It's not about success or not.
 
 CAPH reads only the `message` field from this file to update the provisioning condition on the
 machine (HCloudMachine or HetznerBareMetalHost). The `message` field is forwarded verbatim into the
@@ -146,15 +145,14 @@ Minimal example:
 {"message": "Downloading node image..."}
 ```
 
-Any other fields in the JSON are **ignored by CAPH** but are forwarded as-is via the Kubernetes
-event (see below). You can use them for your own structured debugging output.
+Any other fields in the JSON are **ignored by CAPH** but are written as-is to the controller log
+(see below). You can use them for your own structured debugging output.
 
-### Kubernetes event on completion
+### Controller log on completion
 
-When the command finishes (success or failure), CAPH emits a Kubernetes event with reason
-`CustomProvisionerOutputJSON` containing the **full JSON content** of the file. If the command
-failed, the event type is `Warning`; otherwise it is `Normal`. The content is also written to
-the controller log at key `outputJSON`.
+When the command finishes (success or failure), CAPH writes the **full JSON content** of the file
+to the controller log at key `outputJSON`. It is not exposed as a Kubernetes event, because the
+output can contain information that should not be shown to the cluster user.
 
 ## Measured durations for hcloud
 
