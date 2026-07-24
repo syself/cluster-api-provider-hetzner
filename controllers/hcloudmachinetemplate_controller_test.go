@@ -40,7 +40,9 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerSecret = getDefaultHetznerSecret(testNs.Name)
@@ -338,7 +340,9 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 			)
 			BeforeEach(func() {
 				var err error
-				testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+				var finish func()
+				testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+				defer finish()
 				Expect(err).NotTo(HaveOccurred())
 
 				hcloudMachineTemplate = &infrav1.HCloudMachineTemplate{

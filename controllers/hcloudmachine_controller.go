@@ -21,21 +21,26 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/predicates"
@@ -69,6 +74,12 @@ type HCloudMachineReconciler struct {
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
+
+	// ReconcileGate, when non-nil, is held as a read lock for the full duration of each Reconcile
+	// call. Between tests, the test setup holds it as a write lock while swapping mock clients.
+	// A write lock can only be acquired once all read lock holders (in-flight reconciles) finish,
+	// so mock clients are never swapped while a Reconcile is running.
+	ReconcileGate *sync.RWMutex
 }
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
@@ -80,6 +91,11 @@ type HCloudMachineReconciler struct {
 
 // Reconcile manages the lifecycle of an HCloud machine object.
 func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
+	if r.ReconcileGate != nil {
+		r.ReconcileGate.RLock()
+		defer r.ReconcileGate.RUnlock()
+	}
+
 	log := ctrl.LoggerFrom(ctx)
 
 	if r.Namespace != "" && req.Namespace != r.Namespace {
@@ -337,6 +353,11 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
 			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(mgr.GetScheme(), log)),
 		).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.HetznerSecretToHCloudMachines(ctx)),
+			builder.WithPredicates(IgnoreInsignificantSecretUpdates(log)),
+		).
 		Complete(r)
 	if err != nil {
 		return fmt.Errorf("error creating controller: %w", err)
@@ -397,6 +418,95 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 	}
 }
 
+// machineAPIServerPodHealthyConditionChanged reports whether the Machine's
+// KubeadmControlPlaneMachineAPIServerPodHealthyCondition status changed. reconcileLoadBalancerAttachment
+// (pkg/services/hcloud/server/server.go) uses conditions.IsTrue on this condition to decide whether to
+// attach the server to the load balancer. Without this check, a condition change alone would not trigger
+// a reconcile.
+func machineAPIServerPodHealthyConditionChanged(oldMachine, newMachine *clusterv1.Machine) bool {
+	return conditions.IsTrue(oldMachine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition) !=
+		conditions.IsTrue(newMachine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition)
+}
+
+// controlPlaneLoadBalancerTargetsChanged reports whether the load balancer's target list
+// changed. HCloudMachine reconciliation uses this list to decide whether a control-plane
+// server is already attached. Without this check, a target-list change alone would not
+// trigger a reconcile.
+func controlPlaneLoadBalancerTargetsChanged(oldCluster, newCluster *infrav1.HetznerCluster) bool {
+	var oldTargets []infrav1.LoadBalancerTarget
+	var newTargets []infrav1.LoadBalancerTarget
+
+	if oldCluster.Status.ControlPlaneLoadBalancer != nil {
+		oldTargets = oldCluster.Status.ControlPlaneLoadBalancer.Target
+	}
+
+	if newCluster.Status.ControlPlaneLoadBalancer != nil {
+		newTargets = newCluster.Status.ControlPlaneLoadBalancer.Target
+	}
+
+	return !slices.Equal(oldTargets, newTargets)
+}
+
+// HetznerSecretToHCloudMachines is a handler.ToRequestsFunc to be used to enqueue requests for reconciliation
+// of HCloudMachines when the referenced HetznerSecret changes (e.g. after a token rotation).
+func (r *HCloudMachineReconciler) HetznerSecretToHCloudMachines(_ context.Context) handler.MapFunc {
+	return func(ctx context.Context, o client.Object) []reconcile.Request {
+		log := log.FromContext(ctx)
+
+		secret, ok := o.(*corev1.Secret)
+		if !ok {
+			log.Error(fmt.Errorf("expected a Secret but got a %T", o), "failed to get HCloudMachine for Secret")
+			return nil
+		}
+
+		log = log.WithValues("objectMapper", "hetznerSecretToHCloudMachine", "namespace", secret.Namespace, "secret", secret.Name)
+
+		hetznerClusterList := &infrav1.HetznerClusterList{}
+		if err := r.List(ctx, hetznerClusterList, client.InNamespace(secret.Namespace)); err != nil {
+			log.Error(err, "failed to list HetznerClusters, skipping mapping")
+			return nil
+		}
+
+		result := []reconcile.Request{}
+		toRequests := r.HetznerClusterToHCloudMachines(ctx)
+		for i := range hetznerClusterList.Items {
+			hc := &hetznerClusterList.Items[i]
+			if hc.Spec.HetznerSecret.Name != secret.Name {
+				continue
+			}
+			result = append(result, toRequests(ctx, hc)...)
+		}
+		return result
+	}
+}
+
+// IgnoreInsignificantSecretUpdates is a predicate that only fires when the Secret's Data
+// actually changes, so HCloudMachines do not reconcile for ManagedFields or metadata-only
+// Secret updates.
+func IgnoreInsignificantSecretUpdates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldSecret, ok := e.ObjectOld.(*corev1.Secret)
+			if !ok {
+				return false
+			}
+			newSecret, ok := e.ObjectNew.(*corev1.Secret)
+			if !ok {
+				return false
+			}
+			if reflect.DeepEqual(oldSecret.Data, newSecret.Data) {
+				return false
+			}
+			logger.V(1).Info("Secret data changed, will enqueue HCloudMachines",
+				"namespace", newSecret.GetNamespace(), "name", newSecret.GetName())
+			return true
+		},
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
+	}
+}
+
 // IgnoreInsignificantHetznerClusterUpdates is a predicate used for ignoring insignificant HetznerCluster.Status updates.
 func IgnoreInsignificantHetznerClusterUpdates(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
@@ -431,6 +541,11 @@ func IgnoreInsignificantHetznerClusterUpdates(logger logr.Logger) predicate.Func
 
 			oldCluster.ResourceVersion = ""
 			newCluster.ResourceVersion = ""
+
+			if controlPlaneLoadBalancerTargetsChanged(oldCluster, newCluster) {
+				log.V(1).Info("HetznerCluster -> HCloudMachine event for control plane load balancer target change")
+				return true
+			}
 
 			oldCluster.Status.Conditions = nil
 			newCluster.Status.Conditions = nil
@@ -499,6 +614,11 @@ func IgnoreInsignificantMachineStatusUpdates(logger logr.Logger) predicate.Funcs
 
 			oldMachine.ResourceVersion = ""
 			newMachine.ResourceVersion = ""
+
+			if machineAPIServerPodHealthyConditionChanged(oldMachine, newMachine) {
+				log.V(1).Info("Machine -> HCloudMachine event for load balancer related condition change")
+				return true
+			}
 
 			oldMachine.Status = clusterv1.MachineStatus{}
 			newMachine.Status = clusterv1.MachineStatus{}

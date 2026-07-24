@@ -213,6 +213,25 @@ type LoadBalancerSpec struct {
 
 	// Region contains the name of the HCloud location where the load balancer is running.
 	Region Region `json:"region,omitempty"`
+
+	// EnableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
+	// Only the kube-apiserver service is affected; extra services are never given proxy protocol.
+	//
+	// For new clusters the LB service is created with proxy protocol enabled immediately — no
+	// annotation check is performed because there are no existing backends that could receive
+	// unexpected PROXY-protocol headers.
+	//
+	// For existing clusters that want to enable proxy protocol after the fact, CAPH waits until
+	// every control-plane machine carries the annotation
+	// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" before switching the LB
+	// service to proxy protocol in place. The annotation is set on the control-plane machine
+	// template, so a machine from an earlier template does not carry it and the check stays false
+	// until the rollout completes. This prevents backends still expecting plain TCP from receiving
+	// malformed PROXY-protocol headers.
+	//
+	// Enabling proxy protocol is a one-way operation — it is never turned back off.
+	// +optional
+	EnableProxyProtocol bool `json:"enableProxyProtocol,omitempty"`
 }
 
 // LoadBalancerServiceSpec defines a load balancer Target.
@@ -240,6 +259,13 @@ type LoadBalancerStatus struct {
 	InternalIP string               `json:"internalIP,omitempty"`
 	Target     []LoadBalancerTarget `json:"targets,omitempty"`
 	Protected  bool                 `json:"protected,omitempty"`
+
+	// ProxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
+	// has proxy protocol enabled, as observed on the actual HCloud load balancer. This can lag
+	// behind spec.controlPlaneLoadBalancer.enableProxyProtocol while the migration to proxy
+	// protocol is in progress (see the field's docs for details).
+	// +optional
+	ProxyProtocolEnabled bool `json:"proxyProtocolEnabled,omitempty"`
 }
 
 // LoadBalancerTarget defines the target of a load balancer.
@@ -305,8 +331,8 @@ const (
 	// HCloudBootStateUnset is the initial state when the boot state has not been set yet.
 	HCloudBootStateUnset HCloudBootState = ""
 
-	// HCloudBootStateInitializing indicates that the controller waits for PreRescueOS.
-	// When it is available, then the rescue system gets enabled.
+	// HCloudBootStateInitializing indicates the controller waits for the server create action to
+	// finish. The server stays powered off; once it is provisioned, the rescue system gets enabled.
 	HCloudBootStateInitializing HCloudBootState = "Initializing"
 
 	// HCloudBootStateEnablingRescue indicates that the controller waits for the rescue system to be enabled. Then the server gets booted into the rescue system.

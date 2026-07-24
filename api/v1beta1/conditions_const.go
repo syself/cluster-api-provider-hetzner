@@ -189,6 +189,15 @@ const (
 )
 
 const (
+	// ActionCompletedCondition reports whether the last action on the host completed successfully.
+	// Set to False when a fatal, non-recoverable error is detected that requires manual intervention.
+	// Absent on healthy hosts; only present when a permanent error has been recorded.
+	ActionCompletedCondition clusterv1beta1.ConditionType = "ActionCompleted"
+	// ActionCompletedPermanentErrorReason represents a fatal, non-recoverable error that persists on the host.
+	ActionCompletedPermanentErrorReason = "PermanentError"
+)
+
+const (
 	// ProvisionSucceededCondition indicates that a host has been provisioned.
 	ProvisionSucceededCondition clusterv1beta1.ConditionType = "ProvisionSucceeded"
 	// StillProvisioningReason indicates that the server is still provisioning.
@@ -355,7 +364,8 @@ const (
 	HCloudMachineServerSSHKeyNotFoundV1Beta2Reason = "SSHKeyNotFound"
 	// HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason surfaces when the specified placement group does not exist.
 	HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason = "PlacementGroupNotFound"
-	// HCloudMachineServerCreationFailedV1Beta2Reason surfaces when the HCloud API CreateServer call fails.
+	// HCloudMachineServerCreationFailedV1Beta2Reason surfaces when creating the hcloud server fails,
+	// either because the CreateServer call fails or because the create action fails afterwards.
 	HCloudMachineServerCreationFailedV1Beta2Reason = "CreationFailed"
 )
 
@@ -373,13 +383,19 @@ const (
 	HCloudMachineBootStateInitializingTimedOutV1Beta2Reason = "BootStateInitializingTimedOut"
 	// HCloudMachineProvisioningServerV1Beta2Reason indicates the server is being provisioned.
 	HCloudMachineProvisioningServerV1Beta2Reason = "Provisioning"
-	// HCloudMachineServerNotRunningYetV1Beta2Reason indicates the server is not running yet.
-	HCloudMachineServerNotRunningYetV1Beta2Reason = "ServerNotRunningYet"
 	// HCloudMachineServerStatusUnknownV1Beta2Reason indicates the hcloud server returned a status that the controller does not handle.
 	HCloudMachineServerStatusUnknownV1Beta2Reason = "ServerStatusUnknown"
+	// HCloudMachineActionIDCreateServerNotSetV1Beta2Reason indicates the ActionIDCreateServer status field is not set.
+	HCloudMachineActionIDCreateServerNotSetV1Beta2Reason = "ActionIDCreateServerNotSet"
+	// HCloudMachineCreatingServerV1Beta2Reason indicates the hcloud server is being created.
+	HCloudMachineCreatingServerV1Beta2Reason = "CreatingServer"
+	// HCloudMachineGettingServerCreationStatusFailedV1Beta2Reason indicates checking the server creation progress failed.
+	HCloudMachineGettingServerCreationStatusFailedV1Beta2Reason = "GettingServerCreationStatusFailed"
 
 	// HCloudMachineWaitingForRescueSystemV1Beta2Reason indicates waiting for the rescue system to be enabled.
 	HCloudMachineWaitingForRescueSystemV1Beta2Reason = "WaitingForRescueSystem"
+	// HCloudMachineEnablingRescueSystemFailedV1Beta2Reason indicates enabling the rescue system failed.
+	HCloudMachineEnablingRescueSystemFailedV1Beta2Reason = "EnablingRescueSystemFailed"
 	// HCloudMachineEnablingRescueTimedOutV1Beta2Reason indicates enabling rescue system timed out.
 	HCloudMachineEnablingRescueTimedOutV1Beta2Reason = "EnablingRescueTimedOut"
 	// HCloudMachineActionIDForEnablingRescueSystemNotSetV1Beta2Reason indicates the action ID for enabling rescue is not set.
@@ -392,17 +408,11 @@ const (
 	HCloudMachineEnablingRescueActionFailedV1Beta2Reason = "EnablingRescueActionFailed"
 	// HCloudMachineEnablingRescueActionDoneV1Beta2Reason indicates the rescue enable action is done.
 	HCloudMachineEnablingRescueActionDoneV1Beta2Reason = "EnablingRescueActionDone"
-	// HCloudMachineRescueNotEnabledYetV1Beta2Reason indicates the rescue system is not enabled yet.
-	HCloudMachineRescueNotEnabledYetV1Beta2Reason = "RescueNotEnabledYet"
 
 	// HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason indicates getting the SSH private key failed.
 	HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason = "GettingSSHPrivateKeyFailed"
-	// HCloudMachineGettingSSHClientFailedV1Beta2Reason indicates getting the SSH client failed.
-	HCloudMachineGettingSSHClientFailedV1Beta2Reason = "GettingSSHClientFailed"
 	// HCloudMachineRetryingSSHConnectionV1Beta2Reason indicates the SSH connection is being retried.
 	HCloudMachineRetryingSSHConnectionV1Beta2Reason = "RetryingSSHConnection"
-	// HCloudMachineRebootViaSSHFailedV1Beta2Reason indicates rebooting via SSH failed.
-	HCloudMachineRebootViaSSHFailedV1Beta2Reason = "RebootViaSSHFailed"
 	// HCloudMachineGettingHostnameFailedV1Beta2Reason indicates getting the hostname failed.
 	HCloudMachineGettingHostnameFailedV1Beta2Reason = "GettingHostnameFailed"
 	// HCloudMachineUnexpectedHostnameV1Beta2Reason indicates the remote hostname was unexpected.
@@ -412,8 +422,6 @@ const (
 	HCloudMachineBootingToRescueV1Beta2Reason = "BootingToRescue"
 	// HCloudMachineBootingToRescueTimedOutV1Beta2Reason indicates booting to rescue mode timed out.
 	HCloudMachineBootingToRescueTimedOutV1Beta2Reason = "BootingToRescueTimedOut"
-	// HCloudMachineWaitForRescueEnabledToBeFalseV1Beta2Reason indicates waiting for rescue enabled to become false.
-	HCloudMachineWaitForRescueEnabledToBeFalseV1Beta2Reason = "WaitingForRescueEnabledToBeFalse"
 
 	// HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason indicates the image URL command is not accessible.
 	HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason = "ImageURLCommandNotAccessible"
@@ -421,8 +429,6 @@ const (
 	HCloudMachineStartImageURLCommandFailedV1Beta2Reason = "StartImageURLCommandFailed"
 	// HCloudMachineStartImageURLCommandNonZeroExitCodeV1Beta2Reason indicates the image URL command returned a non-zero exit code.
 	HCloudMachineStartImageURLCommandNonZeroExitCodeV1Beta2Reason = "StartImageURLCommandNonZeroExitCode"
-	// HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason indicates the image URL command is running.
-	HCloudMachineHCloudImageURLCommandRunningV1Beta2Reason = "HCloudImageURLCommandRunning"
 	// HCloudMachineRunningImageURLCommandTimedOutV1Beta2Reason indicates the running image command timed out.
 	HCloudMachineRunningImageURLCommandTimedOutV1Beta2Reason = "RunningImageURLCommandTimedOut"
 	// HCloudMachineImageURLCommandFailedV1Beta2Reason indicates the image command failed.
@@ -431,6 +437,10 @@ const (
 	HCloudMachineBootingToRealOSV1Beta2Reason = "BootingToRealOS"
 	// HCloudMachineBootingToRealOSTimedOutV1Beta2Reason indicates booting to the real OS timed out.
 	HCloudMachineBootingToRealOSTimedOutV1Beta2Reason = "BootingToRealOSTimedOut"
+	// HCloudMachineCustomProvisionerRunningV1Beta2Reason indicates the custom provisioner is running.
+	HCloudMachineCustomProvisionerRunningV1Beta2Reason = "CustomProvisionerRunning"
+	// HCloudMachineCustomProvisionerFailedV1Beta2Reason indicates the custom provisioner failed.
+	HCloudMachineCustomProvisionerFailedV1Beta2Reason = "CustomProvisionerFailed"
 
 	// HCloudMachineGettingServerImageFailedV1Beta2Reason indicates getting the server image failed.
 	HCloudMachineGettingServerImageFailedV1Beta2Reason = "GettingServerImageFailed"
@@ -697,4 +707,13 @@ const (
 	HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition = "RobotRateLimitExceeded"
 	// HetznerBareMetalHostRobotRateLimitExceededV1Beta2Reason indicates the Robot API rate limit has been exceeded.
 	HetznerBareMetalHostRobotRateLimitExceededV1Beta2Reason = "Exceeded"
+)
+
+const (
+	// HetznerBareMetalHostActionCompletedV1Beta2Condition reports whether the last action on the host completed
+	// successfully. Set to False when a fatal, non-recoverable error is detected that requires manual intervention.
+	// Absent on healthy hosts; only present when a permanent error has been recorded.
+	HetznerBareMetalHostActionCompletedV1Beta2Condition = "ActionCompleted"
+	// HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason represents a fatal, non-recoverable error that persists on the host.
+	HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason = "PermanentError"
 )

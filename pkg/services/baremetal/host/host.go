@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stoewer/go-strcase"
 	"github.com/syself/hrobot-go/models"
 	"golang.org/x/crypto/ssh"
@@ -48,6 +49,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/imageurlcommand"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -434,7 +436,6 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 	// ssh gave no connection refused error but it is still saved in host status - we can remove it
 	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
 		s.scope.HetznerBareMetalHost.ClearError()
-		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = nil
 	}
 
 	// Check whether there has been an error message already, meaning that the reboot did not finish in time.
@@ -668,7 +669,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 
 		failed, err := s.handleIncompleteBoot(ctx, true, isSSHTimeoutError, isSSHConnectionRefusedError)
 		if failed {
-			return s.recordActionFailure(infrav1.PermanentError, err.Error())
+			return s.recordActionFailure(infrav1.FatalError, err.Error())
 		}
 		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
@@ -684,7 +685,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	// we are in resuce mode i.e. reboot was successful, now clear the RebootTriggeredAt timestamp.
+	// we are in rescue mode i.e. reboot was successful, now clear the RebootTriggeredAt timestamp.
 	s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = nil
 
 	output := sshClient.GetHardwareDetailsDebug(ctx)
@@ -698,13 +699,22 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	}
 	record.Eventf(s.scope.HetznerBareMetalHost, "GetHardwareDetails", msg)
 
-	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails == nil {
-		hardwareDetails, err := getHardwareDetails(ctx, sshClient)
-		if err != nil {
-			return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
-		}
-		s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
+	hardwareDetails, err := getHardwareDetails(ctx, sshClient)
+	if err != nil {
+		return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
 	}
+
+	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails != nil {
+		diff := cmp.Diff(*s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails, hardwareDetails)
+		if diff != "" {
+			s.scope.Info("HardwareDetails changed", "diff", diff)
+			record.Eventf(s.scope.HetznerBareMetalHost, "HardwareDetails changed", diff)
+		}
+	}
+	// In case of a change in the disks, the WWNs got updated. This might lead to an outdated
+	// RootDeviceHints, which the user sets to decide which disk to use for provisioning, even if
+	// the server was already provisioned before. This will get caught by validateRootDeviceHints below.
+	s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
 
 	if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints == nil {
 		v1beta1conditions.MarkFalse(
@@ -720,6 +730,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
 			Message: infrav1.ErrorMessageMissingRootDeviceHints,
 		})
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason, infrav1.ErrorMessageMissingRootDeviceHints)
 		return s.recordActionFailure(infrav1.RegistrationError, infrav1.ErrorMessageMissingRootDeviceHints)
 	}
 	errMsg := s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.IsValidWithMessage()
@@ -738,6 +749,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
 			Message: errMsg,
 		})
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason, errMsg)
 		return s.recordActionFailure(infrav1.RegistrationError, errMsg)
 	}
 
@@ -757,6 +769,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
 			Message: err.Error(),
 		})
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason, err.Error())
 		return s.recordActionFailure(infrav1.RegistrationError, err.Error())
 	}
 
@@ -790,6 +803,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason,
 			Message: msg,
 		})
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostValidationFailedV1Beta2Reason, msg)
 		return s.recordActionFailure(infrav1.FatalError, msg)
 	}
 
@@ -1304,12 +1318,14 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		duration = time.Since(host.Spec.Status.RebootTriggeredAt.Time)
 	}
 
-	// Please keep the number (7) in sync with the docstring of ImageURL.
-	if duration > 7*time.Minute {
+	// Please keep the number (20) in sync with the docstring of ImageURL.
+	if duration > 20*time.Minute {
 		// timeout. Something has failed.
 		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
 		s.scope.Error(nil, msg, "logFile", logFile)
+		record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandTimedOut", msg)
+
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandTimedOut", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
@@ -1324,11 +1340,47 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			s.scope.Error(err, "failed to read output.json")
+			return actionContinue{delay: 10 * time.Second}
+		}
+		msg := "custom provisioner running"
+
+		// If outputJSON is empty, imageURLCommand is still running and output.json was
+		// either not created yet, or the command does not create it at all.
+		if outputJSON != "" {
+			output, err := imageurlcommand.Parse(outputJSON)
+			if err != nil {
+				s.scope.Error(err, "failed to parse image URL command output")
+				return actionContinue{delay: 10 * time.Second}
+			}
+
+			if output.Message != "" {
+				msg = output.Message
+			}
+		}
+
+		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
+			infrav1.HetznerBareMetalHostProvisioningV1Beta2Reason, clusterv1beta1.ConditionSeverityInfo, "%s", msg)
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostProvisioningV1Beta2Reason,
+			Message: msg,
+		})
 		return actionContinue{delay: 10 * time.Second}
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
-		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
-		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
+		// IMAGE_URL_DONE was found in the stdout.
+		s.scope.Info("CustomProvisionerOutput", "logFile", logFile)
+
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			s.scope.Error(err, "failed to read output.json")
+			return actionContinue{delay: 10 * time.Second}
+		}
+		s.scope.Info("CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 
 		// Update name in robot API
 		if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
@@ -1354,16 +1406,34 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		return actionComplete{}
 
 	case sshclient.ImageURLCommandStateFailed:
-		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", logFile)
-		msg := "image-url-command failed"
-		s.scope.Error(nil, msg, "logFile", logFile)
+		s.scope.Error(nil, "custom provisioner failed", "logFile", logFile)
+
+		outputJSON, err := sshClient.ReadOutputJSON(ctx)
+		if err != nil {
+			s.scope.Error(err, "failed to read output.json")
+			return actionContinue{delay: 10 * time.Second}
+		}
+
+		msg := "custom provisioner failed"
+		if outputJSON != "" {
+			output, err := imageurlcommand.Parse(outputJSON)
+			if err != nil {
+				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
+				return actionError{err: fmt.Errorf("failed to parse: %w", err)}
+			}
+			s.scope.Error(nil, "CustomProvisionerOutputJSON", "outputJSON", outputJSON)
+			if output.Message != "" {
+				msg = output.Message
+			}
+		}
+		record.Warn(s.scope.HetznerBareMetalHost, "CustomProvisionerFailed", msg)
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
+			"CustomProvisionerFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(host, metav1.Condition{
 			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "ImageURLCommandFailed",
+			Reason:  "CustomProvisionerFailed",
 			Message: msg,
 		})
 		return s.recordActionFailure(infrav1.FatalError, msg)
@@ -1378,6 +1448,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		if command == "" {
 			err = errors.New("internal error: spec.status.installImage.imageURLCommand is not set")
 			s.scope.Error(err, "")
+			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandMissing", err.Error())
+
 			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 				"ImageURLCommandMissing",
 				clusterv1beta1.ConditionSeverityError,
@@ -1395,6 +1467,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		if err != nil {
 			err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", command, err)
 			s.scope.Error(err, "")
+			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandNotAccessible", err.Error())
+
 			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 				"ImageURLCommandNotAccessible",
 				clusterv1beta1.ConditionSeverityWarning,
@@ -1408,15 +1482,26 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			return actionStop{}
 		}
 
-		// get the information about storage devices again to have the latest names.
-		// Device names can change during restart.
-		storage, err := obtainHardwareDetailsStorage(ctx, sshClient)
-		if err != nil {
-			return actionError{err: fmt.Errorf("failed to obtain hardware details storage: %w", err)}
-		}
-
 		// get device names from storage device
-		deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storage)
+		var deviceNames []string
+		switch s.scope.HetznerBareMetalMachine.Spec.InstallImage.DeviceStringType {
+		case infrav1.DeviceStringTypeWWN:
+			// WWN examples: "eui.00253885910c8cec" or "0x500a07511bb48b25"
+			deviceNames = s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN()
+			if len(deviceNames) == 0 {
+				// this is not expected, because it is already validated.
+				return actionError{err: fmt.Errorf("DeviceStringType is %q but no WWN is configured in rootDeviceHints", infrav1.DeviceStringTypeWWN)}
+			}
+		default:
+			// Short device name examples: "sda", "sdb"
+			// Get the information about storage devices again to have the latest names.
+			// Device names can change during restart.
+			storage, err := obtainHardwareDetailsStorage(ctx, sshClient)
+			if err != nil {
+				return actionError{err: fmt.Errorf("failed to obtain hardware details storage: %w", err)}
+			}
+			deviceNames = getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storage)
+		}
 
 		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, commandPath, s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.URL, data, s.scope.Hostname(), deviceNames)
 		if err != nil {
@@ -1426,6 +1511,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				"ImageURLCommand", command,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
+			record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandFailedToStart", err.Error())
+
 			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 				"ImageURLCommandFailedToStart",
 				clusterv1beta1.ConditionSeverityWarning,
@@ -1445,6 +1532,8 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				"ImageURLCommand", command,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
+			record.Warn(s.scope.HetznerBareMetalHost, "StartImageURLCommandFailed", msg)
+
 			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 				"StartImageURLCommandFailed",
 				clusterv1beta1.ConditionSeverityWarning,
@@ -1480,11 +1569,12 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 	// CheckDisk before accessing the disk
 	info, err := sshClient.CheckDisk(ctx, s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN())
 	if err != nil {
-		_, ok := s.scope.HetznerBareMetalHost.Annotations[infrav1.IgnoreCheckDiskAnnotation]
-		if !ok {
-			// The annotation is not set. This is a permanent error.
+		_, annotationOk := s.scope.HetznerBareMetalHost.Annotations[infrav1.IgnoreCheckDiskAnnotation]
+		machineSkipsCheckDisk := s.scope.HetznerBareMetalMachine.Spec.SkipCheckDisk
+		if !annotationOk && !machineSkipsCheckDisk {
+			// Neither the annotation nor the machine spec field is set. This is a permanent error.
 			msg := fmt.Sprintf(
-				"CheckDisk failed (permanent error): %s (set annotation %q on hbmh to continue anyway)",
+				"CheckDisk failed (permanent error): %s (set annotation %q on hbmh or skipCheckDisk on HetznerBareMetalMachine to skip)",
 				err.Error(), infrav1.IgnoreCheckDiskAnnotation)
 			v1beta1conditions.MarkFalse(
 				s.scope.HetznerBareMetalHost,
@@ -1504,9 +1594,9 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 			s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
 			return actionStop{}
 		}
-		// The annotation was set. Just create a warning and move on.
+		// The annotation or machine spec field was set. Just create a warning and move on.
 		record.Warnf(s.scope.HetznerBareMetalHost, infrav1.CheckDiskFailedReason,
-			"CheckDisk failed. Continue anyway because %q is set: %s",
+			"CheckDisk failed. Skipping because %q is set or skipCheckDisk is true on HetznerBareMetalMachine: %s",
 			infrav1.IgnoreCheckDiskAnnotation,
 			err.Error())
 	} else {
@@ -1764,6 +1854,7 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 			Reason:  infrav1.HetznerBareMetalHostImageSpecInvalidV1Beta2Reason,
 			Message: errorMessage,
 		})
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostImageSpecInvalidV1Beta2Reason, errorMessage)
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, errorMessage)
 	}
 	if needsDownload {
@@ -1787,6 +1878,7 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 				Reason:  infrav1.HetznerBareMetalHostDownloadingImageFailedV1Beta2Reason,
 				Message: err.Error(),
 			})
+			record.Warn(s.scope.HetznerBareMetalHost, infrav1.ImageDownloadFailedReason, err.Error())
 			return autoSetupInput{}, actionError{err: err}
 		}
 	}
@@ -1818,6 +1910,7 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 			Reason:  infrav1.HetznerBareMetalHostNoStorageDeviceFoundV1Beta2Reason,
 			Message: msg,
 		})
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostNoStorageDeviceFoundV1Beta2Reason, msg)
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, msg)
 	}
 
@@ -1961,7 +2054,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 			}
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
 				infrav1.StateEnsureProvisioned, msg)
-			return s.recordActionFailure(infrav1.ProvisioningError, msg)
+			return s.recordActionFailure(infrav1.FatalError, msg)
 		}
 		if err != nil {
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
@@ -2236,6 +2329,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		if rebootDesired {
 			s.scope.Error(errors.New(msg), "")
 			s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
+			record.Warn(s.scope.HetznerBareMetalHost, "NodeRefEmpty", msg)
 			return actionStop{}
 		}
 
@@ -2287,6 +2381,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// When no reboot is requested the boot ID is non-critical; requeue and wait for kubelet to populate it.
 		if rebootDesired {
 			s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
+			record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostBootIDEmptyV1Beta2Reason, msg)
 			return actionStop{}
 		}
 
@@ -2327,6 +2422,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		if rebootDuration > 5*time.Minute {
 			msg := fmt.Sprintf("Rebooting timed out after: %s", rebootDuration.Round(time.Second))
 			s.scope.Info(msg)
+			record.Warn(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostRebootSucceededTimeoutReachedOutV1Beta2Reason, msg)
 			v1beta1conditions.MarkFalse(
 				s.scope.HetznerBareMetalHost,
 				infrav1.RebootSucceededCondition,
@@ -2483,13 +2579,13 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	v1beta1conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 		"WaitingForNodeToBeRebooted",
 		clusterv1beta1.ConditionSeverityInfo,
-		"Waiting for BootID of Node in workload cluster to change",
+		"Waiting for the node to be rebooted",
 	)
 	v1beta2conditions.Set(host, metav1.Condition{
 		Type:    infrav1.HetznerBareMetalHostRebootSucceededV1Beta2Condition,
 		Status:  metav1.ConditionFalse,
 		Reason:  infrav1.HetznerBareMetalHostRebootingV1Beta2Reason,
-		Message: "Waiting for BootID of Node in workload cluster to change",
+		Message: "Waiting for the node to be rebooted",
 	})
 
 	return actionContinue{delay: 10 * time.Second}
@@ -2577,9 +2673,13 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 	// Permanent errors are those ones that do not get solved with de- or re-provisioning.
 	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType != infrav1.PermanentError {
 		s.scope.HetznerBareMetalHost.ClearError()
-		v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
-		v1beta2conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition)
 	}
+
+	// Always clear the ProvisionSucceeded condition during deprovisioning to avoid a misleading
+	// StillProvisioning condition with an empty state when a permanent error occur.
+	// The permanent error details remain in status.ErrorMessage.
+	v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
+	v1beta2conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition)
 	return actionComplete{} // next: None
 }
 
@@ -2615,6 +2715,14 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 // Imagine the controller triggers a reboot, and reconciles immediately. This would
 // mean the controller would do the same reboot immediately again.
 func (s *Service) hasJustRebooted() bool {
+	// Safe guard: RebootTriggeredAt should not be nil, when hasJustRebooted() gets called. If
+	// RebootTriggeredAt is nil, we cannot know when the reboot happened, so we treat it as not just
+	// rebooted. Without this guard, hasTimedOut(nil, ...) returns false, making this function
+	// return true indefinitely.
+	if s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt == nil {
+		s.scope.Info("hasJustRebooted: s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt is nil. That is not expected")
+		return false
+	}
 	return (s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSSHRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSoftwareRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeHardwareRebootTriggered) &&

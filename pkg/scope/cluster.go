@@ -269,3 +269,58 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 	_, err = clientSet.Discovery().RESTClient().Get().AbsPath("/readyz").DoRaw(ctx)
 	return err
 }
+
+// AllControlPlaneInfraMachinesAnnotatedForProxyProtocol returns true when every control-plane
+// infrastructure machine (HCloudMachine and HetznerBareMetalMachine) carries the annotation
+// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true", which is set on the
+// control-plane infrastructure machine template's spec.template.metadata.
+//
+// Machines from an earlier template do not carry the annotation, so the check stays false
+// until the last of them is replaced. It returns false (no error) while the cluster has no
+// control-plane infrastructure machines yet.
+func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx context.Context) (bool, error) {
+	listOptions := []client.ListOption{
+		client.InNamespace(s.Namespace()),
+		client.MatchingLabels{
+			clusterv1.ClusterNameLabel:         s.Cluster.Name,
+			clusterv1.MachineControlPlaneLabel: "",
+		},
+	}
+
+	found := 0
+
+	hcloudMachines := &infrav1.HCloudMachineList{}
+	if err := s.Client.List(ctx, hcloudMachines, listOptions...); err != nil {
+		return false, fmt.Errorf("failed to list control-plane HCloudMachines: %w", err)
+	}
+
+	for i := range hcloudMachines.Items {
+		m := &hcloudMachines.Items[i]
+		if m.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
+			s.V(1).Info("proxy protocol: control-plane HCloudMachine is missing the annotation", "hcloudMachine", m.GetName())
+			return false, nil
+		}
+		found++
+	}
+
+	bmMachines := &infrav1.HetznerBareMetalMachineList{}
+	if err := s.Client.List(ctx, bmMachines, listOptions...); err != nil {
+		return false, fmt.Errorf("failed to list control-plane HetznerBareMetalMachines: %w", err)
+	}
+
+	for i := range bmMachines.Items {
+		m := &bmMachines.Items[i]
+		if m.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
+			s.V(1).Info("proxy protocol: control-plane HetznerBareMetalMachine is missing the annotation", "hetznerBareMetalMachine", m.GetName())
+			return false, nil
+		}
+		found++
+	}
+
+	if found == 0 {
+		s.V(1).Info("proxy protocol: no control-plane infrastructure machines found yet")
+		return false, nil
+	}
+
+	return true, nil
+}
