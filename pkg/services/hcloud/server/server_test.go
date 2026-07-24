@@ -2397,6 +2397,20 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 		// handleOperatingSystemRunning, that condition would be overwritten to True.
 		// Ready must still flip to true so CAPI can propagate ProviderID and
 		// downstream controllers can observe the apiserver pod health.
+
+		// ServerAvailableCondition is not True yet, so reconcileLoadBalancerAttachment
+		// fetches live LB state. Seed the fake client with an LB so ListLoadBalancers
+		// returns it. The LB has no target for this server, so the health gate fires.
+		algo := hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeRoundRobin}
+		_, err := service.scope.HCloudClient.CreateLoadBalancer(context.Background(), hcloud.LoadBalancerCreateOpts{
+			Name:      "test-lb",
+			Algorithm: &algo,
+			Labels: map[string]string{
+				service.scope.HetznerCluster.ClusterTagKey(): string(infrav1.ResourceLifecycleOwned),
+			},
+		})
+		Expect(err).To(BeNil())
+
 		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
 			ID: 1,
 			Target: []infrav1.LoadBalancerTarget{
@@ -2423,6 +2437,80 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 
 		Expect(hcloudMachine.Status.Ready).To(BeTrue())
 		Expect(v1beta1conditions.IsTrue(hcloudMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+	})
+
+	It("does not call ListLoadBalancers when ServerAvailableCondition is already True", func() {
+		// Replace the fake client with a mock so we can assert the call is never made.
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service.scope.HCloudClient = hcloudClient
+
+		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+			Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HCloudMachineServerAvailableV1Beta2Reason,
+		})
+
+		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
+			ID: 1,
+			Target: []infrav1.LoadBalancerTarget{
+				{Type: infrav1.LoadBalancerTargetTypeServer, ServerID: server.ID},
+			},
+		}
+
+		res, err := service.handleOperatingSystemRunning(context.Background(), server)
+		Expect(err).To(Succeed())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(hcloudMachine.Status.Ready).To(BeTrue())
+		Expect(v1beta2conditions.IsTrue(hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition)).To(BeTrue())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "ListLoadBalancers", mock.Anything, mock.Anything)).To(BeTrue())
+	})
+})
+
+var _ = Describe("reconcileLoadBalancerAttachment", func() {
+	It("re-attaches server when live LB shows it absent but stale status claims it present", func() {
+		// Regression: the stale-cache loop that used to follow the live-LB if/else block
+		// would return early (nil) when HetznerCluster.Status listed the server as attached,
+		// even after the live LB check confirmed it was missing. This test would have failed
+		// with the old code because AddTargetServerToLoadBalancer was never called.
+		hcloudClient := mocks.NewClient(GinkgoT())
+		server := newTestServer()
+
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-machine", Namespace: "default"},
+			Spec:       infrav1.HCloudMachineSpec{ImageName: "ubuntu-24.04", Type: "cpx22"},
+		}
+		// ServerAvailableCondition is not set (not True) → else branch performs live LB lookup.
+
+		svc := newTestService(hcloudMachine, hcloudClient)
+		// newTestService leaves Cluster.Spec.ControlPlaneRef empty → IsDefined()=false →
+		// apiServerPodHealthy=true, so the apiserver health gate does not requeue.
+
+		const lbID = 42
+		// Stale status: server appears to be already attached (stale-positive).
+		svc.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
+			ID: lbID,
+			Target: []infrav1.LoadBalancerTarget{
+				{Type: infrav1.LoadBalancerTargetTypeServer, ServerID: server.ID},
+			},
+		}
+
+		// Live LB: server is NOT present as a target — the stale status is wrong.
+		hcloudClient.On("ListLoadBalancers", mock.Anything, mock.Anything).Return([]*hcloud.LoadBalancer{
+			{ID: lbID},
+		}, nil).Once()
+
+		// Attachment must proceed — the stale cache must not short-circuit it.
+		hcloudClient.On(
+			"AddTargetServerToLoadBalancer",
+			mock.Anything,
+			mock.Anything,
+			mock.MatchedBy(func(lb *hcloud.LoadBalancer) bool { return lb.ID == lbID }),
+		).Return(nil).Once()
+
+		_, err := svc.reconcileLoadBalancerAttachment(context.Background(), server)
+		Expect(err).To(Succeed())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 })
 
