@@ -120,7 +120,7 @@ $(CTLPTL):
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL):
-	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.13.1
+	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.13.4
 
 HCLOUD := $(abspath $(TOOLS_BIN_DIR)/hcloud)
 hcloud: $(HCLOUD) ## Build a local copy of hcloud
