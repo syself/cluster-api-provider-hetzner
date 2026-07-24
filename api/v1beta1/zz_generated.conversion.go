@@ -310,16 +310,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*HetznerBareMetalMachineTemplateResource)(nil), (*v1beta2.HetznerBareMetalMachineTemplateResource)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerBareMetalMachineTemplateResource(a.(*HetznerBareMetalMachineTemplateResource), b.(*v1beta2.HetznerBareMetalMachineTemplateResource), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.HetznerBareMetalMachineTemplateResource)(nil), (*HetznerBareMetalMachineTemplateResource)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerBareMetalMachineTemplateResource(a.(*v1beta2.HetznerBareMetalMachineTemplateResource), b.(*HetznerBareMetalMachineTemplateResource), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*HetznerBareMetalMachineTemplateSpec)(nil), (*v1beta2.HetznerBareMetalMachineTemplateSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_HetznerBareMetalMachineTemplateSpec_To_v1beta2_HetznerBareMetalMachineTemplateSpec(a.(*HetznerBareMetalMachineTemplateSpec), b.(*v1beta2.HetznerBareMetalMachineTemplateSpec), scope)
 	}); err != nil {
@@ -780,6 +770,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*HetznerBareMetalMachineTemplateResource)(nil), (*v1beta2.HetznerBareMetalMachineTemplateResource)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerBareMetalMachineTemplateResource(a.(*HetznerBareMetalMachineTemplateResource), b.(*v1beta2.HetznerBareMetalMachineTemplateResource), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*HetznerBareMetalRemediationStatus)(nil), (*v1beta2.HetznerBareMetalRemediationStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_HetznerBareMetalRemediationStatus_To_v1beta2_HetznerBareMetalRemediationStatus(a.(*HetznerBareMetalRemediationStatus), b.(*v1beta2.HetznerBareMetalRemediationStatus), scope)
 	}); err != nil {
@@ -857,6 +852,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*v1beta2.HetznerBareMetalMachineStatus)(nil), (*HetznerBareMetalMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMachineStatus(a.(*v1beta2.HetznerBareMetalMachineStatus), b.(*HetznerBareMetalMachineStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.HetznerBareMetalMachineTemplateResource)(nil), (*HetznerBareMetalMachineTemplateResource)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerBareMetalMachineTemplateResource(a.(*v1beta2.HetznerBareMetalMachineTemplateResource), b.(*HetznerBareMetalMachineTemplateResource), scope)
 	}); err != nil {
 		return err
 	}
@@ -1790,7 +1790,17 @@ func Convert_v1beta2_HetznerBareMetalMachineTemplate_To_v1beta1_HetznerBareMetal
 
 func autoConvert_v1beta1_HetznerBareMetalMachineTemplateList_To_v1beta2_HetznerBareMetalMachineTemplateList(in *HetznerBareMetalMachineTemplateList, out *v1beta2.HetznerBareMetalMachineTemplateList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]v1beta2.HetznerBareMetalMachineTemplate)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]v1beta2.HetznerBareMetalMachineTemplate, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_HetznerBareMetalMachineTemplate_To_v1beta2_HetznerBareMetalMachineTemplate(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -1801,37 +1811,23 @@ func Convert_v1beta1_HetznerBareMetalMachineTemplateList_To_v1beta2_HetznerBareM
 
 func autoConvert_v1beta2_HetznerBareMetalMachineTemplateList_To_v1beta1_HetznerBareMetalMachineTemplateList(in *v1beta2.HetznerBareMetalMachineTemplateList, out *HetznerBareMetalMachineTemplateList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]HetznerBareMetalMachineTemplate)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]HetznerBareMetalMachineTemplate, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta2_HetznerBareMetalMachineTemplate_To_v1beta1_HetznerBareMetalMachineTemplate(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
 // Convert_v1beta2_HetznerBareMetalMachineTemplateList_To_v1beta1_HetznerBareMetalMachineTemplateList is an autogenerated conversion function.
 func Convert_v1beta2_HetznerBareMetalMachineTemplateList_To_v1beta1_HetznerBareMetalMachineTemplateList(in *v1beta2.HetznerBareMetalMachineTemplateList, out *HetznerBareMetalMachineTemplateList, s conversion.Scope) error {
 	return autoConvert_v1beta2_HetznerBareMetalMachineTemplateList_To_v1beta1_HetznerBareMetalMachineTemplateList(in, out, s)
-}
-
-func autoConvert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerBareMetalMachineTemplateResource(in *HetznerBareMetalMachineTemplateResource, out *v1beta2.HetznerBareMetalMachineTemplateResource, s conversion.Scope) error {
-	if err := Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerBareMetalMachineTemplateResource is an autogenerated conversion function.
-func Convert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerBareMetalMachineTemplateResource(in *HetznerBareMetalMachineTemplateResource, out *v1beta2.HetznerBareMetalMachineTemplateResource, s conversion.Scope) error {
-	return autoConvert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerBareMetalMachineTemplateResource(in, out, s)
-}
-
-func autoConvert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerBareMetalMachineTemplateResource(in *v1beta2.HetznerBareMetalMachineTemplateResource, out *HetznerBareMetalMachineTemplateResource, s conversion.Scope) error {
-	if err := Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerBareMetalMachineTemplateResource is an autogenerated conversion function.
-func Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerBareMetalMachineTemplateResource(in *v1beta2.HetznerBareMetalMachineTemplateResource, out *HetznerBareMetalMachineTemplateResource, s conversion.Scope) error {
-	return autoConvert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerBareMetalMachineTemplateResource(in, out, s)
 }
 
 func autoConvert_v1beta1_HetznerBareMetalMachineTemplateSpec_To_v1beta2_HetznerBareMetalMachineTemplateSpec(in *HetznerBareMetalMachineTemplateSpec, out *v1beta2.HetznerBareMetalMachineTemplateSpec, s conversion.Scope) error {

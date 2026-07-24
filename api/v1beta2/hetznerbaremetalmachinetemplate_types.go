@@ -18,6 +18,7 @@ package v1beta2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 // HetznerBareMetalMachineTemplateSpec defines the desired state of HetznerBareMetalMachineTemplate.
@@ -51,6 +52,10 @@ type HetznerBareMetalMachineTemplateList struct {
 
 // HetznerBareMetalMachineTemplateResource describes the data needed to create a HetznerBareMetalMachine from a template.
 type HetznerBareMetalMachineTemplateResource struct {
+	// Standard object's metadata.
+	// +optional
+	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitempty,omitzero"`
+
 	// Spec is the specification of the desired behavior of the machine.
 	Spec HetznerBareMetalMachineSpec `json:"spec"`
 }
