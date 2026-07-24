@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
@@ -37,10 +37,10 @@ jobs:
           go-version-file: "go.mod"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Generate metadata
         id: meta
@@ -50,7 +50,7 @@ jobs:
           metadata_tags: ${{ env.metadata_tags }}
 
       - name: Login to ghcr.io for CI
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4.5.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -93,7 +93,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy Caph Golang cache to docker cache
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           provenance: false
           context: /tmp/.cache/caph
@@ -103,7 +103,7 @@ jobs:
           target: import-cache
 
       - name: Build and push manager image
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         id: docker_build_release
         with:
           provenance: false
@@ -149,7 +149,7 @@ jobs:
       # Store docker's golang's cache build locally only on the main branch
       - name: Store Caph Golang cache build locally
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           provenance: false
           context: .
