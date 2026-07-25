@@ -337,10 +337,137 @@ var _ = Describe("createOptsFromSpec", func() {
 		Expect(createOpts).To(Equal(wantCreateOpts))
 	})
 
+	It("creates the kube-apiserver service with the configured health check", func() {
+		hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerServiceHealthCheck{
+			Protocol: "http",
+			Path:     "/readyz",
+		}
+
+		createOpts, err := createOptsFromSpec(hetznerCluster)
+		Expect(err).To(BeNil())
+
+		hc := createOpts.Services[0].HealthCheck
+		Expect(hc).NotTo(BeNil())
+		Expect(string(hc.Protocol)).To(Equal("http"))
+		Expect(hc.Port).NotTo(BeNil())
+		Expect(*hc.Port).To(Equal(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port))
+		Expect(hc.HTTP).NotTo(BeNil())
+		Expect(hc.HTTP.Path).NotTo(BeNil())
+		Expect(*hc.HTTP.Path).To(Equal("/readyz"))
+	})
+
 	It("returns ErrControlPlaneEndpointNotSet", func() {
 		hetznerCluster.Spec.ControlPlaneEndpoint = nil
 
 		_, err := createOptsFromSpec(hetznerCluster)
 		Expect(errors.Is(err, ErrControlPlaneEndpointNotSet)).To(BeTrue())
+	})
+})
+
+var _ = Describe("reconcileServices health check migration", func() {
+	const (
+		namespace   = "default"
+		clusterName = "test-cluster"
+	)
+
+	cpMachine := func(name string, annotated bool) *infrav1.HCloudMachine {
+		annotations := map[string]string{}
+		if annotated {
+			annotations[infrav1.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation] = "true"
+		}
+		return &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+				Labels: map[string]string{
+					clusterv1.ClusterNameLabel:         clusterName,
+					clusterv1.MachineControlPlaneLabel: "",
+				},
+				Annotations: annotations,
+			},
+		}
+	}
+
+	// newServiceWantingHTTPCheck sets up a fake load balancer whose kube-API service has the
+	// default tcp health check, and a spec that wants the http /readyz check, mimicking an existing
+	// cluster that wants to migrate.
+	newServiceWantingHTTPCheck := func(machines ...client.Object) (*Service, *hcloud.LoadBalancer) {
+		hcloudClient := fakehcloudclient.NewHCloudClientFactory().NewClient("")
+		createdLB, err := hcloudClient.CreateLoadBalancer(context.Background(), hcloud.LoadBalancerCreateOpts{
+			Name:      "test-lb",
+			Algorithm: &hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeRoundRobin},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		listenPort := 6443
+		destinationPort := 6443
+		proxyprotocolOff := false
+		tcpPort := 6443
+		Expect(hcloudClient.AddServiceToLoadBalancer(context.Background(), createdLB, hcloud.LoadBalancerAddServiceOpts{
+			Protocol:        hcloud.LoadBalancerServiceProtocolTCP,
+			ListenPort:      &listenPort,
+			DestinationPort: &destinationPort,
+			Proxyprotocol:   &proxyprotocolOff,
+			HealthCheck:     &hcloud.LoadBalancerAddServiceOptsHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP, Port: &tcpPort},
+		})).To(Succeed())
+
+		scheme := runtime.NewScheme()
+		Expect(clusterv1.AddToScheme(scheme)).To(Succeed())
+		Expect(infrav1.AddToScheme(scheme)).To(Succeed())
+
+		checkPort := 8443
+		hetznerCluster := &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: clusterName},
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{Port: 6443},
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled: true,
+					Port:    6443,
+					HealthCheck: &infrav1.LoadBalancerServiceHealthCheck{
+						Protocol: "http",
+						Path:     "/readyz",
+						Port:     &checkPort,
+					},
+				},
+			},
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{},
+			},
+		}
+
+		clusterScope := &scope.ClusterScope{
+			HetznerCluster: hetznerCluster,
+			HCloudClient:   hcloudClient,
+			Client:         fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(machines...).Build(),
+			Cluster: &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace},
+			},
+		}
+		return NewService(clusterScope), createdLB
+	}
+
+	It("switches the health check to http once all control-plane machines carry the annotation", func() {
+		svc, lb := newServiceWantingHTTPCheck(cpMachine("cp-1", true), cpMachine("cp-2", true))
+
+		res, err := svc.reconcileServices(context.Background(), lb)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.RequeueAfter).To(BeZero())
+
+		Expect(lb.Services).To(HaveLen(1))
+		Expect(string(lb.Services[0].HealthCheck.Protocol)).To(Equal("http"))
+		Expect(lb.Services[0].HealthCheck.HTTP).NotTo(BeNil())
+		Expect(lb.Services[0].HealthCheck.HTTP.Path).To(Equal("/readyz"))
+	})
+
+	It("requeues and keeps the tcp health check while a control-plane machine misses the annotation", func() {
+		svc, lb := newServiceWantingHTTPCheck(cpMachine("cp-1", true), cpMachine("cp-2", false))
+
+		res, err := svc.reconcileServices(context.Background(), lb)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.RequeueAfter).NotTo(BeZero())
+
+		Expect(lb.Services).To(HaveLen(1))
+		Expect(string(lb.Services[0].HealthCheck.Protocol)).To(Equal("tcp"))
+		Expect(lb.Services[0].HealthCheck.HTTP).To(BeNil())
 	})
 })

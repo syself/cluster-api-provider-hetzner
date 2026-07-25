@@ -425,8 +425,39 @@ func (c *cacheHCloudClient) AddServiceToLoadBalancer(_ context.Context, lb *hclo
 	if opts.Proxyprotocol != nil {
 		service.Proxyprotocol = *opts.Proxyprotocol
 	}
+	if hc := opts.HealthCheck; hc != nil {
+		var path *string
+		var tls *bool
+		var codes []string
+		if hc.HTTP != nil {
+			path, tls, codes = hc.HTTP.Path, hc.HTTP.TLS, hc.HTTP.StatusCodes
+		}
+		service.HealthCheck = serviceHealthCheckFromOpts(hc.Protocol, hc.Port, path, tls, codes)
+	}
 	c.loadBalancerCache.idMap[lb.ID].Services = append(c.loadBalancerCache.idMap[lb.ID].Services, service)
 	return nil
+}
+
+// serviceHealthCheckFromOpts builds an observed health check from the fields the add and update
+// options carry, so a reconcile that sets a health check is reflected back on the next read. It
+// takes primitives because the add and update option HTTP structs are separate types with the
+// same fields, and it carries the fields the load-balancer reconcile compares: protocol, port,
+// and the http path, TLS, and status codes.
+func serviceHealthCheckFromOpts(protocol hcloud.LoadBalancerServiceProtocol, port *int, path *string, tls *bool, statusCodes []string) hcloud.LoadBalancerServiceHealthCheck {
+	hc := hcloud.LoadBalancerServiceHealthCheck{Protocol: protocol}
+	if port != nil {
+		hc.Port = *port
+	}
+	if path != nil || tls != nil || len(statusCodes) > 0 {
+		hc.HTTP = &hcloud.LoadBalancerServiceHealthCheckHTTP{StatusCodes: statusCodes}
+		if path != nil {
+			hc.HTTP.Path = *path
+		}
+		if tls != nil {
+			hc.HTTP.TLS = *tls
+		}
+	}
+	return hc
 }
 
 func (c *cacheHCloudClient) UpdateServiceOnLoadBalancer(_ context.Context, lb *hcloud.LoadBalancer, listenPort int, opts hcloud.LoadBalancerUpdateServiceOpts) error {
@@ -449,6 +480,15 @@ func (c *cacheHCloudClient) UpdateServiceOnLoadBalancer(_ context.Context, lb *h
 		}
 		if opts.Protocol != "" {
 			c.loadBalancerCache.idMap[lb.ID].Services[i].Protocol = opts.Protocol
+		}
+		if hc := opts.HealthCheck; hc != nil {
+			var path *string
+			var tls *bool
+			var codes []string
+			if hc.HTTP != nil {
+				path, tls, codes = hc.HTTP.Path, hc.HTTP.TLS, hc.HTTP.StatusCodes
+			}
+			c.loadBalancerCache.idMap[lb.ID].Services[i].HealthCheck = serviceHealthCheckFromOpts(hc.Protocol, hc.Port, path, tls, codes)
 		}
 		return nil
 	}
