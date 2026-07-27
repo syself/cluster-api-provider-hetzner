@@ -17,6 +17,7 @@ limitations under the License.
 package loadbalancer
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -31,7 +32,7 @@ func TestHealthCheckDiffers(t *testing.T) {
 	tests := []struct {
 		name     string
 		observed hcloud.LoadBalancerServiceHealthCheck
-		desired  *infrav1.LoadBalancerServiceHealthCheck
+		desired  *infrav1.LoadBalancerHealthCheckSpec
 		want     bool
 	}{
 		{
@@ -42,43 +43,43 @@ func TestHealthCheckDiffers(t *testing.T) {
 		{
 			name:     "matching https readyz check",
 			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "https", Port: servicePort, HTTP: &hcloud.LoadBalancerServiceHealthCheckHTTP{Path: "/readyz", TLS: true}},
-			desired:  &infrav1.LoadBalancerServiceHealthCheck{Protocol: "https", Path: "/readyz"},
+			desired:  &infrav1.LoadBalancerHealthCheckSpec{Protocol: "https", Path: ptr.To("/readyz")},
 			want:     false,
 		},
 		{
 			name:     "protocol change from tcp to https",
 			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "tcp", Port: servicePort},
-			desired:  &infrav1.LoadBalancerServiceHealthCheck{Protocol: "https", Path: "/readyz"},
+			desired:  &infrav1.LoadBalancerHealthCheckSpec{Protocol: "https", Path: ptr.To("/readyz")},
 			want:     true,
 		},
 		{
 			name:     "path change",
 			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "https", Port: servicePort, HTTP: &hcloud.LoadBalancerServiceHealthCheckHTTP{Path: "/healthz", TLS: true}},
-			desired:  &infrav1.LoadBalancerServiceHealthCheck{Protocol: "https", Path: "/readyz"},
+			desired:  &infrav1.LoadBalancerHealthCheckSpec{Protocol: "https", Path: ptr.To("/readyz")},
 			want:     true,
 		},
 		{
 			name:     "tls flips when https desired but observed is plain http",
 			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "https", Port: servicePort, HTTP: &hcloud.LoadBalancerServiceHealthCheckHTTP{Path: "/readyz", TLS: false}},
-			desired:  &infrav1.LoadBalancerServiceHealthCheck{Protocol: "https", Path: "/readyz"},
+			desired:  &infrav1.LoadBalancerHealthCheckSpec{Protocol: "https", Path: ptr.To("/readyz")},
 			want:     true,
 		},
 		{
 			name:     "custom port differs from default",
 			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "tcp", Port: servicePort},
-			desired:  &infrav1.LoadBalancerServiceHealthCheck{Protocol: "tcp", Port: ptr.To(8443)},
+			desired:  &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp", Port: ptr.To(8443)},
 			want:     true,
 		},
 		{
 			name:     "interval differs",
 			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "tcp", Port: servicePort, Interval: 15 * time.Second},
-			desired:  &infrav1.LoadBalancerServiceHealthCheck{Protocol: "tcp", IntervalSeconds: ptr.To(5)},
+			desired:  &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp", IntervalSeconds: ptr.To(5)},
 			want:     true,
 		},
 		{
 			name:     "status codes differ",
-			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "https", Port: servicePort, HTTP: &hcloud.LoadBalancerServiceHealthCheckHTTP{Path: "/readyz", TLS: true, StatusCodes: []string{"2xx"}}},
-			desired:  &infrav1.LoadBalancerServiceHealthCheck{Protocol: "https", Path: "/readyz", StatusCodes: []string{"200"}},
+			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "https", Port: servicePort, HTTP: &hcloud.LoadBalancerServiceHealthCheckHTTP{Path: "/readyz", TLS: true, StatusCodes: []string{"2??"}}},
+			desired:  &infrav1.LoadBalancerHealthCheckSpec{Protocol: "https", Path: ptr.To("/readyz"), StatusCodes: []string{"200"}},
 			want:     true,
 		},
 	}
@@ -96,12 +97,7 @@ func TestHealthCheckAddOpts(t *testing.T) {
 		t.Fatalf("healthCheckAddOpts(nil) = %v, want nil so the service keeps the default TCP check", got)
 	}
 
-	hc := &infrav1.LoadBalancerServiceHealthCheck{
-		Protocol:    "https",
-		Path:        "/readyz",
-		StatusCodes: []string{"200"},
-		Retries:     ptr.To(2),
-	}
+	hc := fullHealthCheckSpec()
 	got := healthCheckAddOpts(hc, 6443)
 	if got == nil {
 		t.Fatal("healthCheckAddOpts() = nil, want opts")
@@ -115,16 +111,45 @@ func TestHealthCheckAddOpts(t *testing.T) {
 	if got.Retries == nil || *got.Retries != 2 {
 		t.Errorf("Retries = %v, want 2", got.Retries)
 	}
+	if got.Interval == nil || *got.Interval != 5*time.Second {
+		t.Errorf("Interval = %v, want 5s from intervalSeconds 5", got.Interval)
+	}
+	if got.Timeout == nil || *got.Timeout != 3*time.Second {
+		t.Errorf("Timeout = %v, want 3s from timeoutSeconds 3", got.Timeout)
+	}
 	if got.HTTP == nil || got.HTTP.Path == nil || *got.HTTP.Path != "/readyz" {
 		t.Fatalf("HTTP path = %v, want /readyz", got.HTTP)
+	}
+	if got.HTTP.Domain == nil || *got.HTTP.Domain != "example.com" {
+		t.Errorf("HTTP.Domain = %v, want example.com", got.HTTP.Domain)
+	}
+	if got.HTTP.Response == nil || *got.HTTP.Response != "ok" {
+		t.Errorf("HTTP.Response = %v, want ok", got.HTTP.Response)
+	}
+	if !slices.Equal(got.HTTP.StatusCodes, []string{"200"}) {
+		t.Errorf("HTTP.StatusCodes = %v, want [200]", got.HTTP.StatusCodes)
 	}
 	if got.HTTP.TLS == nil || !*got.HTTP.TLS {
 		t.Errorf("HTTP.TLS = %v, want true for https", got.HTTP.TLS)
 	}
 }
 
+// fullHealthCheckSpec sets every field, so a builder that drops one is caught.
+func fullHealthCheckSpec() *infrav1.LoadBalancerHealthCheckSpec {
+	return &infrav1.LoadBalancerHealthCheckSpec{
+		Protocol:        "https",
+		Path:            ptr.To("/readyz"),
+		Domain:          ptr.To("example.com"),
+		Response:        ptr.To("ok"),
+		StatusCodes:     []string{"200"},
+		IntervalSeconds: ptr.To(5),
+		TimeoutSeconds:  ptr.To(3),
+		Retries:         ptr.To(2),
+	}
+}
+
 func TestHealthCheckAddOptsTCPHasNoHTTP(t *testing.T) {
-	got := healthCheckAddOpts(&infrav1.LoadBalancerServiceHealthCheck{Protocol: "tcp"}, 6443)
+	got := healthCheckAddOpts(&infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp"}, 6443)
 	if got == nil {
 		t.Fatal("healthCheckAddOpts() = nil, want opts")
 	}
@@ -138,13 +163,7 @@ func TestHealthCheckCreateOpts(t *testing.T) {
 		t.Fatalf("healthCheckCreateOpts(nil) = %v, want nil so the service keeps the default TCP check", got)
 	}
 
-	hc := &infrav1.LoadBalancerServiceHealthCheck{
-		Protocol:    "https",
-		Path:        "/readyz",
-		StatusCodes: []string{"200"},
-		Retries:     ptr.To(2),
-	}
-	got := healthCheckCreateOpts(hc, 6443)
+	got := healthCheckCreateOpts(fullHealthCheckSpec(), 6443)
 	if got == nil {
 		t.Fatal("healthCheckCreateOpts() = nil, want opts")
 	}
@@ -157,8 +176,23 @@ func TestHealthCheckCreateOpts(t *testing.T) {
 	if got.Retries == nil || *got.Retries != 2 {
 		t.Errorf("Retries = %v, want 2", got.Retries)
 	}
+	if got.Interval == nil || *got.Interval != 5*time.Second {
+		t.Errorf("Interval = %v, want 5s from intervalSeconds 5", got.Interval)
+	}
+	if got.Timeout == nil || *got.Timeout != 3*time.Second {
+		t.Errorf("Timeout = %v, want 3s from timeoutSeconds 3", got.Timeout)
+	}
 	if got.HTTP == nil || got.HTTP.Path == nil || *got.HTTP.Path != "/readyz" {
 		t.Fatalf("HTTP path = %v, want /readyz", got.HTTP)
+	}
+	if got.HTTP.Domain == nil || *got.HTTP.Domain != "example.com" {
+		t.Errorf("HTTP.Domain = %v, want example.com", got.HTTP.Domain)
+	}
+	if got.HTTP.Response == nil || *got.HTTP.Response != "ok" {
+		t.Errorf("HTTP.Response = %v, want ok", got.HTTP.Response)
+	}
+	if !slices.Equal(got.HTTP.StatusCodes, []string{"200"}) {
+		t.Errorf("HTTP.StatusCodes = %v, want [200]", got.HTTP.StatusCodes)
 	}
 	if got.HTTP.TLS == nil || !*got.HTTP.TLS {
 		t.Errorf("HTTP.TLS = %v, want true for https", got.HTTP.TLS)
@@ -166,7 +200,7 @@ func TestHealthCheckCreateOpts(t *testing.T) {
 }
 
 func TestHealthCheckCreateOptsTCPHasNoHTTP(t *testing.T) {
-	got := healthCheckCreateOpts(&infrav1.LoadBalancerServiceHealthCheck{Protocol: "tcp"}, 6443)
+	got := healthCheckCreateOpts(&infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp"}, 6443)
 	if got == nil {
 		t.Fatal("healthCheckCreateOpts() = nil, want opts")
 	}
@@ -179,7 +213,7 @@ func TestHealthCheckMigratesToHTTP(t *testing.T) {
 	tests := []struct {
 		name     string
 		observed hcloud.LoadBalancerServiceHealthCheck
-		desired  *infrav1.LoadBalancerServiceHealthCheck
+		desired  *infrav1.LoadBalancerHealthCheckSpec
 		want     bool
 	}{
 		{
@@ -190,31 +224,31 @@ func TestHealthCheckMigratesToHTTP(t *testing.T) {
 		{
 			name:     "tcp to http is a gated migration",
 			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "tcp"},
-			desired:  &infrav1.LoadBalancerServiceHealthCheck{Protocol: "http", Path: "/readyz"},
+			desired:  &infrav1.LoadBalancerHealthCheckSpec{Protocol: "http", Path: ptr.To("/readyz")},
 			want:     true,
 		},
 		{
 			name:     "tcp to https is a gated migration",
 			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "tcp"},
-			desired:  &infrav1.LoadBalancerServiceHealthCheck{Protocol: "https", Path: "/readyz"},
+			desired:  &infrav1.LoadBalancerHealthCheckSpec{Protocol: "https", Path: ptr.To("/readyz")},
 			want:     true,
 		},
 		{
 			name:     "tcp to tcp is not a migration",
 			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "tcp"},
-			desired:  &infrav1.LoadBalancerServiceHealthCheck{Protocol: "tcp"},
+			desired:  &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp"},
 			want:     false,
 		},
 		{
 			name:     "a path change within http is not a migration",
 			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "http", HTTP: &hcloud.LoadBalancerServiceHealthCheckHTTP{Path: "/healthz"}},
-			desired:  &infrav1.LoadBalancerServiceHealthCheck{Protocol: "http", Path: "/readyz"},
+			desired:  &infrav1.LoadBalancerHealthCheckSpec{Protocol: "http", Path: ptr.To("/readyz")},
 			want:     false,
 		},
 		{
 			name:     "http to https stays within http and is not gated as a tcp migration",
 			observed: hcloud.LoadBalancerServiceHealthCheck{Protocol: "http", HTTP: &hcloud.LoadBalancerServiceHealthCheckHTTP{Path: "/readyz"}},
-			desired:  &infrav1.LoadBalancerServiceHealthCheck{Protocol: "https", Path: "/readyz"},
+			desired:  &infrav1.LoadBalancerHealthCheckSpec{Protocol: "https", Path: ptr.To("/readyz")},
 			want:     false,
 		},
 	}
@@ -232,7 +266,8 @@ func TestHealthCheckUpdateOpts(t *testing.T) {
 		t.Fatalf("healthCheckUpdateOpts(nil) = %v, want nil", got)
 	}
 
-	hc := &infrav1.LoadBalancerServiceHealthCheck{Protocol: "https", Path: "/readyz", Port: ptr.To(8443)}
+	hc := fullHealthCheckSpec()
+	hc.Port = ptr.To(8443)
 	got := healthCheckUpdateOpts(hc, 6443)
 	if got == nil {
 		t.Fatal("healthCheckUpdateOpts() = nil, want opts")
@@ -243,8 +278,17 @@ func TestHealthCheckUpdateOpts(t *testing.T) {
 	if got.Port == nil || *got.Port != 8443 {
 		t.Errorf("Port = %v, want the explicit 8443", got.Port)
 	}
+	if got.Interval == nil || *got.Interval != 5*time.Second {
+		t.Errorf("Interval = %v, want 5s from intervalSeconds 5", got.Interval)
+	}
+	if got.Timeout == nil || *got.Timeout != 3*time.Second {
+		t.Errorf("Timeout = %v, want 3s from timeoutSeconds 3", got.Timeout)
+	}
 	if got.HTTP == nil || got.HTTP.Path == nil || *got.HTTP.Path != "/readyz" {
 		t.Fatalf("HTTP path = %v, want /readyz", got.HTTP)
+	}
+	if !slices.Equal(got.HTTP.StatusCodes, []string{"200"}) {
+		t.Errorf("HTTP.StatusCodes = %v, want [200]", got.HTTP.StatusCodes)
 	}
 	if got.HTTP.TLS == nil || !*got.HTTP.TLS {
 		t.Errorf("HTTP.TLS = %v, want true for https", got.HTTP.TLS)

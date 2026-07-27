@@ -286,8 +286,8 @@ func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx
 // infrastructure machine carries capi.syself.com/http-health-check-for-controlplane-loadbalancer:
 // "true", set on the control-plane machine template. It gates the one-way switch of the
 // control-plane load balancer health check from tcp to http in place, so the switch happens only
-// after every control plane runs an image that answers the health-check path. It works the same
-// way as the proxy-protocol gate.
+// after every control-plane machine comes from a template that expects an http check. It works
+// the same way as the proxy-protocol gate.
 func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(ctx context.Context) (bool, error) {
 	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav1.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, "http health check")
 }

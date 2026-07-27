@@ -157,8 +157,8 @@ spec:
                   healthCheck:
                     description: |-
                       HealthCheck configures the health check the load balancer runs against the
-                      kube-apiserver service targets. When it is omitted, the service uses a plain
-                      TCP check on the service port, so a target counts as healthy as soon as the
+                      kube-apiserver service targets. As long as it has never been set, the service uses
+                      a plain TCP check on the service port, so a target counts as healthy as soon as the
                       port accepts a connection.
 
                       Set an http or https check with a Path to have the load balancer route only
@@ -166,7 +166,11 @@ spec:
                       endpoint), and drop a target that stops answering it. Only the kube-apiserver
                       service is affected; extra services are never given a custom health check.
 
-                      On an existing cluster, switching from the default tcp check to an http or https check
+                      Removing HealthCheck again does not bring the TCP check back. CAPH only writes the
+                      health check it is given and never resets one, so the load balancer keeps the last
+                      check that was applied.
+
+                      On an existing cluster, switching from the tcp check to an http or https check
                       is a one-way migration that CAPH performs only after every control-plane machine carries
                       the annotation capi.syself.com/http-health-check-for-controlplane-loadbalancer: "true",
                       set on the control-plane machine template. Until then the tcp check stays in place, so
@@ -174,21 +178,28 @@ spec:
                       cluster gets the configured check from the start. This mirrors the proxy-protocol
                       migration in EnableProxyProtocol.
                     properties:
+                      domain:
+                        description: |-
+                          Domain is the Host header sent with the http or https check request. Only
+                          valid when Protocol is http or https.
+                        type: string
                       intervalSeconds:
                         description: |-
                           IntervalSeconds is how often the check runs, in seconds. It defaults to the
                           load balancer default when unset.
-                        minimum: 1
+                        maximum: 60
+                        minimum: 3
                         type: integer
                       path:
                         description: |-
                           Path is the request path for an http or https check, for example "/readyz".
-                          It is required for http and https and ignored for tcp.
+                          Only valid when Protocol is http or https.
                         type: string
                       port:
                         description: |-
                           Port is the target port the check runs against. It defaults to the service's
-                          destination port.
+                          destination port. Set it when the health-check endpoint is served on a
+                          different port than the API server itself.
                         maximum: 65535
                         minimum: 1
                         type: integer
@@ -203,16 +214,22 @@ spec:
                         - http
                         - https
                         type: string
+                      response:
+                        description: |-
+                          Response is a string that must appear in the http or https response for the
+                          check to pass. Only valid when Protocol is http or https.
+                        type: string
                       retries:
                         description: |-
                           Retries is how many consecutive failed checks mark a target unhealthy. It
                           defaults to the load balancer default when unset.
+                        maximum: 5
                         minimum: 0
                         type: integer
                       statusCodes:
                         description: |-
                           StatusCodes are the HTTP response status codes counted as healthy, for
-                          example ["200"]. Single codes ("200") and ranges ("2xx") are both allowed.
+                          example ["200"]. Single codes ("200") and wildcards ("2??") are both allowed.
                           It applies to http and https checks and defaults to the load balancer default
                           when empty.
                         items:
@@ -222,6 +239,7 @@ spec:
                         description: |-
                           TimeoutSeconds is how long the check waits for a response, in seconds. It
                           defaults to the load balancer default when unset.
+                        maximum: 60
                         minimum: 1
                         type: integer
                     required:

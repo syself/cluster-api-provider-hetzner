@@ -60,8 +60,8 @@ const (
 	// control-plane load balancer health check from tcp to http or https on an EXISTING cluster
 	// (migration path). It must be present with value "true" on ALL control-plane machines before
 	// CAPH switches the load balancer health check in place. The annotation is set on the
-	// control-plane machine template, so it is present exactly on the machines whose image answers
-	// the health check path; machines from an earlier template do not carry it. CAPH reads this
+	// control-plane machine template, so it is present exactly on the machines whose template
+	// expects an http check; machines from an earlier template do not carry it. CAPH reads this
 	// annotation on the control-plane machines; it never writes it. This mirrors the proxy-protocol
 	// migration.
 	//

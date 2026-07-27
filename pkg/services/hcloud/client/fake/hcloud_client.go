@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 
@@ -426,35 +427,69 @@ func (c *cacheHCloudClient) AddServiceToLoadBalancer(_ context.Context, lb *hclo
 		service.Proxyprotocol = *opts.Proxyprotocol
 	}
 	if hc := opts.HealthCheck; hc != nil {
-		var path *string
-		var tls *bool
-		var codes []string
+		var http *serviceHealthCheckHTTP
 		if hc.HTTP != nil {
-			path, tls, codes = hc.HTTP.Path, hc.HTTP.TLS, hc.HTTP.StatusCodes
+			http = &serviceHealthCheckHTTP{
+				Domain:      hc.HTTP.Domain,
+				Path:        hc.HTTP.Path,
+				Response:    hc.HTTP.Response,
+				StatusCodes: hc.HTTP.StatusCodes,
+				TLS:         hc.HTTP.TLS,
+			}
 		}
-		service.HealthCheck = serviceHealthCheckFromOpts(hc.Protocol, hc.Port, path, tls, codes)
+		service.HealthCheck = serviceHealthCheckFromOpts(hc.Protocol, hc.Port, hc.Interval, hc.Timeout, hc.Retries, http)
 	}
 	c.loadBalancerCache.idMap[lb.ID].Services = append(c.loadBalancerCache.idMap[lb.ID].Services, service)
 	return nil
 }
 
+// serviceHealthCheckHTTP holds the http fields of a health check. The add and update options
+// carry them in separate Go types with the same fields, so each caller copies into this one.
+type serviceHealthCheckHTTP struct {
+	Domain      *string
+	Path        *string
+	Response    *string
+	StatusCodes []string
+	TLS         *bool
+}
+
 // serviceHealthCheckFromOpts builds an observed health check from the fields the add and update
 // options carry, so a reconcile that sets a health check is reflected back on the next read. It
-// takes primitives because the add and update option HTTP structs are separate types with the
-// same fields, and it carries the fields the load-balancer reconcile compares: protocol, port,
-// and the http path, TLS, and status codes.
-func serviceHealthCheckFromOpts(protocol hcloud.LoadBalancerServiceProtocol, port *int, path *string, tls *bool, statusCodes []string) hcloud.LoadBalancerServiceHealthCheck {
+// covers every field healthCheckDiffers compares, so a test that sets a field does not see the
+// service drift from the spec forever.
+func serviceHealthCheckFromOpts(
+	protocol hcloud.LoadBalancerServiceProtocol,
+	port *int,
+	interval, timeout *time.Duration,
+	retries *int,
+	http *serviceHealthCheckHTTP,
+) hcloud.LoadBalancerServiceHealthCheck {
 	hc := hcloud.LoadBalancerServiceHealthCheck{Protocol: protocol}
 	if port != nil {
 		hc.Port = *port
 	}
-	if path != nil || tls != nil || len(statusCodes) > 0 {
-		hc.HTTP = &hcloud.LoadBalancerServiceHealthCheckHTTP{StatusCodes: statusCodes}
-		if path != nil {
-			hc.HTTP.Path = *path
+	if interval != nil {
+		hc.Interval = *interval
+	}
+	if timeout != nil {
+		hc.Timeout = *timeout
+	}
+	if retries != nil {
+		hc.Retries = *retries
+	}
+	if http != nil {
+		hc.HTTP = &hcloud.LoadBalancerServiceHealthCheckHTTP{StatusCodes: http.StatusCodes}
+		if http.Domain != nil {
+			hc.HTTP.Domain = *http.Domain
 		}
-		if tls != nil {
-			hc.HTTP.TLS = *tls
+		if http.Path != nil {
+			hc.HTTP.Path = *http.Path
+		}
+		if http.Response != nil {
+			hc.HTTP.Response = *http.Response
+		}
+		if http.TLS != nil {
+			hc.HTTP.TLS = *http.TLS
 		}
 	}
 	return hc
@@ -482,13 +517,17 @@ func (c *cacheHCloudClient) UpdateServiceOnLoadBalancer(_ context.Context, lb *h
 			c.loadBalancerCache.idMap[lb.ID].Services[i].Protocol = opts.Protocol
 		}
 		if hc := opts.HealthCheck; hc != nil {
-			var path *string
-			var tls *bool
-			var codes []string
+			var http *serviceHealthCheckHTTP
 			if hc.HTTP != nil {
-				path, tls, codes = hc.HTTP.Path, hc.HTTP.TLS, hc.HTTP.StatusCodes
+				http = &serviceHealthCheckHTTP{
+					Domain:      hc.HTTP.Domain,
+					Path:        hc.HTTP.Path,
+					Response:    hc.HTTP.Response,
+					StatusCodes: hc.HTTP.StatusCodes,
+					TLS:         hc.HTTP.TLS,
+				}
 			}
-			c.loadBalancerCache.idMap[lb.ID].Services[i].HealthCheck = serviceHealthCheckFromOpts(hc.Protocol, hc.Port, path, tls, codes)
+			c.loadBalancerCache.idMap[lb.ID].Services[i].HealthCheck = serviceHealthCheckFromOpts(hc.Protocol, hc.Port, hc.Interval, hc.Timeout, hc.Retries, http)
 		}
 		return nil
 	}

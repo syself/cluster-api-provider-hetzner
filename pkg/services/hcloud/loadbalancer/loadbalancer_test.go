@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -338,9 +339,9 @@ var _ = Describe("createOptsFromSpec", func() {
 	})
 
 	It("creates the kube-apiserver service with the configured health check", func() {
-		hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerServiceHealthCheck{
+		hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerHealthCheckSpec{
 			Protocol: "http",
-			Path:     "/readyz",
+			Path:     ptr.To("/readyz"),
 		}
 
 		createOpts, err := createOptsFromSpec(hetznerCluster)
@@ -388,10 +389,9 @@ var _ = Describe("reconcileServices health check migration", func() {
 		}
 	}
 
-	// newServiceWantingHTTPCheck sets up a fake load balancer whose kube-API service has the
-	// default tcp health check, and a spec that wants the http /readyz check, mimicking an existing
-	// cluster that wants to migrate.
-	newServiceWantingHTTPCheck := func(machines ...client.Object) (*Service, *hcloud.LoadBalancer) {
+	// newServiceWithExistingCheck sets up a fake load balancer whose kube-API service already has
+	// existingCheck, against a spec that wants the http /readyz check on port 8443.
+	newServiceWithExistingCheck := func(existingCheck *hcloud.LoadBalancerAddServiceOptsHealthCheck, machines ...client.Object) (*Service, *hcloud.LoadBalancer) {
 		hcloudClient := fakehcloudclient.NewHCloudClientFactory().NewClient("")
 		createdLB, err := hcloudClient.CreateLoadBalancer(context.Background(), hcloud.LoadBalancerCreateOpts{
 			Name:      "test-lb",
@@ -402,13 +402,12 @@ var _ = Describe("reconcileServices health check migration", func() {
 		listenPort := 6443
 		destinationPort := 6443
 		proxyprotocolOff := false
-		tcpPort := 6443
 		Expect(hcloudClient.AddServiceToLoadBalancer(context.Background(), createdLB, hcloud.LoadBalancerAddServiceOpts{
 			Protocol:        hcloud.LoadBalancerServiceProtocolTCP,
 			ListenPort:      &listenPort,
 			DestinationPort: &destinationPort,
 			Proxyprotocol:   &proxyprotocolOff,
-			HealthCheck:     &hcloud.LoadBalancerAddServiceOptsHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP, Port: &tcpPort},
+			HealthCheck:     existingCheck,
 		})).To(Succeed())
 
 		scheme := runtime.NewScheme()
@@ -423,9 +422,9 @@ var _ = Describe("reconcileServices health check migration", func() {
 				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
 					Enabled: true,
 					Port:    6443,
-					HealthCheck: &infrav1.LoadBalancerServiceHealthCheck{
+					HealthCheck: &infrav1.LoadBalancerHealthCheckSpec{
 						Protocol: "http",
-						Path:     "/readyz",
+						Path:     ptr.To("/readyz"),
 						Port:     &checkPort,
 					},
 				},
@@ -444,6 +443,16 @@ var _ = Describe("reconcileServices health check migration", func() {
 			},
 		}
 		return NewService(clusterScope), createdLB
+	}
+
+	// newServiceWantingHTTPCheck starts from the default tcp check, mimicking an existing cluster
+	// that wants to migrate.
+	newServiceWantingHTTPCheck := func(machines ...client.Object) (*Service, *hcloud.LoadBalancer) {
+		tcpPort := 6443
+		return newServiceWithExistingCheck(
+			&hcloud.LoadBalancerAddServiceOptsHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP, Port: &tcpPort},
+			machines...,
+		)
 	}
 
 	It("switches the health check to http once all control-plane machines carry the annotation", func() {
@@ -469,5 +478,25 @@ var _ = Describe("reconcileServices health check migration", func() {
 		Expect(lb.Services).To(HaveLen(1))
 		Expect(string(lb.Services[0].HealthCheck.Protocol)).To(Equal("tcp"))
 		Expect(lb.Services[0].HealthCheck.HTTP).To(BeNil())
+	})
+
+	It("changes the path on an already http check without waiting for the annotation", func() {
+		checkPort := 8443
+		oldPath := "/healthz"
+		tlsOff := false
+		// No machines at all, so the gate would block if this path went through it.
+		svc, lb := newServiceWithExistingCheck(&hcloud.LoadBalancerAddServiceOptsHealthCheck{
+			Protocol: hcloud.LoadBalancerServiceProtocolHTTP,
+			Port:     &checkPort,
+			HTTP:     &hcloud.LoadBalancerAddServiceOptsHealthCheckHTTP{Path: &oldPath, TLS: &tlsOff},
+		})
+
+		res, err := svc.reconcileServices(context.Background(), lb)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.RequeueAfter).To(BeZero())
+
+		Expect(lb.Services).To(HaveLen(1))
+		Expect(lb.Services[0].HealthCheck.HTTP).NotTo(BeNil())
+		Expect(lb.Services[0].HealthCheck.HTTP.Path).To(Equal("/readyz"))
 	})
 })
