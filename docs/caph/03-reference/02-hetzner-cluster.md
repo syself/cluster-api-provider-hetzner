@@ -34,8 +34,9 @@ By default the Hetzner load balancer checks the kube-apiserver service with a pl
 only verifies that the port accepts connections, not that the apiserver is ready to serve requests.
 Setting `controlPlaneLoadBalancer.healthCheck.protocol` to `http` or `https` makes the load balancer
 request a path (for example `/readyz`) instead, so a control plane that is not ready is taken out of
-rotation instead of receiving traffic. The field names mirror the Hetzner Cloud API's load balancer
-`health_check` object.
+rotation instead of receiving traffic. The field names and their limits mirror the Hetzner Cloud
+API's load balancer
+[`health_check` object](https://docs.hetzner.cloud/reference/cloud#tag/load-balancer-actions/add_load_balancer_service).
 
 The endpoint the check requests must answer without authentication, because the load balancer cannot
 present credentials. CAPH does not configure that for you. Use `healthCheck.port` when that endpoint
@@ -100,7 +101,7 @@ example editing `path` or `intervalSeconds`) is applied right away.
 | `controlPlaneLoadBalancer.healthCheck.port`              | `int`      | service port     | no       | Port the check runs against. Must be in range 1-65535                                                                                         |
 | `controlPlaneLoadBalancer.healthCheck.intervalSeconds`   | `int`      |                  | no       | Seconds between two checks. Must be in range 3-60                                                                                             |
 | `controlPlaneLoadBalancer.healthCheck.timeoutSeconds`    | `int`      |                  | no       | Seconds to wait for a response. Must be in range 1-60                                                                                         |
-| `controlPlaneLoadBalancer.healthCheck.retries`           | `int`      |                  | no       | Consecutive failed checks before a target counts as unhealthy. Must be in range 0-5                                                           |
+| `controlPlaneLoadBalancer.healthCheck.retries`           | `int`      |                  | no       | Consecutive failed checks before a target counts as unhealthy, and successful checks to become healthy again. Must be in range 1-5            |
 | `controlPlaneLoadBalancer.healthCheck.path`              | `string`   |                  | no       | Request path, for example `/readyz`. Only valid when protocol is http or https                                                                |
 | `controlPlaneLoadBalancer.healthCheck.domain`            | `string`   |                  | no       | Host header sent with the request. Only valid when protocol is http or https                                                                  |
 | `controlPlaneLoadBalancer.healthCheck.response`          | `string`   |                  | no       | String that must appear in the response. Only valid when protocol is http or https                                                            |

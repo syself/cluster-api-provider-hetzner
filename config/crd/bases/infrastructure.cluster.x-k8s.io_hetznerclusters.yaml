@@ -221,10 +221,11 @@ spec:
                         type: string
                       retries:
                         description: |-
-                          Retries is how many consecutive failed checks mark a target unhealthy. It
-                          defaults to the load balancer default when unset.
+                          Retries is how many consecutive failed checks mark a target unhealthy. The
+                          same number of successful checks makes it healthy again. It defaults to the
+                          load balancer default when unset.
                         maximum: 5
-                        minimum: 0
+                        minimum: 1
                         type: integer
                       statusCodes:
                         description: |-

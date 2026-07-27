@@ -278,6 +278,10 @@ type LoadBalancerServiceSpec struct {
 // LoadBalancerHealthCheckSpec configures the health check the load balancer runs
 // against the kube-apiserver service targets. When it is not set, the service uses
 // the default TCP check on the service port.
+//
+// The field names and the limits below mirror the health_check object of the Hetzner
+// Cloud API.
+// Docs: https://docs.hetzner.cloud/reference/cloud#tag/load-balancer-actions/add_load_balancer_service
 type LoadBalancerHealthCheckSpec struct {
 	// Protocol is the health-check protocol: tcp, http, or https. tcp checks that
 	// the port accepts a connection. http and https send a request to Path and
@@ -330,10 +334,11 @@ type LoadBalancerHealthCheckSpec struct {
 	// +kubebuilder:validation:Maximum=60
 	TimeoutSeconds *int `json:"timeoutSeconds,omitempty"`
 
-	// Retries is how many consecutive failed checks mark a target unhealthy. It
-	// defaults to the load balancer default when unset.
+	// Retries is how many consecutive failed checks mark a target unhealthy. The
+	// same number of successful checks makes it healthy again. It defaults to the
+	// load balancer default when unset.
 	// +optional
-	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=5
 	Retries *int `json:"retries,omitempty"`
 }
