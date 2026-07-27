@@ -455,8 +455,6 @@ const (
 	HCloudMachineEnablingRescueActionFailedReason = "EnablingRescueActionFailed"
 	// HCloudMachineEnablingRescueActionDoneReason indicates the rescue enable action is done.
 	HCloudMachineEnablingRescueActionDoneReason = "EnablingRescueActionDone"
-	// HCloudMachineRescueNotEnabledYetReason indicates the rescue system is not enabled yet.
-	HCloudMachineRescueNotEnabledYetReason = "RescueNotEnabledYet"
 
 	// HCloudMachineGettingSSHPrivateKeyFailedReason indicates getting the SSH private key failed.
 	HCloudMachineGettingSSHPrivateKeyFailedReason = "GettingSSHPrivateKeyFailed"
@@ -471,8 +469,6 @@ const (
 	HCloudMachineBootingToRescueReason = "BootingToRescue"
 	// HCloudMachineBootingToRescueTimedOutReason indicates booting to rescue mode timed out.
 	HCloudMachineBootingToRescueTimedOutReason = "BootingToRescueTimedOut"
-	// HCloudMachineWaitForRescueEnabledToBeFalseReason indicates waiting for rescue enabled to become false.
-	HCloudMachineWaitForRescueEnabledToBeFalseReason = "WaitingForRescueEnabledToBeFalse"
 
 	// HCloudMachineImageURLCommandNotAccessibleReason indicates the image URL command is not accessible.
 	HCloudMachineImageURLCommandNotAccessibleReason = "ImageURLCommandNotAccessible"

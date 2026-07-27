@@ -1426,7 +1426,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				msg = output.Message
 			}
 		}
-		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", msg)
+		record.Warn(s.scope.HetznerBareMetalHost, "CustomProvisionerFailed", msg)
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"CustomProvisionerFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
