@@ -42,21 +42,22 @@ The endpoint the check requests must answer without authentication, because the 
 present credentials. CAPH does not configure that for you. Use `healthCheck.port` when that endpoint
 is served on a different port than the API server itself.
 
-CAPH sends only the fields you set. A field you never set keeps Hetzner's own default for it (tcp,
-15s interval, 10s timeout, 3 retries). If `healthCheck` is left out entirely, CAPH never touches the
-load balancer's health check at all. Removing `healthCheck` again does not bring the TCP check back:
-CAPH has nothing to send in its place, so the load balancer keeps the last check that was applied.
-`path`, `domain`, `response` and `statusCodes` are only valid when `protocol` is `http` or `https`.
+CAPH sends only the fields you set. A field you never set keeps the default Hetzner applies for it,
+see the linked API reference above for the current defaults. If `healthCheck` is left out entirely,
+CAPH never touches the load balancer's health check at all. Removing `healthCheck` again does not
+bring the TCP check back: CAPH has nothing to send in its place, so the load balancer keeps the last
+check that was applied. `path`, `domain`, `response` and `statusCodes` are only valid when `protocol`
+is `http` or `https`.
 
 ### Safe migration on an existing cluster
 
 Switching an existing cluster from tcp to http or https is a one-way migration. If the load balancer
 switched right away, every control plane still running an older image that does not answer the path
 would be marked unhealthy at once, taking the API server offline. CAPH gates the switch the same way
-it gates `enableProxyProtocol`: it waits until every control plane machine carries the annotation
-`capi.syself.com/http-health-check-for-controlplane-loadbalancer: "true"`, set on the control plane
-machine template, before switching the check in place. Until then the tcp check stays active and
-CAPH requeues.
+it gates `enableProxyProtocol`: it waits until every control plane infra machine carries the
+annotation `capi.syself.com/http-health-check-for-controlplane-loadbalancer: "true"`, set on the
+control plane infra machine template, before switching the check in place. Until then the tcp check
+stays active and CAPH requeues.
 
 The gate only covers the switch away from tcp. A new cluster whose spec already sets an http or https
 check is created with that check from the start, and a change that stays within http or https (for

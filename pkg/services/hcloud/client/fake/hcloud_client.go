@@ -455,8 +455,7 @@ type serviceHealthCheckHTTP struct {
 
 // serviceHealthCheckFromOpts builds an observed health check from the fields the add and update
 // options carry, so a reconcile that sets a health check is reflected back on the next read. It
-// covers every field healthCheckDiffers compares, so a test that sets a field does not see the
-// service drift from the spec forever.
+// copies every field, so a test that sets one does not see the service drift from the spec forever.
 func serviceHealthCheckFromOpts(
 	protocol hcloud.LoadBalancerServiceProtocol,
 	port *int,

@@ -135,9 +135,9 @@ spec:
                               unexpected PROXY-protocol headers.
 
                               For existing clusters that want to enable proxy protocol after the fact, CAPH waits until
-                              every control-plane machine carries the annotation
+                              every control-plane infra machine carries the annotation
                               capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" before switching the LB
-                              service to proxy protocol in place. The annotation is set on the control-plane machine
+                              service to proxy protocol in place. The annotation is set on the control-plane infra machine
                               template, so a machine from an earlier template does not carry it and the check stays false
                               until the rollout completes. This prevents backends still expecting plain TCP from receiving
                               malformed PROXY-protocol headers.
@@ -192,16 +192,17 @@ spec:
                               endpoint), and drop a target that stops answering it. Only the kube-apiserver
                               service is affected; extra services are never given a custom health check.
 
-                              Removing HealthCheck again does not bring the TCP check back. CAPH only writes the
-                              health check it is given and never resets one, so the load balancer keeps the last
-                              check that was applied.
+                              Every field can be changed later and CAPH applies the change, with the timing below
+                              for the first switch away from the TCP check. Removing HealthCheck is the exception:
+                              CAPH then stops managing the check, and the load balancer keeps the last check that
+                              was applied instead of going back to the TCP check.
 
-                              On an existing cluster, switching from the tcp check to an http or https check
-                              is a one-way migration that CAPH performs only after every control-plane machine carries
-                              the annotation capi.syself.com/http-health-check-for-controlplane-loadbalancer: "true",
-                              set on the control-plane machine template. Until then the tcp check stays in place, so
-                              the switch never marks a backend that does not yet answer the path unhealthy. A new
-                              cluster gets the configured check from the start. This mirrors the proxy-protocol
+                              On an existing cluster, the switch from the TCP check to an http or https check waits
+                              until every control-plane infra machine carries the annotation
+                              capi.syself.com/http-health-check-for-controlplane-loadbalancer: "true", set on the
+                              control-plane infra machine template. Until then the TCP check stays in place, so the
+                              switch never marks a backend that does not yet answer the path unhealthy. A new
+                              cluster gets the configured check from the start. This works like the proxy-protocol
                               migration in EnableProxyProtocol.
                             properties:
                               domain:

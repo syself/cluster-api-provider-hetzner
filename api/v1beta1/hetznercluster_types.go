@@ -47,27 +47,26 @@ const (
 
 	// ProxyProtocolForControlPlaneLoadBalancerAnnotation is used only when enabling proxy protocol
 	// on an EXISTING cluster (migration path). It must be present with value "true" on ALL
-	// control-plane machines before CAPH switches the LB service to proxy protocol in place.
-	// The annotation is set on the control-plane machine template, so it is present exactly on
-	// the machines whose template expects proxy protocol; machines from an earlier template do not
-	// carry it. CAPH reads this annotation on the control-plane machines; it never writes it.
+	// control-plane infra machines before CAPH switches the LB service to proxy protocol in place.
+	// The annotation is set on the control-plane infra machine template, so it is present exactly
+	// on the machines whose template expects proxy protocol; machines from an earlier template do
+	// not carry it. CAPH reads this annotation on the control-plane infra machines; it never
+	// writes it.
 	//
 	// For NEW clusters created with EnableProxyProtocol: true, this annotation is never read:
 	// the LB service is created with proxy protocol from the start, so no migration is needed.
 	ProxyProtocolForControlPlaneLoadBalancerAnnotation = "capi.syself.com/proxy-protocol-for-controlplane-loadbalancer"
 
-	// HTTPHealthCheckForControlPlaneLoadBalancerAnnotation is used only when switching the
-	// control-plane load balancer health check from tcp to http or https on an EXISTING cluster
-	// (migration path). It must be present with value "true" on ALL control-plane machines before
-	// CAPH switches the load balancer health check in place. The annotation is set on the
-	// control-plane machine template, so it is present exactly on the machines whose template
-	// expects an http check; machines from an earlier template do not carry it. CAPH reads this
-	// annotation on the control-plane machines; it never writes it. This mirrors the proxy-protocol
-	// migration.
+	// HTTPHealthCheckForControlPlaneLoadBalancerAnnotation is read when an EXISTING cluster
+	// switches the control-plane load balancer health check from tcp to http or https. CAPH
+	// switches the check only once every control-plane infra machine (HCloudMachine or
+	// HetznerBareMetalMachine) carries it with value "true". Set it on the control-plane infra
+	// machine template, so only machines from a template that expects an http check carry it.
+	// CAPH reads this annotation, it never writes it. This works like the proxy-protocol
+	// migration above.
 	//
-	// For a NEW cluster whose spec already sets an http or https health check, this annotation is
-	// never read: the load balancer service is created with that check from the start, so no
-	// migration is needed.
+	// A NEW cluster whose spec already sets an http or https check never reads this annotation:
+	// the load balancer service is created with that check from the start.
 	HTTPHealthCheckForControlPlaneLoadBalancerAnnotation = "capi.syself.com/http-health-check-for-controlplane-loadbalancer"
 )
 

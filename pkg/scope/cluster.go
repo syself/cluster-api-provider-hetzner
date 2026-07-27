@@ -284,18 +284,19 @@ func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx
 
 // AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck returns true when every control-plane
 // infrastructure machine carries capi.syself.com/http-health-check-for-controlplane-loadbalancer:
-// "true", set on the control-plane machine template. It gates the one-way switch of the
-// control-plane load balancer health check from tcp to http in place, so the switch happens only
-// after every control-plane machine comes from a template that expects an http check. It works
-// the same way as the proxy-protocol gate.
+// "true", set on the control-plane infrastructure machine template. The caller uses it to hold back
+// the switch of the control-plane load balancer health check from tcp to http, so the switch happens
+// only once every machine comes from a template that expects an http check. It works the same way as
+// the proxy-protocol gate.
 func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(ctx context.Context) (bool, error) {
 	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav1.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, "http health check")
 }
 
 // allControlPlaneInfraMachinesAnnotated returns true when every control-plane infrastructure
 // machine (HCloudMachine and HetznerBareMetalMachine) carries annotation with value "true". The
-// annotation is set on the control-plane machine template, so a machine from an earlier template
-// does not carry it and the check stays false until the last such machine is replaced. It returns
+// annotation is set on the control-plane infrastructure machine template, so a machine from an
+// earlier template does not carry it and the check stays false until the last such machine is
+// replaced. It returns
 // false (no error) while the cluster has no control-plane infrastructure machines yet. logLabel
 // prefixes the debug logs so they name the feature being gated.
 func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context, annotation, logLabel string) (bool, error) {
