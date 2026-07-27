@@ -253,7 +253,7 @@ type Factory interface {
 
 	// EvictConnectionsForIP closes and removes any pooled connection to the
 	// given IP, regardless of port or private key. Callers should call this
-	// once a host leaves the rescue-related states, so the connection cache
+	// once a host leaves the rescue-related states, so the connection pool
 	// doesn't linger beyond the window where reuse is actually useful.
 	EvictConnectionsForIP(ip string)
 }
@@ -352,6 +352,17 @@ func (f *sshFactory) entry(key connKey) *pooledConn {
 	return pc
 }
 
+// closeAndClear closes pc's pooled client, if any, and clears it so the entry
+// is ready to dial a fresh connection next time.
+func (pc *pooledConn) closeAndClear() {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if pc.client != nil {
+		_ = pc.client.Close()
+		pc.client = nil
+	}
+}
+
 // evict removes the pooled entry for key from the map first and closes the
 // connection afterwards, outside of f.mu.
 //
@@ -375,12 +386,7 @@ func (f *sshFactory) evict(key connKey) {
 		return
 	}
 
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-	if pc.client != nil {
-		_ = pc.client.Close()
-		pc.client = nil
-	}
+	pc.closeAndClear()
 }
 
 // EvictConnectionsForIP implements the EvictConnectionsForIP method of the
@@ -402,12 +408,7 @@ func (f *sshFactory) EvictConnectionsForIP(ip string) {
 	f.mu.Unlock()
 
 	for _, pc := range toClose {
-		pc.mu.Lock()
-		if pc.client != nil {
-			_ = pc.client.Close()
-			pc.client = nil
-		}
-		pc.mu.Unlock()
+		pc.closeAndClear()
 	}
 }
 
@@ -436,7 +437,9 @@ func (f *sshFactory) evictIdle() {
 	var toClose []*pooledConn
 	for key, pc := range f.conns {
 		pc.mu.Lock()
-		idle := pc.client != nil && now.Sub(pc.lastUsed) > f.idleTimeout
+		// An entry whose dial failed has no client, but it still needs to be
+		// removed, so do not check client here.
+		idle := now.Sub(pc.lastUsed) > f.idleTimeout
 		pc.mu.Unlock()
 		if idle {
 			toClose = append(toClose, pc)
@@ -446,12 +449,7 @@ func (f *sshFactory) evictIdle() {
 	f.mu.Unlock()
 
 	for _, pc := range toClose {
-		pc.mu.Lock()
-		if pc.client != nil {
-			_ = pc.client.Close()
-			pc.client = nil
-		}
-		pc.mu.Unlock()
+		pc.closeAndClear()
 	}
 }
 
@@ -462,12 +460,7 @@ func (f *sshFactory) closeAll() {
 	f.mu.Unlock()
 
 	for _, pc := range conns {
-		pc.mu.Lock()
-		if pc.client != nil {
-			_ = pc.client.Close()
-			pc.client = nil
-		}
-		pc.mu.Unlock()
+		pc.closeAndClear()
 	}
 }
 
@@ -897,9 +890,13 @@ func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, error) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
 
+	// Mark the entry used now, before the probe and dial. An entry whose dial
+	// fails keeps this timestamp, so the idle sweep eventually removes it
+	// instead of it sitting in the map forever.
+	pc.lastUsed = time.Now()
+
 	if pc.client != nil {
 		if isConnAlive(pc.client) {
-			pc.lastUsed = time.Now()
 			return pc.client, nil
 		}
 		_ = pc.client.Close()
@@ -911,7 +908,6 @@ func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, error) {
 		return nil, err
 	}
 	pc.client = client
-	pc.lastUsed = time.Now()
 	return client, nil
 }
 

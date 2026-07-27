@@ -372,7 +372,8 @@ func (hsm *hostStateMachine) handleDeprovisioning(ctx context.Context) actionRes
 	actResult := hsm.reconciler.actionDeprovisioning(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateNone
-		// Backstop: make sure no pooled SSH connection lingers past deprovisioning.
+		// Deprovisioning is done: evict any pooled SSH connection to this host now
+		// instead of waiting for the idle-timeout sweep.
 		hsm.reconciler.scope.SSHClientFactory.EvictConnectionsForIP(hsm.host.Spec.Status.GetIPAddress())
 		return actionComplete{}
 	}
