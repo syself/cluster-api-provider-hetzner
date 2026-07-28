@@ -20,7 +20,7 @@ solution.
 "capi_version": "v1.13.4",
 "cabpt_version": "v0.5.6",
 "cacppt_version": "v0.4.11",
-"cert_manager_version": "v1.20.2",
+"cert_manager_version": "v1.20.3",
 "kustomize_substitutions": {
     "HCLOUD_REGION": "fsn1",
     "CONTROL_PLANE_MACHINE_COUNT": "3",
@@ -44,4 +44,4 @@ solution.
 | `preload_images_for_kind` | `bool`     | `true`          | no       | If set to true, uses `kind load docker-image` to preload images into a kind cluster                                                                                                                                   |
 | `kind_cluster_name`       | `[]object` | `"caph"`        | no       | The name of the kind cluster to use when preloading images                                                                                                                                                            |
 | `capi_version`            | `string`   | `"v1.13.4"`     | no       | Version of CAPI                                                                                                                                                                                                       |
-| `cert_manager_version`    | `string`   | `"v1.20.2"`     | no       | Version of cert manager                                                                                                                                                                                               |
+| `cert_manager_version`    | `string`   | `"v1.20.3"`     | no       | Version of cert manager                                                                                                                                                                                               |

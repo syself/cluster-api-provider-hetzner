@@ -131,7 +131,7 @@ $(HCLOUD):
 KIND := $(abspath $(TOOLS_BIN_DIR)/kind)
 kind: $(KIND) ## Build a local copy of kind
 $(KIND):
-	go install sigs.k8s.io/kind@v0.31.0
+	go install sigs.k8s.io/kind@v0.32.0
 
 KUBECTL := $(abspath $(TOOLS_BIN_DIR)/kubectl)
 kubectl: $(TOOLS_BIN_DIR) $(KUBECTL) ## Build a local copy of kubectl
