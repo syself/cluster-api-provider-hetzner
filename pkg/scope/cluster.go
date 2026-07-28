@@ -279,6 +279,27 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 // until the last of them is replaced. It returns false (no error) while the cluster has no
 // control-plane infrastructure machines yet.
 func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx context.Context) (bool, error) {
+	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation, "proxy protocol")
+}
+
+// AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck returns true when every control-plane
+// infrastructure machine carries capi.syself.com/http-health-check-for-controlplane-loadbalancer:
+// "true", set on the control-plane infrastructure machine template. The caller uses it to hold back
+// the switch of the control-plane load balancer health check from tcp to http, so the switch happens
+// only once every machine comes from a template that expects an http check. It works the same way as
+// the proxy-protocol gate.
+func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(ctx context.Context) (bool, error) {
+	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav1.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, "http health check")
+}
+
+// allControlPlaneInfraMachinesAnnotated returns true when every control-plane infrastructure
+// machine (HCloudMachine and HetznerBareMetalMachine) carries annotation with value "true". The
+// annotation is set on the control-plane infrastructure machine template, so a machine from an
+// earlier template does not carry it and the check stays false until the last such machine is
+// replaced. It returns
+// false (no error) while the cluster has no control-plane infrastructure machines yet. logLabel
+// prefixes the debug logs so they name the feature being gated.
+func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context, annotation, logLabel string) (bool, error) {
 	listOptions := []client.ListOption{
 		client.InNamespace(s.Namespace()),
 		client.MatchingLabels{
@@ -296,8 +317,8 @@ func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx
 
 	for i := range hcloudMachines.Items {
 		m := &hcloudMachines.Items[i]
-		if m.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
-			s.V(1).Info("proxy protocol: control-plane HCloudMachine is missing the annotation", "hcloudMachine", m.GetName())
+		if m.GetAnnotations()[annotation] != "true" {
+			s.V(1).Info(logLabel+": control-plane HCloudMachine is missing the annotation", "hcloudMachine", m.GetName())
 			return false, nil
 		}
 		found++
@@ -310,15 +331,15 @@ func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx
 
 	for i := range bmMachines.Items {
 		m := &bmMachines.Items[i]
-		if m.GetAnnotations()[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
-			s.V(1).Info("proxy protocol: control-plane HetznerBareMetalMachine is missing the annotation", "hetznerBareMetalMachine", m.GetName())
+		if m.GetAnnotations()[annotation] != "true" {
+			s.V(1).Info(logLabel+": control-plane HetznerBareMetalMachine is missing the annotation", "hetznerBareMetalMachine", m.GetName())
 			return false, nil
 		}
 		found++
 	}
 
 	if found == 0 {
-		s.V(1).Info("proxy protocol: no control-plane infrastructure machines found yet")
+		s.V(1).Info(logLabel + ": no control-plane infrastructure machines found yet")
 		return false, nil
 	}
 
