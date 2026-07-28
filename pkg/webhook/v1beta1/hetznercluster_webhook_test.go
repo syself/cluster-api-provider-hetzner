@@ -22,6 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
@@ -83,6 +84,68 @@ func TestValidateUpdateProxyProtocol(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestValidateLoadBalancerHealthCheck(t *testing.T) {
+	webhook := &HetznerClusterWebhook{}
+
+	tests := []struct {
+		name        string
+		healthCheck *infrav1.LoadBalancerHealthCheckSpec
+		wantErr     string
+	}{
+		{
+			name:        "no health check is allowed",
+			healthCheck: nil,
+		},
+		{
+			name:        "tcp without the http fields is allowed",
+			healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp", IntervalSeconds: ptr.To(5)},
+		},
+		{
+			name:        "http with a path is allowed",
+			healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "http", Path: ptr.To("/readyz")},
+		},
+		{
+			name:        "https with a domain and a response is allowed",
+			healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "https", Domain: ptr.To("example.com"), Response: ptr.To("ok")},
+		},
+		{
+			name:        "tcp with a path is rejected",
+			healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp", Path: ptr.To("/readyz")},
+			wantErr:     "path must not be set when protocol is tcp",
+		},
+		{
+			name:        "tcp with a domain is rejected",
+			healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp", Domain: ptr.To("example.com")},
+			wantErr:     "domain must not be set when protocol is tcp",
+		},
+		{
+			name:        "tcp with a response is rejected",
+			healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp", Response: ptr.To("ok")},
+			wantErr:     "response must not be set when protocol is tcp",
+		},
+		{
+			name:        "tcp with status codes is rejected",
+			healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp", StatusCodes: []string{"200"}},
+			wantErr:     "statusCodes must not be set when protocol is tcp",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cluster := validHetznerCluster(infrav1.LoadBalancerSpec{HealthCheck: tt.healthCheck})
+
+			_, err := webhook.ValidateUpdate(context.Background(), validHetznerCluster(infrav1.LoadBalancerSpec{}), cluster)
+
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
 }

@@ -121,6 +121,10 @@ func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav2.Hetzn
 		allErrs = append(allErrs, err)
 	}
 
+	if err := validateLoadBalancerHealthCheck(r); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
@@ -196,7 +200,44 @@ func (*HetznerClusterWebhook) ValidateUpdate(_ context.Context, oldC, r *infrav2
 		allErrs = append(allErrs, err)
 	}
 
+	if err := validateLoadBalancerHealthCheck(r); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+}
+
+// validateLoadBalancerHealthCheck rejects the fields that only apply to an http or https check
+// while the health check protocol is tcp. Any other combination is allowed, including changing
+// a health check that is already set.
+func validateLoadBalancerHealthCheck(r *infrav2.HetznerCluster) *field.Error {
+	hc := r.Spec.ControlPlaneLoadBalancer.HealthCheck
+	if hc == nil || isHTTPHealthCheckProtocol(hc.Protocol) {
+		return nil
+	}
+
+	healthCheckPath := field.NewPath("spec", "controlPlaneLoadBalancer", "healthCheck")
+
+	if hc.Path != nil {
+		return field.Invalid(healthCheckPath.Child("path"), *hc.Path, "path must not be set when protocol is tcp")
+	}
+	if hc.Domain != nil {
+		return field.Invalid(healthCheckPath.Child("domain"), *hc.Domain, "domain must not be set when protocol is tcp")
+	}
+	if hc.Response != nil {
+		return field.Invalid(healthCheckPath.Child("response"), *hc.Response, "response must not be set when protocol is tcp")
+	}
+	if len(hc.StatusCodes) > 0 {
+		return field.Invalid(healthCheckPath.Child("statusCodes"), hc.StatusCodes, "statusCodes must not be set when protocol is tcp")
+	}
+
+	return nil
+}
+
+// isHTTPHealthCheckProtocol reports whether protocol is one that sends an http request, as
+// opposed to a plain tcp check.
+func isHTTPHealthCheckProtocol(protocol string) bool {
+	return protocol == "http" || protocol == "https"
 }
 
 func validateHetznerSecretKey(r *infrav2.HetznerCluster) *field.Error {

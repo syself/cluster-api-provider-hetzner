@@ -294,7 +294,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 
 	// Two cases for the kube-API service:
 	//   - present without proxy protocol → an existing cluster enabling it: wait until every
-	//     control-plane machine is annotated, then switch it on in place below.
+	//     control-plane infra machine is annotated, then switch it on in place below.
 	//   - absent → create it below from the spec value. The service is only absent when an
 	//     existing load balancer is taken over instead of creating a new one, or if the service
 	//     got manually deleted.
@@ -352,18 +352,23 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	// create services that are in the spec but not yet on the LB
 	for i, listenPort := range toCreate {
 		proxyProtocol := false
-		if listenPort == kubeAPIServicePort {
-			// Proxy protocol is only relevant for the kube-API service, which is created here
-			// straight from the spec value. The annotation check only guards enabling proxy
-			// protocol on a service that already exists.
-			proxyProtocol = s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
-		}
 		destinationPort := wantServiceListenPortsMap[listenPort].DestinationPort
+		var healthCheck *hcloud.LoadBalancerAddServiceOptsHealthCheck
+		if listenPort == kubeAPIServicePort {
+			// Proxy protocol and the health check are only relevant for the kube-API service,
+			// which is created here straight from the spec values. The annotation checks apply
+			// only when turning proxy protocol on, or switching the health check to http, on a
+			// service that already exists. healthCheckAddOpts is nil when the spec sets no
+			// health check, and the load balancer then uses its default TCP check.
+			proxyProtocol = s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
+			healthCheck = healthCheckAddOpts(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck, destinationPort)
+		}
 		serviceOpts := hcloud.LoadBalancerAddServiceOpts{
 			Protocol:        hcloud.LoadBalancerServiceProtocol(wantServiceListenPortsMap[listenPort].Protocol),
 			ListenPort:      &toCreate[i],
 			DestinationPort: &destinationPort,
 			Proxyprotocol:   &proxyProtocol,
+			HealthCheck:     healthCheck,
 		}
 		if err := s.scope.HCloudClient.AddServiceToLoadBalancer(ctx, lb, serviceOpts); err != nil {
 			// return immediately on rate limit
@@ -401,7 +406,255 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled = true
 		}
 	}
+
+	// Reconcile the kube-apiserver service health check to the spec. A nil HealthCheck means
+	// CAPH does not manage the check, see LoadBalancerSpec.HealthCheck. A service created
+	// above already carries the check from its add options, so this only updates a service
+	// that existed before this reconcile.
+	if desired := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck; desired != nil {
+		// The port the check runs against by default. kubeAPIServicePort below is the port the
+		// load balancer listens on, which is a different number.
+		kubeAPIDestinationPort := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Port
+		if kubeAPIServiceExists && healthCheckDiffers(existingKubeAPIService.HealthCheck, desired, kubeAPIDestinationPort) {
+			// Switching a live service from a tcp check to an http or https check can mark
+			// every backend unhealthy at once if the backends do not answer the path yet, which
+			// takes the API server offline. So wait until every control-plane infra machine
+			// carries the annotation, the same as the proxy-protocol migration: the annotation
+			// comes from the new control-plane infra machine template, so the switch happens only
+			// once every machine expects an http check. A tcp check, or a change that stays
+			// within http, is applied right away.
+			if healthCheckMigratesToHTTP(existingKubeAPIService.HealthCheck, desired) {
+				allReady, err := s.scope.AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(ctx)
+				if err != nil {
+					return reconcile.Result{}, errors.Join(multierr, err)
+				}
+
+				if !allReady {
+					s.scope.V(1).Info("http health check: not all control-plane infra machines are annotated yet, keeping the tcp check")
+					return reconcile.Result{RequeueAfter: 10 * time.Second}, multierr
+				}
+			}
+
+			updateOpts := hcloud.LoadBalancerUpdateServiceOpts{HealthCheck: healthCheckUpdateOpts(desired, kubeAPIDestinationPort)}
+			if err := s.scope.HCloudClient.UpdateServiceOnLoadBalancer(ctx, lb, kubeAPIServicePort, updateOpts); err != nil {
+				// return immediately on rate limit
+				hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateServiceOnLoadBalancer")
+				multierr = errors.Join(multierr, fmt.Errorf("failed to update kube-API service health check on load balancer: %w", err))
+				if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+					return reconcile.Result{}, multierr
+				}
+			}
+		}
+	}
 	return reconcile.Result{}, multierr
+}
+
+// healthCheckAddOpts builds the hcloud health-check options for a new kube-apiserver
+// service from the spec. It returns nil when the spec has no health check, so the
+// service keeps the load balancer's default TCP check on servicePort.
+func healthCheckAddOpts(hc *infrav2.LoadBalancerHealthCheckSpec, servicePort int) *hcloud.LoadBalancerAddServiceOptsHealthCheck {
+	f := healthCheckOptsFromSpec(hc, servicePort)
+	if f == nil {
+		return nil
+	}
+
+	opts := &hcloud.LoadBalancerAddServiceOptsHealthCheck{
+		Protocol: f.Protocol,
+		Port:     f.Port,
+		Interval: f.Interval,
+		Timeout:  f.Timeout,
+		Retries:  f.Retries,
+	}
+	if f.TLS != nil {
+		opts.HTTP = &hcloud.LoadBalancerAddServiceOptsHealthCheckHTTP{
+			Domain:      f.Domain,
+			Path:        f.Path,
+			Response:    f.Response,
+			StatusCodes: f.StatusCodes,
+			TLS:         f.TLS,
+		}
+	}
+	return opts
+}
+
+// healthCheckCreateOpts builds the hcloud health-check options for the kube-apiserver
+// service when the load balancer is created. It returns nil when the spec has no health
+// check, so the service keeps the load balancer's default TCP check on servicePort.
+// Creating the service with its configured check means a new cluster never has to migrate
+// the check from tcp to http in place, so it does not depend on the control-plane infra machines
+// that only exist once the control-plane endpoint is set.
+func healthCheckCreateOpts(hc *infrav2.LoadBalancerHealthCheckSpec, servicePort int) *hcloud.LoadBalancerCreateOptsServiceHealthCheck {
+	f := healthCheckOptsFromSpec(hc, servicePort)
+	if f == nil {
+		return nil
+	}
+
+	opts := &hcloud.LoadBalancerCreateOptsServiceHealthCheck{
+		Protocol: f.Protocol,
+		Port:     f.Port,
+		Interval: f.Interval,
+		Timeout:  f.Timeout,
+		Retries:  f.Retries,
+	}
+	if f.TLS != nil {
+		opts.HTTP = &hcloud.LoadBalancerCreateOptsServiceHealthCheckHTTP{
+			Domain:      f.Domain,
+			Path:        f.Path,
+			Response:    f.Response,
+			StatusCodes: f.StatusCodes,
+			TLS:         f.TLS,
+		}
+	}
+	return opts
+}
+
+// healthCheckUpdateOpts builds the hcloud health-check options for updating an
+// existing kube-apiserver service. It mirrors healthCheckAddOpts for the update API.
+func healthCheckUpdateOpts(hc *infrav2.LoadBalancerHealthCheckSpec, servicePort int) *hcloud.LoadBalancerUpdateServiceOptsHealthCheck {
+	f := healthCheckOptsFromSpec(hc, servicePort)
+	if f == nil {
+		return nil
+	}
+
+	opts := &hcloud.LoadBalancerUpdateServiceOptsHealthCheck{
+		Protocol: f.Protocol,
+		Port:     f.Port,
+		Interval: f.Interval,
+		Timeout:  f.Timeout,
+		Retries:  f.Retries,
+	}
+	if f.TLS != nil {
+		opts.HTTP = &hcloud.LoadBalancerUpdateServiceOptsHealthCheckHTTP{
+			Domain:      f.Domain,
+			Path:        f.Path,
+			Response:    f.Response,
+			StatusCodes: f.StatusCodes,
+			TLS:         f.TLS,
+		}
+	}
+	return opts
+}
+
+// healthCheckOpts holds the health-check fields shared by the three hcloud option types used
+// to create, add and update a load balancer service. Those three types have the same fields
+// but are unrelated Go types, so the spec is read once into this struct and then copied into
+// whichever one the call needs.
+type healthCheckOpts struct {
+	Protocol    hcloud.LoadBalancerServiceProtocol
+	Port        *int
+	Interval    *time.Duration
+	Timeout     *time.Duration
+	Retries     *int
+	Domain      *string
+	Path        *string
+	Response    *string
+	StatusCodes []string
+	// TLS is set only for an http or https check, so it also marks whether the HTTP
+	// sub-options have to be built at all.
+	TLS *bool
+}
+
+// healthCheckOptsFromSpec reads the spec into the fields the hcloud option types share. It
+// returns nil when the spec has no health check, and the caller then leaves the load balancer's
+// own check alone. servicePort is used when the spec sets no port.
+func healthCheckOptsFromSpec(hc *infrav2.LoadBalancerHealthCheckSpec, servicePort int) *healthCheckOpts {
+	if hc == nil {
+		return nil
+	}
+
+	port := servicePort
+	if hc.Port != nil {
+		port = *hc.Port
+	}
+
+	opts := &healthCheckOpts{
+		Protocol: hcloud.LoadBalancerServiceProtocol(hc.Protocol),
+		Port:     &port,
+		Retries:  hc.Retries,
+	}
+	if hc.IntervalSeconds != nil {
+		interval := time.Duration(*hc.IntervalSeconds) * time.Second
+		opts.Interval = &interval
+	}
+	if hc.TimeoutSeconds != nil {
+		timeout := time.Duration(*hc.TimeoutSeconds) * time.Second
+		opts.Timeout = &timeout
+	}
+	if isHTTPHealthCheck(hc.Protocol) {
+		tls := hc.Protocol == "https"
+		opts.Domain = hc.Domain
+		opts.Path = hc.Path
+		opts.Response = hc.Response
+		opts.StatusCodes = hc.StatusCodes
+		opts.TLS = &tls
+	}
+	return opts
+}
+
+// healthCheckDiffers reports whether the load balancer's observed health check for
+// the kube-apiserver service differs from the spec, so the reconcile calls the API
+// only when something actually changed. servicePort is the default when the spec
+// leaves the port unset. Fields the spec leaves unset are not compared, because CAPH
+// sends only the fields that are set and leaves the rest to the load balancer.
+func healthCheckDiffers(observed hcloud.LoadBalancerServiceHealthCheck, desired *infrav2.LoadBalancerHealthCheckSpec, servicePort int) bool {
+	if desired == nil {
+		return false
+	}
+	wantPort := servicePort
+	if desired.Port != nil {
+		wantPort = *desired.Port
+	}
+	if string(observed.Protocol) != desired.Protocol || observed.Port != wantPort {
+		return true
+	}
+	if desired.IntervalSeconds != nil && observed.Interval != time.Duration(*desired.IntervalSeconds)*time.Second {
+		return true
+	}
+	if desired.TimeoutSeconds != nil && observed.Timeout != time.Duration(*desired.TimeoutSeconds)*time.Second {
+		return true
+	}
+	if desired.Retries != nil && observed.Retries != *desired.Retries {
+		return true
+	}
+	if isHTTPHealthCheck(desired.Protocol) {
+		if observed.HTTP == nil || observed.HTTP.TLS != (desired.Protocol == "https") {
+			return true
+		}
+		if desired.Path != nil && observed.HTTP.Path != *desired.Path {
+			return true
+		}
+		if desired.Domain != nil && observed.HTTP.Domain != *desired.Domain {
+			return true
+		}
+		if desired.Response != nil && observed.HTTP.Response != *desired.Response {
+			return true
+		}
+		// Status codes are a set, so compare them sorted. Otherwise the load balancer
+		// reporting them back in another order would count as a change and this would
+		// call the API on every reconcile.
+		if len(desired.StatusCodes) > 0 && !slices.Equal(slices.Sorted(slices.Values(observed.HTTP.StatusCodes)), slices.Sorted(slices.Values(desired.StatusCodes))) {
+			return true
+		}
+	}
+	return false
+}
+
+// isHTTPHealthCheck reports whether the protocol is one that sends an HTTP request.
+func isHTTPHealthCheck(protocol string) bool {
+	return protocol == "http" || protocol == "https"
+}
+
+// healthCheckMigratesToHTTP reports whether applying desired to a service that currently has the
+// observed check switches it from a non-http check (the default tcp) to an http or https check.
+// That switch can mark a target that does not answer the path yet as unhealthy, so the caller waits
+// for the control-plane rollout before applying it. It compares the live check every time, so this
+// is true on every such switch, not only the first one. A change that stays within http, or a
+// switch to tcp, returns false, as does a nil desired.
+func healthCheckMigratesToHTTP(observed hcloud.LoadBalancerServiceHealthCheck, desired *infrav2.LoadBalancerHealthCheckSpec) bool {
+	if desired == nil {
+		return false
+	}
+	return isHTTPHealthCheck(desired.Protocol) && !isHTTPHealthCheck(string(observed.Protocol))
 }
 
 func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, error) {
@@ -468,6 +721,7 @@ func createOptsFromSpec(hc *infrav2.HetznerCluster) hcloud.LoadBalancerCreateOpt
 				ListenPort:      &listenPort,
 				DestinationPort: &hc.Spec.ControlPlaneLoadBalancer.Port,
 				Proxyprotocol:   &proxyprotocol,
+				HealthCheck:     healthCheckCreateOpts(hc.Spec.ControlPlaneLoadBalancer.HealthCheck, hc.Spec.ControlPlaneLoadBalancer.Port),
 			},
 		},
 	}
