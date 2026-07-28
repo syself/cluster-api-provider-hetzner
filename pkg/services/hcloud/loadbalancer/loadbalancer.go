@@ -419,12 +419,10 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		}
 	}
 
-	// Reconcile the kube-apiserver service health check to the spec. Only touch it when the
-	// spec sets one, so a cluster that has never set HealthCheck keeps the load balancer's
-	// default TCP check. Clearing HealthCheck again does not reset the check: there is
-	// nothing to send in its place, so the load balancer keeps the last one applied. A
-	// service created above already carries the check from its add options, so this only
-	// updates a service that existed before this reconcile.
+	// Reconcile the kube-apiserver service health check to the spec. A nil HealthCheck means
+	// CAPH does not manage the check, see LoadBalancerSpec.HealthCheck. A service created
+	// above already carries the check from its add options, so this only updates a service
+	// that existed before this reconcile.
 	if desired := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck; desired != nil {
 		// The port the check runs against by default. kubeAPIServicePort below is the port the
 		// load balancer listens on, which is a different number.
@@ -660,9 +658,10 @@ func isHTTPHealthCheck(protocol string) bool {
 
 // healthCheckMigratesToHTTP reports whether applying desired to a service that currently has the
 // observed check switches it from a non-http check (the default tcp) to an http or https check.
-// That is the one-way switch that can mark a not-yet-ready backend unhealthy, so the caller gates
-// it on the control-plane rollout. A change that stays within http, or a switch to tcp, is not a
-// migration and returns false, as does a nil desired.
+// That switch can mark a target that does not answer the path yet as unhealthy, so the caller waits
+// for the control-plane rollout before applying it. It compares the live check every time, so this
+// is true on every such switch, not only the first one. A change that stays within http, or a
+// switch to tcp, returns false, as does a nil desired.
 func healthCheckMigratesToHTTP(observed hcloud.LoadBalancerServiceHealthCheck, desired *infrav1.LoadBalancerHealthCheckSpec) bool {
 	if desired == nil {
 		return false
