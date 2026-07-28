@@ -53,7 +53,7 @@ type LoadBalancerTargetAddressFamily string
 
 const (
 	// LoadBalancerTargetAddressFamilyIPv4 attaches only the IPv4 address of a bare metal
-	// server. This is the default, see LoadBalancerSpec.TargetAddressFamily.
+	// server.
 	LoadBalancerTargetAddressFamilyIPv4 = LoadBalancerTargetAddressFamily("ipv4")
 
 	// LoadBalancerTargetAddressFamilyIPv6 attaches only the IPv6 address of a bare metal
@@ -61,7 +61,8 @@ const (
 	LoadBalancerTargetAddressFamilyIPv6 = LoadBalancerTargetAddressFamily("ipv6")
 
 	// LoadBalancerTargetAddressFamilyDualStack attaches both the IPv4 and the IPv6 address
-	// of a bare metal server, as two separate targets.
+	// of a bare metal server, as two separate targets. This is the default, see
+	// LoadBalancerSpec.TargetAddressFamily.
 	LoadBalancerTargetAddressFamilyDualStack = LoadBalancerTargetAddressFamily("dualstack")
 )
 
@@ -263,21 +264,15 @@ type LoadBalancerSpec struct {
 	// both protocols therefore takes two targets, and this field decides which of them
 	// CAPH creates.
 	//
-	// An empty value means ipv4, so by default only the IPv4 address is attached. Hetzner
-	// routes an IPv6 subnet to a bare metal server, so an IPv6 address for it usually exists
-	// in the Robot API, but that says nothing about whether the installed OS configured it. An
-	// image that sets up IPv4 only is common, and a target for an address the server does
-	// not answer on never passes its health check. The load balancer then reports an
-	// unhealthy target for as long as the machine exists, which buries a genuinely
-	// unhealthy control plane in noise, and one target slot is spent on a target that
-	// cannot serve traffic. CAPH cannot tell from the Robot API whether the OS configured
-	// the address, hence the explicit choice, with dualstack available for a setup where
-	// IPv6 is known to work.
-	//
-	// Note for existing clusters: releases before this field existed always attached both
-	// addresses. Leaving the field empty after an upgrade therefore removes the IPv6 target
-	// of every bare metal control plane server. Set dualstack to keep the previous
-	// behaviour.
+	// An empty value means dualstack, so by default both the IPv4 and the IPv6 address are
+	// attached. Set ipv4 on a cluster whose servers only use IPv4. Hetzner routes an IPv6
+	// subnet to a bare metal server, so an IPv6 address for it usually exists in the Robot
+	// API, but that says nothing about whether the installed OS configured it. An image that
+	// sets up IPv4 only is common, and a target for an address the server does not answer on
+	// never passes its health check. The load balancer then reports an unhealthy target for
+	// as long as the machine exists, which buries a genuinely unhealthy control plane in
+	// noise, and one target slot is spent on a target that cannot serve traffic. Set ipv6 for
+	// a single-stack IPv6 setup.
 	//
 	// The value can be changed at any time. CAPH attaches the addresses of the selected
 	// family that are missing and removes the targets of the addresses it no longer
@@ -297,10 +292,10 @@ type LoadBalancerSpec struct {
 // stored before the field existed, and it has to resolve to something sane.
 func (spec LoadBalancerSpec) TargetAddressFamilyOrDefault() LoadBalancerTargetAddressFamily {
 	switch spec.TargetAddressFamily {
-	case LoadBalancerTargetAddressFamilyIPv6, LoadBalancerTargetAddressFamilyDualStack:
+	case LoadBalancerTargetAddressFamilyIPv4, LoadBalancerTargetAddressFamilyIPv6:
 		return spec.TargetAddressFamily
 	default:
-		return LoadBalancerTargetAddressFamilyIPv4
+		return LoadBalancerTargetAddressFamilyDualStack
 	}
 }
 

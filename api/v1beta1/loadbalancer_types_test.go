@@ -36,9 +36,9 @@ var _ = Describe("LoadBalancerSpec target address family", func() {
 			Expect(spec.WantsIPv4()).To(Equal(expected.ipv4))
 			Expect(spec.WantsIPv6()).To(Equal(expected.ipv6))
 		},
-		Entry("an unset field defaults to ipv4",
+		Entry("an unset field defaults to dualstack",
 			LoadBalancerTargetAddressFamily(""),
-			expectation{family: LoadBalancerTargetAddressFamilyIPv4, ipv4: true, ipv6: false},
+			expectation{family: LoadBalancerTargetAddressFamilyDualStack, ipv4: true, ipv6: true},
 		),
 		Entry("ipv4 selects the IPv4 address only",
 			LoadBalancerTargetAddressFamilyIPv4,
@@ -57,7 +57,7 @@ var _ = Describe("LoadBalancerSpec target address family", func() {
 		// existed, has to resolve to the default rather than to nothing at all.
 		Entry("an unknown value falls back to the default",
 			LoadBalancerTargetAddressFamily("ipv5"),
-			expectation{family: LoadBalancerTargetAddressFamilyIPv4, ipv4: true, ipv6: false},
+			expectation{family: LoadBalancerTargetAddressFamilyDualStack, ipv4: true, ipv6: true},
 		),
 	)
 })

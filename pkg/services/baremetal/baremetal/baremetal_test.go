@@ -1242,9 +1242,10 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 
-	It("attaches only the IPv4 address when no address family is configured", func() {
+	It("attaches both addresses when no address family is configured", func() {
 		hcloudClient := mocks.NewClient(GinkgoT())
 		expectAddIPTarget(hcloudClient, hostIPv4)
+		expectAddIPTarget(hcloudClient, hostIPv6)
 
 		service := newServiceForLoadBalancerAttachment(
 			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
@@ -1287,11 +1288,10 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		hcloudClient := mocks.NewClient(GinkgoT())
 		expectDeleteIPTarget(hcloudClient, hostIPv6)
 
-		// Both addresses are attached, as a release that predates the address family
-		// would have left them, and ipv4 is in effect.
+		// Both addresses are attached but the family is ipv4, so the IPv6 target is stale.
 		service := newServiceForLoadBalancerAttachment(
 			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
-			newClusterForAddressFamily("", hostIPv4, hostIPv6), hcloudClient,
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, hostIPv4, hostIPv6), hcloudClient,
 		)
 
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
@@ -1316,7 +1316,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		// but a target that cannot serve traffic is removed right away.
 		service := newServiceForLoadBalancerAttachment(
 			machine, newAvailableBareMetalMachine(), newControlPlaneCluster(),
-			newClusterForAddressFamily("", "192.0.2.9", hostIPv6), hcloudClient,
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, "192.0.2.9", hostIPv6), hcloudClient,
 		)
 
 		err := service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))
@@ -1346,7 +1346,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 
 		service := newServiceForLoadBalancerAttachment(
 			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
-			newClusterForAddressFamily("", hostIPv4), hcloudClient,
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, hostIPv4), hcloudClient,
 		)
 
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())

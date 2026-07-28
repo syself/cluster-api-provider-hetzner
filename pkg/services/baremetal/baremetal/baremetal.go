@@ -684,8 +684,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 	// The configured address family decides which of the host's addresses belong on the
 	// load balancer. An address of the family that is not selected but is still attached
 	// is stale and gets detached again. That happens when the address family of an
-	// existing cluster is changed, and on a cluster created by a release that attached
-	// both addresses unconditionally.
+	// existing cluster is changed.
 	//
 	// An address the host does not have cannot be attached and is not stale either, so an
 	// address that is missing or unusable is never wanted.
