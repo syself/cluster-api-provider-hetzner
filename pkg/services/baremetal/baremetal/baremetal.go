@@ -681,16 +681,54 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		}
 	}
 
-	// IPv4 or IPv6 of host might be empty, in that case we don't want to add them
-	if host.Spec.Status.IPv4 == "" {
-		foundIPv4 = true
+	// The configured address family decides which of the host's addresses belong on the
+	// load balancer. An address of the family that is not selected but is still attached
+	// is stale and gets detached again. That happens when the address family of an
+	// existing cluster is changed, and on a cluster created by a release that attached
+	// both addresses unconditionally.
+	//
+	// An address the host does not have cannot be attached and is not stale either, so an
+	// address that is missing or unusable is never wanted.
+	lbSpec := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer
+	hostIPv4 := attachableIP(host.Spec.Status.IPv4)
+	hostIPv6 := attachableIP(host.Spec.Status.IPv6)
+	wantIPv4 := lbSpec.WantsIPv4() && hostIPv4 != ""
+	wantIPv6 := lbSpec.WantsIPv6() && hostIPv6 != ""
+
+	addressesToAttach := make([]string, 0, 2)
+	if wantIPv4 && !foundIPv4 {
+		addressesToAttach = append(addressesToAttach, hostIPv4)
 	}
-	if host.Spec.Status.IPv6 == "" {
-		foundIPv6 = true
+	if wantIPv6 && !foundIPv6 {
+		addressesToAttach = append(addressesToAttach, hostIPv6)
 	}
 
-	// if both IPs are already added as target, then do nothing
-	if foundIPv4 && foundIPv6 {
+	// An address can only be found as a target if it is one, so it is usable here.
+	addressesToDetach := make([]string, 0, 2)
+	if !wantIPv4 && foundIPv4 {
+		addressesToDetach = append(addressesToDetach, host.Spec.Status.IPv4)
+	}
+	if !wantIPv6 && foundIPv6 {
+		addressesToDetach = append(addressesToDetach, host.Spec.Status.IPv6)
+	}
+
+	// Nothing to do, which is the case in the vast majority of reconciles.
+	if len(addressesToAttach) == 0 && len(addressesToDetach) == 0 {
+		return nil
+	}
+
+	lb := &hcloud.LoadBalancer{ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID}
+
+	// Detaching runs before the health gate below. An address that is not selected does
+	// not belong on the load balancer regardless of the state of the API server, and
+	// waiting would keep a target that cannot serve traffic.
+	for _, ip := range addressesToDetach {
+		if err := s.detachIPTargetOfLoadBalancer(ctx, lb, host, ip); err != nil {
+			return err
+		}
+	}
+
+	if len(addressesToAttach) == 0 {
 		return nil
 	}
 
@@ -712,25 +750,17 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 	}
 
-	newIPTargets := make([]string, 0, 2)
-	if !foundIPv4 {
-		newIPTargets = append(newIPTargets, host.Spec.Status.IPv4)
-	}
-	if !foundIPv6 {
-		newIPTargets = append(newIPTargets, host.Spec.Status.IPv6)
-	}
-
-	lb := &hcloud.LoadBalancer{ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID}
-
-	for _, ip := range newIPTargets {
+	for _, ip := range addressesToAttach {
 		opts := hcloud.LoadBalancerAddIPTargetOpts{
 			IP: net.ParseIP(ip),
 		}
 
 		if err := s.scope.HCloudClient.AddIPTargetToLoadBalancer(ctx, opts, lb); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "AddIPTargetToLoadBalancer")
+			// The address is already a target, which is the state we want, so carry on
+			// with the next address instead of giving up on it.
 			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
-				return nil
+				continue
 			}
 			return fmt.Errorf("failed to add IP %q as target to load balancer: %w", ip, err)
 		}
@@ -742,6 +772,37 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		)
 	}
 
+	return nil
+}
+
+// attachableIP returns the address unchanged if the HCloud API can accept it as an ip
+// target, and the empty string otherwise. The API takes a parsed address, so a value that
+// does not parse would reach it as nil. Treating it as a missing address instead keeps
+// that out of the request and lets the reconcile continue with the other address.
+func attachableIP(address string) string {
+	if net.ParseIP(address) == nil {
+		return ""
+	}
+	return address
+}
+
+// detachIPTargetOfLoadBalancer removes a single address of the host from the load
+// balancer. An address that is not a target anymore is the desired outcome, so the
+// corresponding error of the HCloud API is not treated as a failure.
+func (s *Service) detachIPTargetOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, host *infrav1.HetznerBareMetalHost, ip string) error {
+	if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(ip)); err != nil {
+		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
+		if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
+			return fmt.Errorf("failed to remove IP %q as target of load balancer: %w", ip, err)
+		}
+		return nil
+	}
+	record.Eventf(
+		s.scope.HetznerCluster,
+		"DeletedIPTargetOfLoadBalancer",
+		"Deleted IP %q of server %d as target of the loadbalancer %v, it is not part of the configured address family %q",
+		ip, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID, s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.TargetAddressFamilyOrDefault(),
+	)
 	return nil
 }
 
