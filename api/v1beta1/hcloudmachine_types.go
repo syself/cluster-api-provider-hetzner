@@ -183,7 +183,31 @@ type HCloudMachineStatus struct {
 	// Used to prevent reboot loops across successive MHC incidents.
 	// +optional
 	LastRemediatedAt *metav1.Time `json:"lastRemediatedAt,omitempty"`
+
+	// RescueRecovery records the last recovery step taken for a server that was powered on to
+	// the rescue system and booted something else. It makes the escalation visible and stops it
+	// repeating a step that already failed.
+	// +optional
+	RescueRecovery RescueRecoveryStep `json:"rescueRecovery,omitempty"`
 }
+
+// RescueRecoveryStep is a step taken to get a server into the rescue system after it booted
+// something else.
+// +kubebuilder:validation:Enum="";PowerCycled;Rearmed
+type RescueRecoveryStep string
+
+const (
+	// RescueRecoveryNone means no recovery has been attempted.
+	RescueRecoveryNone RescueRecoveryStep = ""
+
+	// RescueRecoveryPowerCycled means the server was powered off and on again while the rescue
+	// system was still armed, on the assumption that the arming was fine and the boot was not.
+	RescueRecoveryPowerCycled RescueRecoveryStep = "PowerCycled"
+
+	// RescueRecoveryRearmed means the rescue system was enabled again and the server power-cycled
+	// a second time, on the assumption that the first arming never took effect.
+	RescueRecoveryRearmed RescueRecoveryStep = "Rearmed"
+)
 
 // HCloudMachineV1Beta2Status groups all the fields that will be added or modified in HCloudMachineStatus with the V1Beta2 version.
 type HCloudMachineV1Beta2Status struct {

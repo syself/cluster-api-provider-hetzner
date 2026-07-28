@@ -620,6 +620,16 @@ func (c *cacheHCloudClient) PowerOnServer(_ context.Context, server *hcloud.Serv
 	return nil
 }
 
+func (c *cacheHCloudClient) PowerOffServer(_ context.Context, server *hcloud.Server) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if _, found := c.serverCache.idMap[server.ID]; !found {
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+	c.serverCache.idMap[server.ID].Status = hcloud.ServerStatusOff
+	return nil
+}
+
 func (c *cacheHCloudClient) DeleteServer(_ context.Context, server *hcloud.Server) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -839,7 +849,17 @@ func (c *cacheHCloudClient) AddServerToPlacementGroup(_ context.Context, server 
 	return nil
 }
 
-func (c *cacheHCloudClient) EnableRescueSystem(_ context.Context, _ *hcloud.Server, _ *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
+// EnableRescueSystem arms the rescue system, which the API reports through RescueEnabled until
+// the server has booted into it. Callers depend on that flag to know the rescue boot is armed
+// before powering the server on, so the fake has to carry it too.
+func (c *cacheHCloudClient) EnableRescueSystem(_ context.Context, server *hcloud.Server, _ *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if server != nil {
+		if cached, found := c.serverCache.idMap[server.ID]; found {
+			cached.RescueEnabled = true
+		}
+	}
 	return result, nil
 }
 

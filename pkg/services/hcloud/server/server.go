@@ -59,6 +59,16 @@ const (
 	actionDone = -1
 
 	preRescueOSImage = "ubuntu-24.04"
+
+	// rescueGracePeriod is how long a boot into the rescue system is given before we stop reading
+	// SSH silence as "still booting" and start asking the API what the server is actually doing.
+	// A healthy boot answers well inside this, so the happy path never spends an API call here.
+	rescueGracePeriod = 45 * time.Second
+
+	// rescueObserveInterval is how often the API is consulted once the grace period has passed.
+	// Slow enough to stay cheap on a shared rate limit, often enough to work through the recovery
+	// steps inside the state's own timeout.
+	rescueObserveInterval = 15 * time.Second
 )
 
 var hcloudImageURLCommandDir = "/shared"
@@ -719,6 +729,41 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("ServerIDFromProviderID failed: %w", err)
 	}
+
+	// Read the server back before powering it on, and only proceed once the API reports the
+	// rescue system as armed.
+	//
+	// The enable-rescue action reaching "finished" says the request was processed. It does not
+	// say the rescue boot configuration is in effect for the next power-on. Powering on while
+	// those two disagree boots the disk instead, which for the imageURL flow is the pre-rescue
+	// OS the server was created from: a stock distro, with the cluster SSH key on it, that will
+	// never join. RescueEnabled is the API's own statement about the state we depend on, so ask
+	// for it rather than inferring it from the action.
+	server, err := s.scope.HCloudClient.GetServer(ctx, serverID)
+	if err != nil {
+		if handleUnauthorized(hm, err) {
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, handleRateLimit(hm, err, "GetServer", "failed to get server before powering on to rescue")
+	}
+	markHCloudTokenAvailable(hm)
+
+	if server == nil || !server.RescueEnabled {
+		// The action finished but the state has not caught up. Wait for it rather than powering
+		// on into the wrong system; the surrounding timeout still bounds this.
+		msg := "waiting until the API reports the rescue system as armed before powering on"
+		s.scope.Info(msg, "rescueEnabled", server != nil && server.RescueEnabled)
+		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+			"WaitingForRescueEnabled", clusterv1beta1.ConditionSeverityInfo, "%s", msg)
+		v1beta2conditions.Set(hm, metav1.Condition{
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HCloudMachineWaitingForRescueEnabledV1Beta2Reason,
+			Message: msg,
+		})
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
 	// The server was created with StartAfterCreate=false and has never been started, so
 	// powering it on boots it directly into the rescue system.
 	if err := s.scope.HCloudClient.PowerOnServer(ctx, &hcloud.Server{ID: serverID}); err != nil {
@@ -757,6 +802,165 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.
 	// powering on is not instant, so wait a bit before the first attempt instead of retrying
 	// immediately.
 	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+}
+
+// observeRescueBoot asks the API what the server is doing and, when it is not in the rescue
+// system, works through the recovery steps that can still get it there.
+//
+// The API tells us this directly. RescueEnabled stays true until the server boots into the rescue
+// system, at which point it is cleared. So a server that is running while the flag is still set
+// booted something other than the rescue system, and no amount of further SSH polling will change
+// that. Reading it turns a wait that ends in a guess into a fact we can act on.
+//
+// Recovery escalates rather than giving up, because the state's own timeout is a budget to fix
+// this in, not just a period to wait out:
+//
+//	PowerCycled  the rescue system is still armed, so the arming was fine and the boot was not.
+//	             Power off and on again; the next boot has every chance of reaching it.
+//	Rearmed      it booted wrong a second time, so the arming itself never took effect. Enable the
+//	             rescue system again and power-cycle. The armed check before power-on then applies
+//	             to this attempt too, so the second try does not repeat the first one's mistake.
+//	exhausted    report it and stop acting, leaving the timeout as the single place that decides a
+//	             machine has failed.
+//
+// Returns handled=true when the caller should return the result as-is.
+func (s *Service) observeRescueBoot(ctx context.Context) (reconcile.Result, bool, error) {
+	hm := s.scope.HCloudMachine
+
+	serverID, err := s.scope.ServerIDFromProviderID()
+	if err != nil {
+		return reconcile.Result{}, false, fmt.Errorf("ServerIDFromProviderID failed: %w", err)
+	}
+
+	server, err := s.scope.HCloudClient.GetServer(ctx, serverID)
+	if err != nil {
+		if handleUnauthorized(hm, err) {
+			return reconcile.Result{}, true, nil
+		}
+		// Losing an observation is not fatal. Keep polling SSH and let the timeout bound the state.
+		s.scope.Error(err, "could not read the server while checking whether it entered the rescue system")
+		return reconcile.Result{}, false, nil
+	}
+	markHCloudTokenAvailable(hm)
+
+	if server == nil {
+		return reconcile.Result{}, false, nil
+	}
+
+	if !server.RescueEnabled {
+		// Cleared is what entering the rescue system looks like. Hand back to SSH, which decides
+		// whether what answers is really the rescue system.
+		return reconcile.Result{}, false, nil
+	}
+
+	switch server.Status {
+	case hcloud.ServerStatusOff:
+		// A step powered it off. Bring it back up so the next boot can reach the rescue system.
+		if hm.Status.RescueRecovery == infrav1.RescueRecoveryNone {
+			// Powered off by something other than us. Leave it alone.
+			return reconcile.Result{}, false, nil
+		}
+		msg := fmt.Sprintf("powering the server on again after recovery step %q", hm.Status.RescueRecovery)
+		s.scope.Info(msg)
+		if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
+			if handleUnauthorized(hm, err) {
+				return reconcile.Result{}, true, nil
+			}
+			return reconcile.Result{}, true, handleRateLimit(hm, err, "PowerOnServer", "failed to power on a server retrying the rescue boot")
+		}
+		s.setRescueRecoveryCondition(msg)
+		return reconcile.Result{RequeueAfter: rescueObserveInterval}, true, nil
+
+	case hcloud.ServerStatusRunning:
+		return s.escalateRescueRecovery(ctx, server)
+	}
+
+	// Any other status is a transition. Let it settle.
+	return reconcile.Result{}, false, nil
+}
+
+// escalateRescueRecovery takes the next recovery step for a server that is running while the
+// rescue system is still armed, which means it booted something else.
+func (s *Service) escalateRescueRecovery(ctx context.Context, server *hcloud.Server) (reconcile.Result, bool, error) {
+	hm := s.scope.HCloudMachine
+
+	switch hm.Status.RescueRecovery {
+	case infrav1.RescueRecoveryNone:
+		// First failure. The rescue system is still armed, so assume the arming is good and only
+		// the boot went wrong, and simply boot it again.
+		msg := "server is running while the API still reports the rescue system as armed, so it booted something else; powering it off to boot again"
+		s.scope.Info(msg, "serverStatus", server.Status, "rescueEnabled", server.RescueEnabled)
+		hm.Status.RescueRecovery = infrav1.RescueRecoveryPowerCycled
+		if err := s.scope.HCloudClient.PowerOffServer(ctx, server); err != nil {
+			if handleUnauthorized(hm, err) {
+				return reconcile.Result{}, true, nil
+			}
+			return reconcile.Result{}, true, handleRateLimit(hm, err, "PowerOffServer", "failed to power off a server that did not enter the rescue system")
+		}
+		s.setRescueRecoveryCondition(msg)
+		return reconcile.Result{RequeueAfter: rescueObserveInterval}, true, nil
+
+	case infrav1.RescueRecoveryPowerCycled:
+		// Booting again did not help, so the arming never took effect. Ask for it again, then
+		// power off. The armed check before power-on gates the next boot on the API reporting the
+		// rescue system as armed, so this attempt waits for what the first one did not.
+		msg := "server booted something other than the rescue system twice; enabling the rescue system again before the next boot"
+		s.scope.Info(msg, "serverStatus", server.Status)
+		hm.Status.RescueRecovery = infrav1.RescueRecoveryRearmed
+
+		sshKeys, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
+		if err != nil {
+			if handleUnauthorized(hm, err) {
+				return reconcile.Result{}, true, nil
+			}
+			return reconcile.Result{}, true, handleRateLimit(hm, err, "ListSSHKeys", "failed to list ssh keys while re-enabling the rescue system")
+		}
+		if _, err := s.scope.HCloudClient.EnableRescueSystem(ctx, server, &hcloud.ServerEnableRescueOpts{
+			Type:    hcloud.ServerRescueTypeLinux64,
+			SSHKeys: sshKeys,
+		}); err != nil {
+			if handleUnauthorized(hm, err) {
+				return reconcile.Result{}, true, nil
+			}
+			return reconcile.Result{}, true, handleRateLimit(hm, err, "EnableRescueSystem", "failed to re-enable the rescue system")
+		}
+
+		if err := s.scope.HCloudClient.PowerOffServer(ctx, server); err != nil {
+			if handleUnauthorized(hm, err) {
+				return reconcile.Result{}, true, nil
+			}
+			return reconcile.Result{}, true, handleRateLimit(hm, err, "PowerOffServer", "failed to power off a server before retrying the rescue boot")
+		}
+		s.setRescueRecoveryCondition(msg)
+		return reconcile.Result{RequeueAfter: rescueObserveInterval}, true, nil
+	}
+
+	// Both steps have been tried. Say precisely what is wrong and stop acting, so the timeout
+	// stays the single place that decides a machine has failed.
+	msg := "server is running while the API still reports the rescue system as armed, and neither a power cycle nor re-enabling the rescue system changed that"
+	s.scope.Error(nil, msg)
+	v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+		"RescueNotEntered", clusterv1beta1.ConditionSeverityWarning, "%s", msg)
+	v1beta2conditions.Set(hm, metav1.Condition{
+		Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+		Status:  metav1.ConditionFalse,
+		Reason:  infrav1.HCloudMachineRescueNotEnteredV1Beta2Reason,
+		Message: msg,
+	})
+	return reconcile.Result{RequeueAfter: rescueObserveInterval}, true, nil
+}
+
+// setRescueRecoveryCondition reports that a recovery step is in progress.
+func (s *Service) setRescueRecoveryCondition(msg string) {
+	hm := s.scope.HCloudMachine
+	v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+		"RetryingBootToRescue", clusterv1beta1.ConditionSeverityInfo, "%s", msg)
+	v1beta2conditions.Set(hm, metav1.Condition{
+		Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+		Status:  metav1.ConditionFalse,
+		Reason:  infrav1.HCloudMachineRetryingBootToRescueV1Beta2Reason,
+		Message: msg,
+	})
 }
 
 // handleBootStateBootingToRescue is for provisioning with imageURL and image-url-command.
@@ -803,10 +1007,20 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 		return reconcile.Result{}, nil
 	}
 
-	// The server is freshly created and was never started before this boot cycle, so there is no
-	// prior OS it could mistakenly reach over SSH. Attempt SSH directly instead of first checking
-	// server.RescueEnabled via a live GetServer call - ECONNREFUSED below already covers "server
-	// has not yet rebooted into rescue system".
+	// SSH first, because it costs no hcloud API call and a healthy boot answers within seconds.
+	//
+	// It is not sufficient on its own. The server has a prior OS it can reach over SSH: the image
+	// it was created from. If the rescue boot does not take, that image boots instead, and silence
+	// on port 22 no longer distinguishes a slow boot from a wrong one. So once the grace period
+	// has passed, ask the API what the server is actually doing, and keep asking, because the
+	// answer is what the recovery steps are driven from.
+	if durationOfState > rescueGracePeriod {
+		res, handled, err := s.observeRescueBoot(ctx)
+		if handled {
+			return res, err
+		}
+	}
+
 	sshClient, err := s.getSSHClient(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (waiting for rescue running): %w", err)

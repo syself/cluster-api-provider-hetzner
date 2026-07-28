@@ -63,6 +63,7 @@ type Client interface {
 	ListServerTypes(context.Context) ([]*hcloud.ServerType, error)
 	GetServerType(context.Context, string) (*hcloud.ServerType, error)
 	PowerOnServer(context.Context, *hcloud.Server) error
+	PowerOffServer(context.Context, *hcloud.Server) error
 	ShutdownServer(context.Context, *hcloud.Server) error
 	RebootServer(context.Context, *hcloud.Server) error
 	CreateNetwork(context.Context, hcloud.NetworkCreateOpts) (*hcloud.Network, error)
@@ -290,6 +291,16 @@ func (c *realClient) RebootServer(ctx context.Context, server *hcloud.Server) er
 
 func (c *realClient) PowerOnServer(ctx context.Context, server *hcloud.Server) error {
 	_, _, err := c.client.Server.Poweron(ctx, server)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
+	return err
+}
+
+// PowerOffServer cuts the power. ShutdownServer sends ACPI and needs the running system to
+// co-operate, which a server that never reached the rescue system may not be able to do.
+func (c *realClient) PowerOffServer(ctx context.Context, server *hcloud.Server) error {
+	_, _, err := c.client.Server.Poweroff(ctx, server)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
 		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
 	}

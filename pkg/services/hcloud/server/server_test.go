@@ -603,6 +603,12 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 		}
 		hcloudClient := mocks.NewClient(GinkgoT())
 		service := newTestService(hcloudMachine, hcloudClient)
+		// The rescue system has to be armed before the server is powered on, so the handler
+		// reads the server back first.
+		hcloudClient.On("GetServer", mock.Anything, int64(1)).Return(&hcloud.Server{
+			ID:            1,
+			RescueEnabled: true,
+		}, nil).Once()
 		hcloudClient.On("PowerOnServer", mock.Anything, mock.Anything).Return(hcloud.Error{
 			Code:    hcloud.ErrorCodeLocked,
 			Message: "server is locked",
@@ -636,6 +642,10 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 		}
 		hcloudClient := mocks.NewClient(GinkgoT())
 		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetServer", mock.Anything, int64(1)).Return(&hcloud.Server{
+			ID:            1,
+			RescueEnabled: true,
+		}, nil).Once()
 		hcloudClient.On("PowerOnServer", mock.Anything, mock.Anything).Return(
 			fmt.Errorf("%w: invalid HCloud token", hcloudclient.ErrUnauthorized)).Once()
 
@@ -646,6 +656,169 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
 		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(hcloudMachine.Status.BootState).ToNot(Equal(infrav1.HCloudBootStateBootingToRescue))
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+})
+
+var _ = Describe("rescue state detection", func() {
+	newMachine := func(bootStateSince time.Time, step infrav1.RescueRecoveryStep) *infrav1.HCloudMachine {
+		return &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ProviderID: ptr.To("hcloud://1"),
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootStateSince: metav1.NewTime(bootStateSince),
+				RescueRecovery: step,
+				ExternalIDs: infrav1.HCloudMachineStatusExternalIDs{
+					ActionIDEnableRescueSystem: actionDone,
+				},
+			},
+		}
+	}
+
+	It("does not power the server on while the API has not armed the rescue system", func() {
+		hcloudMachine := newMachine(time.Now(), infrav1.RescueRecoveryNone)
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetServer", mock.Anything, int64(1)).Return(&hcloud.Server{
+			ID:            1,
+			RescueEnabled: false,
+		}, nil).Once()
+
+		res, err := service.handleBootStateEnablingRescue(context.Background())
+
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
+		// Powering on here would boot the image the server was created from.
+		hcloudClient.AssertNotCalled(GinkgoT(), "PowerOnServer", mock.Anything, mock.Anything)
+		Expect(hcloudMachine.Status.BootState).ToNot(Equal(infrav1.HCloudBootStateBootingToRescue))
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineWaitingForRescueEnabledV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("powers off a running server that never entered the rescue system", func() {
+		// Running while the flag is still armed means it booted something else.
+		hcloudMachine := newMachine(time.Now().Add(-2*time.Minute), infrav1.RescueRecoveryNone)
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetServer", mock.Anything, int64(1)).Return(&hcloud.Server{
+			ID:            1,
+			Status:        hcloud.ServerStatusRunning,
+			RescueEnabled: true,
+		}, nil).Once()
+		hcloudClient.On("PowerOffServer", mock.Anything, mock.Anything).Return(nil).Once()
+
+		res, handled, err := service.observeRescueBoot(context.Background())
+
+		Expect(err).To(BeNil())
+		Expect(handled).To(BeTrue())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: rescueObserveInterval}))
+		Expect(hcloudMachine.Status.RescueRecovery).To(Equal(infrav1.RescueRecoveryPowerCycled))
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineRetryingBootToRescueV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("powers the server on again after a recovery step powered it off", func() {
+		hcloudMachine := newMachine(time.Now().Add(-2*time.Minute), infrav1.RescueRecoveryPowerCycled)
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetServer", mock.Anything, int64(1)).Return(&hcloud.Server{
+			ID:            1,
+			Status:        hcloud.ServerStatusOff,
+			RescueEnabled: true,
+		}, nil).Once()
+		hcloudClient.On("PowerOnServer", mock.Anything, mock.Anything).Return(nil).Once()
+
+		res, handled, err := service.observeRescueBoot(context.Background())
+
+		Expect(err).To(BeNil())
+		Expect(handled).To(BeTrue())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: rescueObserveInterval}))
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("re-enables the rescue system when booting again was not enough", func() {
+		// A second wrong boot means the arming never took effect, so ask for it again.
+		hcloudMachine := newMachine(time.Now().Add(-3*time.Minute), infrav1.RescueRecoveryPowerCycled)
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetServer", mock.Anything, int64(1)).Return(&hcloud.Server{
+			ID:            1,
+			Status:        hcloud.ServerStatusRunning,
+			RescueEnabled: true,
+		}, nil).Once()
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return([]*hcloud.SSHKey{{ID: 7}}, nil).Once()
+		hcloudClient.On("EnableRescueSystem", mock.Anything, mock.Anything, mock.Anything).Return(hcloud.ServerEnableRescueResult{}, nil).Once()
+		hcloudClient.On("PowerOffServer", mock.Anything, mock.Anything).Return(nil).Once()
+
+		res, handled, err := service.observeRescueBoot(context.Background())
+
+		Expect(err).To(BeNil())
+		Expect(handled).To(BeTrue())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: rescueObserveInterval}))
+		Expect(hcloudMachine.Status.RescueRecovery).To(Equal(infrav1.RescueRecoveryRearmed))
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("stops acting once both recovery steps have been tried", func() {
+		hcloudMachine := newMachine(time.Now().Add(-4*time.Minute), infrav1.RescueRecoveryRearmed)
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetServer", mock.Anything, int64(1)).Return(&hcloud.Server{
+			ID:            1,
+			Status:        hcloud.ServerStatusRunning,
+			RescueEnabled: true,
+		}, nil).Once()
+
+		res, handled, err := service.observeRescueBoot(context.Background())
+
+		Expect(err).To(BeNil())
+		Expect(handled).To(BeTrue())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: rescueObserveInterval}))
+		// The timeout is the single place that decides a machine has failed.
+		hcloudClient.AssertNotCalled(GinkgoT(), "PowerOffServer", mock.Anything, mock.Anything)
+		hcloudClient.AssertNotCalled(GinkgoT(), "EnableRescueSystem", mock.Anything, mock.Anything, mock.Anything)
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineRescueNotEnteredV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("hands back to SSH once the rescue flag is cleared", func() {
+		// Cleared is what entering the rescue system looks like, so recovery must not interfere.
+		hcloudMachine := newMachine(time.Now().Add(-2*time.Minute), infrav1.RescueRecoveryNone)
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetServer", mock.Anything, int64(1)).Return(&hcloud.Server{
+			ID:            1,
+			Status:        hcloud.ServerStatusRunning,
+			RescueEnabled: false,
+		}, nil).Once()
+
+		_, handled, err := service.observeRescueBoot(context.Background())
+
+		Expect(err).To(BeNil())
+		Expect(handled).To(BeFalse())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("leaves a server alone that something else powered off", func() {
+		hcloudMachine := newMachine(time.Now().Add(-2*time.Minute), infrav1.RescueRecoveryNone)
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		hcloudClient.On("GetServer", mock.Anything, int64(1)).Return(&hcloud.Server{
+			ID:            1,
+			Status:        hcloud.ServerStatusOff,
+			RescueEnabled: true,
+		}, nil).Once()
+
+		_, handled, err := service.observeRescueBoot(context.Background())
+
+		Expect(err).To(BeNil())
+		Expect(handled).To(BeFalse())
+		hcloudClient.AssertNotCalled(GinkgoT(), "PowerOnServer", mock.Anything, mock.Anything)
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 })
@@ -1788,6 +1961,12 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateEnablingRescue))
 
 		By("reconcile again: server gets powered on ---------------------------------")
+		// The handler reads the server back and only powers it on once the API reports the
+		// rescue system as armed.
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
+			ID:            1,
+			RescueEnabled: true,
+		}, nil).Once()
 		hcloudClient.On("PowerOnServer", mock.Anything, mock.Anything).Return(nil).Once()
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
@@ -1851,7 +2030,15 @@ var _ = Describe("Reconcile", func() {
 			}
 		}
 		GinkgoWriter.Printf("GetServer was called %d times during provisioning (imageURL)\n", getServerCalls)
-		Expect(getServerCalls).To(BeNumerically("<=", 1), "GetServer should not be called more than 1 time during imageURL provisioning")
+		// Two, and both are deliberate. One is the read that confirms the API reports the rescue
+		// system as armed before the server is powered on: without it the server can be powered
+		// on while the enable-rescue state has not taken effect, and it boots the pre-rescue OS
+		// instead. The probe in BootingToRescue does not run on this path, because a healthy boot
+		// answers SSH long before it would.
+		//
+		// Keep this bound tight. It exists so the provisioning path does not quietly grow hcloud
+		// API calls, which is a rate-limit budget shared across every machine being provisioned.
+		Expect(getServerCalls).To(BeNumerically("<=", 2), "GetServer should not be called more than 2 times during imageURL provisioning")
 	})
 
 	It("ignores status in output.json when IMAGE_URL_DONE in stdout", func() {

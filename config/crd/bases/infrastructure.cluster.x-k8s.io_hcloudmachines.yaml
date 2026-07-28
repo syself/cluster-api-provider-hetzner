@@ -311,6 +311,16 @@ spec:
                 - hil
                 - sin
                 type: string
+              rescueRecovery:
+                description: |-
+                  RescueRecovery records the last recovery step taken for a server that was powered on to
+                  the rescue system and booted something else. It makes the escalation visible and stops it
+                  repeating a step that already failed.
+                enum:
+                - ""
+                - PowerCycled
+                - Rearmed
+                type: string
               sshKeys:
                 description: SSHKeys specifies the ssh keys that were used for provisioning
                   the server.
