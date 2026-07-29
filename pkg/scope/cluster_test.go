@@ -148,3 +148,75 @@ func TestAllControlPlaneInfraMachinesAnnotatedForProxyProtocol(t *testing.T) {
 		})
 	}
 }
+
+func TestAllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(t *testing.T) {
+	const (
+		namespace   = "default"
+		clusterName = "test-cluster"
+	)
+
+	scheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+
+	cpMachine := func(name string, annotations map[string]string) *infrav1.HCloudMachine {
+		return &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+				Labels: map[string]string{
+					clusterv1.ClusterNameLabel:         clusterName,
+					clusterv1.MachineControlPlaneLabel: "",
+				},
+				Annotations: annotations,
+			},
+		}
+	}
+	httpTrue := map[string]string{infrav1.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation: "true"}
+	proxyProtocolOnly := map[string]string{infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation: "true"}
+
+	tests := []struct {
+		name     string
+		machines []client.Object
+		want     bool
+	}{
+		{
+			name:     "no control-plane machines yet",
+			machines: nil,
+			want:     false,
+		},
+		{
+			name:     "all control planes annotated for the http health check",
+			machines: []client.Object{cpMachine("cp-1", httpTrue), cpMachine("cp-2", httpTrue)},
+			want:     true,
+		},
+		{
+			name:     "one machine still on the old template misses the annotation",
+			machines: []client.Object{cpMachine("cp-1", httpTrue), cpMachine("cp-2", nil)},
+			want:     false,
+		},
+		{
+			name:     "the proxy-protocol annotation does not satisfy the http gate",
+			machines: []client.Object{cpMachine("cp-1", proxyProtocolOnly)},
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &ClusterScope{
+				Logger:  klog.Background(),
+				Client:  fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(tt.machines...).Build(),
+				Cluster: &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace}},
+				HetznerCluster: &infrav1.HetznerCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace},
+				},
+			}
+
+			got, err := s.AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
