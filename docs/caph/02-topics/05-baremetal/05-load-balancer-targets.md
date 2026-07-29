@@ -5,7 +5,7 @@ sidebar: Load balancer targets
 description: Select the address family CAPH uses when it attaches a bare metal control plane server to the control plane load balancer.
 ---
 
-## Why bare metal servers are different
+## Difference between bare metal and cloud servers
 
 CAPH attaches every control plane machine to the control plane load balancer, but it cannot do it the same way for both kinds of server.
 
@@ -15,7 +15,7 @@ A bare metal server is a Hetzner Robot resource. It has a server ID too, but not
 
 `spec.controlPlaneLoadBalancer.targetAddressFamily` is that decision.
 
-The field is limited to that decision, so two things it does not touch are worth naming. Worker machines are never attached to the control plane load balancer, bare metal or not, so the field does not apply to them. And a `Service` of type `LoadBalancer` inside the workload cluster gets its own load balancer from the cloud controller manager, not from CAPH, so the targets of that one are configured there instead.
+The field only affects bare metal control plane servers. It does not change worker machines, which are never attached to the control plane load balancer, and it does not change a `Service` of type `LoadBalancer` in the workload cluster, which gets its own load balancer from the cloud controller manager rather than from CAPH.
 
 ## Choosing the address family
 
@@ -39,11 +39,9 @@ An address the server does not have is never attached. If a server has no IPv6 a
 
 ## When to set ipv4
 
-Hetzner routes an IPv6 subnet to a bare metal server, so an IPv6 address for it exists in the Robot API, and CAPH records it as `spec.status.ipv6` on the `HetznerBareMetalHost`. That an address exists is not the same as the server answering on it: the installed OS still has to configure it, and an image that sets up IPv4 only is common. The Robot API does not report what the running OS configured, so CAPH cannot detect this and choose for you.
+Whether you want IPv6 depends on how you set up your nodes and their images, so it is your decision to make. Hetzner routes an IPv6 subnet to every bare metal server, so an IPv6 address exists in the Robot API, and CAPH records it as `spec.status.ipv6` on the `HetznerBareMetalHost`. But an address existing does not mean the server uses it: the installed OS still has to configure it, and an image that only sets up IPv4 is common. CAPH cannot see from the Robot API what the OS configured, so it cannot decide for you.
 
 When the server does not answer on the address, the target is still created and simply never passes its health check. The load balancer then reports an unhealthy target for as long as the machine exists, which buries a genuinely unhealthy control plane in the noise, and one target slot is spent on a target that cannot serve traffic.
-
-The default is `dualstack`, so both addresses are attached. Set `ipv4` on a cluster whose servers only use IPv4, so the load balancer does not carry an IPv6 target that never becomes healthy. Set `ipv6` for a single-stack IPv6 setup.
 
 A quick way to check what a server actually configured, from a shell on the machine:
 
@@ -67,11 +65,3 @@ kubectl get hetznercluster <name> -o jsonpath='{.status.controlPlaneLoadBalancer
 ```
 
 CAPH also emits events on the `HetznerCluster` when it attaches or detaches an address.
-
-## Upgrading an existing cluster
-
-The default `dualstack` attaches both addresses, so an upgrade attaches nothing new and removes nothing: every bare metal control plane server keeps both of its targets.
-
-To drop an IPv6 target that never becomes healthy, set `targetAddressFamily: ipv4` on the `HetznerCluster`, or on the `HetznerClusterTemplate` if you use `ClusterClass`. On the next reconcile the IPv6 target of every bare metal control plane server is detached. The IPv4 target of the same server stays attached, so the API server remains reachable through the load balancer.
-
-This does not affect HCloud control plane machines, which are attached by server ID and are untouched by the field.

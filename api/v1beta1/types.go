@@ -300,16 +300,14 @@ func (spec LoadBalancerSpec) TargetAddressFamilyOrDefault() LoadBalancerTargetAd
 }
 
 // WantsIPv4 reports whether the configured address family selects the IPv4 address of a
-// bare metal server for attachment. Whether that address is attached right now is a
-// separate question, answered by the targets in LoadBalancerStatus.
+// bare metal server for attachment.
 func (spec LoadBalancerSpec) WantsIPv4() bool {
 	family := spec.TargetAddressFamilyOrDefault()
 	return family == LoadBalancerTargetAddressFamilyIPv4 || family == LoadBalancerTargetAddressFamilyDualStack
 }
 
 // WantsIPv6 reports whether the configured address family selects the IPv6 address of a
-// bare metal server for attachment. Whether that address is attached right now is a
-// separate question, answered by the targets in LoadBalancerStatus.
+// bare metal server for attachment.
 func (spec LoadBalancerSpec) WantsIPv6() bool {
 	family := spec.TargetAddressFamilyOrDefault()
 	return family == LoadBalancerTargetAddressFamilyIPv6 || family == LoadBalancerTargetAddressFamilyDualStack

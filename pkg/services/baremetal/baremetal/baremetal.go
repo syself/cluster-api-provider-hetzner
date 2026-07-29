@@ -718,13 +718,22 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 
 	lb := &hcloud.LoadBalancer{ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID}
 
-	// Detaching runs before the health gate below. An address that is not selected does
-	// not belong on the load balancer regardless of the state of the API server, and
-	// waiting would keep a target that cannot serve traffic.
 	for _, ip := range addressesToDetach {
-		if err := s.detachIPTargetOfLoadBalancer(ctx, lb, host, ip); err != nil {
-			return err
+		if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(ip)); err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
+			// The address is no longer a target, which is the state we want, so carry on
+			// with the next address instead of giving up on it.
+			if strings.Contains(err.Error(), "load_balancer_target_not_found") {
+				continue
+			}
+			return fmt.Errorf("failed to remove IP %q as target of load balancer: %w", ip, err)
 		}
+		record.Eventf(
+			s.scope.HetznerCluster,
+			"DeletedIPTargetOfLoadBalancer",
+			"Deleted IP %q of server %d as target of the loadbalancer %v, it is not part of the configured address family %q",
+			ip, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID, s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.TargetAddressFamilyOrDefault(),
+		)
 	}
 
 	if len(addressesToAttach) == 0 {
@@ -783,26 +792,6 @@ func attachableIP(address string) string {
 		return ""
 	}
 	return address
-}
-
-// detachIPTargetOfLoadBalancer removes a single address of the host from the load
-// balancer. An address that is not a target anymore is the desired outcome, so the
-// corresponding error of the HCloud API is not treated as a failure.
-func (s *Service) detachIPTargetOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, host *infrav1.HetznerBareMetalHost, ip string) error {
-	if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(ip)); err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
-		if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
-			return fmt.Errorf("failed to remove IP %q as target of load balancer: %w", ip, err)
-		}
-		return nil
-	}
-	record.Eventf(
-		s.scope.HetznerCluster,
-		"DeletedIPTargetOfLoadBalancer",
-		"Deleted IP %q of server %d as target of the loadbalancer %v, it is not part of the configured address family %q",
-		ip, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID, s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.TargetAddressFamilyOrDefault(),
-	)
-	return nil
 }
 
 func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
