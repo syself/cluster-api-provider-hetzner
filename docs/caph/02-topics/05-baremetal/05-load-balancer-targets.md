@@ -13,7 +13,7 @@ An HCloud server is a resource of the HCloud API, the same API the load balancer
 
 A bare metal server is a Hetzner Robot resource. It has a server ID too, but not one the HCloud load balancer can reference, so CAPH attaches it by address instead. This is a target of type `ip`, and such a target holds exactly one address. Reaching one server over both protocols therefore takes two targets, and CAPH has to decide which of them to create.
 
-`spec.controlPlaneLoadBalancer.targetAddressFamily` is that decision.
+`spec.controlPlaneLoadBalancer.targetAddressFamily` selects which of them CAPH creates.
 
 The field only affects bare metal control plane servers. It does not change worker machines, which are never attached to the control plane load balancer, and it does not change a `Service` of type `LoadBalancer` in the workload cluster, which gets its own load balancer from the cloud controller manager rather than from CAPH.
 
