@@ -2581,6 +2581,7 @@ func autoConvert_v1beta1_LoadBalancerSpec_To_v1beta2_LoadBalancerSpec(in *LoadBa
 	out.ExtraServices = *(*[]v1beta2.LoadBalancerServiceSpec)(unsafe.Pointer(&in.ExtraServices))
 	out.Region = v1beta2.Region(in.Region)
 	out.EnableProxyProtocol = in.EnableProxyProtocol
+	out.TargetAddressFamily = v1beta2.LoadBalancerTargetAddressFamily(in.TargetAddressFamily)
 	return nil
 }
 
@@ -2598,6 +2599,7 @@ func autoConvert_v1beta2_LoadBalancerSpec_To_v1beta1_LoadBalancerSpec(in *v1beta
 	out.ExtraServices = *(*[]LoadBalancerServiceSpec)(unsafe.Pointer(&in.ExtraServices))
 	out.Region = Region(in.Region)
 	out.EnableProxyProtocol = in.EnableProxyProtocol
+	out.TargetAddressFamily = LoadBalancerTargetAddressFamily(in.TargetAddressFamily)
 	return nil
 }
 
