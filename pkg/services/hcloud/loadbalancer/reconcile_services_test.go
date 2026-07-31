@@ -284,7 +284,7 @@ func TestReconcileServices_ProxyProtocolMigration_MachinesNotReady(t *testing.T)
 	cond := conditions.Get(svc.scope.HetznerCluster, infrav2.HetznerClusterLoadBalancerReadyCondition)
 	require.NotNil(t, cond, "LoadBalancerReady condition should report the proxy protocol wait")
 	require.Equal(t, metav1.ConditionFalse, cond.Status)
-	require.Equal(t, infrav2.HetznerClusterLoadBalancerWaitingToActivateReason, cond.Reason)
+	require.Equal(t, infrav2.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason, cond.Reason)
 
 	mockClient.AssertExpectations(t)
 }
