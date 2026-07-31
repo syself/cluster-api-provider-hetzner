@@ -852,6 +852,36 @@ var _ = Describe("handleBootStateInitializing", func() {
 	})
 })
 
+var _ = Describe("handleBootStateRunningImageCommand", func() {
+	It("remediates from BootStateSince alone when the machine has stopped answering over SSH", func() {
+		// The machine has been in RunningImageCommand past the timeout. newTestService configures
+		// no SSH access, so getSSHPrivateKey fails before any read over SSH; this passes only if
+		// the handler remediates from BootStateSince first.
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Status: infrav1.HCloudMachineStatus{
+				BootState:      infrav1.HCloudBootStateRunningImageCommand,
+				BootStateSince: metav1.NewTime(time.Now().Add(-21 * time.Minute)),
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+
+		res, err := service.handleBootStateRunningImageCommand(context.Background())
+
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+		_, exists := service.scope.Machine.Annotations[clusterv1.RemediateMachineAnnotation]
+		Expect(exists).To(BeTrue())
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerProvisionedCondition, "RunningImageCommandTimedOut")).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineRunningImageURLCommandTimedOutV1Beta2Reason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+})
+
 var _ = Describe("getSSHKeys", func() {
 	var (
 		service      *Service
