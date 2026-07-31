@@ -19,6 +19,7 @@ package loadbalancer
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/utils/ptr"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -229,11 +231,16 @@ var _ = Describe("reconcileServices proxy protocol migration", func() {
 
 		res, err := svc.reconcileServices(context.Background(), lb)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).NotTo(BeZero())
+		Expect(res.RequeueAfter).To(Equal(2 * time.Minute))
 
 		Expect(lb.Services).To(HaveLen(1))
 		Expect(lb.Services[0].Proxyprotocol).To(BeFalse())
 		Expect(svc.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled).To(BeFalse())
+
+		cond := v1beta2conditions.Get(svc.scope.HetznerCluster, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition)
+		Expect(cond).NotTo(BeNil())
+		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+		Expect(cond.Reason).To(Equal(infrav1.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolV1Beta2Reason))
 	})
 })
 

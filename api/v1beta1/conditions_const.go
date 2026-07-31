@@ -31,6 +31,8 @@ const (
 	LoadBalancerServiceSyncFailedReason = "LoadBalancerServiceSyncFailed"
 	// LoadBalancerFailedToOwnReason used when no owned label could be set on a load balancer.
 	LoadBalancerFailedToOwnReason = "LoadBalancerFailedToOwn"
+	// LoadBalancerWaitingToActivateProxyProtocolReason used while proxy protocol activation waits for all control-plane machines to be annotated.
+	LoadBalancerWaitingToActivateProxyProtocolReason = "LoadBalancerWaitingToActivateProxyProtocol"
 )
 
 const (
@@ -501,6 +503,9 @@ const (
 	HetznerClusterLoadBalancerUpdateFailedV1Beta2Reason = "UpdateFailed"
 	// HetznerClusterLoadBalancerDeletionFailedV1Beta2Reason indicates that an error occurred during load balancer delete.
 	HetznerClusterLoadBalancerDeletionFailedV1Beta2Reason = "DeletionFailed"
+	// HetznerClusterLoadBalancerWaitingToActivateProxyProtocolV1Beta2Reason indicates that proxy protocol activation is
+	// waiting for all control-plane machines to be annotated.
+	HetznerClusterLoadBalancerWaitingToActivateProxyProtocolV1Beta2Reason = "WaitingToActivateProxyProtocol"
 )
 
 const (
