@@ -19,6 +19,7 @@ package loadbalancer
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/stretchr/testify/mock"
@@ -26,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -277,7 +279,13 @@ func TestReconcileServices_ProxyProtocolMigration_MachinesNotReady(t *testing.T)
 
 	res, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
-	require.NotZero(t, res.RequeueAfter, "should requeue while a control-plane machine is not annotated")
+	require.Equal(t, 2*time.Minute, res.RequeueAfter, "should requeue after 2 minutes while a control-plane machine is not annotated")
+
+	cond := conditions.Get(svc.scope.HetznerCluster, infrav2.HetznerClusterLoadBalancerReadyCondition)
+	require.NotNil(t, cond, "LoadBalancerReady condition should report the proxy protocol wait")
+	require.Equal(t, metav1.ConditionFalse, cond.Status)
+	require.Equal(t, infrav2.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason, cond.Reason)
+
 	mockClient.AssertExpectations(t)
 }
 
