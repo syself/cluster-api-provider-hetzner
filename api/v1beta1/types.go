@@ -46,6 +46,26 @@ const (
 	LoadBalancerTargetTypeIP = LoadBalancerTargetType("ip")
 )
 
+// LoadBalancerTargetAddressFamily defines which addresses of a bare metal server are
+// attached as targets of a load balancer.
+// +kubebuilder:validation:Enum=ipv4;ipv6;dualstack
+type LoadBalancerTargetAddressFamily string
+
+const (
+	// LoadBalancerTargetAddressFamilyIPv4 attaches only the IPv4 address of a bare metal
+	// server.
+	LoadBalancerTargetAddressFamilyIPv4 = LoadBalancerTargetAddressFamily("ipv4")
+
+	// LoadBalancerTargetAddressFamilyIPv6 attaches only the IPv6 address of a bare metal
+	// server.
+	LoadBalancerTargetAddressFamilyIPv6 = LoadBalancerTargetAddressFamily("ipv6")
+
+	// LoadBalancerTargetAddressFamilyDualStack attaches both the IPv4 and the IPv6 address
+	// of a bare metal server, as two separate targets. This is the default, see
+	// LoadBalancerSpec.TargetAddressFamily.
+	LoadBalancerTargetAddressFamilyDualStack = LoadBalancerTargetAddressFamily("dualstack")
+)
+
 // HCloudAlgorithmType converts LoadBalancerAlgorithmType to hcloud type.
 func (algorithmType *LoadBalancerAlgorithmType) HCloudAlgorithmType() hcloud.LoadBalancerAlgorithmType {
 	switch *algorithmType {
@@ -213,6 +233,113 @@ type LoadBalancerSpec struct {
 
 	// Region contains the name of the HCloud location where the load balancer is running.
 	Region Region `json:"region,omitempty"`
+
+	// EnableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
+	// Only the kube-apiserver service is affected; extra services are never given proxy protocol.
+	//
+	// For new clusters the LB service is created with proxy protocol enabled immediately — no
+	// annotation check is performed because there are no existing backends that could receive
+	// unexpected PROXY-protocol headers.
+	//
+	// For existing clusters that want to enable proxy protocol after the fact, CAPH waits until
+	// every control-plane infra machine carries the annotation
+	// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true" before switching the LB
+	// service to proxy protocol in place. The annotation is set on the control-plane infra machine
+	// template, so a machine from an earlier template does not carry it and the check stays false
+	// until the rollout completes. This prevents backends still expecting plain TCP from receiving
+	// malformed PROXY-protocol headers.
+	//
+	// Enabling proxy protocol is a one-way operation — it is never turned back off.
+	// +optional
+	EnableProxyProtocol bool `json:"enableProxyProtocol,omitempty"`
+
+	// HealthCheck configures the health check the load balancer runs against the
+	// kube-apiserver service targets. While it is unset the load balancer keeps its own
+	// tcp check, so a target counts as healthy as soon as the port accepts a connection.
+	//
+	// Set an http or https check with a Path to have the load balancer route only
+	// to a target whose API server answers that path (for example a readiness
+	// endpoint), and drop a target that stops answering it. Only the kube-apiserver
+	// service is affected; extra services are never given a custom health check.
+	//
+	// On an existing cluster, a switch from a tcp check to an http or https check waits
+	// until every control-plane infra machine carries the annotation
+	// capi.syself.com/http-health-check-for-controlplane-loadbalancer: "true", set on the
+	// control-plane infra machine template. This happens on every such switch.
+	// Until the annotation is there the tcp check stays in place, so the switch
+	// cannot mark a target that does not answer the path yet as unhealthy. A new cluster
+	// gets the configured check from the start. This works like the proxy-protocol
+	// migration in EnableProxyProtocol.
+	//
+	// Every other change is applied right away: setting Protocol back to tcp, and any change
+	// within http or https such as a new Path, Port or StatusCodes. Nothing checks that the
+	// targets pass the new check first, so change these only once they do. Setting the old
+	// values back is applied right away too.
+	//
+	// Leaving HealthCheck out means CAPH does not manage the check, so a load balancer that
+	// already has one keeps it. Deleting the field after an http check was applied therefore
+	// does not undo that check.
+	// +optional
+	HealthCheck *LoadBalancerHealthCheckSpec `json:"healthCheck,omitempty"`
+
+	// TargetAddressFamily selects which addresses of a bare metal control plane server are
+	// attached as targets of the load balancer.
+	//
+	// This only affects bare metal servers. An HCloud server is a resource of the HCloud
+	// API, so the load balancer references it by its server ID ("server" target type) and
+	// resolves the address on its own. A bare metal server is a Robot resource that the
+	// load balancer cannot reference that way, so it is attached by address instead ("ip"
+	// target type), and such a target holds exactly one address. Reaching one server over
+	// both protocols therefore takes two targets, and this field decides which of them
+	// CAPH creates.
+	//
+	// An empty value means dualstack, so by default both the IPv4 and the IPv6 address are
+	// attached. Set ipv4 on a cluster whose servers only use IPv4. Hetzner routes an IPv6
+	// subnet to a bare metal server, so an IPv6 address for it usually exists in the Robot
+	// API, but that says nothing about whether the installed OS configured it. An image that
+	// sets up IPv4 only is common, and a target for an address the server does not answer on
+	// never passes its health check. The load balancer then reports an unhealthy target for
+	// as long as the machine exists, which buries a genuinely unhealthy control plane in
+	// noise, and one target slot is spent on a target that cannot serve traffic. Set ipv6 for
+	// a single-stack IPv6 setup.
+	//
+	// The value can be changed at any time. CAPH attaches the addresses of the selected
+	// family that are missing and removes the targets of the addresses it no longer
+	// selects, so a switch converges without manual cleanup in the HCloud API.
+	// +optional
+	TargetAddressFamily LoadBalancerTargetAddressFamily `json:"targetAddressFamily,omitempty"`
+}
+
+// TargetAddressFamilyOrDefault returns the address family to use for the "ip" targets of
+// bare metal servers, resolving an empty value to the default.
+//
+// Defaulting happens here and not through a +kubebuilder:default marker on the field, so
+// that an object which never set the field stays free of it instead of having the value
+// written into it. A switch with a default branch rather than a comparison against the
+// empty string is deliberate: the enum validation only guards writes through the API
+// server, so an unexpected value can still reach this code, for example from an object
+// stored before the field existed, and it has to resolve to something sane.
+func (spec LoadBalancerSpec) TargetAddressFamilyOrDefault() LoadBalancerTargetAddressFamily {
+	switch spec.TargetAddressFamily {
+	case LoadBalancerTargetAddressFamilyIPv4, LoadBalancerTargetAddressFamilyIPv6:
+		return spec.TargetAddressFamily
+	default:
+		return LoadBalancerTargetAddressFamilyDualStack
+	}
+}
+
+// WantsIPv4 reports whether the configured address family selects the IPv4 address of a
+// bare metal server for attachment.
+func (spec LoadBalancerSpec) WantsIPv4() bool {
+	family := spec.TargetAddressFamilyOrDefault()
+	return family == LoadBalancerTargetAddressFamilyIPv4 || family == LoadBalancerTargetAddressFamilyDualStack
+}
+
+// WantsIPv6 reports whether the configured address family selects the IPv6 address of a
+// bare metal server for attachment.
+func (spec LoadBalancerSpec) WantsIPv6() bool {
+	family := spec.TargetAddressFamilyOrDefault()
+	return family == LoadBalancerTargetAddressFamilyIPv6 || family == LoadBalancerTargetAddressFamilyDualStack
 }
 
 // LoadBalancerServiceSpec defines a load balancer Target.
@@ -232,6 +359,74 @@ type LoadBalancerServiceSpec struct {
 	DestinationPort int `json:"destinationPort,omitempty"`
 }
 
+// LoadBalancerHealthCheckSpec configures the health check the load balancer runs
+// against the kube-apiserver service targets. When it is not set, the service uses
+// the default TCP check on the service port.
+//
+// The field names and the limits below mirror the health_check object of the Hetzner
+// Cloud API.
+// Docs: https://docs.hetzner.cloud/reference/cloud#tag/load-balancer-actions/add_load_balancer_service
+type LoadBalancerHealthCheckSpec struct {
+	// Protocol is the health-check protocol: tcp, http, or https. tcp checks that
+	// the port accepts a connection. http and https send a request to Path and
+	// count the target healthy when the response status is in StatusCodes.
+	// +kubebuilder:validation:Enum=tcp;http;https
+	// +kubebuilder:default=tcp
+	Protocol string `json:"protocol"`
+
+	// Path is the request path for an http or https check, for example "/readyz".
+	// Only valid when Protocol is http or https.
+	// +optional
+	Path *string `json:"path,omitempty"`
+
+	// Domain is the Host header sent with the http or https check request. Only
+	// valid when Protocol is http or https.
+	// +optional
+	Domain *string `json:"domain,omitempty"`
+
+	// Response is a string that must appear in the http or https response for the
+	// check to pass. Only valid when Protocol is http or https.
+	// +optional
+	Response *string `json:"response,omitempty"`
+
+	// Port is the target port the check runs against. It defaults to the service's
+	// destination port. Set it when the health-check endpoint is served on a
+	// different port than the API server itself.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port *int `json:"port,omitempty"`
+
+	// StatusCodes are the HTTP response status codes counted as healthy, for
+	// example ["200"]. Single codes ("200") and wildcards ("2??") are both allowed.
+	// It applies to http and https checks and defaults to the load balancer default
+	// when empty.
+	// +optional
+	StatusCodes []string `json:"statusCodes,omitempty"`
+
+	// IntervalSeconds is how often the check runs, in seconds. It defaults to the
+	// load balancer default when unset.
+	// +optional
+	// +kubebuilder:validation:Minimum=3
+	// +kubebuilder:validation:Maximum=60
+	IntervalSeconds *int `json:"intervalSeconds,omitempty"`
+
+	// TimeoutSeconds is how long the check waits for a response, in seconds. It
+	// defaults to the load balancer default when unset.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=60
+	TimeoutSeconds *int `json:"timeoutSeconds,omitempty"`
+
+	// Retries is how many consecutive failed checks mark a target unhealthy. The
+	// same number of successful checks makes it healthy again. It defaults to the
+	// load balancer default when unset.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=5
+	Retries *int `json:"retries,omitempty"`
+}
+
 // LoadBalancerStatus defines the observed state of the control plane load balancer.
 type LoadBalancerStatus struct {
 	ID         int64                `json:"id,omitempty"`
@@ -240,6 +435,13 @@ type LoadBalancerStatus struct {
 	InternalIP string               `json:"internalIP,omitempty"`
 	Target     []LoadBalancerTarget `json:"targets,omitempty"`
 	Protected  bool                 `json:"protected,omitempty"`
+
+	// ProxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
+	// has proxy protocol enabled, as observed on the actual HCloud load balancer. This can lag
+	// behind spec.controlPlaneLoadBalancer.enableProxyProtocol while the migration to proxy
+	// protocol is in progress (see the field's docs for details).
+	// +optional
+	ProxyProtocolEnabled bool `json:"proxyProtocolEnabled,omitempty"`
 }
 
 // LoadBalancerTarget defines the target of a load balancer.
@@ -305,8 +507,8 @@ const (
 	// HCloudBootStateUnset is the initial state when the boot state has not been set yet.
 	HCloudBootStateUnset HCloudBootState = ""
 
-	// HCloudBootStateInitializing indicates that the controller waits for PreRescueOS.
-	// When it is available, then the rescue system gets enabled.
+	// HCloudBootStateInitializing indicates the controller waits for the server create action to
+	// finish. The server stays powered off; once it is provisioned, the rescue system gets enabled.
 	HCloudBootStateInitializing HCloudBootState = "Initializing"
 
 	// HCloudBootStateEnablingRescue indicates that the controller waits for the rescue system to be enabled. Then the server gets booted into the rescue system.

@@ -44,7 +44,7 @@ Via MatchLabels you can specify a certain label (key and value) that identifies 
 | ---------------------------------------------------------------- | --------------------- | ------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `template.spec.providerID`                                       | `string`              |                           | no       | Provider ID set by controller                                                                                                                      |
 | `template.spec.installImage`                                     | `object`              |                           | yes      | Configuration used in autosetup                                                                                                                    |
-| `template.spec.installImage.imageURLCommand`                     | `string`              |                           | no       | Basename of a command below `/shared` on the controller pod that CAPH copies into the rescue system and executes instead of `installimage`. Must start with `image-url-command-` and requires `template.spec.installImage.image.url`. |
+| `template.spec.installImage.imageURLCommand`                     | `string`              |                           | no       | Basename of a command below `/shared` on the controller pod that CAPH copies into the rescue system and executes instead of `installimage`. Requires `template.spec.installImage.image.url`. |
 | `template.spec.installImage.image`                               | `object`              |                           | yes      | Defines image for bm machine. See below for details.                                                                                               |
 | `template.spec.installImage.image.url`                           | `string`              |                           | no       | Remote URL of image. Can be tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz                                                                    |
 | `template.spec.installImage.image.name`                          | `string`              |                           | no       | Name of the image                                                                                                                                  |
@@ -94,7 +94,7 @@ Example of an image provided by Hetzner via NFS:
 
 ```yaml
 image:
-  path: /root/.oldroot/nfs//images/Ubuntu-2404-noble-amd64-base.tar.gz
+  path: /root/.oldroot/nfs//images/Ubuntu-2404-noble-amd64-base.tar.zst
 ```
 
 Example of an image provided by you via https. The script installimage of Hetzner parses the name to detect the version. It is

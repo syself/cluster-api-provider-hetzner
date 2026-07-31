@@ -143,6 +143,12 @@ func (m *HCloudRemediationScope) Namespace() string {
 	return m.HCloudRemediation.Namespace
 }
 
+// HasRetriesLeft returns true if the retry limit is greater than retry count.
+func (m *HCloudRemediationScope) HasRetriesLeft() bool {
+	return m.HCloudRemediation.Spec.Strategy.RetryLimit > 0 &&
+		m.HCloudRemediation.Spec.Strategy.RetryLimit > m.HCloudRemediation.Status.RetryCount
+}
+
 // ServerIDFromProviderID returns the namespace name.
 func (m *HCloudRemediationScope) ServerIDFromProviderID() (int64, error) {
 	return hcloudutil.ServerIDFromProviderID(m.HCloudMachine.Spec.ProviderID)

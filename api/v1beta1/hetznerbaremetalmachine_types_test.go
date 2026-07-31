@@ -252,9 +252,9 @@ func Test_Image_String(t *testing.T) {
 		{
 			Image{
 				Name: "nfs",
-				Path: "/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz",
+				Path: "/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.zst",
 			},
-			"nfs (/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz)",
+			"nfs (/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.zst)",
 		},
 	} {
 		require.Equal(t, row.expected, row.image.String())

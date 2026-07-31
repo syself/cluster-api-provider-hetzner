@@ -5,9 +5,9 @@ sidebar: image-url-command
 description: Documentation on the CAPH image-url-command
 ---
 
-The hcloud `spec.imageURLCommand` field and the bare metal
-`spec.installImage.imageURLCommand` field can be used to execute a custom command to
-install the node image.
+The hcloud `spec.imageURLCommand` field and the bare metal `spec.installImage.imageURLCommand` field
+can be used to execute a custom command to install the node image. This feature is also known as a
+"custom provisioner".
 
 This provides you a flexible way to create nodes.
 
@@ -45,8 +45,12 @@ spec:
       imageURLCommand: image-url-command-install-foo.sh
 ```
 
-The command will get the imageURL, bootstrap-data, machine-name of the corresponding
-machine and the root devices (seperated by spaces) as argument.
+The command receives the following positional arguments:
+
+1. `imageURL` — the OCI (or other) image URL
+2. `/root/bootstrap.data` — path to the bootstrap data file written by CAPH
+3. `machine-name` — name of the corresponding machine
+4. `root-devices` — space-separated list of root device names (e.g. `sda sdb`)
 
 Example:
 
@@ -54,28 +58,107 @@ Example:
 /root/image-url-command oci://example.com/yourimage:v1 /root/bootstrap.data my-md-bm-kh57r-5z2v8-zdfc9 'sda sdb'
 ```
 
-It is up to the command to download from that URL and provision the disk accordingly. The command
-must be accessible by the controller pod below `/shared`. You can use an initContainer to copy the
-command to a shared emptyDir.
-For both hcloud and bare metal, the command field is only the basename of a command below `/shared`
-and must start with `image-url-command-`.
+The image format — whole-disk image, root-filesystem tarball, or anything else — is entirely
+your choice, as long as the `imageURLCommand` binary and the artifact at `imageURL` match each other.
+Both are user-configurable; you are responsible for keeping them in sync.
+
+The command must be accessible by the controller pod below `/shared`. You can use an initContainer
+to copy the command to a shared emptyDir. For both hcloud and bare metal, the command field is only
+the basename of a command below `/shared`.
 
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 
-The command must end with the last line containing IMAGE_URL_DONE. Otherwise the execution is
-considered to have failed.
+By default, CAPH passes short device names (e.g. `sda`) as the last argument to the command.
+For bare metal machines you can set `spec.installImage.deviceStringType` to control this:
+
+* `"short"` (or empty): passes the short device name, e.g. `sda`
+* `"wwn"`: passes the WWN from the `rootDeviceHints`, e.g. `eui.00253885910c8cec`
+
+Example:
+
+```yaml
+spec:
+  installImage:
+    imageURLCommand: image-url-command-install-foo.sh
+    deviceStringType: wwn
+    image:
+      url: oci://example.com/yourimage:v1
+```
+
+Using `deviceStringType: wwn` avoids fragile device-name lookups, because device names like `sda`
+can change across reboots while WWNs are stable identifiers. The `deviceStringType` field is not
+used for hcloud machines (hcloud VMs always boot from `sda` and disks have no WWN).
+
+When multiple devices are configured (e.g. RAID via `rootDeviceHints.raid.wwn`), all device
+strings are passed as a single space-separated `$4` argument. Scripts should split on whitespace.
+
+The command must end with the last line on stdout containing `IMAGE_URL_DONE`. Otherwise the
+execution is considered to have failed.
+
+Implementation detail: CAPH executes the command in the rescue system via `ssh` and `nohup`. Stdout
+and stderr are redirected to a file. CAPH continuously connects to the rescue system to see if the
+process is still running.
 
 The controller uses url.ParseRequestURI (Go function) to validate the imageURL.
 
-A Kubernetes event will be created in both (success, failure) cases containing the output (stdout
-and stderr) of the script. If the script takes longer than 7 minutes, the controller cancels the
-provisioning.
+The full output (stdout and stderr) of the script is written to the controller log. On failure or
+timeout CAPH also creates a Warning event, but with a short message only, never the full output. If
+the script takes longer than 20 minutes, the controller cancels the provisioning.
 
-We measured these durations for hcloud:
+## Steps
+
+* CAPH copies the binary to the rescue system.
+* The executable gets executed, the PID gets written to a file. Stdout and Stderr get redirected
+  into a file.
+* CAPH continuously reads /root/output.json (if present). The provisioner can write a message into
+  the file which will be in the corresponding condition, so that users can see the current state of
+  the process. This is optional.
+* When the process has terminated, CAPH checks if IMAGE_URL_DONE is in the last line of the output.
+  If not, the process is considered to have failed. The machine gets deprovisioned. CAPH creates a
+  Warning event with a short message. The full output of the process and the output.json content (if
+  it exists) are written to the controller log.
+* When IMAGE_URL_DONE was found, the process is considered to have succeeded. The output of the
+  process and the output.json content (if it exists) are written to the controller log.
+
+## output.json (optional)
+
+The command may write `/root/output.json` at any point during execution. The file is an option to
+give information from the node and to write it to the controller log. It's not about success or not.
+
+CAPH reads only the `message` field from this file to update the provisioning condition on the
+machine (HCloudMachine or HetznerBareMetalHost). The `message` field is forwarded verbatim into the
+condition message. CAPH reads the file, and updates the condition (if needed) every ten seconds.
+
+## Outcome summary
+
+CAPH waits until the provisioning process in the rescue system has terminated. Then the captured
+stdout gets examined. If it does not contain `IMAGE_URL_DONE`, then the process has failed.
+Optionally `output.json` can be created by the process. The content of `output.json` does not change
+the final result (succeeded or failed).
+
+Implemented in `handleBootStateRunningImageCommand` (hcloud) and
+`actionImageInstallingImageURLCommand` (baremetal).
+
+Minimal example:
+
+```json
+{"message": "Downloading node image..."}
+```
+
+Any other fields in the JSON are **ignored by CAPH** but are written as-is to the controller log
+(see below). You can use them for your own structured debugging output.
+
+### Controller log on completion
+
+When the command finishes (success or failure), CAPH writes the **full JSON content** of the file
+to the controller log at key `outputJSON`. It is not exposed as a Kubernetes event, because the
+output can contain information that should not be shown to the cluster user.
+
+## Measured durations for hcloud
 
 | oldState | newState | avg(s) | min(s) | max(s) |
-|----------|----------|-------:|-------:|-------:|
-|  | Initializing | 3.30 | 2.00 | 5.00 |
+| -------- | -------- | -----: | -----: | -----: |
+| | Initializing | 3.30 | 2.00 | 5.00 |
 | Initializing | EnablingRescue | 19.20 | 11.00 | 21.00 |
 | EnablingRescue | BootingToRescue | 14.20 | 9.00 | 23.00 |
 | BootingToRescue | RunningImageCommand | 38.20 | 37.00 | 42.00 |

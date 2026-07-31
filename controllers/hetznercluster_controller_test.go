@@ -578,7 +578,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			hcloudClient       hcloudclient.Client
 		)
 		BeforeEach(func() {
-			testNs, err = testEnv.ResetAndCreateNamespace(ctx, "cluster-tests")
+			var finish func()
+			testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "cluster-tests")
+			defer finish()
 			Expect(err).NotTo(HaveOccurred())
 			hcloudClient = testEnv.HCloudClientFactory.NewClient("fake-token")
 
@@ -1332,7 +1334,9 @@ var _ = Describe("Hetzner secret", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hetzner-secret")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hetzner-secret")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -1430,7 +1434,9 @@ var _ = Describe("HetznerCluster validation", func() {
 	)
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 	})
 	AfterEach(func() {
@@ -1695,6 +1701,27 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		condition := v1beta1conditions.Get(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
 		if condition.Status != corev1.ConditionFalse {
 			t.Fatalf("condition status should be false")
+		}
+	})
+
+	t.Run("does not panic and returns false if load balancer is enabled but Status.ControlPlaneLoadBalancer itself is nil (load balancer not reconciled yet)", func(t *testing.T) {
+		hetznerCluster := &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled: true,
+				},
+				ControlPlaneEndpoint: nil,
+			},
+		}
+
+		processControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
+			t.Fatalf("ControlPlaneEndpoint should not change. It should remain nil")
+		}
+
+		if hetznerCluster.Status.Ready != false {
+			t.Fatalf("return value should be false")
 		}
 	})
 
