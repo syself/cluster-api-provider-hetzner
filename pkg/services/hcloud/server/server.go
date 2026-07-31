@@ -948,16 +948,6 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 
-	hcloudSSHClient, err := s.getSSHClient(ctx)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (wait for image-url-command): %w", err)
-	}
-
-	state, logFile, err := hcloudSSHClient.StateOfImageURLCommand(ctx)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("StateOfImageURLCommand failed: %w", err)
-	}
-
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
 	// Please keep the number (20) in sync with the docstring of ImageURL.
 	if durationOfState > 20*time.Minute {
@@ -982,7 +972,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 			}
 		}
 
-		s.scope.Error(errors.New(v1beta2Msg), "", "logFile", logFile)
+		s.scope.Error(nil, v1beta2Msg)
 		err := s.scope.SetErrorAndRemediate(ctx, v1beta2Msg)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -998,6 +988,17 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 			Message: v1beta2Msg,
 		})
 		return reconcile.Result{}, nil
+	}
+
+	// Not timed out yet. Read the current image-url-command state over SSH.
+	hcloudSSHClient, err := s.getSSHClient(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (wait for image-url-command): %w", err)
+	}
+
+	state, logFile, err := hcloudSSHClient.StateOfImageURLCommand(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("StateOfImageURLCommand failed: %w", err)
 	}
 
 	sshClient := hcloudSSHClient
