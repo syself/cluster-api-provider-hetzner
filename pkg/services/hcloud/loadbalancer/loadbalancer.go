@@ -341,8 +341,24 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 			return reconcile.Result{}, err
 		}
 		if !proxyProtocolShouldGetEnabled {
+			const msg = "waiting for all control-plane machines to be annotated before enabling proxy protocol"
 			s.scope.V(1).Info("proxy protocol: not all control-plane infrastructure machines annotated yet, requeueing")
 			requeueForProxyProtocol = true
+
+			v1beta1conditions.MarkFalse(
+				s.scope.HetznerCluster,
+				infrav1.LoadBalancerReadyCondition,
+				infrav1.LoadBalancerWaitingForProxyProtocolReason,
+				clusterv1beta1.ConditionSeverityInfo,
+				msg,
+			)
+
+			v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+				Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerClusterLoadBalancerWaitingForProxyProtocolV1Beta2Reason,
+				Message: msg,
+			})
 		}
 	}
 
@@ -398,7 +414,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	}
 
 	if requeueForProxyProtocol {
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, multierr
+		return reconcile.Result{RequeueAfter: 2 * time.Minute}, multierr
 	}
 
 	// If proxy protocol is not active yet but should be, activate it in place. HCloud's
