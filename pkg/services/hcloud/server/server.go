@@ -948,9 +948,6 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 
-	// A stuck machine stops answering over SSH, which makes StateOfImageURLCommand fail on
-	// every reconcile. The timeout is therefore checked here, before that read, so a stuck
-	// machine still gets remediated instead of staying in this state forever.
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
 	// Please keep the number (20) in sync with the docstring of ImageURL.
 	if durationOfState > 20*time.Minute {
