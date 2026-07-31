@@ -321,7 +321,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 			deprecatedv1beta1conditions.MarkFalse(
 				s.scope.HetznerCluster,
 				infrav2.LoadBalancerReadyV1Beta1Condition,
-				infrav2.LoadBalancerWaitingForProxyProtocolV1Beta1Reason,
+				infrav2.LoadBalancerWaitingToActivateV1Beta1Reason,
 				clusterv1.ConditionSeverityInfo,
 				msg,
 			)
@@ -329,7 +329,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 			conditions.Set(s.scope.HetznerCluster, metav1.Condition{
 				Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HetznerClusterLoadBalancerWaitingForProxyProtocolReason,
+				Reason:  infrav2.HetznerClusterLoadBalancerWaitingToActivateReason,
 				Message: msg,
 			})
 		}
