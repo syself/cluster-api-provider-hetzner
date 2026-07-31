@@ -240,7 +240,7 @@ var _ = Describe("reconcileServices proxy protocol migration", func() {
 		cond := v1beta2conditions.Get(svc.scope.HetznerCluster, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition)
 		Expect(cond).NotTo(BeNil())
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-		Expect(cond.Reason).To(Equal(infrav1.HetznerClusterLoadBalancerWaitingForProxyProtocolV1Beta2Reason))
+		Expect(cond.Reason).To(Equal(infrav1.HetznerClusterLoadBalancerWaitingToActivateV1Beta2Reason))
 	})
 })
 
