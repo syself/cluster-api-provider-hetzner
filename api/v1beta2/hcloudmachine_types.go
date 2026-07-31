@@ -107,6 +107,29 @@ type HCloudMachineSpec struct {
 	// the primary IP address of the server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled.
 	// +optional
 	PublicNetwork *PublicNetworkSpec `json:"publicNetwork,omitempty"`
+
+	// Recycle enables server recycling for this machine. When enabled, instead of creating a new
+	// HCloud server, the controller claims a pre-existing server that is labelled as recyclable and
+	// matches this machine's Type and location, and rebuilds it with the machine's bootstrap data. On
+	// deletion the server is returned to the recyclable set instead of being deleted. This lets a fixed
+	// set of servers back a MachineDeployment, so nodes are reused instead of provisioned and destroyed
+	// on every scale event.
+	//
+	// Recycling is only supported together with ImageName (snapshot provisioning) and is a best-effort
+	// optimization: if no matching recyclable server is available, a new server is created as usual.
+	// +optional
+	Recycle *ServerRecycling `json:"recycle,omitempty"`
+}
+
+// ServerRecycling configures the reuse of pre-existing servers for an HCloudMachine.
+//
+// A server becomes recyclable by carrying the label "caph-recycle": "true". A recyclable server that
+// is not currently claimed by a machine additionally carries "caph-recycle-available": "true".
+type ServerRecycling struct {
+	// Enabled turns server recycling on for this machine.
+	// +optional
+	// +kubebuilder:default=false
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // HCloudMachineStatus defines the observed state of HCloudMachine.
