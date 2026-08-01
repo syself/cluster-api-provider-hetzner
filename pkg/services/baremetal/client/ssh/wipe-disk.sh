@@ -79,6 +79,24 @@ for wwn in "$@"; do
         exit 3
     fi
 
+    # Deactivate any LVM volume group that has a physical volume (PV) on this
+    # disk, one of its partitions, or an mdraid array built from them. While a
+    # VG's logical volumes are active, they keep the PV (and therefore the
+    # mdraid/partition beneath it) busy, so stopping mdraid or wiping the
+    # layers below would otherwise fail with "device or resource busy".
+    lsblk --list --noheadings "/dev/$device" -o NAME,TYPE |
+        while read -r name type; do
+            case "$type" in
+                disk | part | raid*) ;;
+                *) continue ;;
+            esac
+            vg=$(pvs --noheadings -o vg_name "/dev/$name" 2>/dev/null | tr -d '[:space:]' || true)
+            if [ -n "$vg" ]; then
+                echo "INFO: Deactivating LVM volume group $vg (PV /dev/$name) for $wwn (/dev/$device)"
+                vgchange -an "$vg"
+            fi
+        done
+
     lsblk --list --noheadings "/dev/$device" -o NAME | { grep -P '^md' || true; } | sort -u |
         while read -r md; do
             echo "INFO: Stopping mdraid $md for $wwn (/dev/$device)"
