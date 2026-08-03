@@ -63,6 +63,9 @@ type Client interface {
 	ListServerTypes(context.Context) ([]*hcloud.ServerType, error)
 	GetServerType(context.Context, string) (*hcloud.ServerType, error)
 	PowerOnServer(context.Context, *hcloud.Server) error
+	// PowerOffServer cuts the power (hard poweroff), it does not send an ACPI shutdown request.
+	// It returns the action, so callers can wait for it.
+	PowerOffServer(context.Context, *hcloud.Server) (*hcloud.Action, error)
 	ShutdownServer(context.Context, *hcloud.Server) error
 	RebootServer(context.Context, *hcloud.Server) error
 	CreateNetwork(context.Context, hcloud.NetworkCreateOpts) (*hcloud.Network, error)
@@ -294,6 +297,14 @@ func (c *realClient) PowerOnServer(ctx context.Context, server *hcloud.Server) e
 		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
 	}
 	return err
+}
+
+func (c *realClient) PowerOffServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
+	action, _, err := c.client.Server.Poweroff(ctx, server)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return nil, fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
+	return action, err
 }
 
 func (c *realClient) DeleteServer(ctx context.Context, server *hcloud.Server) error {

@@ -154,6 +154,38 @@ When the command finishes (success or failure), CAPH writes the **full JSON cont
 to the controller log at key `outputJSON`. It is not exposed as a Kubernetes event, because the
 output can contain information that should not be shown to the cluster user.
 
+## Retrying the boot into the rescue system (hcloud)
+
+An hcloud server that provisions via `imageURL` is created powered off, gets the rescue system
+enabled, and is then powered on, so its first boot goes into the rescue system. Two things can go
+wrong in the `BootingToRescue` state:
+
+* the server never answers on port 22, or
+* it answers, but the hostname is not `rescue`. Then the server booted the throwaway image it was
+  created from instead of the rescue system.
+
+Both are very likely fixable by a power cycle, which is faster than remediation (which recreates the
+server from scratch). So CAPH powers the server off and on again instead of remediating right away:
+
+```text
+   EnablingRescue ──▶ BootingToRescue ──▶ PowerCyclingToRescue ──┐
+                            │  ▲                                 │
+             hostname=rescue│  └──────────────────────────────────┘
+                            ▼
+                    RunningImageCommand
+```
+
+`PowerCyclingToRescue` powers the server off (hard poweroff, not an ACPI shutdown), waits until it
+reports status `off`, makes sure the rescue system is still armed for the next boot, powers it on
+again and goes back to `BootingToRescue`.
+
+A server gets **one** power cycle. Both failure paths share that budget, which is counted in
+`status.rescuePowerCycleCount`, so a server that alternates between them cannot cycle forever. If
+the second attempt fails too, the machine gets remediated (deleted and replaced) as before.
+
+`BootingToRescue` waits 90 seconds per attempt, and the power cycle itself is bounded to two
+minutes, so the worst case until remediation is about five minutes.
+
 ## Measured durations for hcloud
 
 | oldState | newState | avg(s) | min(s) | max(s) |
@@ -170,5 +202,12 @@ output can contain information that should not be shown to the cluster user.
 
   k logs deployments/caph-controller-manager | python3 hack/hcloud-image-url-command-states-markdown-from-logs.py
 -->
+
+**The table is outdated.** It was recorded when `BootingToRescue` was entered via a warm reboot over
+SSH. Today the server is created powered off and cold-started, and a cold start is not plausibly
+faster than a warm reboot, so the numbers for `BootingToRescue` are a lower bound and not a
+measurement of the current flow. Please regenerate the table with
+`hack/hcloud-image-url-command-states-markdown-from-logs.py` against the current flow, and re-tune
+`rescueBootGracePeriod` (the 90 seconds mentioned above) from the fresh numbers.
 
 The duration of the state `RunningImageCommand` depends heavily on your script.

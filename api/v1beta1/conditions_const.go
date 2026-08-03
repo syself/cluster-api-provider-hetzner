@@ -425,6 +425,22 @@ const (
 	// HCloudMachineBootingToRescueTimedOutV1Beta2Reason indicates booting to rescue mode timed out.
 	HCloudMachineBootingToRescueTimedOutV1Beta2Reason = "BootingToRescueTimedOut"
 
+	// HCloudMachineRetryingRescueBootV1Beta2Reason indicates the server did not reach the rescue
+	// system and gets powered off and on again to give it another chance.
+	HCloudMachineRetryingRescueBootV1Beta2Reason = "RetryingRescueBoot"
+	// HCloudMachinePoweringOffForRescueRetryV1Beta2Reason indicates the server is being powered off
+	// as the first step of a rescue boot retry.
+	HCloudMachinePoweringOffForRescueRetryV1Beta2Reason = "PoweringOffForRescueRetry"
+	// HCloudMachineWaitingForServerOffV1Beta2Reason indicates the controller waits until the server
+	// has reached status "off".
+	HCloudMachineWaitingForServerOffV1Beta2Reason = "WaitingForServerOff"
+	// HCloudMachineReEnablingRescueSystemV1Beta2Reason indicates the rescue system was not armed
+	// any more and gets enabled again before the server is powered on.
+	HCloudMachineReEnablingRescueSystemV1Beta2Reason = "ReEnablingRescueSystem"
+	// HCloudMachinePowerCyclingToRescueTimedOutV1Beta2Reason indicates the power-cycle to the
+	// rescue system timed out.
+	HCloudMachinePowerCyclingToRescueTimedOutV1Beta2Reason = "PowerCyclingToRescueTimedOut"
+
 	// HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason indicates the image URL command is not accessible.
 	HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason = "ImageURLCommandNotAccessible"
 	// HCloudMachineStartImageURLCommandFailedV1Beta2Reason indicates starting the image URL command failed.
