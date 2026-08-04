@@ -1091,6 +1091,11 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 	newAvailableBareMetalMachine := func() *infrav1.HetznerBareMetalMachine {
 		bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
 		v1beta1conditions.MarkTrue(bareMetalMachine, infrav1.ServerAvailableCondition)
+		v1beta2conditions.Set(bareMetalMachine, metav1.Condition{
+			Type:   infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Reason,
+		})
 		return bareMetalMachine
 	}
 

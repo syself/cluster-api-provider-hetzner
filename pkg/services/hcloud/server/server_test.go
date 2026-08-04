@@ -2384,10 +2384,11 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 		hcloudMachine *infrav1.HCloudMachine
 		server        *hcloud.Server
 		service       *Service
+		client        *mocks.Client
 	)
 
 	BeforeEach(func() {
-		client := mocks.NewClient(GinkgoT())
+		client = mocks.NewClient(GinkgoT())
 		server = newTestServer()
 
 		hcloudMachine = &infrav1.HCloudMachine{
@@ -2429,17 +2430,11 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 		// downstream controllers can observe the apiserver pod health.
 
 		// ServerAvailableCondition is not True yet, so reconcileLoadBalancerAttachment
-		// fetches live LB state. Seed the fake client with an LB so ListLoadBalancers
-		// returns it. The LB has no target for this server, so the health gate fires.
-		algo := hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeRoundRobin}
-		_, err := service.scope.HCloudClient.CreateLoadBalancer(context.Background(), hcloud.LoadBalancerCreateOpts{
-			Name:      "test-lb",
-			Algorithm: &algo,
-			Labels: map[string]string{
-				service.scope.HetznerCluster.ClusterTagKey(): string(infrav1.ResourceLifecycleOwned),
-			},
-		})
-		Expect(err).To(BeNil())
+		// fetches live LB state via ListLoadBalancers. The returned LB has no target for
+		// this server, so the health gate fires.
+		client.On("ListLoadBalancers", mock.Anything, mock.Anything).Return([]*hcloud.LoadBalancer{
+			{ID: 1},
+		}, nil).Once()
 
 		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
 			ID: 1,
@@ -2470,10 +2465,6 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 	})
 
 	It("does not call ListLoadBalancers when ServerAvailableCondition is already True", func() {
-		// Replace the fake client with a mock so we can assert the call is never made.
-		hcloudClient := mocks.NewClient(GinkgoT())
-		service.scope.HCloudClient = hcloudClient
-
 		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
 			Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
 			Status: metav1.ConditionTrue,
@@ -2487,13 +2478,13 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 			},
 		}
 
-		res, err := service.handleOperatingSystemRunning(context.Background(), server)
+		res, err := service.handleOperatingSystemRunning(context.Background())
 		Expect(err).To(Succeed())
 		Expect(res).To(Equal(reconcile.Result{}))
 
 		Expect(hcloudMachine.Status.Ready).To(BeTrue())
 		Expect(v1beta2conditions.IsTrue(hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition)).To(BeTrue())
-		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "ListLoadBalancers", mock.Anything, mock.Anything)).To(BeTrue())
+		Expect(client.AssertNotCalled(GinkgoT(), "ListLoadBalancers", mock.Anything, mock.Anything)).To(BeTrue())
 	})
 })
 
