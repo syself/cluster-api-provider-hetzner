@@ -1136,6 +1136,14 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 			},
 		}
 
+		// ServerAvailableCondition is not set, so the live load balancer is read. It holds the
+		// other control-plane target but not this host, so the host still needs attaching.
+		hcloudClient.On("ListLoadBalancers", mock.Anything, mock.Anything).Return([]*hcloud.LoadBalancer{
+			{ID: 123, Targets: []hcloud.LoadBalancerTarget{
+				{Type: hcloud.LoadBalancerTargetTypeIP, IP: &hcloud.LoadBalancerTargetIP{IP: "192.0.2.9"}},
+			}},
+		}, nil).Once()
+
 		service := newServiceForLoadBalancerAttachment(machine, bareMetalMachine, newControlPlaneCluster(), hetznerCluster, hcloudClient)
 
 		err := service.reconcileLoadBalancerAttachment(context.Background(), newHost("192.0.2.10"))
@@ -1167,6 +1175,11 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 				},
 			},
 		}
+
+		// ServerAvailableCondition is not set, so the live load balancer is read. It has no
+		// targets yet, so this first control-plane host gets attached.
+		hcloudClient.On("ListLoadBalancers", mock.Anything, mock.Anything).
+			Return([]*hcloud.LoadBalancer{{ID: 123}}, nil).Once()
 
 		hcloudClient.On(
 			"AddIPTargetToLoadBalancer",
@@ -1364,6 +1377,32 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
+
+	It("reads attached targets from the live HCloud load balancer when ServerAvailable is not yet true", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+
+		// ServerAvailable is not set, so reconcileLoadBalancerAttachment fetches the live load
+		// balancer state instead of trusting the (possibly stale) cluster status. The live LB
+		// already has the IPv4 address as a target, so nothing is attached.
+		hcloudClient.On("ListLoadBalancers", mock.Anything, mock.Anything).Return([]*hcloud.LoadBalancer{
+			{
+				ID: 123,
+				Targets: []hcloud.LoadBalancerTarget{
+					{Type: hcloud.LoadBalancerTargetTypeIP, IP: &hcloud.LoadBalancerTargetIP{IP: hostIPv4}},
+				},
+			},
+		}, nil).Once()
+
+		// The bare metal machine has no ServerAvailable condition yet, forcing the live lookup.
+		service := newServiceForLoadBalancerAttachment(
+			newHealthyMachine(), &infrav1.HetznerBareMetalMachine{}, newControlPlaneCluster(),
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4), hcloudClient,
+		)
+
+		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHost(hostIPv4))).To(Succeed())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "AddIPTargetToLoadBalancer", mock.Anything, mock.Anything, mock.Anything)).To(BeTrue())
+	})
 })
 
 var _ = Describe("Reconcile with control-plane load balancer attachment", func() {
@@ -1457,6 +1496,23 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 			WithObjects(host, bareMetalMachine, machine).
 			Build()
 
+		// Before ServerAvailableCondition is true, reconcileLoadBalancerAttachment reads the
+		// live load balancer instead of the cluster status. Mirror the status targets onto the
+		// live load balancer so both views agree. Worker nodes never reach this call, so it is
+		// optional.
+		liveTargets := make([]hcloud.LoadBalancerTarget, 0, len(lbTargets))
+		for _, t := range lbTargets {
+			if t.Type == infrav1.LoadBalancerTargetTypeIP {
+				liveTargets = append(liveTargets, hcloud.LoadBalancerTarget{
+					Type: hcloud.LoadBalancerTargetTypeIP,
+					IP:   &hcloud.LoadBalancerTargetIP{IP: t.IP},
+				})
+			}
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		hcloudClient.On("ListLoadBalancers", mock.Anything, mock.Anything).
+			Return([]*hcloud.LoadBalancer{{ID: 123, Targets: liveTargets}}, nil).Maybe()
+
 		service := &Service{
 			scope: &scope.BareMetalMachineScope{
 				Logger:           log,
@@ -1465,7 +1521,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 				Machine:          machine,
 				BareMetalMachine: bareMetalMachine,
 				HetznerCluster:   hetznerCluster,
-				HCloudClient:     mocks.NewClient(GinkgoT()),
+				HCloudClient:     hcloudClient,
 			},
 		}
 

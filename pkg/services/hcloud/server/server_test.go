@@ -2397,6 +2397,13 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 		// handleOperatingSystemRunning, that condition would be overwritten to True.
 		// Ready must still flip to true so CAPI can propagate ProviderID and
 		// downstream controllers can observe the apiserver pod health.
+
+		// ServerAvailableCondition is not True yet, so reconcileLoadBalancerAttachment fetches
+		// live LB state. Return the owned load balancer with no target for this server, so the
+		// code falls through to the apiserver health gate.
+		service.scope.HCloudClient.(*mocks.Client).On("ListLoadBalancers", mock.Anything, mock.Anything).
+			Return([]*hcloud.LoadBalancer{{ID: 1}}, nil)
+
 		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
 			ID: 1,
 			Target: []infrav1.LoadBalancerTarget{
@@ -2417,6 +2424,27 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 
 	It("sets Ready and ServerAvailableCondition when reconcileLoadBalancerAttachment returns an empty Result", func() {
 		// No load balancer → reconcileLoadBalancerAttachment returns an empty Result.
+		res, err := service.handleOperatingSystemRunning(context.Background())
+		Expect(err).To(Succeed())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(hcloudMachine.Status.Ready).To(BeTrue())
+		Expect(v1beta1conditions.IsTrue(hcloudMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+	})
+
+	It("does not call ListLoadBalancers when ServerAvailableCondition is already True", func() {
+		// ServerAvailableCondition is already True, so reconcileLoadBalancerAttachment trusts the
+		// HetznerCluster.Status target cache instead of fetching live LB state. The strict client
+		// mock has no ListLoadBalancers expectation, so it fails the test if that call is made.
+		v1beta1conditions.MarkTrue(hcloudMachine, infrav1.ServerAvailableCondition)
+
+		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
+			ID: 1,
+			Target: []infrav1.LoadBalancerTarget{
+				{Type: infrav1.LoadBalancerTargetTypeServer, ServerID: server.ID},
+			},
+		}
+
 		res, err := service.handleOperatingSystemRunning(context.Background())
 		Expect(err).To(Succeed())
 		Expect(res).To(Equal(reconcile.Result{}))

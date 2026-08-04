@@ -343,6 +343,60 @@ func TestIgnoreInsignificantHetznerClusterStatusUpdates(t *testing.T) {
 	}
 }
 
+// TestControlPlaneMachineToHetznerClusterPredicate verifies that the watch predicate for
+// control-plane infrastructure machines reconciles the HetznerCluster only when a machine's
+// ServerAvailableCondition transitions to True or when the machine is deleted, so the
+// HetznerCluster.Status load-balancer targets do not go stale.
+func TestControlPlaneMachineToHetznerClusterPredicate(t *testing.T) {
+	p := controlPlaneMachineToHetznerClusterPredicate()
+
+	machineWithServerAvailable := func(available bool) *infrav1.HCloudMachine {
+		m := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: "cp-1", Namespace: "default"},
+		}
+		if available {
+			v1beta1conditions.MarkTrue(m, infrav1.ServerAvailableCondition)
+		} else {
+			v1beta1conditions.MarkFalse(m, infrav1.ServerAvailableCondition,
+				"NotReady", clusterv1beta1.ConditionSeverityInfo, "not ready yet")
+		}
+		return m
+	}
+
+	t.Run("ServerAvailable false->true triggers reconcile", func(t *testing.T) {
+		e := event.UpdateEvent{ObjectOld: machineWithServerAvailable(false), ObjectNew: machineWithServerAvailable(true)}
+		if !p.Update(e) {
+			t.Error("expected ServerAvailable false->true to trigger reconcile")
+		}
+	})
+
+	t.Run("ServerAvailable staying true does not trigger reconcile", func(t *testing.T) {
+		e := event.UpdateEvent{ObjectOld: machineWithServerAvailable(true), ObjectNew: machineWithServerAvailable(true)}
+		if p.Update(e) {
+			t.Error("expected no reconcile when ServerAvailable stays true")
+		}
+	})
+
+	t.Run("ServerAvailable staying false does not trigger reconcile", func(t *testing.T) {
+		e := event.UpdateEvent{ObjectOld: machineWithServerAvailable(false), ObjectNew: machineWithServerAvailable(false)}
+		if p.Update(e) {
+			t.Error("expected no reconcile when ServerAvailable stays false")
+		}
+	})
+
+	t.Run("deletion triggers reconcile", func(t *testing.T) {
+		if !p.Delete(event.DeleteEvent{Object: machineWithServerAvailable(true)}) {
+			t.Error("expected machine deletion to trigger reconcile")
+		}
+	})
+
+	t.Run("creation does not trigger reconcile", func(t *testing.T) {
+		if p.Create(event.CreateEvent{Object: machineWithServerAvailable(true)}) {
+			t.Error("expected machine creation to not trigger reconcile")
+		}
+	})
+}
+
 // TestWorkloadClusterSecretNames verifies which workload-cluster secrets CAPH
 // reconciles for the configured management-cluster secret name.
 func TestWorkloadClusterSecretNames(t *testing.T) {
