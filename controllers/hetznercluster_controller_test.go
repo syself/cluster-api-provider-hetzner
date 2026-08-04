@@ -735,7 +735,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			hcloudClient       hcloudclient.Client
 		)
 		BeforeEach(func() {
-			testNs, err = testEnv.ResetAndCreateNamespace(ctx, "cluster-tests")
+			var finish func()
+			testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "cluster-tests")
+			defer finish()
 			Expect(err).NotTo(HaveOccurred())
 			hcloudClient = testEnv.HCloudClientFactory.NewClient("fake-token")
 
@@ -1491,7 +1493,9 @@ var _ = Describe("Hetzner secret", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hetzner-secret")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hetzner-secret")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -1589,7 +1593,9 @@ var _ = Describe("HetznerCluster validation", func() {
 	)
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 	})
 	AfterEach(func() {
@@ -1866,6 +1872,22 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		condition := deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.ControlPlaneEndpointSetV1Beta1Condition)
 		if condition.Status != corev1.ConditionFalse {
 			t.Fatalf("condition status should be false")
+		}
+	})
+
+	t.Run("does not panic if load balancer is enabled but Status.ControlPlaneLoadBalancer itself is nil (load balancer not reconciled yet)", func(t *testing.T) {
+		hetznerCluster := &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
+					Enabled: true,
+				},
+			},
+		}
+
+		processControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != "" || hetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
+			t.Fatalf("ControlPlaneEndpoint should not be set when the load balancer is not reconciled yet")
 		}
 	})
 

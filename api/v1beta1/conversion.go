@@ -698,6 +698,25 @@ func Convert_v1beta2_HCloudMachineTemplateResource_To_v1beta1_HCloudMachineTempl
 	return Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(&in.Spec, &out.Spec, s)
 }
 
+// Convert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerBareMetalMachineTemplateResource converts the
+// v1beta1 HetznerBareMetalMachineTemplateResource to v1beta2. The template metadata changes type from the deprecated
+// clusterv1beta1.ObjectMeta to clusterv1.ObjectMeta, which carry the same labels and annotations, so those are copied by
+// hand and the spec uses the generated converter.
+func Convert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerBareMetalMachineTemplateResource(in *HetznerBareMetalMachineTemplateResource, out *infrav2.HetznerBareMetalMachineTemplateResource, s apiconversion.Scope) error {
+	out.ObjectMeta.Labels = in.ObjectMeta.Labels
+	out.ObjectMeta.Annotations = in.ObjectMeta.Annotations
+	return Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(&in.Spec, &out.Spec, s)
+}
+
+// Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerBareMetalMachineTemplateResource converts the
+// v1beta2 HetznerBareMetalMachineTemplateResource back to v1beta1, mapping the clusterv1.ObjectMeta labels and annotations
+// back to the deprecated clusterv1beta1.ObjectMeta.
+func Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerBareMetalMachineTemplateResource(in *infrav2.HetznerBareMetalMachineTemplateResource, out *HetznerBareMetalMachineTemplateResource, s apiconversion.Scope) error {
+	out.ObjectMeta.Labels = in.ObjectMeta.Labels
+	out.ObjectMeta.Annotations = in.ObjectMeta.Annotations
+	return Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&in.Spec, &out.Spec, s)
+}
+
 // Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus converts
 // the v1beta1 HCloudMachineTemplateStatus to v1beta2, dropping the V1Beta2 field.
 func Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus(in *HCloudMachineTemplateStatus, out *infrav2.HCloudMachineTemplateStatus, s apiconversion.Scope) error {

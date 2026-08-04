@@ -52,6 +52,7 @@ type Client interface {
 	AddIPTargetToLoadBalancer(context.Context, hcloud.LoadBalancerAddIPTargetOpts, *hcloud.LoadBalancer) error
 	DeleteIPTargetOfLoadBalancer(context.Context, *hcloud.LoadBalancer, net.IP) error
 	AddServiceToLoadBalancer(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerAddServiceOpts) error
+	UpdateServiceOnLoadBalancer(context.Context, *hcloud.LoadBalancer, int, hcloud.LoadBalancerUpdateServiceOpts) error
 	DeleteServiceFromLoadBalancer(context.Context, *hcloud.LoadBalancer, int) error
 	ListImages(context.Context, hcloud.ImageListOpts) ([]*hcloud.Image, error)
 	CreateServer(context.Context, hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error)
@@ -218,6 +219,11 @@ func (c *realClient) AddServiceToLoadBalancer(ctx context.Context, lb *hcloud.Lo
 	return err
 }
 
+func (c *realClient) UpdateServiceOnLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int, opts hcloud.LoadBalancerUpdateServiceOpts) error {
+	_, _, err := c.client.LoadBalancer.UpdateService(ctx, lb, listenPort, opts)
+	return err
+}
+
 func (c *realClient) DeleteServiceFromLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int) error {
 	_, _, err := c.client.LoadBalancer.DeleteService(ctx, lb, listenPort)
 	return err
@@ -284,6 +290,9 @@ func (c *realClient) RebootServer(ctx context.Context, server *hcloud.Server) er
 
 func (c *realClient) PowerOnServer(ctx context.Context, server *hcloud.Server) error {
 	_, _, err := c.client.Server.Poweron(ctx, server)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
 	return err
 }
 
@@ -337,6 +346,9 @@ func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hclo
 func (c *realClient) EnableRescueSystem(ctx context.Context, server *hcloud.Server, rescueOpts *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
 	result, _, err := c.client.Server.EnableRescue(ctx, server, *rescueOpts)
 	if err != nil {
+		if strings.Contains(err.Error(), errStringUnauthorized) {
+			return result, fmt.Errorf("%w: EnableRescue failed for %d: %w", ErrUnauthorized, server.ID, err)
+		}
 		return result, fmt.Errorf("EnableRescue failed for %d: %w", server.ID, err)
 	}
 	return result, nil
