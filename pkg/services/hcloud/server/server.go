@@ -941,7 +941,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 	// The next state (RunningImageCommand) polls via SSH, which costs no hcloud API calls, but
 	// the custom provisioner needs time to run, so wait a bit before the first attempt instead
 	// of retrying immediately.
-	return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
+	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
 // handleBootStateRunningImageCommand is for provisioning with imageURL and image-url-command.
