@@ -2097,8 +2097,6 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		if exitStatus != 0 || out.StdErr != "" {
 			err = errors.Join(err, fmt.Errorf("failed to get cloud init output (ssh connection worked): %s",
 				out.String()))
-		}
-		if err != nil {
 			record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
 				"GetCloudInitOutput failed to get /var/log/cloud-init-output.log: %s",
 				err)
@@ -2107,6 +2105,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 				infrav1.StateEnsureProvisioned, err.Error())
 			return actionError{err: err}
 		}
+
 		record.Eventf(s.scope.HetznerBareMetalHost, "CloudInitOutput", "cloud init output:\n%s",
 			out.StdOut)
 		return ar
