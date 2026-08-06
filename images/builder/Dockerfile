@@ -50,12 +50,12 @@ RUN apk add --no-cache \
 FROM docker.io/lycheeverse/lychee:0.24.2 AS lychee
 
 # Install Hadolint
-FROM docker.io/hadolint/hadolint:v2.14.0-alpine@sha256:7aba693c1442eb31c0b015c129697cb3b6cb7da589d85c7562f9deb435a6657c AS hadolint
+FROM docker.io/hadolint/hadolint:v2.15.1-alpine@sha256:a1d49ae1a4e83c1dbad26b8c1ad7588c8bd1e04f4866b34ad3cac50335198552 AS hadolint
 
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.25-trixie@sha256:d41da62c5fa95d88bac8ea732451c00f76aefc5ba4931b694879f4ae15676db8
+FROM docker.io/library/golang:1.25-trixie@sha256:8756e3e43d88bbc1e29fa22577cd1e9ff2e67ee29fe0a8023c18073ae5c172d0
 
 # Start of "we should move that to a previous Layer"
 # Note: We should keep the final layer clean. We could get most tools from wolfi.
