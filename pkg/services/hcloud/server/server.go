@@ -63,11 +63,13 @@ const (
 	// rescueBootGracePeriod is how long BootingToRescue waits for the rescue system to answer
 	// over SSH before the server gets powered off and on again.
 	//
-	// The measured durations in docs/caph/04-developers/06-image-url-command.md say the state
-	// takes at most 42s, but that table was recorded when the state was entered via a warm reboot
-	// over SSH, so ~40s is a lower bound for today's cold power-on and not a measurement of it.
-	// Re-tune this once the table has been regenerated.
-	rescueBootGracePeriod = 90 * time.Second
+	// A soak test of 44 back-to-back scale cycles (~90 fresh boots) never saw this state take
+	// longer than ~51s, and never hit this timeout at all - so there's no direct evidence this
+	// needs to be longer. Bumped from 90s to 120s anyway to give a genuinely slow (rather than
+	// stuck) boot more room, while keeping the worst-case-to-remediation time
+	// (2*rescueBootGracePeriod + powerCycleToRescueTimeout) at 6 min, same as the pre-retry
+	// baseline this PR improves on - a larger value would make that worse, not better.
+	rescueBootGracePeriod = 120 * time.Second
 
 	// powerCycleToRescueTimeout bounds PowerCyclingToRescue. Two hcloud actions (power off, power
 	// on) normally cost ~15-25s, so this only limits the case where the server never reports
@@ -794,7 +796,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 			durationOfState.Round(time.Second).String(),
 			hm.Status.RescuePowerCycleCount+1, maxRescuePowerCycles+1)
 
-		if s.retryRescueBoot("SSHNotReachable", timeoutMsg) {
+		if s.retryRescueBoot(ctx, "SSHNotReachable", timeoutMsg) {
 			// The next state powers the server off and on again.
 			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 		}
@@ -848,9 +850,27 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 	err = output.Err
 	if err != nil {
 		var msg string
-		if errors.Is(err, syscall.ECONNREFUSED) {
-			// This is common. Provide a nice message.
-			msg = "getHostName: ssh not reachable yet. Retrying"
+		var netErr net.Error
+		isDialTimeout := errors.As(err, &netErr) && netErr.Timeout()
+		isConnRefused := errors.Is(err, syscall.ECONNREFUSED)
+		if isConnRefused || isDialTimeout {
+			// Both are common while the server is still booting: ECONNREFUSED once the network is
+			// up but sshd isn't listening yet, a dial timeout before that. Provide a nice message.
+			reason := "connection refused"
+			if isDialTimeout {
+				reason = "timeout"
+			}
+			msg = fmt.Sprintf("getHostName: ssh not reachable yet (%s). Retrying", reason)
+
+			// This branch is hit roughly once a second while waiting, so log a heartbeat only
+			// every ~15s instead of on every attempt - enough to see progress and the failure
+			// reason on a long wait, without flooding the logs on the common fast path.
+			if sec := int(durationOfState.Seconds()); sec > 0 && sec%15 == 0 {
+				s.scope.Info("Still waiting for SSH to become reachable in the rescue system",
+					"reason", reason,
+					"durationOfState", durationOfState.Round(time.Second).String(),
+					"gracePeriod", rescueBootGracePeriod.String())
+			}
 			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 				"RetryingSSHConnection", clusterv1beta1.ConditionSeverityInfo,
 				"%s", msg)
@@ -891,7 +911,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 		// created with the cluster's SSH keys attached, so it answers on port 22 with the machine
 		// name as hostname. A power-cycle with the rescue system enabled again is very likely to fix
 		// this, and it is faster than remediation.
-		if s.retryRescueBoot("UnexpectedHostname", fmt.Sprintf(
+		if s.retryRescueBoot(ctx, "UnexpectedHostname", fmt.Sprintf(
 			"remote hostname (via ssh) of hcloud server is %q, expected 'rescue'", remoteHostName)) {
 			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 		}
@@ -993,18 +1013,35 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 //
 // trigger names the failure that made the retry necessary and shows up in the log, msg describes it
 // for the condition and the event.
-func (s *Service) retryRescueBoot(trigger, msg string) bool {
+func (s *Service) retryRescueBoot(ctx context.Context, trigger, msg string) bool {
 	hm := s.scope.HCloudMachine
 
 	if hm.Status.RescuePowerCycleCount >= maxRescuePowerCycles {
 		return false
 	}
 
+	// Best-effort diagnostic snapshot of what hcloud thinks the server's state actually is at the
+	// moment rescue turned out to be unreachable. This is the one place in BootingToRescue allowed
+	// to spend an extra GetServer call: it only runs on the (rare, ideally never) retry path, not
+	// on every reconcile while waiting - unlike getLiveServer, a failure here must not affect the
+	// retry decision, so it's folded into the log line instead of handled/propagated.
+	liveServerState := "unavailable"
+	if serverID, err := s.scope.ServerIDFromProviderID(); err == nil {
+		if server, err := s.scope.HCloudClient.GetServer(ctx, serverID); err != nil {
+			liveServerState = fmt.Sprintf("GetServer failed: %v", err)
+		} else if server != nil {
+			liveServerState = fmt.Sprintf("status=%s rescueEnabled=%t", server.Status, server.RescueEnabled)
+		} else {
+			liveServerState = "server not found"
+		}
+	}
+
 	// This is expected and recoverable, so it gets logged at Info, not at Error.
 	s.scope.Info("Server did not reach the rescue system. Powering it off and on again.",
 		"trigger", trigger,
 		"message", msg,
-		"rescuePowerCycleCount", hm.Status.RescuePowerCycleCount)
+		"rescuePowerCycleCount", hm.Status.RescuePowerCycleCount,
+		"liveServerState", liveServerState)
 	record.Warnf(hm, "RetryingRescueBoot",
 		"Server did not reach the rescue system (%s). Powering it off and on again.", msg)
 

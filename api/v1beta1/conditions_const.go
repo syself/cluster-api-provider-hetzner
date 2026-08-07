@@ -434,8 +434,8 @@ const (
 	// HCloudMachineWaitingForServerOffV1Beta2Reason indicates the controller waits until the server
 	// has reached status "off".
 	HCloudMachineWaitingForServerOffV1Beta2Reason = "WaitingForServerOff"
-	// HCloudMachineReEnablingRescueSystemV1Beta2Reason indicates the rescue system was not armed
-	// any more and gets enabled again before the server is powered on.
+	// HCloudMachineReEnablingRescueSystemV1Beta2Reason indicates the rescue system was no longer
+	// enabled and gets enabled again before the server is powered on.
 	HCloudMachineReEnablingRescueSystemV1Beta2Reason = "ReEnablingRescueSystem"
 	// HCloudMachinePowerCyclingToRescueTimedOutV1Beta2Reason indicates the power-cycle to the
 	// rescue system timed out.

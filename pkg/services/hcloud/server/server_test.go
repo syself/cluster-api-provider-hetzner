@@ -2237,7 +2237,14 @@ var _ = Describe("Reconcile", func() {
 	})
 
 	It("power-cycles instead of remediating when the rescue system stays unreachable", func() {
-		setupImageURLMachineInState(infrav1.HCloudBootStateBootingToRescue, 100*time.Second)
+		setupImageURLMachineInState(infrav1.HCloudBootStateBootingToRescue, 130*time.Second)
+
+		By("mocking GetServer: retryRescueBoot fetches a diagnostic snapshot of the live state")
+		hcloudClient.On("GetServer", mock.Anything, int64(42)).Return(&hcloud.Server{
+			ID:            42,
+			Status:        hcloud.ServerStatusRunning,
+			RescueEnabled: true,
+		}, nil).Once()
 
 		By("reconciling: the grace period has passed, so the server gets power-cycled")
 		res, err := service.Reconcile(ctx)
@@ -2250,12 +2257,12 @@ var _ = Describe("Reconcile", func() {
 		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			metav1.ConditionFalse, infrav1.HCloudMachineRetryingRescueBootV1Beta2Reason)).To(BeTrue())
 
-		By("ensuring the timeout was not reached via an hcloud API call")
-		hcloudClient.AssertNotCalled(GinkgoT(), "GetServer", mock.Anything, mock.Anything)
+		By("ensuring the diagnostic snapshot cost exactly one hcloud API call, not one per waiting reconcile")
+		hcloudClient.AssertNumberOfCalls(GinkgoT(), "GetServer", 1)
 	})
 
 	It("remediates when the rescue system stays unreachable after the power-cycle", func() {
-		setupImageURLMachineInState(infrav1.HCloudBootStateBootingToRescue, 100*time.Second)
+		setupImageURLMachineInState(infrav1.HCloudBootStateBootingToRescue, 130*time.Second)
 		service.scope.HCloudMachine.Status.RescuePowerCycleCount = maxRescuePowerCycles
 
 		By("setting the condition the previous reconcile would have left behind")
@@ -2290,6 +2297,13 @@ var _ = Describe("Reconcile", func() {
 		testEnv.HCloudSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
 			StdOut: "my-machine",
 		})
+
+		By("mocking GetServer: retryRescueBoot fetches a diagnostic snapshot of the live state")
+		hcloudClient.On("GetServer", mock.Anything, int64(42)).Return(&hcloud.Server{
+			ID:            42,
+			Status:        hcloud.ServerStatusRunning,
+			RescueEnabled: true,
+		}, nil).Once()
 
 		res, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
