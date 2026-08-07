@@ -223,7 +223,7 @@ func main() {
 		APIReader:           mgr.GetAPIReader(),
 		RateLimitWaitTime:   rateLimitWaitTime,
 		HCloudClientFactory: hcloudClientFactory,
-		SSHClientFactory:    sshclient.NewFactory(),
+		SSHClientFactory:    sshclient.NewFactory(ctx),
 		WatchFilterValue:    watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hcloudMachineConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")
@@ -244,7 +244,7 @@ func main() {
 	if err = (&controllers.HetznerBareMetalHostReconciler{
 		Client:              mgr.GetClient(),
 		RobotClientFactory:  robotclient.NewFactory(),
-		SSHClientFactory:    sshclient.NewFactory(),
+		SSHClientFactory:    sshclient.NewFactory(ctx),
 		APIReader:           mgr.GetAPIReader(),
 		RateLimitWaitTime:   rateLimitWaitTime,
 		WatchFilterValue:    watchFilterValue,
