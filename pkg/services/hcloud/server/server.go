@@ -889,7 +889,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 	if remoteHostName != "rescue" {
 		// The server booted the throwaway image instead of the rescue system. That image is
 		// created with the cluster's SSH keys attached, so it answers on port 22 with the machine
-		// name as hostname. A power-cycle with the rescue system armed again is very likely to fix
+		// name as hostname. A power-cycle with the rescue system enabled again is very likely to fix
 		// this, and it is faster than remediation.
 		if s.retryRescueBoot("UnexpectedHostname", fmt.Sprintf(
 			"remote hostname (via ssh) of hcloud server is %q, expected 'rescue'", remoteHostName)) {
@@ -1024,7 +1024,7 @@ func (s *Service) retryRescueBoot(trigger, msg string) bool {
 // handleBootStatePowerCyclingToRescue is for provisioning with imageURL and image-url-command.
 //
 // The server failed to reach the rescue system. This state powers it off, makes sure the rescue
-// system is armed for the next boot, powers it on again and goes back to BootingToRescue.
+// system is still enabled for the next boot, powers it on again and goes back to BootingToRescue.
 //
 // The action IDs in Status.ExternalIDs are the progress markers inside this state, so one handler
 // covers the whole power-cycle.
@@ -1123,7 +1123,7 @@ func (s *Service) handleBootStatePowerCyclingToRescue(ctx context.Context) (reco
 	}
 
 	// The poweroff was issued. One GetServer answers both questions this state has left: is the
-	// server off, and is the rescue system still armed for the next boot?
+	// server off, and is the rescue system still enabled for the next boot?
 	server, res, err := s.getLiveServer(ctx)
 	if server == nil || err != nil || !res.IsZero() {
 		return res, err
@@ -1214,9 +1214,9 @@ func (s *Service) handleBootStatePowerCyclingToRescue(ctx context.Context) (reco
 	}
 
 	if !server.RescueEnabled {
-		// Rescue is not armed any more: either it was consumed by the boot that went wrong, or it
-		// expired (hcloud disables it 60 minutes after it was enabled). Arm it again, otherwise the
-		// power on below boots the local disk.
+		// Rescue is no longer enabled: either it was consumed by the boot that went wrong, or it
+		// expired (hcloud disables it 60 minutes after it was enabled). Enable it again, otherwise
+		// the power on below boots the local disk.
 		_, hcloudSSHKeys, err := s.getSSHKeys(ctx)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("getSSHKeys failed: %w", err)
@@ -1266,7 +1266,7 @@ func (s *Service) handleBootStatePowerCyclingToRescue(ctx context.Context) (reco
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
-	// The server is off and armed for the rescue system. Power it on.
+	// The server is off and rescue is still enabled. Power it on.
 	if err := s.scope.HCloudClient.PowerOnServer(ctx, &hcloud.Server{ID: serverID}); err != nil {
 		if handleUnauthorized(hm, err) {
 			return reconcile.Result{}, nil
