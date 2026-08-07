@@ -818,10 +818,15 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 		var msg string
 		var netErr net.Error
 		isDialTimeout := errors.As(err, &netErr) && netErr.Timeout()
-		if errors.Is(err, syscall.ECONNREFUSED) || isDialTimeout {
+		isConnRefused := errors.Is(err, syscall.ECONNREFUSED)
+		if isConnRefused || isDialTimeout {
 			// Both are common while the server is still booting: ECONNREFUSED once the network is
 			// up but sshd isn't listening yet, a dial timeout before that. Provide a nice message.
-			msg = "getHostName: ssh not reachable yet. Retrying"
+			reason := "connection refused"
+			if isDialTimeout {
+				reason = "timeout"
+			}
+			msg = fmt.Sprintf("getHostName: ssh not reachable yet (%s). Retrying", reason)
 			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 				"RetryingSSHConnection", clusterv1beta1.ConditionSeverityInfo,
 				"%s", msg)
