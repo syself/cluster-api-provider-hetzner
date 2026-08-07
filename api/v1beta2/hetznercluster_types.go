@@ -55,6 +55,20 @@ const (
 	// For NEW clusters created with EnableProxyProtocol: true, this annotation is never read:
 	// the LB service is created with proxy protocol from the start, so no migration is needed.
 	ProxyProtocolForControlPlaneLoadBalancerAnnotation = "capi.syself.com/proxy-protocol-for-controlplane-loadbalancer"
+
+	// HTTPHealthCheckForControlPlaneLoadBalancerAnnotation is used only when switching the
+	// control-plane load balancer health check from tcp to http or https on an EXISTING cluster
+	// (migration path). It must be present with value "true" on ALL control-plane machines before
+	// CAPH switches the load balancer health check in place. The annotation is set on the
+	// control-plane machine template, so it is present exactly on the machines whose image answers
+	// the health check path; machines from an earlier template do not carry it. CAPH reads this
+	// annotation on the control-plane machines; it never writes it. This mirrors the
+	// proxy-protocol migration.
+	//
+	// For a NEW cluster whose spec already sets an http or https health check, this annotation is
+	// never read: the load balancer service is created with that check from the start, so no
+	// migration is needed.
+	HTTPHealthCheckForControlPlaneLoadBalancerAnnotation = "capi.syself.com/http-health-check-for-controlplane-loadbalancer"
 )
 
 // HetznerClusterSpec defines the desired state of HetznerCluster.

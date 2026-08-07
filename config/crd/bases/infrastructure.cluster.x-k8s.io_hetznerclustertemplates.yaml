@@ -180,6 +180,97 @@ spec:
                                   type: string
                               type: object
                             type: array
+                          healthCheck:
+                            description: |-
+                              HealthCheck configures the health check the load balancer uses to determine whether the
+                              kube-apiserver service on a control-plane node is healthy. If omitted, the load balancer's
+                              default behavior (a plain TCP check, with Hetzner's default interval, timeout and retries)
+                              is unchanged.
+
+                              Switching Protocol to http or https lets the load balancer check the kube-apiserver's actual
+                              readiness (e.g. path "/readyz") instead of just whether the port accepts connections. Doing
+                              so requires the kube-apiserver to serve that path without authentication, since the load
+                              balancer's health check request is unauthenticated. This is not configured by CAPH; the
+                              cluster operator must allow anonymous access to the configured path on the apiserver.
+
+                              On an existing cluster, switching from tcp to an http or https check is a one-way migration
+                              that CAPH performs only after every control-plane machine carries the annotation
+                              capi.syself.com/http-health-check-for-controlplane-loadbalancer: "true", set on the
+                              control-plane machine template. Until then the tcp check stays in place, so the switch never
+                              marks a backend that does not yet answer the path unhealthy. This mirrors the proxy-protocol
+                              migration in EnableProxyProtocol. Any other change (e.g. a path or timeout change while
+                              already on http/https) is applied immediately, without this gate.
+
+                              Leaving HealthCheck out means CAPH does not manage the check, so a load balancer that
+                              already has one keeps it. Deleting the field after an http check was applied therefore does
+                              not undo that check.
+                            properties:
+                              domain:
+                                description: |-
+                                  Domain sets the Host header sent with the HTTP(S) health check request. Only valid when
+                                  Protocol is http or https.
+                                type: string
+                              intervalSeconds:
+                                description: |-
+                                  IntervalSeconds is the time in seconds between two consecutive health checks. If omitted,
+                                  Hetzner's default (15s) is used.
+                                maximum: 60
+                                minimum: 3
+                                type: integer
+                              path:
+                                description: |-
+                                  Path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
+                                  Protocol is http or https.
+                                type: string
+                              port:
+                                description: |-
+                                  Port is the target port the check runs against. It defaults to the service's destination
+                                  port. Set it when the health-check endpoint is served on a different port than the API
+                                  server itself.
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                              protocol:
+                                default: tcp
+                                description: |-
+                                  Protocol is the protocol used for the health check. If omitted, "tcp" is used, matching the
+                                  load balancer's own default behavior.
+                                enum:
+                                - tcp
+                                - http
+                                - https
+                                type: string
+                              response:
+                                description: |-
+                                  Response is a string that must be contained in the HTTP(S) response for the check to pass.
+                                  Only valid when Protocol is http or https.
+                                type: string
+                              retries:
+                                description: |-
+                                  Retries is the number of consecutive failed health checks before a target is considered
+                                  unhealthy. The same number of successful checks makes it healthy again. If omitted,
+                                  Hetzner's default (3) is used.
+                                maximum: 5
+                                minimum: 1
+                                type: integer
+                              statusCodes:
+                                description: |-
+                                  StatusCodes are the HTTP response status codes counted as healthy, for example ["200"].
+                                  Single codes ("200") and wildcards ("2??") are both allowed. Defaults to Hetzner's default
+                                  (["2??", "3??"]) when empty. Only valid when Protocol is http or https.
+                                items:
+                                  type: string
+                                type: array
+                              timeoutSeconds:
+                                description: |-
+                                  TimeoutSeconds is the time in seconds to wait for a health check attempt to succeed. If
+                                  omitted, Hetzner's default (10s) is used.
+                                maximum: 60
+                                minimum: 1
+                                type: integer
+                            required:
+                            - protocol
+                            type: object
                           name:
                             description: Name defines the name of the load balancer.
                               It can be specified in order to use an existing load
@@ -604,6 +695,97 @@ spec:
                               type: object
                             type: array
                             x-kubernetes-list-type: atomic
+                          healthCheck:
+                            description: |-
+                              HealthCheck configures the health check the load balancer uses to determine whether the
+                              kube-apiserver service on a control-plane node is healthy. If omitted, the load balancer's
+                              default behavior (a plain TCP check, with Hetzner's default interval, timeout and retries)
+                              is unchanged.
+
+                              Switching Protocol to http or https lets the load balancer check the kube-apiserver's actual
+                              readiness (e.g. path "/readyz") instead of just whether the port accepts connections. Doing
+                              so requires the kube-apiserver to serve that path without authentication, since the load
+                              balancer's health check request is unauthenticated. This is not configured by CAPH; the
+                              cluster operator must allow anonymous access to the configured path on the apiserver.
+
+                              On an existing cluster, switching from tcp to an http or https check is a one-way migration
+                              that CAPH performs only after every control-plane machine carries the annotation
+                              capi.syself.com/http-health-check-for-controlplane-loadbalancer: "true", set on the
+                              control-plane machine template. Until then the tcp check stays in place, so the switch never
+                              marks a backend that does not yet answer the path unhealthy. This mirrors the proxy-protocol
+                              migration in EnableProxyProtocol. Any other change (e.g. a path or timeout change while
+                              already on http/https) is applied immediately, without this gate.
+
+                              Leaving HealthCheck out means CAPH does not manage the check, so a load balancer that
+                              already has one keeps it. Deleting the field after an http check was applied therefore does
+                              not undo that check.
+                            properties:
+                              domain:
+                                description: |-
+                                  Domain sets the Host header sent with the HTTP(S) health check request. Only valid when
+                                  Protocol is http or https.
+                                type: string
+                              intervalSeconds:
+                                description: |-
+                                  IntervalSeconds is the time in seconds between two consecutive health checks. If omitted,
+                                  Hetzner's default (15s) is used.
+                                maximum: 60
+                                minimum: 3
+                                type: integer
+                              path:
+                                description: |-
+                                  Path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
+                                  Protocol is http or https.
+                                type: string
+                              port:
+                                description: |-
+                                  Port is the target port the check runs against. It defaults to the service's destination
+                                  port. Set it when the health-check endpoint is served on a different port than the API
+                                  server itself.
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                              protocol:
+                                default: tcp
+                                description: |-
+                                  Protocol is the protocol used for the health check. If omitted, "tcp" is used, matching the
+                                  load balancer's own default behavior.
+                                enum:
+                                - tcp
+                                - http
+                                - https
+                                type: string
+                              response:
+                                description: |-
+                                  Response is a string that must be contained in the HTTP(S) response for the check to pass.
+                                  Only valid when Protocol is http or https.
+                                type: string
+                              retries:
+                                description: |-
+                                  Retries is the number of consecutive failed health checks before a target is considered
+                                  unhealthy. The same number of successful checks makes it healthy again. If omitted,
+                                  Hetzner's default (3) is used.
+                                maximum: 5
+                                minimum: 1
+                                type: integer
+                              statusCodes:
+                                description: |-
+                                  StatusCodes are the HTTP response status codes counted as healthy, for example ["200"].
+                                  Single codes ("200") and wildcards ("2??") are both allowed. Defaults to Hetzner's default
+                                  (["2??", "3??"]) when empty. Only valid when Protocol is http or https.
+                                items:
+                                  type: string
+                                type: array
+                              timeoutSeconds:
+                                description: |-
+                                  TimeoutSeconds is the time in seconds to wait for a health check attempt to succeed. If
+                                  omitted, Hetzner's default (10s) is used.
+                                maximum: 60
+                                minimum: 1
+                                type: integer
+                            required:
+                            - protocol
+                            type: object
                           name:
                             description: Name defines the name of the load balancer.
                               It can be specified in order to use an existing load
