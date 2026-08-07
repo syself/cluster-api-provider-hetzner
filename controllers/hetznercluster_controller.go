@@ -865,12 +865,12 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		).
 		Watches(
 			&infrav2.HetznerBareMetalMachine{},
-			handler.EnqueueRequestsFromMapFunc(r.baremetalMachineToHetznerCluster),
+			handler.EnqueueRequestsFromMapFunc(r.machineToHetznerCluster),
 			builder.WithPredicates(controlPlaneMachineToHetznerClusterPredicate()),
 		).
 		Watches(
 			&infrav2.HCloudMachine{},
-			handler.EnqueueRequestsFromMapFunc(r.hcloudMachineToHetznerCluster),
+			handler.EnqueueRequestsFromMapFunc(r.machineToHetznerCluster),
 			builder.WithPredicates(controlPlaneMachineToHetznerClusterPredicate()),
 		).
 		Complete(r)
@@ -1029,20 +1029,15 @@ func IgnoreInsignificantHetznerClusterStatusUpdates(logger logr.Logger) predicat
 	}
 }
 
-// baremetalMachineToHetznerCluster maps an HetznerBareMetalMachine to the owning HetznerCluster.
-func (r *HetznerClusterReconciler) baremetalMachineToHetznerCluster(ctx context.Context, o client.Object) []reconcile.Request {
-	bm, ok := o.(*infrav2.HetznerBareMetalMachine)
-	if !ok {
-		return nil
-	}
-
-	clusterName := bm.Labels[clusterv1.ClusterNameLabel]
+// machineToHetznerCluster maps an HetznerBareMetalMachine or HCloudMachine to the owning HetznerCluster.
+func (r *HetznerClusterReconciler) machineToHetznerCluster(ctx context.Context, o client.Object) []reconcile.Request {
+	clusterName := o.GetLabels()[clusterv1.ClusterNameLabel]
 	if clusterName == "" {
 		return nil
 	}
 
 	cluster := &clusterv1.Cluster{}
-	if err := r.Get(ctx, client.ObjectKey{Namespace: bm.Namespace, Name: clusterName}, cluster); err != nil {
+	if err := r.Get(ctx, client.ObjectKey{Namespace: o.GetNamespace(), Name: clusterName}, cluster); err != nil {
 		return nil
 	}
 
@@ -1051,33 +1046,7 @@ func (r *HetznerClusterReconciler) baremetalMachineToHetznerCluster(ctx context.
 	}
 
 	return []reconcile.Request{{
-		NamespacedName: client.ObjectKey{Namespace: bm.Namespace, Name: cluster.Spec.InfrastructureRef.Name},
-	}}
-}
-
-// hcloudMachineToHetznerCluster maps an HCloudMachine to the owning HetznerCluster.
-func (r *HetznerClusterReconciler) hcloudMachineToHetznerCluster(ctx context.Context, o client.Object) []reconcile.Request {
-	hm, ok := o.(*infrav2.HCloudMachine)
-	if !ok {
-		return nil
-	}
-
-	clusterName := hm.Labels[clusterv1.ClusterNameLabel]
-	if clusterName == "" {
-		return nil
-	}
-
-	cluster := &clusterv1.Cluster{}
-	if err := r.Get(ctx, client.ObjectKey{Namespace: hm.Namespace, Name: clusterName}, cluster); err != nil {
-		return nil
-	}
-
-	if !cluster.Spec.InfrastructureRef.IsDefined() || cluster.Spec.InfrastructureRef.Kind != "HetznerCluster" {
-		return nil
-	}
-
-	return []reconcile.Request{{
-		NamespacedName: client.ObjectKey{Namespace: hm.Namespace, Name: cluster.Spec.InfrastructureRef.Name},
+		NamespacedName: client.ObjectKey{Namespace: o.GetNamespace(), Name: cluster.Spec.InfrastructureRef.Name},
 	}}
 }
 
