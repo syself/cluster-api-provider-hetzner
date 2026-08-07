@@ -698,6 +698,16 @@ func (c *cacheHCloudClient) PowerOnServer(_ context.Context, server *hcloud.Serv
 	return nil
 }
 
+func (c *cacheHCloudClient) PowerOffServer(_ context.Context, server *hcloud.Server) (*hcloud.Action, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if _, found := c.serverCache.idMap[server.ID]; !found {
+		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+	c.serverCache.idMap[server.ID].Status = hcloud.ServerStatusOff
+	return &hcloud.Action{ID: 1}, nil
+}
+
 func (c *cacheHCloudClient) DeleteServer(_ context.Context, server *hcloud.Server) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -917,7 +927,17 @@ func (c *cacheHCloudClient) AddServerToPlacementGroup(_ context.Context, server 
 	return nil
 }
 
-func (c *cacheHCloudClient) EnableRescueSystem(_ context.Context, _ *hcloud.Server, _ *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
+// EnableRescueSystem arms the rescue system for the next boot, like the hcloud API does. The
+// returned Action is non-nil, because callers read its ID.
+func (c *cacheHCloudClient) EnableRescueSystem(_ context.Context, server *hcloud.Server, _ *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	cachedServer, found := c.serverCache.idMap[server.ID]
+	if !found {
+		return result, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+	cachedServer.RescueEnabled = true
+	result.Action = &hcloud.Action{ID: 1}
 	return result, nil
 }
 
