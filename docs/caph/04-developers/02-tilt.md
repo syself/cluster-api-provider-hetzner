@@ -12,10 +12,10 @@ metatitle: Reference For Available Tilt Configuration Options
 "deploy_observability": False,
 "preload_images_for_kind": True,
 "kind_cluster_name": "caph",
-"capi_version": "v1.13.1",
+"capi_version": "v1.13.4",
 "cabpt_version": "v0.5.6",
 "cacppt_version": "v0.4.11",
-"cert_manager_version": "v1.20.2",
+"cert_manager_version": "v1.20.3",
 "kustomize_substitutions": {
     "HCLOUD_REGION": "fsn1",
     "CONTROL_PLANE_MACHINE_COUNT": "3",
@@ -57,10 +57,10 @@ If set to true, uses `kind load docker-image` to preload images into a kind clus
 The name of the kind cluster to use when preloading images.
 </PropField>
 
-<PropField name="capi_version" type="string" defaultValue='"v1.13.1"' required={false}>
+<PropField name="capi_version" type="string" defaultValue='"v1.13.4"' required={false}>
 Version of CAPI.
 </PropField>
 
-<PropField name="cert_manager_version" type="string" defaultValue='"v1.20.2"' required={false}>
+<PropField name="cert_manager_version" type="string" defaultValue='"v1.20.3"' required={false}>
 Version of cert manager.
 </PropField>

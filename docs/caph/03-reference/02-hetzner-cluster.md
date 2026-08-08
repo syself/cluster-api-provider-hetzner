@@ -187,6 +187,10 @@ Defines destination port. Must be in range 1-65535.
 
 </PropField>
 
+<PropField name="controlPlaneLoadBalancer.targetAddressFamily" type="string" defaultValue="dualstack" required={false}>
+Which addresses of a bare metal control plane server are attached as load balancer targets. One of `ipv4`, `ipv6`, `dualstack`. Has no effect on HCloud servers. See [Bare metal control planes and the load balancer](/docs/caph/topics/baremetal/load-balancer-targets).
+</PropField>
+
 </Collapsible>
 
 </PropField>

@@ -29,7 +29,7 @@ var _ = Describe("Loadbalancer", func() {
 	Context("hcloud cluster has network attached", func() {
 		var sts *infrav2.LoadBalancerStatus
 		BeforeEach(func() {
-			sts = statusFromHCloudLB(lb, true, logr.Discard())
+			sts = statusFromHCloudLB(lb, true, 443, logr.Discard())
 		})
 
 		It("should have two targets", func() {
@@ -45,11 +45,14 @@ var _ = Describe("Loadbalancer", func() {
 		It("should be unprotected", func() {
 			Expect(sts.Protected).To(Equal(protected))
 		})
+		It("should have proxy protocol disabled", func() {
+			Expect(sts.ProxyProtocolEnabled).To(BeFalse())
+		})
 	})
 	Context("hcloud cluster has no network attached", func() {
 		var sts *infrav2.LoadBalancerStatus
 		BeforeEach(func() {
-			sts = statusFromHCloudLB(lb, false, logr.Discard())
+			sts = statusFromHCloudLB(lb, false, 443, logr.Discard())
 		})
 
 		It("should have two targets", func() {
@@ -64,6 +67,21 @@ var _ = Describe("Loadbalancer", func() {
 		})
 		It("should be unprotected", func() {
 			Expect(sts.Protected).To(Equal(protected))
+		})
+	})
+	Context("proxy protocol detection", func() {
+		It("reports enabled when the kube-API service has proxy protocol on", func() {
+			lbWithProxyProtocol := &hcloud.LoadBalancer{
+				Services: []hcloud.LoadBalancerService{
+					{ListenPort: 6443, Proxyprotocol: true},
+				},
+			}
+			sts := statusFromHCloudLB(lbWithProxyProtocol, false, 6443, logr.Discard())
+			Expect(sts.ProxyProtocolEnabled).To(BeTrue())
+		})
+		It("reports disabled when the kube-API port has no matching service", func() {
+			sts := statusFromHCloudLB(lb, false, 6443, logr.Discard())
+			Expect(sts.ProxyProtocolEnabled).To(BeFalse())
 		})
 	})
 })

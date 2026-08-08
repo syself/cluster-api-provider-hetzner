@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stoewer/go-strcase"
 	"github.com/syself/hrobot-go/models"
 	"golang.org/x/crypto/ssh"
@@ -698,13 +699,22 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	}
 	record.Eventf(s.scope.HetznerBareMetalHost, "GetHardwareDetails", msg)
 
-	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails == nil {
-		hardwareDetails, err := getHardwareDetails(ctx, sshClient)
-		if err != nil {
-			return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
-		}
-		s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
+	hardwareDetails, err := getHardwareDetails(ctx, sshClient)
+	if err != nil {
+		return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
 	}
+
+	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails != nil {
+		diff := cmp.Diff(*s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails, hardwareDetails)
+		if diff != "" {
+			s.scope.Info("HardwareDetails changed", "diff", diff)
+			record.Eventf(s.scope.HetznerBareMetalHost, "HardwareDetails changed", diff)
+		}
+	}
+	// In case of a change in the disks, the WWNs got updated. This might lead to an outdated
+	// RootDeviceHints, which the user sets to decide which disk to use for provisioning, even if
+	// the server was already provisioned before. This will get caught by validateRootDeviceHints below.
+	s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
 
 	if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints == nil {
 		v1beta1conditions.MarkFalse(
@@ -1314,7 +1324,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
 		s.scope.Error(nil, msg, "logFile", logFile)
-		record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandTimedOut", logFile)
+		record.Warn(s.scope.HetznerBareMetalHost, "ImageURLCommandTimedOut", msg)
 
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandTimedOut", clusterv1beta1.ConditionSeverityWarning,
@@ -1364,14 +1374,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		// IMAGE_URL_DONE was found in the stdout.
 		s.scope.Info("CustomProvisionerOutput", "logFile", logFile)
-		record.Event(s.scope.HetznerBareMetalHost, "CustomProvisionerOutput", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
 			s.scope.Error(err, "failed to read output.json")
 			return actionContinue{delay: 10 * time.Second}
 		}
-		record.Event(s.scope.HetznerBareMetalHost, "CustomProvisionerOutputJSON", outputJSON)
 		s.scope.Info("CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 
 		// Update name in robot API
@@ -1398,7 +1406,6 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		return actionComplete{}
 
 	case sshclient.ImageURLCommandStateFailed:
-		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", logFile)
 		s.scope.Error(nil, "custom provisioner failed", "logFile", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
@@ -1414,19 +1421,19 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
 				return actionError{err: fmt.Errorf("failed to parse: %w", err)}
 			}
-			record.Warn(s.scope.HetznerBareMetalHost, "CustomProvisionerOutputJSON", outputJSON)
 			s.scope.Error(nil, "CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 			if output.Message != "" {
 				msg = output.Message
 			}
 		}
+		record.Warn(s.scope.HetznerBareMetalHost, "CustomProvisionerFailed", msg)
 		v1beta1conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandFailed", clusterv1beta1.ConditionSeverityWarning,
+			"CustomProvisionerFailed", clusterv1beta1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(host, metav1.Condition{
 			Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "ImageURLCommandFailed",
+			Reason:  "CustomProvisionerFailed",
 			Message: msg,
 		})
 		return s.recordActionFailure(infrav1.FatalError, msg)
@@ -2090,8 +2097,6 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		if exitStatus != 0 || out.StdErr != "" {
 			err = errors.Join(err, fmt.Errorf("failed to get cloud init output (ssh connection worked): %s",
 				out.String()))
-		}
-		if err != nil {
 			record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
 				"GetCloudInitOutput failed to get /var/log/cloud-init-output.log: %s",
 				err)
@@ -2100,6 +2105,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 				infrav1.StateEnsureProvisioned, err.Error())
 			return actionError{err: err}
 		}
+
 		record.Eventf(s.scope.HetznerBareMetalHost, "CloudInitOutput", "cloud init output:\n%s",
 			out.StdOut)
 		return ar
