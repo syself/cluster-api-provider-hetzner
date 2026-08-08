@@ -15,7 +15,7 @@ In a cluster that includes bare metal servers there are no private networks, as 
 > [!NOTE]
 > In clusters with bare metal servers, you need to use [this CCM](https://github.com/syself/hetzner-cloud-controller-manager), as the official one does not support bare metal.
 
-[Here](/docs/caph/topics/managing-ssh-keys) you can find more information regarding the handling of SSH keys. Some of them are specified in `HetznerCluster` to have them cluster-wide, others are machine-scoped.
+[Here](/docs/caph/02-topics/01-managing-ssh-keys.md) you can find more information regarding the handling of SSH keys. Some of them are specified in `HetznerCluster` to have them cluster-wide, others are machine-scoped.
 
 ## Usage without HCloud Load Balancer
 
@@ -188,7 +188,7 @@ Defines destination port. Must be in range 1-65535.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.targetAddressFamily" type="string" defaultValue="dualstack" required={false}>
-Which addresses of a bare metal control plane server are attached as load balancer targets. One of `ipv4`, `ipv6`, `dualstack`. Has no effect on HCloud servers. See [Bare metal control planes and the load balancer](/docs/caph/topics/baremetal/load-balancer-targets).
+Which addresses of a bare metal control plane server are attached as load balancer targets. One of `ipv4`, `ipv6`, `dualstack`. Has no effect on HCloud servers. See [Bare metal control planes and the load balancer](/docs/caph/02-topics/05-baremetal/05-load-balancer-targets.md).
 </PropField>
 
 </Collapsible>

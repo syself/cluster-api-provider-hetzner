@@ -119,7 +119,7 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG kubectl apply \
 
 If you install the upstream CCM via its Helm chart instead, the defaults also point at secret `hcloud` / key `token`, so no `--set` overrides are needed.
 
-For upstream CCM details and bare-metal `ProviderID` format, see the [Baremetal Docs](/docs/caph/topics/baremetal/creating-workload-cluster#deploying-the-hetzner-cloud-controller-manager).
+For upstream CCM details and bare-metal `ProviderID` format, see the [Baremetal Docs](/docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager).
 
 <Step>Deploy the CSI (optional)</Step>
 

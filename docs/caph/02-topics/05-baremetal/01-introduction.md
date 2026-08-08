@@ -35,4 +35,4 @@ unprovisioning and recreating it.
 
 ## Purchasing Bare Metal Servers
 
-If you want to create a cluster with bare metal servers, you will also need to set up the robot credentials. For setting robot credentials, as described in the [reference](/docs/caph/reference/hetzner-bare-metal-machine-template), you need to purchase bare metal servers beforehand manually.
+If you want to create a cluster with bare metal servers, you will also need to set up the robot credentials. For setting robot credentials, as described in the [reference](/docs/caph/03-reference/06-hetzner-bare-metal-machine-template.md), you need to purchase bare metal servers beforehand manually.

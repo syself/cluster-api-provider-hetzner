@@ -7,7 +7,7 @@ metatitle: Developing Cluster API Provider Hetzner with Tilt
 Developing our provider is quite easy. Please follow the steps mentioned below:
 
 1. You need to install some base requirements.
-2. You need to follow the [preparation document](/docs/caph/getting-started/preparation) to set up everything related to Hetzner.
+2. You need to follow the [preparation document](/docs/caph/01-getting-started/03-preparation.md) to set up everything related to Hetzner.
 
 ## Install Base requirements
 
@@ -27,7 +27,7 @@ This ensures the following:
 
 ## Preparing Hetzner project
 
-For more information, please see [here](/docs/caph/getting-started/preparation).
+For more information, please see [here](/docs/caph/01-getting-started/03-preparation.md).
 
 ## Developing without Tilt
 
@@ -54,7 +54,7 @@ You can use [Tilt](https://tilt.dev/) to install your changed code in the manage
 We do not update the Tilt configuration regularly. If unsure use [Developing without
 Tilt](#developing-without-tilt).
 
-The complete reference can be found in the [Reference of Tilt](/docs/caph/developers/tilt) documentation.
+The complete reference can be found in the [Reference of Tilt](/docs/caph/04-developers/02-tilt.md) documentation.
 
 To build a kind cluster and to start Tilt, run:
 

@@ -18,7 +18,7 @@ Desired server type of server in Hetzner's Cloud API. Example: cpx11.
 
 <PropField name="template.spec.imageName" type="string" required={true}>
 
-Specifies desired image of server. ImageName can reference an image uploaded to Hetzner API in two ways: either directly as name of an image, or as label of an image (see [here](/docs/caph/topics/node-image) for more details).
+Specifies desired image of server. ImageName can reference an image uploaded to Hetzner API in two ways: either directly as name of an image, or as label of an image (see [here](/docs/caph/02-topics/03-node-image.md) for more details).
 
 </PropField>
 
