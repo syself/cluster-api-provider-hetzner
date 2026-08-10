@@ -27,7 +27,7 @@ Timeout of one remediation try. Should be of the form "10m", or "40s".
 </PropField>
 
 <PropField name="template.spec.strategy.onExhaustion" type="string" required={false}>
-What to do when retries run out and the node is still unhealthy. `Reuse` deletes the machine and frees the host to be provisioned again. Note: when unset, behaves like `Reuse`. `Retire` sets a permanent error on the host, which deletes the machine and keeps the host out of the pool until a human removes the `capi.syself.com/permanent-error` annotation. `RetireIfUnhealthyCondition` retires the host (like `Retire`) only when the node condition that triggered the remediation is listed in `retireConditions`, and reuses it for any other condition.
+What to do when the retries run out and the node is still unhealthy. `Reuse` deletes the machine and frees the host to be provisioned again. `Retire` sets a permanent error on the host, which deletes the machine and keeps the host out of the pool until a human removes the `capi.syself.com/permanent-error` annotation. `RetireIfUnhealthyCondition` retires the host (like `Retire`) only when the node condition that triggered the remediation is listed in `retireConditions`, and otherwise reuses it. When not set, remediation behaves like `Reuse`.
 </PropField>
 
 <PropField name="template.spec.strategy.retireConditions" type="[]string" required={false}>

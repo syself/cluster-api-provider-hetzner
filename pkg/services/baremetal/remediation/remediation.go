@@ -270,7 +270,7 @@ func (s *Service) shouldRetire(capiMachine *clusterv1.Machine) bool {
 // we match, which means cluster-api reworded it and the match above silently stopped
 // working, so the caller warns. We key on the reason, not on a word in the message, so we still catch
 // a reworded message even if it drops "on Node". The other reasons (NodeStartupTimeout, NodeDeleted)
-//  are not an unhealthy node condition, so they never warn. The message wording comes
+// are not an unhealthy node condition, so they never warn. The message wording comes
 // from function nodeChecks in cluster-api's internal MachineHealthCheck controller, which we cannot
 // import and whose wording is not a stable API:
 // https://github.com/kubernetes-sigs/cluster-api/blob/v1.13.4/internal/controllers/machinehealthcheck/machinehealthcheck_targets.go#L277
