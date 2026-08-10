@@ -927,7 +927,7 @@ func (c *cacheHCloudClient) AddServerToPlacementGroup(_ context.Context, server 
 	return nil
 }
 
-// EnableRescueSystem arms the rescue system for the next boot, like the hcloud API does. The
+// EnableRescueSystem enables the rescue system for the next boot, like the hcloud API does. The
 // returned Action is non-nil, because callers read its ID.
 func (c *cacheHCloudClient) EnableRescueSystem(_ context.Context, server *hcloud.Server, _ *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
 	c.mutex.Lock()

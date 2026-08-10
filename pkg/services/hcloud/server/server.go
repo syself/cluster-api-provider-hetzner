@@ -938,16 +938,24 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 
 	// Now we know that we are inside a rescue system.
 
-	if hm.Status.RescuePowerCycleCount > 0 {
+	if hm.Status.ExternalIDs.ActionIDEnableRescueSystem == actionDone {
 		// This machine needed at least one power-cycle to get here. Distinct signal from
 		// "RetryingRescueBoot" (which fires when a retry is *attempted*, not when it *works*) -
 		// needed to measure, over time, how often a power-cycle actually reaches rescue versus
 		// just deferring to the other trigger and ending in remediation anyway (see
 		// "RescueRetryExhausted").
+		//
+		// Gated on the action-ID marker, not just RescuePowerCycleCount > 0: StartImageURLCommand
+		// below can fail transiently and requeue without changing BootState, which re-runs this
+		// whole function - checking the count alone would re-report the same recovery on every
+		// such retry. actionDone is set exactly once, by the power-cycle that just succeeded;
+		// consuming it here (like the other action-ID markers in this file) makes the report
+		// fire exactly once per actual recovery.
 		s.scope.Info("Reached the rescue system after a power-cycle",
 			"rescuePowerCycleCount", hm.Status.RescuePowerCycleCount)
 		record.Eventf(hm, "RescueRetrySucceeded",
 			"Reached the rescue system after %d power-cycle(s)", hm.Status.RescuePowerCycleCount)
+		hm.Status.ExternalIDs.ActionIDEnableRescueSystem = 0
 	}
 
 	// image-url-command has not started yet. Start it.

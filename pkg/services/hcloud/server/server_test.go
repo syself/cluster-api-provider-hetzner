@@ -2261,9 +2261,10 @@ var _ = Describe("Reconcile", func() {
 		hcloudClient.AssertNumberOfCalls(GinkgoT(), "GetServer", 1)
 	})
 
-	It("reports RescueRetrySucceeded when rescue is reached after a power-cycle", func() {
+	It("reports RescueRetrySucceeded exactly once when rescue is reached after a power-cycle", func() {
 		setupImageURLMachineInState(infrav1.HCloudBootStateBootingToRescue, 10*time.Second)
 		service.scope.HCloudMachine.Status.RescuePowerCycleCount = 1
+		service.scope.HCloudMachine.Status.ExternalIDs.ActionIDEnableRescueSystem = actionDone
 
 		By("mocking SSH: the rescue system answers this time")
 		testEnv.HCloudSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
@@ -2282,6 +2283,47 @@ var _ = Describe("Reconcile", func() {
 		Eventually(func() bool {
 			return hasEvent("RescueRetrySucceeded")
 		}, 10*time.Second, time.Second).Should(BeTrue())
+
+		By("ensuring the marker is consumed, so a StartImageURLCommand retry wouldn't re-report it")
+		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDEnableRescueSystem).To(Equal(int64(0)))
+	})
+
+	It("does not re-report RescueRetrySucceeded on a StartImageURLCommand retry", func() {
+		setupImageURLMachineInState(infrav1.HCloudBootStateBootingToRescue, 10*time.Second)
+		service.scope.HCloudMachine.Status.RescuePowerCycleCount = 1
+		service.scope.HCloudMachine.Status.ExternalIDs.ActionIDEnableRescueSystem = actionDone
+
+		By("mocking SSH: the rescue system answers, but StartImageURLCommand fails transiently")
+		testEnv.HCloudSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
+			StdOut: "rescue",
+		})
+		testEnv.HCloudSSHClient.On("StartImageURLCommand", mock.Anything, mock.Anything, mock.Anything, mock.Anything, "my-machine", []string{"sda"}).
+			Return(0, "", fmt.Errorf("temporary network error")).Once()
+
+		_, err := service.Reconcile(ctx)
+		Expect(err).ToNot(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRescue))
+
+		By("ensuring the first attempt already consumed the marker")
+		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDEnableRescueSystem).To(Equal(int64(0)))
+
+		By("reconciling again: StartImageURLCommand succeeds this time")
+		testEnv.HCloudSSHClient.On("StartImageURLCommand", mock.Anything, mock.Anything, mock.Anything, mock.Anything, "my-machine", []string{"sda"}).Return(0, "", nil)
+		res, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 10 * time.Second}))
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateRunningImageCommand))
+
+		By("ensuring RescueRetrySucceeded fired exactly once across both reconciles")
+		eventList := &corev1.EventList{}
+		Expect(testEnv.List(ctx, eventList, client.InNamespace(testNs.Name))).To(Succeed())
+		count := 0
+		for _, event := range eventList.Items {
+			if event.Reason == "RescueRetrySucceeded" && event.InvolvedObject.Name == service.scope.HCloudMachine.Name {
+				count += int(event.Count)
+			}
+		}
+		Expect(count).To(Equal(1))
 	})
 
 	It("remediates when the rescue system stays unreachable after the power-cycle", func() {
@@ -2412,7 +2454,7 @@ var _ = Describe("Reconcile", func() {
 		hcloudClient.AssertNotCalled(GinkgoT(), "PowerOnServer", mock.Anything, mock.Anything)
 	})
 
-	It("arms the rescue system again when it is no longer enabled", func() {
+	It("enables the rescue system again when it is no longer enabled", func() {
 		setupImageURLMachineInState(infrav1.HCloudBootStatePowerCyclingToRescue, 5*time.Second)
 		service.scope.HCloudMachine.Status.ExternalIDs.ActionIDPowerOffServer = 776655
 		service.scope.HCloudMachine.Status.ExternalIDs.ActionIDEnableRescueSystem = actionDone

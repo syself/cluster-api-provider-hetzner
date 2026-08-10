@@ -556,7 +556,7 @@ var _ = Describe("Server", func() {
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
 	})
 
-	It("arms the rescue system and returns an action", func() {
+	It("enables the rescue system and returns an action", func() {
 		Expect(server.RescueEnabled).To(BeFalse())
 		result, err := client.EnableRescueSystem(ctx, server, &hcloud.ServerEnableRescueOpts{
 			Type: hcloud.ServerRescueTypeLinux64,
