@@ -21,8 +21,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -217,15 +219,78 @@ func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerB
 			"reboot remediation succeeded: Node is healthy again")
 	}
 
-	// Reboots are exhausted and the node is still unhealthy, so the machine is deleted
-	// either way. Retire deletes it by setting a permanent error on the host (retireHost),
-	// which also keeps the host out of the pool. Without Retire we fall through to
-	// setOwnerRemediatedConditionToFailed below and the host can be provisioned again.
-	if s.scope.BareMetalRemediation.Spec.Strategy.OnExhaustion == infrav1.OnExhaustionRetire {
+	// The reboots have run out and the node is still unhealthy, so this ends the remediation and
+	// the machine will be deleted. The only difference is what happens to the host. If we retire,
+	// retireHost sets a permanent error that keeps the host out of the pool until a human clears
+	// the error. Otherwise we continue to setOwnerRemediatedConditionToFailed below, and the host
+	// can be provisioned again.
+	if s.shouldRetire(capiMachine) {
 		return reconcile.Result{}, s.retireHost(ctx, host, capiMachine)
 	}
 
 	return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx, "because retryLimit is reached and reboot timed out")
+}
+
+// shouldRetire reports whether the host should be retired instead of reused, once the reboots have
+// run out. The Retire mode always retires. The RetireIfUnhealthyCondition mode retires only when
+// the node condition that triggered the remediation is listed in RetireConditions. The Reuse mode
+// never retires, and neither does leaving OnExhaustion unset.
+func (s *Service) shouldRetire(capiMachine *clusterv1.Machine) bool {
+	strategy := s.scope.BareMetalRemediation.Spec.Strategy
+	switch strategy.OnExhaustion {
+	case infrav1.OnExhaustionRetire:
+		return true
+	case infrav1.OnExhaustionRetireIfUnhealthyCondition:
+		retire, unrecognizedFormat := triggeredByRetireCondition(capiMachine, strategy.RetireConditions)
+		if unrecognizedFormat {
+			record.Warn(s.scope.BareMetalRemediation, "UnexpectedHealthCheckFormat",
+				"RetireIfUnhealthyCondition could not read the node condition from the MachineHealthCheck message and reused the host. cluster-api may have changed the message format.")
+		}
+		return retire
+	default:
+		return false
+	}
+}
+
+// triggeredByRetireCondition reports whether any of retireConditions is one of the node conditions
+// that currently make the machine unhealthy (retire). The MachineHealthCheck writes those
+// conditions into the message of the machine's HealthCheckSucceeded condition, one line each, like:
+//
+//	Health check failed:
+//	  * Condition DisksFailure on Node is reporting status True ...
+//	  * Condition Ready on Node is reporting status False ...
+//
+// Once the reboots have run out we read that message and look for a "Condition <type> on Node is
+// reporting" line for each type in retireConditions. If we find one, we retire, even when other
+// conditions are also unhealthy. A real hardware fault wins over a temporary problem. When the
+// machine or the message is missing we cannot tell what is unhealthy, so the host is reused.
+//
+// unrecognizedFormat is true when cluster-api reports the node is unhealthy (the HealthCheckSucceeded
+// reason is UnhealthyNode) but the message no longer has the "on Node is reporting" line
+// we match, which means cluster-api reworded it and the match above silently stopped
+// working, so the caller warns. We key on the reason, not on a word in the message, so we still catch
+// a reworded message even if it drops "on Node". The other reasons (NodeStartupTimeout, NodeDeleted)
+//  are not an unhealthy node condition, so they never warn. The message wording comes
+// from function nodeChecks in cluster-api's internal MachineHealthCheck controller, which we cannot
+// import and whose wording is not a stable API:
+// https://github.com/kubernetes-sigs/cluster-api/blob/v1.13.4/internal/controllers/machinehealthcheck/machinehealthcheck_targets.go#L277
+// It was checked by hand against that v1.13.4 code, so re-check it whenever cluster-api is upgraded.
+func triggeredByRetireCondition(capiMachine *clusterv1.Machine, retireConditions []corev1.NodeConditionType) (retire, unrecognizedFormat bool) {
+	if capiMachine == nil {
+		return false, false
+	}
+	message := conditions.GetMessage(capiMachine, clusterv1.MachineHealthCheckSucceededCondition)
+	for _, condition := range retireConditions {
+		if strings.Contains(message, fmt.Sprintf("Condition %s on Node is reporting", condition)) {
+			return true, false
+		}
+	}
+	// We matched no retire condition. If cluster-api still reports the node is unhealthy
+	// (reason UnhealthyNode) but the message no longer has the line we match, the format changed.
+	reason := conditions.GetReason(capiMachine, clusterv1.MachineHealthCheckSucceededCondition)
+	unrecognizedFormat = reason == clusterv1.MachineHealthCheckUnhealthyNodeReason &&
+		!strings.Contains(message, "on Node is reporting")
+	return false, unrecognizedFormat
 }
 
 // retireHost sets a permanent error on the host so it leaves the cluster instead of

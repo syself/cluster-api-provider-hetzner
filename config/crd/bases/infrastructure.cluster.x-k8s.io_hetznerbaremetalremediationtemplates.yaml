@@ -89,10 +89,23 @@ spec:
                               provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
                               error on the host, which deletes the machine and keeps the host out of the pool
                               until a human removes the capi.syself.com/permanent-error annotation.
+                              RetireIfUnhealthyCondition retires the host (like Retire) only when the node condition that
+                              triggered the remediation is listed in RetireConditions, and reuses it (like Reuse) for any
+                              other condition.
                             enum:
                             - Reuse
                             - Retire
+                            - RetireIfUnhealthyCondition
                             type: string
+                          retireConditions:
+                            description: |-
+                              RetireConditions lists the node condition types that should retire the host instead of
+                              reusing it. It is only read when OnExhaustion is RetireIfUnhealthyCondition. Once the reboots
+                              run out, the host is retired if the node condition that triggered the remediation is in this
+                              list, and reused otherwise. It must be empty for the other OnExhaustion modes.
+                            items:
+                              type: string
+                            type: array
                           retryLimit:
                             description: RetryLimit sets the maximum number of remediation
                               retries. Zero retries if not set.
@@ -219,10 +232,23 @@ spec:
                               provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
                               error on the host, which deletes the machine and keeps the host out of the pool
                               until a human removes the capi.syself.com/permanent-error annotation.
+                              RetireIfUnhealthyCondition retires the host (like Retire) only when the node condition that
+                              triggered the remediation is listed in RetireConditions, and reuses it (like Reuse) for any
+                              other condition.
                             enum:
                             - Reuse
                             - Retire
+                            - RetireIfUnhealthyCondition
                             type: string
+                          retireConditions:
+                            description: |-
+                              RetireConditions lists the node condition types that should retire the host instead of
+                              reusing it. It is only read when OnExhaustion is RetireIfUnhealthyCondition. Once the reboots
+                              run out, the host is retired if the node condition that triggered the remediation is in this
+                              list, and reused otherwise. It must be empty for the other OnExhaustion modes.
+                            items:
+                              type: string
+                            type: array
                           retryLimit:
                             description: RetryLimit sets the maximum number of remediation
                               retries. Zero retries if not set.
