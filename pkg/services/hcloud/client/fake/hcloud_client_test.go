@@ -539,6 +539,43 @@ var _ = Describe("Server", func() {
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
 	})
 
+	It("powers a server off", func() {
+		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
+		action, err := client.PowerOffServer(ctx, server)
+		Expect(err).To(Succeed())
+		Expect(action).ToNot(BeNil())
+		resp, err := client.ListServers(ctx, listOpts)
+		Expect(err).To(Succeed())
+		Expect(len(resp)).To(Equal(1))
+		Expect(resp[0].Status).To(Equal(hcloud.ServerStatusOff))
+	})
+
+	It("gives an error when a non-existing server is powered off", func() {
+		_, err := client.PowerOffServer(ctx, &hcloud.Server{ID: 2})
+		Expect(err).ToNot(Succeed())
+		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
+	})
+
+	It("enables the rescue system and returns an action", func() {
+		Expect(server.RescueEnabled).To(BeFalse())
+		result, err := client.EnableRescueSystem(ctx, server, &hcloud.ServerEnableRescueOpts{
+			Type: hcloud.ServerRescueTypeLinux64,
+		})
+		Expect(err).To(Succeed())
+		Expect(result.Action).ToNot(BeNil())
+		resp, err := client.GetServer(ctx, server.ID)
+		Expect(err).To(Succeed())
+		Expect(resp.RescueEnabled).To(BeTrue())
+	})
+
+	It("gives an error when the rescue system is enabled for a non-existing server", func() {
+		_, err := client.EnableRescueSystem(ctx, &hcloud.Server{ID: 2}, &hcloud.ServerEnableRescueOpts{
+			Type: hcloud.ServerRescueTypeLinux64,
+		})
+		Expect(err).ToNot(Succeed())
+		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
+	})
+
 	It("powers a server on", func() {
 		err := client.ShutdownServer(ctx, server)
 		Expect(err).To(Succeed())
