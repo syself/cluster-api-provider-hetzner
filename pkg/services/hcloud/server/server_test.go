@@ -2261,6 +2261,29 @@ var _ = Describe("Reconcile", func() {
 		hcloudClient.AssertNumberOfCalls(GinkgoT(), "GetServer", 1)
 	})
 
+	It("reports RescueRetrySucceeded when rescue is reached after a power-cycle", func() {
+		setupImageURLMachineInState(infrav1.HCloudBootStateBootingToRescue, 10*time.Second)
+		service.scope.HCloudMachine.Status.RescuePowerCycleCount = 1
+
+		By("mocking SSH: the rescue system answers this time")
+		testEnv.HCloudSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
+			StdOut: "rescue",
+		})
+		testEnv.HCloudSSHClient.On("StartImageURLCommand", mock.Anything, mock.Anything, mock.Anything, mock.Anything, "my-machine", []string{"sda"}).Return(0, "", nil)
+
+		res, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 10 * time.Second}))
+
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateRunningImageCommand))
+		Expect(isRemediated()).To(BeFalse())
+
+		By("ensuring the recovery is visible as a dedicated event")
+		Eventually(func() bool {
+			return hasEvent("RescueRetrySucceeded")
+		}, 10*time.Second, time.Second).Should(BeTrue())
+	})
+
 	It("remediates when the rescue system stays unreachable after the power-cycle", func() {
 		setupImageURLMachineInState(infrav1.HCloudBootStateBootingToRescue, 100*time.Second)
 		service.scope.HCloudMachine.Status.RescuePowerCycleCount = maxRescuePowerCycles
@@ -2288,6 +2311,11 @@ var _ = Describe("Reconcile", func() {
 			metav1.ConditionFalse, infrav1.HCloudMachineRetryingSSHConnectionV1Beta2Reason)).To(BeTrue())
 		condition := v1beta1conditions.Get(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition)
 		Expect(condition.Message).To(ContainSubstring("attempt 2 of 2"))
+
+		By("ensuring the exhausted retry budget is visible as a dedicated event")
+		Eventually(func() bool {
+			return hasEvent("RescueRetryExhausted")
+		}, 10*time.Second, time.Second).Should(BeTrue())
 	})
 
 	It("power-cycles instead of remediating when the wrong operating system answers over SSH", func() {
@@ -2337,6 +2365,11 @@ var _ = Describe("Reconcile", func() {
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition, "UnexpectedHostname")).To(BeTrue())
 		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			metav1.ConditionFalse, infrav1.HCloudMachineUnexpectedHostnameV1Beta2Reason)).To(BeTrue())
+
+		By("ensuring the exhausted retry budget is visible as a dedicated event, same as trigger A")
+		Eventually(func() bool {
+			return hasEvent("RescueRetryExhausted")
+		}, 10*time.Second, time.Second).Should(BeTrue())
 	})
 
 	It("powers the server off in PowerCyclingToRescue and stores the action ID", func() {

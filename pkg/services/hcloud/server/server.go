@@ -937,6 +937,19 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 	}
 
 	// Now we know that we are inside a rescue system.
+
+	if hm.Status.RescuePowerCycleCount > 0 {
+		// This machine needed at least one power-cycle to get here. Distinct signal from
+		// "RetryingRescueBoot" (which fires when a retry is *attempted*, not when it *works*) -
+		// needed to measure, over time, how often a power-cycle actually reaches rescue versus
+		// just deferring to the other trigger and ending in remediation anyway (see
+		// "RescueRetryExhausted").
+		s.scope.Info("Reached the rescue system after a power-cycle",
+			"rescuePowerCycleCount", hm.Status.RescuePowerCycleCount)
+		record.Eventf(hm, "RescueRetrySucceeded",
+			"Reached the rescue system after %d power-cycle(s)", hm.Status.RescuePowerCycleCount)
+	}
+
 	// image-url-command has not started yet. Start it.
 
 	data, err := s.scope.GetRawBootstrapData(ctx)
@@ -1019,6 +1032,16 @@ func (s *Service) retryRescueBoot(ctx context.Context, trigger, msg string) bool
 	hm := s.scope.HCloudMachine
 
 	if hm.Status.RescuePowerCycleCount >= maxRescuePowerCycles {
+		// One shared, trigger-agnostic marker instead of two trigger-specific final reasons
+		// ("BootingToRescueTimedOut", "UnexpectedHostname") - counting "how often did the retry
+		// budget run out" shouldn't require knowing about and OR-ing together every trigger's own
+		// remediation reason. Paired with "RescueRetrySucceeded", this makes the retry's actual
+		// success rate measurable over time, instead of guessed at from individual incidents.
+		s.scope.Info("Rescue-retry budget exhausted, remediating",
+			"trigger", trigger, "rescuePowerCycleCount", hm.Status.RescuePowerCycleCount)
+		record.Warnf(hm, "RescueRetryExhausted",
+			"Retry budget exhausted after %d power-cycle(s) (%s). Remediating.",
+			hm.Status.RescuePowerCycleCount, trigger)
 		return false
 	}
 
