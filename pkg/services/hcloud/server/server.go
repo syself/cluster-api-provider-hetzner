@@ -63,13 +63,15 @@ const (
 	// rescueBootGracePeriod is how long BootingToRescue waits for the rescue system to answer
 	// over SSH before the server gets powered off and on again.
 	//
-	// A soak test of 44 back-to-back scale cycles (~90 fresh boots) never saw this state take
-	// longer than ~51s, and never hit this timeout at all - so there's no direct evidence this
-	// needs to be longer. Bumped from 90s to 120s anyway to give a genuinely slow (rather than
-	// stuck) boot more room, while keeping the worst-case-to-remediation time
-	// (2*rescueBootGracePeriod + powerCycleToRescueTimeout) at 6 min, same as the pre-retry
-	// baseline this PR improves on - a larger value would make that worse, not better.
-	rescueBootGracePeriod = 120 * time.Second
+	// A soak test of 100 back-to-back scale cycles (~190 fresh boots) never saw this state take
+	// longer than ~51s on a successful boot. It was briefly raised to 120s on the theory that a
+	// slow (rather than stuck) boot might just need more time, but the one real failure the soak
+	// test hit argued against that: SSH was continuously refused well before even the original 90s
+	// mark, with no narrowing trend, and the extra 30s only delayed the power-cycle (the thing that
+	// actually got it moving again) without helping. Reverted to 90s. Worst-case-to-remediation
+	// (2*rescueBootGracePeriod + powerCycleToRescueTimeout) is back to 5 min, improving on the
+	// pre-retry 6 min baseline as originally intended.
+	rescueBootGracePeriod = 90 * time.Second
 
 	// powerCycleToRescueTimeout bounds PowerCyclingToRescue. Two hcloud actions (power off, power
 	// on) normally cost ~15-25s, so this only limits the case where the server never reports

@@ -2237,7 +2237,7 @@ var _ = Describe("Reconcile", func() {
 	})
 
 	It("power-cycles instead of remediating when the rescue system stays unreachable", func() {
-		setupImageURLMachineInState(infrav1.HCloudBootStateBootingToRescue, 130*time.Second)
+		setupImageURLMachineInState(infrav1.HCloudBootStateBootingToRescue, 100*time.Second)
 
 		By("mocking GetServer: retryRescueBoot fetches a diagnostic snapshot of the live state")
 		hcloudClient.On("GetServer", mock.Anything, int64(42)).Return(&hcloud.Server{
@@ -2262,7 +2262,7 @@ var _ = Describe("Reconcile", func() {
 	})
 
 	It("remediates when the rescue system stays unreachable after the power-cycle", func() {
-		setupImageURLMachineInState(infrav1.HCloudBootStateBootingToRescue, 130*time.Second)
+		setupImageURLMachineInState(infrav1.HCloudBootStateBootingToRescue, 100*time.Second)
 		service.scope.HCloudMachine.Status.RescuePowerCycleCount = maxRescuePowerCycles
 
 		By("setting the condition the previous reconcile would have left behind")

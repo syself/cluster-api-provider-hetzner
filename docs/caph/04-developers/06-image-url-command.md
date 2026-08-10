@@ -183,10 +183,11 @@ A server gets **one** power cycle. Both failure paths share that budget, which i
 `status.rescuePowerCycleCount`, so a server that alternates between them cannot cycle forever. If
 the second attempt fails too, the machine gets remediated (deleted and replaced) as before.
 
-`BootingToRescue` waits 120 seconds per attempt, and the power cycle itself is bounded to two
-minutes, so the worst case until remediation is about six minutes - the same as before this retry
-mechanism existed, since a longer grace period only delays reaching the fix (the power cycle), not
-just the failure.
+`BootingToRescue` waits 90 seconds per attempt, and the power cycle itself is bounded to two
+minutes, so the worst case until remediation is about five minutes - an improvement on the six
+minutes it took before this retry mechanism existed. (90s was briefly raised to 120s and then
+reverted - see the constant's comment in server.go: a 100-cycle soak test's one real failure was
+stuck, not slow, so the extra time only delayed the power-cycle without helping.)
 
 ## Measured durations for hcloud
 
@@ -210,7 +211,7 @@ SSH. Today the server is created powered off and cold-started, and a cold start 
 faster than a warm reboot, so the numbers for `BootingToRescue` are a lower bound and not a
 measurement of the current flow. Please regenerate the table with
 `hack/hcloud-image-url-command-states-markdown-from-logs.py` against the current flow, and re-tune
-`rescueBootGracePeriod` (120 seconds as of this writing, bumped from the original 90s without a
-regenerated table to back it - see the constant's comment in server.go) from the fresh numbers.
+`rescueBootGracePeriod` (90 seconds as of this writing - see the constant's comment in server.go
+for the reasoning) from the fresh numbers.
 
 The duration of the state `RunningImageCommand` depends heavily on your script.
