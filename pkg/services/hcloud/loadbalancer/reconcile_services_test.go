@@ -19,6 +19,7 @@ package loadbalancer
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/stretchr/testify/mock"
@@ -26,9 +27,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
@@ -221,12 +224,12 @@ func TestReconcileServices_ProxyProtocolAlreadyActive_NoChanges(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
-func controlPlaneMachineForProxy(name string, annotated bool) *clusterv1.Machine {
+func controlPlaneMachineForProxy(name string, annotated bool) *infrav1.HCloudMachine {
 	annotations := map[string]string{}
 	if annotated {
 		annotations[infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation] = "true"
 	}
-	return &clusterv1.Machine{
+	return &infrav1.HCloudMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metav1.NamespaceDefault,
@@ -249,6 +252,7 @@ func newProxyMigrationService(t *testing.T, mockClient *mocks.Client, machines .
 
 	scheme := runtime.NewScheme()
 	_ = clusterv1.AddToScheme(scheme)
+	_ = infrav1.AddToScheme(scheme)
 
 	svc := newTestService(t, hetznerCluster, mockClient)
 	svc.scope.Client = fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(machines...).Build()
@@ -275,7 +279,13 @@ func TestReconcileServices_ProxyProtocolMigration_MachinesNotReady(t *testing.T)
 
 	res, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
-	require.NotZero(t, res.RequeueAfter, "should requeue while a control-plane machine is not annotated")
+	require.Equal(t, 2*time.Minute, res.RequeueAfter, "should requeue after 2 minutes while a control-plane machine is not annotated")
+
+	cond := conditions.Get(svc.scope.HetznerCluster, infrav2.HetznerClusterLoadBalancerReadyCondition)
+	require.NotNil(t, cond, "LoadBalancerReady condition should report the proxy protocol wait")
+	require.Equal(t, metav1.ConditionFalse, cond.Status)
+	require.Equal(t, infrav2.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason, cond.Reason)
+
 	mockClient.AssertExpectations(t)
 }
 

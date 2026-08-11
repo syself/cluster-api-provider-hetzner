@@ -941,22 +941,12 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 	// The next state (RunningImageCommand) polls via SSH, which costs no hcloud API calls, but
 	// the custom provisioner needs time to run, so wait a bit before the first attempt instead
 	// of retrying immediately.
-	return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
+	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
 // handleBootStateRunningImageCommand is for provisioning with imageURL and image-url-command.
 func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
-
-	hcloudSSHClient, err := s.getSSHClient(ctx)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (wait for image-url-command): %w", err)
-	}
-
-	state, logFile, err := hcloudSSHClient.StateOfImageURLCommand(ctx)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("StateOfImageURLCommand failed: %w", err)
-	}
 
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
 	// Please keep the number (20) in sync with the docstring of ImageURL.
@@ -982,7 +972,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 			}
 		}
 
-		s.scope.Error(errors.New(v1beta2Msg), "", "logFile", logFile)
+		s.scope.Error(nil, v1beta2Msg)
 		err := s.scope.SetErrorAndRemediate(ctx, v1beta2Msg)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -998,6 +988,17 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 			Message: v1beta2Msg,
 		})
 		return reconcile.Result{}, nil
+	}
+
+	// Not timed out yet. Read the current image-url-command state over SSH.
+	hcloudSSHClient, err := s.getSSHClient(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (wait for image-url-command): %w", err)
+	}
+
+	state, logFile, err := hcloudSSHClient.StateOfImageURLCommand(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("StateOfImageURLCommand failed: %w", err)
 	}
 
 	sshClient := hcloudSSHClient
@@ -1546,10 +1547,50 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		return reconcile.Result{}, nil
 	}
 
-	// if already attached do nothing
-	for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
-		if target.Type == infrav1.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
-			return reconcile.Result{}, nil
+	if v1beta2conditions.IsTrue(hm, infrav1.HCloudMachineServerAvailableV1Beta2Condition) {
+		// The status may be slightly outdated but that is acceptable as this check
+		// is only a safeguard against unexpected changes (e.g. a user manually removing a target).
+		// In the vast majority of reconciles there is nothing to do, so we skip the extra API call
+		// to fetch the live load-balancer targets.
+		for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
+			if target.Type == infrav1.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
+				return reconcile.Result{}, nil
+			}
+		}
+	} else {
+		clusterTagKey := s.scope.HetznerCluster.ClusterTagKey()
+		opts := hcloud.LoadBalancerListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: utils.LabelsToLabelSelector(map[string]string{
+					clusterTagKey: string(infrav1.ResourceLifecycleOwned),
+				}),
+			},
+		}
+
+		loadBalancers, err := s.scope.HCloudClient.ListLoadBalancers(ctx, opts)
+		if err != nil {
+			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, err, "ListLoadBalancers")
+			return reconcile.Result{}, fmt.Errorf("failed to list load balancers: %w", err)
+		}
+
+		if len(loadBalancers) != 1 {
+			return reconcile.Result{}, fmt.Errorf("found %v loadbalancers in HCloud", len(loadBalancers))
+		}
+
+		lb := loadBalancers[0]
+
+		// This should never be the case: the label selector is cluster-scoped,
+		// so the only LB it can return is the one we own.
+		if lb.ID != s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID {
+			return reconcile.Result{}, fmt.Errorf("mismatch between the owned loadbalancer ID (%d) and the one specified in HetznerCluster.Status.ControlPlaneLoadBalancer.ID (%d)", lb.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+		}
+
+		for _, target := range lb.Targets {
+			if target.Type == hcloud.LoadBalancerTargetTypeServer &&
+				target.Server != nil && target.Server.Server != nil &&
+				target.Server.Server.ID == server.ID {
+				return reconcile.Result{}, nil
+			}
 		}
 	}
 

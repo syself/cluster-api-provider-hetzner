@@ -345,6 +345,81 @@ func TestIgnoreInsignificantHetznerClusterStatusUpdates(t *testing.T) {
 
 // TestWorkloadClusterSecretNames verifies which workload-cluster secrets CAPH
 // reconciles for the configured management-cluster secret name.
+func TestControlPlaneMachineToHetznerClusterPredicate(t *testing.T) {
+	predicate := controlPlaneMachineToHetznerClusterPredicate()
+
+	withServerAvailable := func(m *infrav2.HCloudMachine, status metav1.ConditionStatus) *infrav2.HCloudMachine {
+		conditions.Set(m, metav1.Condition{
+			Type:   string(infrav1.HCloudMachineServerAvailableV1Beta2Condition),
+			Status: status,
+			Reason: "reason",
+		})
+		return m
+	}
+
+	controlPlaneHCloudMachine := func(name string) *infrav2.HCloudMachine {
+		return &infrav2.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+				Labels:    map[string]string{clusterv1.MachineControlPlaneLabel: ""},
+			},
+		}
+	}
+
+	workerHCloudMachine := func(name string) *infrav2.HCloudMachine {
+		return &infrav2.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+			},
+		}
+	}
+
+	t.Run("update: control plane machine ServerAvailable transitions to True", func(t *testing.T) {
+		oldObj := withServerAvailable(controlPlaneHCloudMachine("cp-0"), metav1.ConditionFalse)
+		newObj := withServerAvailable(controlPlaneHCloudMachine("cp-0"), metav1.ConditionTrue)
+		require.True(t, predicate.Update(event.UpdateEvent{ObjectOld: oldObj, ObjectNew: newObj}))
+	})
+
+	t.Run("update: worker machine ServerAvailable transitions to True", func(t *testing.T) {
+		oldObj := withServerAvailable(workerHCloudMachine("md-0"), metav1.ConditionFalse)
+		newObj := withServerAvailable(workerHCloudMachine("md-0"), metav1.ConditionTrue)
+		require.False(t, predicate.Update(event.UpdateEvent{ObjectOld: oldObj, ObjectNew: newObj}))
+	})
+
+	t.Run("update: control plane machine ServerAvailable stays True", func(t *testing.T) {
+		oldObj := withServerAvailable(controlPlaneHCloudMachine("cp-0"), metav1.ConditionTrue)
+		newObj := withServerAvailable(controlPlaneHCloudMachine("cp-0"), metav1.ConditionTrue)
+		require.False(t, predicate.Update(event.UpdateEvent{ObjectOld: oldObj, ObjectNew: newObj}))
+	})
+
+	t.Run("delete: control plane machine", func(t *testing.T) {
+		require.True(t, predicate.Delete(event.DeleteEvent{Object: controlPlaneHCloudMachine("cp-0")}))
+	})
+
+	t.Run("delete: worker machine", func(t *testing.T) {
+		require.False(t, predicate.Delete(event.DeleteEvent{Object: workerHCloudMachine("md-0")}))
+	})
+
+	t.Run("update: bare metal control plane machine uses its own condition type", func(t *testing.T) {
+		oldObj := &infrav2.HetznerBareMetalMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cp-0",
+				Namespace: "default",
+				Labels:    map[string]string{clusterv1.MachineControlPlaneLabel: ""},
+			},
+		}
+		newObj := oldObj.DeepCopy()
+		conditions.Set(newObj, metav1.Condition{
+			Type:   string(infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition),
+			Status: metav1.ConditionTrue,
+			Reason: "reason",
+		})
+		require.True(t, predicate.Update(event.UpdateEvent{ObjectOld: oldObj, ObjectNew: newObj}))
+	})
+}
+
 func TestWorkloadClusterSecretNames(t *testing.T) {
 	testCases := []struct {
 		name       string

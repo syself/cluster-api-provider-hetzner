@@ -1,10 +1,9 @@
 ---
 title: Introduction
-metatitle: What is the Cluster API Provider Hetzner and Compatible Versions
-sidebar: Introduction
 description: Cluster API Provider Hetzner automates the lifecycle and provisioning of Kubernetes clusters on cloud or bare metal.
-ogDescription: Hetzner's Cluster API automates Kubernetes lifecycle and setup.
+metatitle: What is the Cluster API Provider Hetzner and Compatible Versions
 ogTitle: "Cluster API Hetzner: Versions"
+ogDescription: Hetzner's Cluster API automates Kubernetes lifecycle and setup.
 ---
 
 Welcome to the official documentation for the Cluster API Provider Hetzner (CAPH). If you are new to it, you can keep reading the Getting Started section, the Quickstart guide will walk you through your first cluster setup.
@@ -30,14 +29,14 @@ This provider's versions are compatible with the following versions of Cluster A
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
-|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x`  |
-| ----------------- | ------------------------- | -------------------------- |
-| Kubernetes 1.31.x | ✅                        | ❌                         |
-| Kubernetes 1.32.x | ✅                        | ✅                         |
-| Kubernetes 1.33.x | ✅                        | ✅                         |
-| Kubernetes 1.34.x | ✅                        | ✅                         |
-| Kubernetes 1.35.x | ❔                        | ✅                         |
-| Kubernetes 1.36.x | ❔                        | ✅                         |
+|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x` |
+| ----------------- | ------------------------- | ------------------------- |
+| Kubernetes 1.31.x | ✅                        | ❌                        |
+| Kubernetes 1.32.x | ✅                        | ✅                        |
+| Kubernetes 1.33.x | ✅                        | ✅                        |
+| Kubernetes 1.34.x | ✅                        | ✅                        |
+| Kubernetes 1.35.x | ❔                        | ✅                        |
+| Kubernetes 1.36.x | ❔                        | ✅                        |
 
 Test status:
 
@@ -51,18 +50,11 @@ Related:
 Compatibility notes:
 
 - We recommend to use CAPH `v1.1.x` for Kubernetes versions `> 1.33.11`, `> 1.34.7`, `> 1.35.4` and `> 1.36.0`, as they [require a new ClusterRole `system:kubelet-api-admin`](https://github.com/kubernetes-sigs/cluster-api/blob/6c70a17c7f343442238fc695e66884e6c84cfa01/docs/book/src/user/troubleshooting.md#kubeadm-join-fails-after-upgrading-to-kubernetes-patch-releases) which is only created in CAPI versions `>= v1.11.11`, `>= v1.12.8` or `>= v1.13.2`.  
-If you want to use CAPH `v1.0.x` with these versions, you need to create the required `ClusterRoleBinding` yourself. See the link for more details.
+  If you want to use CAPH `v1.0.x` with these versions, you need to create the required `ClusterRoleBinding` yourself. See the link for more details.
 - CAPH `v1.1.x` still implements the deprecated `v1beta1` contract. On CAPI `v1.11.x` through `v1.15.x`, this should keep working via the temporary compatibility layer for the deprecated `v1beta1` contract, but upstream documents limitations and does not recommend staying on `v1beta1` long term. That compatibility is planned to end when `v1beta1` stops being served in CAPI `v1.16.x`. See the upstream [version support page](https://cluster-api.sigs.k8s.io/reference/versions), the upstream [v1.10 to v1.11 migration guide](https://cluster-api.sigs.k8s.io/developer/providers/migrations/v1.10-to-v1.11), the upstream [InfraMachine contract notes](https://cluster-api.sigs.k8s.io/developer/providers/contracts/infra-machine), and the upstream [removal plan](https://github.com/kubernetes-sigs/cluster-api/issues/11920).
 - CAPH `v1.2.x` will be the `v1beta2` line and aligns with CAPI `v1.11.x` and later `v1beta2` releases.
 
 Each version of Cluster API for Hetzner will attempt to support at least two Kubernetes versions.
 
-**NOTE:** As the versioning for this project is tied to the versioning of Cluster API, future
-modifications to this policy may be made to more closely align with other providers in the Cluster
-API ecosystem.
-
-{% callout %}
-
-As the versioning for this project is tied to the versioning of Cluster API, future modifications to this policy may be made to more closely align with other providers in the Cluster API ecosystem.
-
-{% /callout %}
+> [!NOTE]
+> As the versioning for this project is tied to the versioning of Cluster API, future modifications to this policy may be made to more closely align with other providers in the Cluster API ecosystem.

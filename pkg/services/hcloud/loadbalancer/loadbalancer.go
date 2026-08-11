@@ -302,19 +302,36 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	proxyProtocolAlreadyActive := kubeAPIServiceExists && existingKubeAPIService.Proxyprotocol
 
 	// proxyProtocolShouldGetEnabled: whether proxy protocol should get enabled now.
-	// The control-plane machines are only checked when the spec wants proxy protocol but the LB
-	// service doesn't have it yet. When the service is absent or already has it, no check is made.
+	// The control-plane infrastructure machines are only checked when the spec wants proxy protocol
+	// but the LB service doesn't have it yet. When the service is absent or already has it, no check
+	// is made.
 	var proxyProtocolShouldGetEnabled bool
 	var requeueForProxyProtocol bool
 	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && kubeAPIServiceExists && !proxyProtocolAlreadyActive {
 		var err error
-		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneMachinesAnnotatedForProxyProtocol(ctx)
+		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 		if !proxyProtocolShouldGetEnabled {
-			s.scope.V(1).Info("proxy protocol: not all control-plane machines annotated yet, requeueing")
+			const msg = "waiting for all control-plane machines to be annotated before enabling proxy protocol"
+			s.scope.V(1).Info("proxy protocol: not all control-plane infrastructure machines annotated yet, requeueing")
 			requeueForProxyProtocol = true
+
+			deprecatedv1beta1conditions.MarkFalse(
+				s.scope.HetznerCluster,
+				infrav2.LoadBalancerReadyV1Beta1Condition,
+				infrav2.LoadBalancerWaitingToActivateProxyProtocolV1Beta1Reason,
+				clusterv1.ConditionSeverityInfo,
+				msg,
+			)
+
+			conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+				Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav2.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason,
+				Message: msg,
+			})
 		}
 	}
 
@@ -364,7 +381,7 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 		}
 	}
 	if requeueForProxyProtocol {
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, multierr
+		return reconcile.Result{RequeueAfter: 2 * time.Minute}, multierr
 	}
 
 	// If proxy protocol is not active yet but should be, activate it in place. HCloud's

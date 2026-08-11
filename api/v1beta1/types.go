@@ -46,6 +46,26 @@ const (
 	LoadBalancerTargetTypeIP = LoadBalancerTargetType("ip")
 )
 
+// LoadBalancerTargetAddressFamily defines which addresses of a bare metal server are
+// attached as targets of a load balancer.
+// +kubebuilder:validation:Enum=ipv4;ipv6;dualstack
+type LoadBalancerTargetAddressFamily string
+
+const (
+	// LoadBalancerTargetAddressFamilyIPv4 attaches only the IPv4 address of a bare metal
+	// server.
+	LoadBalancerTargetAddressFamilyIPv4 = LoadBalancerTargetAddressFamily("ipv4")
+
+	// LoadBalancerTargetAddressFamilyIPv6 attaches only the IPv6 address of a bare metal
+	// server.
+	LoadBalancerTargetAddressFamilyIPv6 = LoadBalancerTargetAddressFamily("ipv6")
+
+	// LoadBalancerTargetAddressFamilyDualStack attaches both the IPv4 and the IPv6 address
+	// of a bare metal server, as two separate targets. This is the default, see
+	// LoadBalancerSpec.TargetAddressFamily.
+	LoadBalancerTargetAddressFamilyDualStack = LoadBalancerTargetAddressFamily("dualstack")
+)
+
 // HCloudAlgorithmType converts LoadBalancerAlgorithmType to hcloud type.
 func (algorithmType *LoadBalancerAlgorithmType) HCloudAlgorithmType() hcloud.LoadBalancerAlgorithmType {
 	switch *algorithmType {
@@ -232,6 +252,65 @@ type LoadBalancerSpec struct {
 	// Enabling proxy protocol is a one-way operation — it is never turned back off.
 	// +optional
 	EnableProxyProtocol bool `json:"enableProxyProtocol,omitempty"`
+
+	// TargetAddressFamily selects which addresses of a bare metal control plane server are
+	// attached as targets of the load balancer.
+	//
+	// This only affects bare metal servers. An HCloud server is a resource of the HCloud
+	// API, so the load balancer references it by its server ID ("server" target type) and
+	// resolves the address on its own. A bare metal server is a Robot resource that the
+	// load balancer cannot reference that way, so it is attached by address instead ("ip"
+	// target type), and such a target holds exactly one address. Reaching one server over
+	// both protocols therefore takes two targets, and this field decides which of them
+	// CAPH creates.
+	//
+	// An empty value means dualstack, so by default both the IPv4 and the IPv6 address are
+	// attached. Set ipv4 on a cluster whose servers only use IPv4. Hetzner routes an IPv6
+	// subnet to a bare metal server, so an IPv6 address for it usually exists in the Robot
+	// API, but that says nothing about whether the installed OS configured it. An image that
+	// sets up IPv4 only is common, and a target for an address the server does not answer on
+	// never passes its health check. The load balancer then reports an unhealthy target for
+	// as long as the machine exists, which buries a genuinely unhealthy control plane in
+	// noise, and one target slot is spent on a target that cannot serve traffic. Set ipv6 for
+	// a single-stack IPv6 setup.
+	//
+	// The value can be changed at any time. CAPH attaches the addresses of the selected
+	// family that are missing and removes the targets of the addresses it no longer
+	// selects, so a switch converges without manual cleanup in the HCloud API.
+	// +optional
+	TargetAddressFamily LoadBalancerTargetAddressFamily `json:"targetAddressFamily,omitempty"`
+}
+
+// TargetAddressFamilyOrDefault returns the address family to use for the "ip" targets of
+// bare metal servers, resolving an empty value to the default.
+//
+// Defaulting happens here and not through a +kubebuilder:default marker on the field, so
+// that an object which never set the field stays free of it instead of having the value
+// written into it. A switch with a default branch rather than a comparison against the
+// empty string is deliberate: the enum validation only guards writes through the API
+// server, so an unexpected value can still reach this code, for example from an object
+// stored before the field existed, and it has to resolve to something sane.
+func (spec LoadBalancerSpec) TargetAddressFamilyOrDefault() LoadBalancerTargetAddressFamily {
+	switch spec.TargetAddressFamily {
+	case LoadBalancerTargetAddressFamilyIPv4, LoadBalancerTargetAddressFamilyIPv6:
+		return spec.TargetAddressFamily
+	default:
+		return LoadBalancerTargetAddressFamilyDualStack
+	}
+}
+
+// WantsIPv4 reports whether the configured address family selects the IPv4 address of a
+// bare metal server for attachment.
+func (spec LoadBalancerSpec) WantsIPv4() bool {
+	family := spec.TargetAddressFamilyOrDefault()
+	return family == LoadBalancerTargetAddressFamilyIPv4 || family == LoadBalancerTargetAddressFamilyDualStack
+}
+
+// WantsIPv6 reports whether the configured address family selects the IPv6 address of a
+// bare metal server for attachment.
+func (spec LoadBalancerSpec) WantsIPv6() bool {
+	family := spec.TargetAddressFamilyOrDefault()
+	return family == LoadBalancerTargetAddressFamilyIPv6 || family == LoadBalancerTargetAddressFamilyDualStack
 }
 
 // LoadBalancerServiceSpec defines a load balancer Target.
