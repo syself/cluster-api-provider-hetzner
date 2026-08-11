@@ -243,6 +243,7 @@ func BareMetalHostPatchOpts() []patch.Option {
 			infrav2.HetznerBareMetalHostRebootSucceededCondition,
 			infrav2.HetznerBareMetalHostDeletingCondition,
 			infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition,
+			infrav2.HetznerBareMetalHostActionCompletedCondition,
 		}},
 	}
 }

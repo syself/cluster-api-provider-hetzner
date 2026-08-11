@@ -1665,6 +1665,9 @@ var _ = Describe("actionRegistering", func() {
 
 		Expect(actResult).To(BeAssignableToTypeOf(actionStop{}))
 		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+		ac := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
+		Expect(ac).NotTo(BeNil())
+		Expect(ac.Message).To(ContainSubstring("hardware reboot (to rescue mode) timed out"))
 	})
 })
 
@@ -2077,6 +2080,9 @@ var _ = Describe("actionEnsureProvisioned", func() {
 
 		Expect(actResult).To(BeAssignableToTypeOf(actionStop{}))
 		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+		ac := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
+		Expect(ac).NotTo(BeNil())
+		Expect(ac.Message).To(ContainSubstring("hardware reboot (to node) timed out"))
 	})
 })
 
@@ -2287,5 +2293,25 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		Expect(deprecatedC.Message).To(Equal(""))
 		Expect(deprecatedC.Status).To(Equal(corev1.ConditionTrue))
 		Expect(host.GetAnnotations()).To(BeEmpty())
+	})
+})
+
+var _ = Describe("SetError and ClearError", func() {
+	It("records the error on the ActionCompleted condition and removes it on clear", func() {
+		host := helpers.BareMetalHost("test-host", "default")
+
+		host.SetError(infrav2.FatalError, "hardware reboot timed out")
+
+		ac := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
+		Expect(ac).NotTo(BeNil())
+		Expect(ac.Status).To(Equal(metav1.ConditionFalse))
+		Expect(ac.Reason).To(Equal("FatalError"))
+		Expect(ac.Message).To(Equal("hardware reboot timed out"))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+
+		host.ClearError()
+
+		Expect(conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
+		Expect(host.Status.ErrorType).To(BeEmpty())
 	})
 })

@@ -683,8 +683,19 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 // not persisted: v1beta2 status keeps only errorType (errorCount and errorMessage were dropped in the
 // shape migration). It is kept to mirror the v1beta1 SetError signature so the later status.errorType
 // refactor can persist it.
-func (host *HetznerBareMetalHost) SetError(errorType ErrorType, _ string) {
+// SetError sets the error type on the status and records the error on the ActionCompleted
+// condition. The condition carries the reason and message for the current error or in-progress
+// action, so an operator can see what went wrong. ErrorType stays on the status because the reboot
+// state machine reads it back. ClearError removes the condition again once the host recovers.
+func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) {
 	host.Status.ErrorType = errorType
+
+	conditions.Set(host, metav1.Condition{
+		Type:    HetznerBareMetalHostActionCompletedCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  reasonForErrorType(errorType),
+		Message: errorMessage,
+	})
 
 	if errorType == PermanentError {
 		if host.Annotations == nil {
@@ -696,9 +707,36 @@ func (host *HetznerBareMetalHost) SetError(errorType ErrorType, _ string) {
 	}
 }
 
-// ClearError clears the error type.
+// ClearError clears the error type and removes the ActionCompleted condition.
 func (host *HetznerBareMetalHost) ClearError() {
 	host.Status.ErrorType = ""
+	conditions.Delete(host, HetznerBareMetalHostActionCompletedCondition)
+}
+
+// reasonForErrorType maps an ErrorType to the CamelCase reason used on the ActionCompleted
+// condition. An unrecognized type falls back to UnknownError so the condition always has a reason.
+func reasonForErrorType(errorType ErrorType) string {
+	switch errorType {
+	case ErrorTypeSSHRebootTriggered:
+		return "SSHRebootTriggered"
+	case ErrorTypeSoftwareRebootTriggered:
+		return "SoftwareRebootTriggered"
+	case ErrorTypeHardwareRebootTriggered:
+		return "HardwareRebootTriggered"
+	case ErrorTypeConnectionError:
+		return "SSHConnectionRefused"
+	case RegistrationError:
+		return "RegistrationError"
+	case PreparationError:
+		return "PreparationError"
+	case ProvisioningError:
+		return "ProvisioningError"
+	case FatalError:
+		return "FatalError"
+	case PermanentError:
+		return "PermanentError"
+	}
+	return "UnknownError"
 }
 
 // HasRebootAnnotation checks for the existence of reboot annotations and returns true if at least one exists.

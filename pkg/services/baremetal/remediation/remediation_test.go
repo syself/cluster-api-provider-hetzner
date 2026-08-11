@@ -217,10 +217,12 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			updatedHost := &infrav2.HetznerBareMetalHost{}
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost)).To(Succeed())
 			if tc.expectHostPermanentError {
-				// The retire reason is only emitted as an event, not stored on the host
-				// (v1beta2 SetError does not persist the message), so we only assert the
-				// permanent error type and annotation here.
 				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.PermanentError))
+				// The retire reason is recorded on the ActionCompleted condition. Its wording
+				// differs for 0 reboots (retryLimit 0) versus one or more failed reboots.
+				ac := conditions.Get(updatedHost, infrav2.HetznerBareMetalHostActionCompletedCondition)
+				Expect(ac).NotTo(BeNil())
+				Expect(ac.Message).To(Equal(tc.expectErrorMessage))
 				Expect(updatedHost.Annotations).To(HaveKey(infrav2.PermanentErrorAnnotation))
 			} else {
 				Expect(updatedHost.Status.ErrorType).To(BeEmpty())
