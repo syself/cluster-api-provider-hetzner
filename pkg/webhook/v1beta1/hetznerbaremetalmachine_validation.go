@@ -68,6 +68,13 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav1.HetznerBareMetalMach
 			)
 		}
 	} else {
+		if installImage.DeviceStringType != "" {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "deviceStringType"), installImage.DeviceStringType,
+					"deviceStringType is only valid when imageURLCommand is set"),
+			)
+		}
+
 		if (image.Name == "" || image.URL == "") && image.Path == "" {
 			allErrs = append(allErrs,
 				field.Invalid(field.NewPath("spec", "installImage", "image"), image,

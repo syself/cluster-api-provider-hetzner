@@ -21,6 +21,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
 var _ = Describe("buildAutoSetup", func() {
@@ -254,5 +256,18 @@ var _ = Describe("Test splitHostKey", func() {
 		namespace, name := splitHostKey("namespace/name")
 		Expect(namespace).To(Equal("namespace"))
 		Expect(name).To(Equal("name"))
+	})
+})
+
+var _ = Describe("hasJustRebooted", func() {
+	It("returns false when RebootTriggeredAt is zero even if ErrorType is a reboot type", func() {
+		host := helpers.BareMetalHost("test-host", "default",
+			helpers.WithError(infrav2.ErrorTypeSSHRebootTriggered, ""),
+		)
+		// RebootTriggeredAt is intentionally left at its zero value here.
+		// Without the zero guard, hasTimedOut(zero, ...) returns false, so hasJustRebooted()
+		// would return true indefinitely.
+		svc := newTestService(host, nil, nil, nil, nil)
+		Expect(svc.hasJustRebooted()).To(BeFalse())
 	})
 })

@@ -463,8 +463,9 @@ var _ = Describe("Server", func() {
 	BeforeEach(func() {
 		var err error
 		client = fake.NewHCloudClientFactory().NewClient("fake-hcloud-token")
-		server, err = client.CreateServer(ctx, opts)
+		result, err := client.CreateServer(ctx, opts)
 		Expect(err).To(Succeed())
+		server = result.Server
 
 		network, err = client.CreateNetwork(ctx, hcloud.NetworkCreateOpts{
 			Name: "network-name",
@@ -675,7 +676,7 @@ var _ = Describe("Placement groups", func() {
 	BeforeEach(func() {
 		var err error
 		client = fake.NewHCloudClientFactory().NewClient("fake-hcloud-token")
-		server, err = client.CreateServer(ctx, hcloud.ServerCreateOpts{
+		result, err := client.CreateServer(ctx, hcloud.ServerCreateOpts{
 			Name: "test-server",
 			Labels: map[string]string{
 				"key1": "val1",
@@ -692,6 +693,7 @@ var _ = Describe("Placement groups", func() {
 			},
 		})
 		Expect(err).To(Succeed())
+		server = result.Server
 
 		placementGroup, err = client.CreatePlacementGroup(ctx, opts)
 		Expect(err).To(Succeed())

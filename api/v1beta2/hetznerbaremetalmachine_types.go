@@ -45,6 +45,17 @@ var errUnknownSuffix = errors.New("unknown suffix")
 // ImageType defines the accepted image types.
 type ImageType string
 
+// DeviceStringType controls what CAPH passes as the device argument to ImageURLCommand.
+// Allowed values are "" (same as "short"), "short", and "wwn".
+type DeviceStringType string
+
+const (
+	// DeviceStringTypeShort passes the short device name (e.g. "sda") to ImageURLCommand.
+	DeviceStringTypeShort DeviceStringType = "short"
+	// DeviceStringTypeWWN passes the WWN (e.g. "eui.00253885910c8cec") to ImageURLCommand.
+	DeviceStringTypeWWN DeviceStringType = "wwn"
+)
+
 const (
 	// ImageTypeTar defines the image type for tar files.
 	ImageTypeTar ImageType = "tar"
@@ -86,6 +97,11 @@ type HetznerBareMetalMachineSpec struct {
 
 	// SSHSpec gives a reference on the secret where SSH details are specified as well as ports for SSH.
 	SSHSpec SSHSpec `json:"sshSpec,omitempty"`
+
+	// SkipCheckDisk skips the CheckDisk step during provisioning.
+	// This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
+	// +optional
+	SkipCheckDisk bool `json:"skipCheckDisk,omitempty"`
 }
 
 // HostSelector specifies matching criteria for labels on BareMetalHosts.
@@ -171,10 +187,17 @@ type InstallImage struct {
 	// Docs: https://syself.com/docs/caph/developers/image-url-command
 	//
 	// ImageURLCommand must be set if the machine should be provisioned from Image.URL without
-	// installimage. The command name must start with image-url-command-.
+	// installimage.
 	// +kubebuilder:validation:Optional
 	// +optional
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`
+
+	// DeviceStringType instructs CAPH to either use the short device name, or the WWN when calling
+	// ImageURLCommand. It is not used when ImageURLCommand is not set. "" and "short" both pass
+	// the short device name (e.g. "sda"); "wwn" passes the WWN (e.g. "eui.00253885910c8cec").
+	// +kubebuilder:validation:Enum="";short;wwn
+	// +optional
+	DeviceStringType DeviceStringType `json:"deviceStringType,omitempty"`
 
 	// PostInstallScript (Bash) is used for configuring commands that should be executed after installimage.
 	// It is passed along with the installimage command.
@@ -316,7 +339,7 @@ type LVMDefinition struct {
 // HetznerBareMetalMachineStatus defines the observed state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineStatus struct {
 	// conditions represents the observations of a HetznerBareMetalMachine's current state.
-	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated and HostReady.
+	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady and ServerAvailable.
 	// +optional
 	// +listType=map
 	// +listMapKey=type

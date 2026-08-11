@@ -27,9 +27,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgorecord "k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2/textlogger"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -41,6 +43,13 @@ import (
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
+
+var testEventRecorder *clientgorecord.FakeRecorder
+
+var _ = BeforeSuite(func() {
+	testEventRecorder = clientgorecord.NewFakeRecorder(100)
+	record.InitFromRecorder(testEventRecorder)
+})
 
 const (
 	sshFingerprint   = "my-fingerprint"

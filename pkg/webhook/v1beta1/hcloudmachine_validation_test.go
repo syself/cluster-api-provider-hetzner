@@ -215,9 +215,9 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 
 	allErrs = validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
 		ImageURL:        "oci://ghcr.io/example/foo:v1",
-		ImageURLCommand: "my-command.sh",
+		ImageURLCommand: "1bad-command",
 	})
-	require.Equal(t, `spec.imageURLCommand: Invalid value: "my-command.sh": must match the regex ^image-url-command-[a-z0-9][a-z0-9._-]*$`, errorsToString(allErrs))
+	require.Equal(t, `spec.imageURLCommand: Invalid value: "1bad-command": must match the regex ^[a-z][a-z0-9._-]*$`, errorsToString(allErrs))
 
 	allErrs = validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
 		ImageURL:        "oci://ghcr.io/example/foo:v1",

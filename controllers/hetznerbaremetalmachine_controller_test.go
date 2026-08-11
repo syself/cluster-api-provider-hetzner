@@ -85,7 +85,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalmachine-reconciler")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalmachine-reconciler")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		machineName = utils.GenerateName(nil, "machine")
@@ -1043,7 +1045,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			)
 			BeforeEach(func() {
 				var err error
-				testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+				var finish func()
+				testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+				defer finish()
 				Expect(err).NotTo(HaveOccurred())
 
 				hbmmt = &infrav1.HetznerBareMetalMachineTemplate{

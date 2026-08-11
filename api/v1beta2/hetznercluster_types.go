@@ -44,6 +44,17 @@ const (
 	// format to use for baremetal nodes. If "true" "hrobot://" will be used. If not set or empty,
 	// then the old format ("hcloud://bm-") gets used.
 	UseHrobotProviderIDForBaremetalAnnotation = "capi.syself.com/use-hrobot-provider-id-for-baremetal"
+
+	// ProxyProtocolForControlPlaneLoadBalancerAnnotation is used only when enabling proxy protocol
+	// on an EXISTING cluster (migration path). It must be present with value "true" on ALL
+	// control-plane machines before CAPH switches the LB service to proxy protocol in place.
+	// The annotation is set on the control-plane machine template, so it is present exactly on
+	// the machines whose template expects proxy protocol; machines from an earlier template do not
+	// carry it. CAPH reads this annotation on the control-plane machines; it never writes it.
+	//
+	// For NEW clusters created with EnableProxyProtocol: true, this annotation is never read:
+	// the LB service is created with proxy protocol from the start, so no migration is needed.
+	ProxyProtocolForControlPlaneLoadBalancerAnnotation = "capi.syself.com/proxy-protocol-for-controlplane-loadbalancer"
 )
 
 // HetznerClusterSpec defines the desired state of HetznerCluster.

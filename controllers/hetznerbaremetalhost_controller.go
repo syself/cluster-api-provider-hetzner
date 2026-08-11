@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -74,6 +75,12 @@ type HetznerBareMetalHostReconciler struct {
 	Namespace string
 	// WorkloadClusterClientFactory overrides the default real factory. Intended for tests only.
 	WorkloadClusterClientFactory scope.WorkloadClusterClientFactory
+
+	// ReconcileGate, when non-nil, is held as a read lock for the full duration of each Reconcile
+	// call. Between tests, the test setup holds it as a write lock while swapping mock clients.
+	// A write lock can only be acquired once all read lock holders (in-flight reconciles) finish,
+	// so mock clients are never swapped while a Reconcile is running.
+	ReconcileGate *sync.RWMutex
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete
@@ -82,6 +89,11 @@ type HetznerBareMetalHostReconciler struct {
 
 // Reconcile implements the reconcilement of HetznerBareMetalHost objects.
 func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
+	if r.ReconcileGate != nil {
+		r.ReconcileGate.RLock()
+		defer r.ReconcileGate.RUnlock()
+	}
+
 	log := ctrl.LoggerFrom(ctx)
 
 	if r.Namespace != "" && req.Namespace != r.Namespace {
@@ -665,6 +677,8 @@ func hetznerBareMetalMachineToHetznerBareMetalHost(_ context.Context, obj client
 	}
 }
 
+// removePermanentErrorIfAnnotationIsGone clears the permanent error status once the user removes
+// the permanent-error annotation.
 func removePermanentErrorIfAnnotationIsGone(bmHost *infrav2.HetznerBareMetalHost,
 ) (removed bool) {
 	if bmHost.Status.ErrorType != infrav2.PermanentError {
