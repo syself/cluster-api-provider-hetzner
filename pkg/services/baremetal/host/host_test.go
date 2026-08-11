@@ -2057,6 +2057,45 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		),
 	)
 
+	It("records the CloudInitOutput event when the cloud-init status check returned an error", func() {
+		ctx := context.Background()
+
+		// drain events from previous tests
+		for len(testEventRecorder.Events) > 0 {
+			<-testEventRecorder.Events
+		}
+
+		portAfterInstallImage := 24
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: infrav2.BareMetalHostNamePrefix + "bm-machine"})
+		// an unknown cloud-init status makes checkCloudInitStatus return an error
+		sshMock.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: broken"})
+		sshMock.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+
+		robotMock := robotmock.Client{}
+		robotMock.On("SetBMServerName", mock.Anything, infrav2.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
+
+		service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = portAfterInstallImage
+
+		// the error is still returned, and the cloud-init output is recorded in an event
+		Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionError{}))
+
+		var events []string
+		for len(testEventRecorder.Events) > 0 {
+			events = append(events, <-testEventRecorder.Events)
+		}
+		Expect(events).To(ContainElement(ContainSubstring("dummy content of /var/log/cloud-init-output.log")))
+		Expect(events).NotTo(ContainElement(ContainSubstring("GetCloudInitOutputFailed")))
+	})
+
 	It("sets a fatal error when the reboot into the OS times out", func() {
 		ctx := context.Background()
 		portAfterInstallImage := 24

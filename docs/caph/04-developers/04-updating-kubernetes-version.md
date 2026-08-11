@@ -1,8 +1,7 @@
 ---
 title: Updating Kubernetes Version
-metatitle: Checklist For Kubernetes Version Update in CAPH Development
-sidebar: Updating Kubernetes Version
 description: All the steps needed when adding a new supported Kubernetes version to CAPH.
+metatitle: Checklist For Kubernetes Version Update in CAPH Development
 ---
 
 Please check the kubernetes version in the following files:
