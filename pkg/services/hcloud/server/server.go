@@ -826,7 +826,9 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 			if isDialTimeout {
 				reason = "timeout"
 			}
-			msg = fmt.Sprintf("getHostName: ssh not reachable yet (%s). Retrying", reason)
+			msg = fmt.Sprintf(
+				"Waiting for the server to become reachable over SSH while it boots into the rescue system (%s)",
+				reason)
 			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 				"RetryingSSHConnection", clusterv1beta1.ConditionSeverityInfo,
 				"%s", msg)

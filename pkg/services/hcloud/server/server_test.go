@@ -2156,7 +2156,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRescue))
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition, "RetryingSSHConnection")).To(BeTrue())
 		Expect(v1beta1conditions.Get(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition).Message).To(
-			Equal("getHostName: ssh not reachable yet (connection refused). Retrying"))
+			Equal("Waiting for the server to become reachable over SSH while it boots into the rescue system (connection refused)"))
 
 		By("mocking SSH: rescue system now reachable")
 		testEnv.HCloudSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
@@ -2209,7 +2209,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRescue))
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition, "RetryingSSHConnection")).To(BeTrue())
 		Expect(v1beta1conditions.Get(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition).Message).To(
-			Equal("getHostName: ssh not reachable yet (timeout). Retrying"))
+			Equal("Waiting for the server to become reachable over SSH while it boots into the rescue system (timeout)"))
 	})
 
 	It("sets condition HCloudCredentialsInvalid when HCloud API returns 'unauthorized' error while creating a server", func() {
