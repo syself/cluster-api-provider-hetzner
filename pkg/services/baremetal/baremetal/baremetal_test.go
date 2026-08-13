@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -1031,15 +1032,85 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		}
 	}
 
-	newHost := func(ipv4 string) *infrav1.HetznerBareMetalHost {
+	newHostWithIPs := func(ipv4, ipv6 string) *infrav1.HetznerBareMetalHost {
 		return &infrav1.HetznerBareMetalHost{
 			Spec: infrav1.HetznerBareMetalHostSpec{
 				ServerID: 42,
 				Status: infrav1.ControllerGeneratedStatus{
 					IPv4: ipv4,
+					IPv6: ipv6,
 				},
 			},
 		}
+	}
+
+	newHost := func(ipv4 string) *infrav1.HetznerBareMetalHost {
+		return newHostWithIPs(ipv4, "")
+	}
+
+	// The address family cases below use a host that has both addresses, so that the
+	// selected family is the only thing deciding which of them ends up as a target.
+	const (
+		hostIPv4 = "192.0.2.10"
+		hostIPv6 = "2001:db8::10"
+	)
+
+	// newClusterForAddressFamily returns a cluster whose load balancer already exists and
+	// has the given targets, so that reconcileLoadBalancerAttachment reads them from the
+	// status instead of calling the HCloud API.
+	newClusterForAddressFamily := func(family infrav1.LoadBalancerTargetAddressFamily, attached ...string) *infrav1.HetznerCluster {
+		targets := make([]infrav1.LoadBalancerTarget, 0, len(attached))
+		for _, ip := range attached {
+			targets = append(targets, infrav1.LoadBalancerTarget{Type: infrav1.LoadBalancerTargetTypeIP, IP: ip})
+		}
+		return &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{TargetAddressFamily: family},
+			},
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{ID: 123, Target: targets},
+			},
+		}
+	}
+
+	// newHealthyMachine returns a machine that passes the kube-apiserver health gate, so
+	// that the gate does not interfere with the address family assertions.
+	newHealthyMachine := func() *clusterv1.Machine {
+		machine := &clusterv1.Machine{}
+		conditions.Set(machine, metav1.Condition{
+			Type:   controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+			Status: metav1.ConditionTrue,
+			Reason: "PodHealthy",
+		})
+		return machine
+	}
+
+	// newAvailableBareMetalMachine returns a machine that makes the reconcile read the
+	// attached targets from the cluster status rather than from the HCloud API.
+	newAvailableBareMetalMachine := func() *infrav1.HetznerBareMetalMachine {
+		bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
+		v1beta1conditions.MarkTrue(bareMetalMachine, infrav1.ServerAvailableCondition)
+		return bareMetalMachine
+	}
+
+	expectAddIPTarget := func(hcloudClient *mocks.Client, ip string) {
+		hcloudClient.On(
+			"AddIPTargetToLoadBalancer",
+			mock.Anything,
+			mock.MatchedBy(func(opts hcloud.LoadBalancerAddIPTargetOpts) bool {
+				return opts.IP.String() == ip
+			}),
+			mock.MatchedBy(func(lb *hcloud.LoadBalancer) bool { return lb.ID == 123 }),
+		).Return(nil).Once()
+	}
+
+	expectDeleteIPTarget := func(hcloudClient *mocks.Client, ip string) {
+		hcloudClient.On(
+			"DeleteIPTargetOfLoadBalancer",
+			mock.Anything,
+			mock.MatchedBy(func(lb *hcloud.LoadBalancer) bool { return lb.ID == 123 }),
+			mock.MatchedBy(func(target net.IP) bool { return target.String() == ip }),
+		).Return(nil).Once()
 	}
 
 	It("requeues when another control-plane target exists and the api server pod is not healthy", func() {
@@ -1168,6 +1239,186 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHost("192.0.2.10"))).To(Succeed())
 		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "ListLoadBalancers", mock.Anything, mock.Anything)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("attaches both addresses when no address family is configured", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+		expectAddIPTarget(hcloudClient, hostIPv4)
+		expectAddIPTarget(hcloudClient, hostIPv6)
+
+		service := newServiceForLoadBalancerAttachment(
+			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
+			newClusterForAddressFamily(""), hcloudClient,
+		)
+
+		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "DeleteIPTargetOfLoadBalancer", mock.Anything, mock.Anything, mock.Anything)).To(BeTrue())
+	})
+
+	It("attaches only the IPv6 address when the address family is ipv6", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+		expectAddIPTarget(hcloudClient, hostIPv6)
+
+		service := newServiceForLoadBalancerAttachment(
+			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv6), hcloudClient,
+		)
+
+		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("attaches both addresses when the address family is dualstack", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+		expectAddIPTarget(hcloudClient, hostIPv4)
+		expectAddIPTarget(hcloudClient, hostIPv6)
+
+		service := newServiceForLoadBalancerAttachment(
+			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyDualStack), hcloudClient,
+		)
+
+		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("detaches an address that the configured address family no longer selects", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+		expectDeleteIPTarget(hcloudClient, hostIPv6)
+
+		// Both addresses are attached but the family is ipv4, so the IPv6 target is stale.
+		service := newServiceForLoadBalancerAttachment(
+			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, hostIPv4, hostIPv6), hcloudClient,
+		)
+
+		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "AddIPTargetToLoadBalancer", mock.Anything, mock.Anything, mock.Anything)).To(BeTrue())
+	})
+
+	It("detaches an unselected address even while the api server pod is not healthy", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+		expectDeleteIPTarget(hcloudClient, hostIPv6)
+
+		machine := &clusterv1.Machine{}
+		conditions.Set(machine, metav1.Condition{
+			Type:    controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  "PodNotHealthy",
+			Message: "kube-apiserver is still starting",
+		})
+
+		// The IPv6 address of this host is attached and no longer selected, while its
+		// IPv4 address is not attached yet. The health gate holds the attachment back,
+		// but a target that cannot serve traffic is removed right away.
+		service := newServiceForLoadBalancerAttachment(
+			machine, newAvailableBareMetalMachine(), newControlPlaneCluster(),
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, "192.0.2.9", hostIPv6), hcloudClient,
+		)
+
+		err := service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))
+		var requeueErr *scope.RequeueAfterError
+		Expect(errors.As(err, &requeueErr)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "AddIPTargetToLoadBalancer", mock.Anything, mock.Anything, mock.Anything)).To(BeTrue())
+	})
+
+	It("skips an address that cannot be used as a target and attaches the other one", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+		expectAddIPTarget(hcloudClient, hostIPv4)
+
+		// dualstack selects both addresses, but only the one the HCloud API can accept
+		// as a target is attached.
+		service := newServiceForLoadBalancerAttachment(
+			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyDualStack), hcloudClient,
+		)
+
+		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, "not-an-address"))).To(Succeed())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("does not call the HCloud API when the attached targets already match the address family", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+
+		service := newServiceForLoadBalancerAttachment(
+			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, hostIPv4), hcloudClient,
+		)
+
+		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "AddIPTargetToLoadBalancer", mock.Anything, mock.Anything, mock.Anything)).To(BeTrue())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "DeleteIPTargetOfLoadBalancer", mock.Anything, mock.Anything, mock.Anything)).To(BeTrue())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "ListLoadBalancers", mock.Anything, mock.Anything)).To(BeTrue())
+	})
+
+	It("keeps attaching the remaining address when the first is already a target", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+
+		// dualstack attaches the IPv4 address first, then the IPv6 one. The IPv4 target
+		// already exists, so the API returns TargetAlreadyDefined for it. The reconcile has
+		// to carry on and still attach the IPv6 address.
+		hcloudClient.On(
+			"AddIPTargetToLoadBalancer",
+			mock.Anything,
+			mock.MatchedBy(func(opts hcloud.LoadBalancerAddIPTargetOpts) bool { return opts.IP.String() == hostIPv4 }),
+			mock.MatchedBy(func(lb *hcloud.LoadBalancer) bool { return lb.ID == 123 }),
+		).Return(hcloud.Error{Code: hcloud.ErrorCodeTargetAlreadyDefined}).Once()
+		expectAddIPTarget(hcloudClient, hostIPv6)
+
+		service := newServiceForLoadBalancerAttachment(
+			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyDualStack), hcloudClient,
+		)
+
+		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("returns an error when detaching an unselected address fails", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+
+		// ipv4 is in effect, so the stale IPv6 target is detached. The API call fails with an
+		// error that is not "target not found", so the reconcile surfaces it.
+		hcloudClient.On(
+			"DeleteIPTargetOfLoadBalancer",
+			mock.Anything,
+			mock.MatchedBy(func(lb *hcloud.LoadBalancer) bool { return lb.ID == 123 }),
+			mock.MatchedBy(func(target net.IP) bool { return target.String() == hostIPv6 }),
+		).Return(errors.New("some hcloud error")).Once()
+
+		service := newServiceForLoadBalancerAttachment(
+			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, hostIPv4, hostIPv6), hcloudClient,
+		)
+
+		err := service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))
+		Expect(err).To(MatchError(ContainSubstring("some hcloud error")))
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "AddIPTargetToLoadBalancer", mock.Anything, mock.Anything, mock.Anything)).To(BeTrue())
+	})
+
+	It("treats a not-found error while detaching as already done", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+
+		// The stale IPv6 target is already gone, so the delete reports it as not found. That
+		// is the desired state, so the reconcile treats it as a success.
+		hcloudClient.On(
+			"DeleteIPTargetOfLoadBalancer",
+			mock.Anything,
+			mock.MatchedBy(func(lb *hcloud.LoadBalancer) bool { return lb.ID == 123 }),
+			mock.MatchedBy(func(target net.IP) bool { return target.String() == hostIPv6 }),
+		).Return(errors.New("load_balancer_target_not_found")).Once()
+
+		service := newServiceForLoadBalancerAttachment(
+			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, hostIPv4, hostIPv6), hcloudClient,
+		)
+
+		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 })

@@ -304,7 +304,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 
 func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
-		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
+		if hetznerCluster.Status.ControlPlaneLoadBalancer != nil && hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
 			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 

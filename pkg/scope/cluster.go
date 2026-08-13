@@ -24,7 +24,6 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -271,48 +270,78 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 	return err
 }
 
-// AllControlPlaneNodesReadyForProxyProtocol returns true when every control-plane node
-// in the workload cluster carries the annotation
-// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true".
-// Returns false (no error) when the workload cluster has no control-plane nodes yet.
-func (s *ClusterScope) AllControlPlaneNodesReadyForProxyProtocol(ctx context.Context) (bool, error) {
-	wlClientConfig, err := s.ClientConfig(ctx)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			s.V(1).Info("proxy protocol: kubeconfig secret not found, cluster not yet provisioned")
+// AllControlPlaneInfraMachinesAnnotatedForProxyProtocol returns true when every control-plane
+// infrastructure machine (HCloudMachine and HetznerBareMetalMachine) carries the annotation
+// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true", which is set on the
+// control-plane infrastructure machine template's spec.template.metadata.
+//
+// Machines from an earlier template do not carry the annotation, so the check stays false
+// until the last of them is replaced. It returns false (no error) while the cluster has no
+// control-plane infrastructure machines yet.
+func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx context.Context) (bool, error) {
+	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation, "proxy protocol")
+}
+
+// AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck returns true when every control-plane
+// infrastructure machine carries capi.syself.com/http-health-check-for-controlplane-loadbalancer:
+// "true", set on the control-plane infrastructure machine template. The caller uses it to hold back
+// the switch of the control-plane load balancer health check from tcp to http, so the switch happens
+// only once every machine comes from a template that expects an http check. It works the same way as
+// the proxy-protocol gate.
+func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(ctx context.Context) (bool, error) {
+	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav1.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, "http health check")
+}
+
+// allControlPlaneInfraMachinesAnnotated returns true when every control-plane infrastructure
+// machine (HCloudMachine and HetznerBareMetalMachine) carries annotation with value "true". The
+// annotation is set on the control-plane infrastructure machine template, so a machine from an
+// earlier template does not carry it and the check stays false until the last such machine is
+// replaced. It returns
+// false (no error) while the cluster has no control-plane infrastructure machines yet. logLabel
+// prefixes the debug logs so they name the feature being gated.
+func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context, annotation, logLabel string) (bool, error) {
+	listOptions := []client.ListOption{
+		client.InNamespace(s.Namespace()),
+		client.MatchingLabels{
+			clusterv1.ClusterNameLabel:         s.Cluster.Name,
+			clusterv1.MachineControlPlaneLabel: "",
+		},
+	}
+
+	found := 0
+
+	hcloudMachines := &infrav1.HCloudMachineList{}
+	if err := s.Client.List(ctx, hcloudMachines, listOptions...); err != nil {
+		return false, fmt.Errorf("failed to list control-plane HCloudMachines: %w", err)
+	}
+
+	for i := range hcloudMachines.Items {
+		m := &hcloudMachines.Items[i]
+		if m.GetAnnotations()[annotation] != "true" {
+			s.V(1).Info(logLabel+": control-plane HCloudMachine is missing the annotation", "hcloudMachine", m.GetName())
 			return false, nil
 		}
-		return false, fmt.Errorf("failed to get workload cluster client config: %w", err)
-	}
-	if err := IsControlPlaneReady(ctx, wlClientConfig); err != nil {
-		return false, fmt.Errorf("workload cluster control plane not ready: %w", err)
+		found++
 	}
 
-	restConfig, err := wlClientConfig.ClientConfig()
-	if err != nil {
-		return false, fmt.Errorf("failed to get workload cluster rest config: %w", err)
-	}
-	wlClient, err := client.New(restConfig, client.Options{})
-	if err != nil {
-		return false, fmt.Errorf("failed to create workload cluster client: %w", err)
+	bmMachines := &infrav1.HetznerBareMetalMachineList{}
+	if err := s.Client.List(ctx, bmMachines, listOptions...); err != nil {
+		return false, fmt.Errorf("failed to list control-plane HetznerBareMetalMachines: %w", err)
 	}
 
-	nodeList := &corev1.NodeList{}
-	if err := wlClient.List(ctx, nodeList, client.MatchingLabels{clusterv1.NodeRoleLabelPrefix + "/control-plane": ""}); err != nil {
-		return false, fmt.Errorf("failed to list control-plane nodes in workload cluster: %w", err)
+	for i := range bmMachines.Items {
+		m := &bmMachines.Items[i]
+		if m.GetAnnotations()[annotation] != "true" {
+			s.V(1).Info(logLabel+": control-plane HetznerBareMetalMachine is missing the annotation", "hetznerBareMetalMachine", m.GetName())
+			return false, nil
+		}
+		found++
 	}
 
-	if len(nodeList.Items) == 0 {
-		s.V(1).Info("proxy protocol: no control-plane nodes found")
+	if found == 0 {
+		s.V(1).Info(logLabel + ": no control-plane infrastructure machines found yet")
 		return false, nil
 	}
-	for _, node := range nodeList.Items {
-		if node.Annotations[infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation] != "true" {
-			s.V(1).Info("proxy protocol: node missing annotation",
-				"node", node.Name,
-				"annotation", infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation)
-			return false, nil
-		}
-	}
+
 	return true, nil
 }

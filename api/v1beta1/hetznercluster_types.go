@@ -47,14 +47,27 @@ const (
 
 	// ProxyProtocolForControlPlaneLoadBalancerAnnotation is used only when enabling proxy protocol
 	// on an EXISTING cluster (migration path). It must be present with value "true" on ALL
-	// control-plane nodes before CAPH recreates the LB service with proxy protocol enabled.
-	// The annotation is set by an external service (e.g. a node-configuration daemonset) once the
-	// node is ready to receive PROXY-protocol connections. CAPH reads this annotation — it never
+	// control-plane infra machines before CAPH switches the LB service to proxy protocol in place.
+	// The annotation is set on the control-plane infra machine template, so it is present exactly
+	// on the machines whose template expects proxy protocol; machines from an earlier template do
+	// not carry it. CAPH reads this annotation on the control-plane infra machines; it never
 	// writes it.
 	//
 	// For NEW clusters created with EnableProxyProtocol: true, this annotation is never read:
 	// the LB service is created with proxy protocol from the start, so no migration is needed.
 	ProxyProtocolForControlPlaneLoadBalancerAnnotation = "capi.syself.com/proxy-protocol-for-controlplane-loadbalancer"
+
+	// HTTPHealthCheckForControlPlaneLoadBalancerAnnotation is read when an EXISTING cluster
+	// switches the control-plane load balancer health check from tcp to http or https. CAPH
+	// switches the check only once every control-plane infra machine (HCloudMachine or
+	// HetznerBareMetalMachine) carries it with value "true". Set it on the control-plane infra
+	// machine template, so only machines from a template that expects an http check carry it.
+	// CAPH reads this annotation, it never writes it. This works like the proxy-protocol
+	// migration above.
+	//
+	// A NEW cluster whose spec already sets an http or https check never reads this annotation:
+	// the load balancer service is created with that check from the start.
+	HTTPHealthCheckForControlPlaneLoadBalancerAnnotation = "capi.syself.com/http-health-check-for-controlplane-loadbalancer"
 )
 
 // HetznerClusterSpec defines the desired state of HetznerCluster.
