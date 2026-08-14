@@ -11,10 +11,14 @@ labelled as recyclable and matches the machine's server type and location, claim
 with the machine's bootstrap data. On deletion the server is returned to the recyclable set instead of
 being deleted.
 
+> Throughout this page, *labels* means **Hetzner Cloud** server labels (managed through the hcloud API
+> or CLI, e.g. `hcloud server add-label`) — **not** Kubernetes labels.
+
 This is useful when a fixed set of servers should back a `MachineDeployment` — for example servers on a
 reserved or otherwise favourable plan — so that scaling up and down reuses those servers rather than
 provisioning and destroying a fresh server on every scale event. Because a recycled server is a fully
-managed node like any other, it also takes part in machine health checks and remediation.
+managed node like any other, it also takes part in machine health checks and remediation. See
+[Limitations](#limitations) for how remediation of a recycled server interacts with the pool.
 
 ## Enabling recycling
 
@@ -35,9 +39,11 @@ spec:
         enabled: true
 ```
 
-Recycling is only supported together with `imageName` (snapshot provisioning). The `imageURL` flow
-installs the operating system through the rescue system, which a rebuild cannot reproduce, so combining
-`recycle.enabled: true` with `imageURL` is rejected by the admission webhook.
+Recycling currently supports only `imageName` (snapshot provisioning); the admission webhook rejects
+`recycle.enabled: true` together with `imageURL`. This is a scoping decision for now, not a hard
+limitation: the `imageURL` flow provisions the OS through the rescue system rather than the hcloud
+*rebuild* API that the recycle path uses, so it could be supported later by re-running that rescue flow
+on a claimed server. It is left out for now, so recycling is snapshot-only.
 
 ## Marking a server as recyclable
 
@@ -98,6 +104,15 @@ never destroyed even if recycling has since been disabled on the machine.
   server. This does not happen with the default `--hcloudmachine-concurrency=1` (reconciles run one at a
   time); raising that flag while using recycling can cause two machines to claim one server. Keep
   `--hcloudmachine-concurrency=1` when recycling is in use.
+- **A remediated server is returned to the pool, not quarantined.** A recycled server takes part in
+  machine health checks like any node; when a `MachineHealthCheck` remediates it, the machine is deleted
+  and — because recycling never destroys the server — the server is returned to the recyclable set and
+  can be claimed again. For a transient fault this is the intended self-healing. A *persistently* broken
+  server (bad disk, hardware fault), however, can enter a remediate-and-recycle loop: claimed → fails its
+  health check → remediated → returned to the pool → claimed again. CAPH does not currently quarantine
+  such a server automatically. As with bare metal, a hard fault needs manual intervention: remove the
+  `caph-recycle` label from the broken server to take it out of the pool, or do not attach an aggressive
+  `MachineHealthCheck` to a recycling-backed `MachineDeployment`.
 - Create-time server properties are not reproduced by a rebuild. Besides the placement group (a recycled
   server keeps whatever group, if any, it already had), the public-network configuration and SSH keys of
   a claimed server are whatever the pool server had — they are not re-applied from the machine template.

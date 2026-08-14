@@ -128,12 +128,13 @@ func serverMatchesRequest(server *hcloud.Server, opts hcloud.ServerCreateOpts) b
 // recycle marker and a claimant label naming this machine. The claimant label is intentionally not the
 // label the server lookup matches on, so a reserved server is not yet adopted as this machine's server.
 //
-// Label writes are last-writer-wins and Hetzner offers no conditional (compare-and-swap) label update,
-// so the reservation cannot be made truly atomic. After the update the claimant is re-read as a
-// best-effort check: it catches the common case where another machine has overwritten the claimant, but
-// two machines that each complete their update+re-read without interleaving can both observe their own
-// name and proceed. Reliable single-owner reservation therefore relies on machine reconciles being
-// serialized, which they are with the default --hcloudmachine-concurrency=1 (see the docs "Limitations").
+// Label writes are last-writer-wins and Hetzner has no conditional (compare-and-swap) label update, so
+// the reservation is not atomic. The re-read after the write is a best-effort guard against a concurrent
+// claim: if two reconciles interleave (A writes, B overwrites B's own claimant, A re-reads), A sees B's
+// name instead of its own and backs off. The only case the re-read cannot catch is two fully
+// non-interleaved reservations (A writes and re-reads, only then B writes and re-reads) — each sees its
+// own name and proceeds. That case cannot occur while reconciles are serialized, which they are with the
+// default --hcloudmachine-concurrency=1 (see the docs "Limitations").
 func (s *Service) reserveRecyclableServer(ctx context.Context, server *hcloud.Server) (*hcloud.Server, error) {
 	labels := map[string]string{
 		infrav1.ServerRecycleLabelKey:         labelValueTrue,
