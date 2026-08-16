@@ -500,11 +500,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*InstallImage)(nil), (*v1beta2.InstallImage)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(a.(*InstallImage), b.(*v1beta2.InstallImage), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*v1beta2.InstallImage)(nil), (*InstallImage)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(a.(*v1beta2.InstallImage), b.(*InstallImage), scope)
 	}); err != nil {
@@ -787,6 +782,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*HetznerSSHKeys)(nil), (*v1beta2.HetznerSSHKeys)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(a.(*HetznerSSHKeys), b.(*v1beta2.HetznerSSHKeys), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*InstallImage)(nil), (*v1beta2.InstallImage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(a.(*InstallImage), b.(*v1beta2.InstallImage), scope)
 	}); err != nil {
 		return err
 	}
