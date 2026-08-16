@@ -76,7 +76,6 @@ const (
 )
 
 // HetznerBareMetalMachineSpec defines the desired state of HetznerBareMetalMachine.
-// +kubebuilder:validation:XValidation:rule="has(self.installImage) != has(self.customProvisioner)",message="exactly one of installImage or customProvisioner must be set"
 type HetznerBareMetalMachineSpec struct {
 	// ProviderID is set by the controller to either (new) `hrobot://<server-id>` or (old)
 	// `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a ProviderID, then

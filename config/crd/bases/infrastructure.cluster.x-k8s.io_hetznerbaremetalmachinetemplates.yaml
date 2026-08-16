@@ -709,10 +709,6 @@ spec:
                         - secretRef
                         type: object
                     type: object
-                    x-kubernetes-validations:
-                    - message: exactly one of installImage or customProvisioner must
-                        be set
-                      rule: has(self.installImage) != has(self.customProvisioner)
                 required:
                 - spec
                 type: object

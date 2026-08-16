@@ -751,7 +751,7 @@ func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMach
 		return err
 	}
 
-	// The spec CEL rule enforces exactly one of the two.
+	// The machine webhook rejects both being set. If both are somehow set here, customProvisioner wins.
 	if in.CustomProvisioner != nil {
 		out.InstallImage = InstallImage{
 			Image:            Image{URL: in.CustomProvisioner.ImageURL},
