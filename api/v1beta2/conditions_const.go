@@ -519,6 +519,17 @@ const (
 	HCloudMachineDeletingReason = clusterv1.DeletingReason
 )
 
+// HCloudRemediation's v1beta2 conditions.
+
+const (
+	// HCloudRemediationSkippedCondition reports that remediation was skipped because
+	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
+	HCloudRemediationSkippedCondition = "RemediationSkipped"
+	// HCloudRemediationIrrecoverableServerCreateFailureReason indicates remediation was skipped because
+	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
+	HCloudRemediationIrrecoverableServerCreateFailureReason = "IrrecoverableServerCreateFailure"
+)
+
 // HetznerBareMetalHost's v1beta2 conditions.
 
 const (

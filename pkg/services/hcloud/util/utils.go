@@ -77,10 +77,18 @@ func ServerIDFromProviderID(providerID *string) (int64, error) {
 	return id, nil
 }
 
+// conditionsObject is an API object that owns both the conditions and the deprecated v1beta1
+// conditions. HandleRateLimitExceeded accepts it so the v1beta2 resources that call the HCloud API
+// (HetznerCluster, HCloudRemediation) can share it.
+type conditionsObject interface {
+	conditions.Setter
+	deprecatedv1beta1conditions.Setter
+}
+
 // HandleRateLimitExceeded sets the rate-limit conditions if err is an HCloud rate-limit error, and
 // reports whether it was. Controllers and services still on v1beta1 use
 // HandleRateLimitExceededV1Beta1.
-func HandleRateLimitExceeded(cluster *infrav2.HetznerCluster, err error, functionName string) bool {
+func HandleRateLimitExceeded(obj conditionsObject, err error, functionName string) bool {
 	if !hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
 		return false
 	}
@@ -88,21 +96,21 @@ func HandleRateLimitExceeded(cluster *infrav2.HetznerCluster, err error, functio
 	msg := fmt.Sprintf("exceeded hcloud rate limit with calling function %q", functionName)
 
 	deprecatedv1beta1conditions.MarkFalse(
-		cluster,
+		obj,
 		infrav2.HetznerAPIReachableV1Beta1Condition,
 		infrav2.RateLimitExceededV1Beta1Reason,
 		clusterv1.ConditionSeverityWarning,
 		"%s",
 		msg,
 	)
-	conditions.Set(cluster, metav1.Condition{
+	conditions.Set(obj, metav1.Condition{
 		Type:    infrav2.HCloudRateLimitExceededCondition,
 		Status:  metav1.ConditionTrue,
 		Reason:  infrav2.HCloudRateLimitExceededReason,
 		Message: msg,
 	})
 
-	record.Warnf(cluster, "RateLimitExceeded", msg)
+	record.Warnf(obj, "RateLimitExceeded", msg)
 	return true
 }
 
