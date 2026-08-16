@@ -444,6 +444,42 @@ func fuzzyConversionTestFunc(scheme *runtime.Scheme, hub conversion.Hub, spoke c
 	})
 }
 
+// TestConvertHetznerBareMetalMachineCustomProvisioner verifies that a v1beta1 installImage that sets
+// imageURLCommand converts to a v1beta2 customProvisioner and back to the same installImage.
+func TestConvertHetznerBareMetalMachineCustomProvisioner(t *testing.T) {
+	src := HetznerBareMetalMachineSpec{
+		InstallImage: InstallImage{
+			Image:            Image{URL: "oci://ghcr.io/example/ubuntu:v1"},
+			ImageURLCommand:  "image-url-command-bm-test.sh",
+			DeviceStringType: DeviceStringTypeWWN,
+		},
+	}
+
+	var hub infrav2.HetznerBareMetalMachineSpec
+	if err := Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(&src, &hub, nil); err != nil {
+		t.Fatalf("convert to v1beta2 failed: %v", err)
+	}
+	if hub.InstallImage != nil {
+		t.Fatalf("installImage should be nil for the custom provisioner flow, got %#v", hub.InstallImage)
+	}
+	wantCustom := &infrav2.CustomProvisioner{
+		ImageURL:         "oci://ghcr.io/example/ubuntu:v1",
+		Command:          "image-url-command-bm-test.sh",
+		DeviceStringType: infrav2.DeviceStringTypeWWN,
+	}
+	if !reflect.DeepEqual(hub.CustomProvisioner, wantCustom) {
+		t.Fatalf("customProvisioner mismatch:\n got: %#v\nwant: %#v", hub.CustomProvisioner, wantCustom)
+	}
+
+	var back HetznerBareMetalMachineSpec
+	if err := Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&hub, &back, nil); err != nil {
+		t.Fatalf("convert back to v1beta1 failed: %v", err)
+	}
+	if !reflect.DeepEqual(back.InstallImage, src.InstallImage) {
+		t.Fatalf("round trip installImage mismatch:\n got: %#v\nwant: %#v", back.InstallImage, src.InstallImage)
+	}
+}
+
 // TestHetznerBareMetalMachineConvertToPromoteV1Beta2Shape verifies that converting a v1beta1
 // HetznerBareMetalMachine to v1beta2 promotes the staged v1beta2 conditions, demotes the old
 // v1beta1 conditions, maps status.ready to status.initialization.provisioned, and moves the
@@ -1345,6 +1381,41 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 			if in.Deprecated != nil && (in.Deprecated.V1Beta1 == nil || in.Deprecated.V1Beta1.Conditions == nil) {
 				in.Deprecated = nil
+			}
+		},
+		// HetznerBareMetalMachine v1beta1 installImage: the flat v1beta1 shape carries both provisioning
+		// flows in one field, but v1beta2 splits them into installImage and customProvisioner. Only the
+		// fields of the selected flow survive the round trip, so drop the fields of the other flow.
+		func(in *InstallImage, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.UsesImageURLCommand() {
+				// custom provisioner flow: only image.url, imageURLCommand and deviceStringType survive.
+				in.Image.Name = ""
+				in.Image.Path = ""
+				in.PostInstallScript = ""
+				in.Partitions = nil
+				in.LVMDefinitions = nil
+				in.BTRFSDefinitions = nil
+				in.Swraid = 0
+				in.SwraidLevel = 0
+			} else {
+				// installimage flow: deviceStringType belongs to the custom provisioner flow.
+				in.DeviceStringType = ""
+			}
+		},
+		// HetznerBareMetalMachine v1beta2 spec (hub side): installImage and customProvisioner are mutually
+		// exclusive, so keep exactly one set. customProvisioner needs a command because that is what selects
+		// the flow when converting back to the single flat v1beta1 installImage.
+		func(in *infrav2.HetznerBareMetalMachineSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			switch {
+			case in.CustomProvisioner != nil:
+				in.InstallImage = nil
+				if in.CustomProvisioner.Command == "" {
+					in.CustomProvisioner.Command = "provision.sh" // any non-empty value works; the content is not read here
+				}
+			case in.InstallImage == nil:
+				in.InstallImage = &infrav2.InstallImage{}
 			}
 		},
 		// HCloudRemediation v1beta1 status: keep retryCount in the non-negative v1beta2 int32 range,
