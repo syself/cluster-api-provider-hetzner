@@ -70,8 +70,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
 					CustomProvisioner: &infrav2.CustomProvisioner{
-						ImageURL: "oci://ghcr.io/example/ubuntu:v1",
-						Command:  "image-url-command-bm-test.sh",
+						URL:     "oci://ghcr.io/example/ubuntu:v1",
+						Command: "image-url-command-bm-test.sh",
 					},
 				},
 			},
@@ -82,7 +82,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
 					CustomProvisioner: &infrav2.CustomProvisioner{
-						ImageURL:         "oci://ghcr.io/example/ubuntu:v1",
+						URL:              "oci://ghcr.io/example/ubuntu:v1",
 						Command:          "image-url-command-bm-test.sh",
 						DeviceStringType: infrav2.DeviceStringTypeWWN,
 					},
@@ -108,8 +108,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 						},
 					},
 					CustomProvisioner: &infrav2.CustomProvisioner{
-						ImageURL: "oci://ghcr.io/example/ubuntu:v1",
-						Command:  "image-url-command-bm-test.sh",
+						URL:     "oci://ghcr.io/example/ubuntu:v1",
+						Command: "image-url-command-bm-test.sh",
 					},
 				},
 			},
@@ -141,7 +141,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			want: field.Invalid(field.NewPath("spec", "installImage", "image", "url"), "https://example.com/ubuntu-24.04.invalid", "unknown image type in URL"),
 		},
 		{
-			name: "customProvisioner without imageURL",
+			name: "customProvisioner without url",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
 					CustomProvisioner: &infrav2.CustomProvisioner{
@@ -149,38 +149,38 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 					},
 				},
 			},
-			want: field.Required(field.NewPath("spec", "customProvisioner", "imageURL"), "imageURL is required"),
+			want: field.Required(field.NewPath("spec", "customProvisioner", "url"), "url is required"),
 		},
 		{
 			name: "customProvisioner without command",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
 					CustomProvisioner: &infrav2.CustomProvisioner{
-						ImageURL: "oci://ghcr.io/example/ubuntu:v1",
+						URL: "oci://ghcr.io/example/ubuntu:v1",
 					},
 				},
 			},
 			want: field.Required(field.NewPath("spec", "customProvisioner", "command"), "command is required"),
 		},
 		{
-			name: "customProvisioner with malformed imageURL",
+			name: "customProvisioner with malformed url",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
 					CustomProvisioner: &infrav2.CustomProvisioner{
-						ImageURL: "not-a-url",
-						Command:  "image-url-command-bm-test.sh",
+						URL:     "not-a-url",
+						Command: "image-url-command-bm-test.sh",
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "customProvisioner", "imageURL"), "not-a-url", `parse "not-a-url": invalid URI for request`),
+			want: field.Invalid(field.NewPath("spec", "customProvisioner", "url"), "not-a-url", `parse "not-a-url": invalid URI for request`),
 		},
 		{
 			name: "customProvisioner command with slash",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
 					CustomProvisioner: &infrav2.CustomProvisioner{
-						ImageURL: "oci://ghcr.io/example/ubuntu:v1",
-						Command:  "/shared/image-url-command-bm-test.sh",
+						URL:     "oci://ghcr.io/example/ubuntu:v1",
+						Command: "/shared/image-url-command-bm-test.sh",
 					},
 				},
 			},
@@ -191,8 +191,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
 					CustomProvisioner: &infrav2.CustomProvisioner{
-						ImageURL: "oci://ghcr.io/example/ubuntu:v1",
-						Command:  "1bad-command",
+						URL:     "oci://ghcr.io/example/ubuntu:v1",
+						Command: "1bad-command",
 					},
 				},
 			},
@@ -203,8 +203,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
 					CustomProvisioner: &infrav2.CustomProvisioner{
-						ImageURL: "oci://ghcr.io/example/ubuntu:v1",
-						Command:  "image-url-command-bm..test.sh",
+						URL:     "oci://ghcr.io/example/ubuntu:v1",
+						Command: "image-url-command-bm..test.sh",
 					},
 				},
 			},
@@ -374,14 +374,14 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 			args: args{
 				oldSpec: infrav2.HetznerBareMetalMachineSpec{
 					CustomProvisioner: &infrav2.CustomProvisioner{
-						ImageURL: "oci://ghcr.io/example/ubuntu:v1",
-						Command:  "image-url-command-bm-test.sh",
+						URL:     "oci://ghcr.io/example/ubuntu:v1",
+						Command: "image-url-command-bm-test.sh",
 					},
 				},
 				newSpec: infrav2.HetznerBareMetalMachineSpec{
 					CustomProvisioner: &infrav2.CustomProvisioner{
-						ImageURL: "oci://ghcr.io/example/ubuntu:v2",
-						Command:  "image-url-command-bm-test.sh",
+						URL:     "oci://ghcr.io/example/ubuntu:v2",
+						Command: "image-url-command-bm-test.sh",
 					},
 				},
 			},
@@ -594,8 +594,8 @@ func TestValidateHetznerBareMetalMachineSpecUpdate_FlowSwitch(t *testing.T) {
 		},
 		infrav2.HetznerBareMetalMachineSpec{
 			CustomProvisioner: &infrav2.CustomProvisioner{
-				ImageURL: "oci://ghcr.io/example/ubuntu:v1",
-				Command:  "image-url-command-bm-test.sh",
+				URL:     "oci://ghcr.io/example/ubuntu:v1",
+				Command: "image-url-command-bm-test.sh",
 			},
 		})
 	require.Equal(t,

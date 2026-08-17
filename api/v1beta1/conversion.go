@@ -731,7 +731,7 @@ func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMach
 		// installimage-only fields (image name and path, partitions, RAID, post-install script) have
 		// no meaning in this flow and are dropped.
 		out.CustomProvisioner = &infrav2.CustomProvisioner{
-			ImageURL:         in.InstallImage.Image.URL,
+			URL:              in.InstallImage.Image.URL,
 			Command:          in.InstallImage.ImageURLCommand,
 			DeviceStringType: infrav2.DeviceStringType(in.InstallImage.DeviceStringType),
 		}
@@ -754,7 +754,7 @@ func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMach
 	// The machine webhook rejects both being set. If both are somehow set here, customProvisioner wins.
 	if in.CustomProvisioner != nil {
 		out.InstallImage = InstallImage{
-			Image:            Image{URL: in.CustomProvisioner.ImageURL},
+			Image:            Image{URL: in.CustomProvisioner.URL},
 			ImageURLCommand:  in.CustomProvisioner.Command,
 			DeviceStringType: DeviceStringType(in.CustomProvisioner.DeviceStringType),
 		}

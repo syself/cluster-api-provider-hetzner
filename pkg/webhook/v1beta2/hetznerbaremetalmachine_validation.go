@@ -98,10 +98,10 @@ func validateCustomProvisioner(customProvisioner infrav2.CustomProvisioner) fiel
 	var allErrs field.ErrorList
 	base := field.NewPath("spec", "customProvisioner")
 
-	if customProvisioner.ImageURL == "" {
-		allErrs = append(allErrs, field.Required(base.Child("imageURL"), "imageURL is required"))
-	} else if _, err := url.ParseRequestURI(customProvisioner.ImageURL); err != nil {
-		allErrs = append(allErrs, field.Invalid(base.Child("imageURL"), customProvisioner.ImageURL, err.Error()))
+	if customProvisioner.URL == "" {
+		allErrs = append(allErrs, field.Required(base.Child("url"), "url is required"))
+	} else if _, err := url.ParseRequestURI(customProvisioner.URL); err != nil {
+		allErrs = append(allErrs, field.Invalid(base.Child("url"), customProvisioner.URL, err.Error()))
 	}
 
 	if customProvisioner.Command == "" {

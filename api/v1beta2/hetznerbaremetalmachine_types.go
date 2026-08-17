@@ -222,12 +222,12 @@ type InstallImage struct {
 // CustomProvisioner defines the configuration for provisioning a machine with a custom command
 // instead of the Hetzner installimage tool.
 type CustomProvisioner struct {
-	// ImageURL is the URL of the image that Command provisions the machine from. CAPH passes it to
+	// URL is the location of the image that Command provisions the machine from. CAPH passes it to
 	// Command in the rescue system.
-	ImageURL string `json:"imageURL"`
+	URL string `json:"url"`
 
 	// Command is the basename of a command file below /shared on the controller pod. CAPH copies
-	// that command into the rescue system and executes it there to provision the machine from ImageURL.
+	// that command into the rescue system and executes it there to provision the machine from URL.
 	//
 	// Docs: https://syself.com/docs/caph/developers/image-url-command
 	Command string `json:"command"`

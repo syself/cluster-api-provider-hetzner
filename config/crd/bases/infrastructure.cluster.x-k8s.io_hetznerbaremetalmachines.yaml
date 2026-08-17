@@ -605,7 +605,7 @@ spec:
                   command:
                     description: |-
                       Command is the basename of a command file below /shared on the controller pod. CAPH copies
-                      that command into the rescue system and executes it there to provision the machine from ImageURL.
+                      that command into the rescue system and executes it there to provision the machine from URL.
 
                       Docs: https://syself.com/docs/caph/developers/image-url-command
                     type: string
@@ -619,14 +619,14 @@ spec:
                     - short
                     - wwn
                     type: string
-                  imageURL:
+                  url:
                     description: |-
-                      ImageURL is the URL of the image that Command provisions the machine from. CAPH passes it to
+                      URL is the location of the image that Command provisions the machine from. CAPH passes it to
                       Command in the rescue system.
                     type: string
                 required:
                 - command
-                - imageURL
+                - url
                 type: object
               hostSelector:
                 description: |-

@@ -463,7 +463,7 @@ func TestConvertHetznerBareMetalMachineCustomProvisioner(t *testing.T) {
 		t.Fatalf("installImage should be nil for the custom provisioner flow, got %#v", hub.InstallImage)
 	}
 	wantCustom := &infrav2.CustomProvisioner{
-		ImageURL:         "oci://ghcr.io/example/ubuntu:v1",
+		URL:              "oci://ghcr.io/example/ubuntu:v1",
 		Command:          "image-url-command-bm-test.sh",
 		DeviceStringType: infrav2.DeviceStringTypeWWN,
 	}
