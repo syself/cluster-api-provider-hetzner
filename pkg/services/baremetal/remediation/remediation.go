@@ -71,6 +71,12 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			"exit remediation because hbmm has no host annotation")
 	}
 
+	// Node is gone, so a reboot won't help. Skip reboot, go straight to delete.
+	if conditions.GetReason(s.scope.Machine, clusterv1.MachineHealthCheckSucceededCondition) == clusterv1.MachineHealthCheckNodeDeletedReason {
+		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
+			"exit remediation because Node is missing (no reboot performed)")
+	}
+
 	if host.Spec.Status.HasFatalError() {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
 			fmt.Sprintf("exit remediation because host has error: %s: %s",

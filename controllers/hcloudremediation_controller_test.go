@@ -28,10 +28,12 @@ import (
 	"k8s.io/utils/ptr"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -350,6 +352,56 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 
 			By("creating the hcloudRemediation with retryLimit 0")
 			hcloudRemediation.Spec.Strategy.RetryLimit = 0
+			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
+
+			By("checking that no reboot happened and the machine is handed to CAPI for deletion")
+			Eventually(func() error {
+				if err := testEnv.Get(ctx, hcloudRemediationkey, hcloudRemediation); err != nil {
+					return err
+				}
+				if hcloudRemediation.Status.RetryCount != 0 {
+					return fmt.Errorf("expected RetryCount 0, got %d", hcloudRemediation.Status.RetryCount)
+				}
+				if hcloudRemediation.Status.LastRemediated != nil {
+					return fmt.Errorf("expected LastRemediated to be nil")
+				}
+				if hcloudRemediation.Status.Phase != infrav1.PhaseDeleting {
+					return fmt.Errorf("expected Phase %q, got %q", infrav1.PhaseDeleting, hcloudRemediation.Status.Phase)
+				}
+				if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
+					return fmt.Errorf("MachineOwnerRemediatedCondition not set")
+				}
+				return nil
+			}, timeout).ShouldNot(HaveOccurred())
+		})
+
+		It("does no reboot and deletes the machine when the Node is missing", func() {
+			By("waiting until the machine has a ProviderID and is running")
+			Eventually(func() error {
+				if err := testEnv.Client.Get(ctx, hcloudMachineKey, hcloudMachine); err != nil {
+					return err
+				}
+				if hcloudMachine.Spec.ProviderID == nil {
+					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
+				}
+				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+					return fmt.Errorf("hcloudMachine.Status.BootState is not HCloudBootStateOperatingSystemRunning, but: %q", hcloudMachine.Status.BootState)
+				}
+				return nil
+			}, timeout).NotTo(HaveOccurred())
+
+			By("setting the Node as deleted on capiMachine")
+			capiMachinePatchHelper, err := patch.NewHelper(capiMachine, testEnv.GetClient())
+			Expect(err).NotTo(HaveOccurred())
+			conditions.Set(capiMachine, metav1.Condition{
+				Type:    clusterv1.MachineHealthCheckSucceededCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  clusterv1.MachineHealthCheckNodeDeletedReason,
+				Message: "Node has been deleted",
+			})
+			Expect(capiMachinePatchHelper.Patch(ctx, capiMachine)).NotTo(HaveOccurred())
+
+			By("creating the hcloudRemediation")
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
 			By("checking that no reboot happened and the machine is handed to CAPI for deletion")
