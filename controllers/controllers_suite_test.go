@@ -271,7 +271,8 @@ var _ = BeforeSuite(func() {
 	Expect(hcloudRemediationReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
 	hetznerBareMetalRemediationReconciler := &HetznerBareMetalRemediationReconciler{
-		Client: testEnv.GetClient(),
+		Client:    testEnv.GetClient(),
+		APIReader: testEnv.GetAPIReader(),
 	}
 	Expect(hetznerBareMetalRemediationReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
