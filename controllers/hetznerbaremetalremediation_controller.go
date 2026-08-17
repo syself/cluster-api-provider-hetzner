@@ -20,8 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/google/go-cmp/cmp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -35,11 +38,13 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/remediation"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // HetznerBareMetalRemediationReconciler reconciles a HetznerBareMetalRemediation object.
 type HetznerBareMetalRemediationReconciler struct {
 	client.Client
+	APIReader        client.Reader
 	WatchFilterValue string
 
 	// Reconcile only this namespace. Only needed for testing
@@ -77,6 +82,62 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		}
 		return reconcile.Result{}, err
 	}
+
+	// ----------------------------------------------------------------
+	// Start: avoid conflict errors. Wait until local cache is up-to-date
+	// Won't be needed once this was implemented:
+	// https://github.com/kubernetes-sigs/controller-runtime/issues/3320
+	initialBareMetalRemediation := bareMetalRemediation.DeepCopy()
+	defer func() {
+		// We can potentially optimize this further by ensuring that the cache is up to date only in
+		// the cases where an outdated cache would lead to problems. Currently, we ensure that the
+		// cache is up to date in all cases, i.e. for all possible changes to the
+		// HetznerBareMetalRemediation object.
+		if cmp.Equal(initialBareMetalRemediation, bareMetalRemediation) {
+			// Nothing has changed. No need to wait.
+			return
+		}
+
+		// The object changed. Wait until the new version is in the local cache
+
+		// Get the latest version from the apiserver.
+		apiserverBareMetalRemediation := &infrav1.HetznerBareMetalRemediation{}
+
+		// Use uncached APIReader
+		err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(bareMetalRemediation), apiserverBareMetalRemediation)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// resource was deleted. No need to reconcile again.
+				reterr = nil
+				res = reconcile.Result{}
+				return
+			}
+			reterr = errors.Join(reterr,
+				fmt.Errorf("failed get HetznerBareMetalRemediation via uncached APIReader: %w", err))
+			return
+		}
+
+		apiserverRV := apiserverBareMetalRemediation.ResourceVersion
+
+		err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 3*time.Second, true, func(ctx context.Context) (done bool, err error) {
+			// new resource, read from local cache
+			latestFromLocalCache := &infrav1.HetznerBareMetalRemediation{}
+			getErr := r.Get(ctx, client.ObjectKeyFromObject(apiserverBareMetalRemediation), latestFromLocalCache)
+			if apierrors.IsNotFound(getErr) {
+				// the object was deleted. All is fine.
+				return true, nil
+			}
+			if getErr != nil {
+				return false, getErr
+			}
+			return utils.IsLocalCacheUpToDate(latestFromLocalCache.ResourceVersion, apiserverRV), nil
+		})
+		if err != nil {
+			log.Error(err, "cache sync failed")
+		}
+	}()
+	// End: avoid conflict errors. Wait until local cache is up-to-date
+	// ----------------------------------------------------------------
 
 	log = log.WithValues("HetznerBareMetalRemediation", klog.KObj(bareMetalRemediation))
 
