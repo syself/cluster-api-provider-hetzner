@@ -47,6 +47,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
+						Partitions: []infrav1.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 				},
 			},
@@ -60,6 +61,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 						Image: infrav1.Image{
 							Path: "path/to/image.tar.gz",
 						},
+						Partitions: []infrav1.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 				},
 			},
@@ -114,7 +116,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			args: args{
 				spec: infrav1.HetznerBareMetalMachineSpec{
 					InstallImage: infrav1.InstallImage{
-						Image: infrav1.Image{},
+						Image:      infrav1.Image{},
+						Partitions: []infrav1.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 				},
 			},
@@ -129,6 +132,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.invalid",
 						},
+						Partitions: []infrav1.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 				},
 			},
@@ -212,6 +216,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
+						Partitions: []infrav1.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 					HostSelector: infrav1.HostSelector{
 						MatchLabels: map[string]string{
@@ -231,6 +236,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
+						Partitions: []infrav1.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 					HostSelector: infrav1.HostSelector{
 						MatchExpressions: []infrav1.HostSelectorRequirement{
@@ -254,6 +260,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
+						Partitions: []infrav1.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 					HostSelector: infrav1.HostSelector{
 						MatchExpressions: []infrav1.HostSelectorRequirement{
@@ -287,6 +294,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
+						Partitions: []infrav1.Partition{{Mount: "/", FileSystem: "ext4", Size: "all"}},
 					},
 					HostSelector: infrav1.HostSelector{
 						MatchExpressions: []infrav1.HostSelectorRequirement{
@@ -310,6 +318,21 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 				},
 				`invalid match expression: key: Invalid value: "": name part must be non-empty; name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')`,
 			),
+		},
+		{
+			name: "Partitions required without imageURLCommand",
+			args: args{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
+							Name: "ubuntu-24.04",
+							URL:  "https://example.com/ubuntu-24.04.tar.gz",
+						},
+					},
+				},
+			},
+			want: field.Required(field.NewPath("spec", "installImage", "partitions"),
+				"partitions must be set when imageURLCommand is not set"),
 		},
 	}
 	for _, tt := range tests {
