@@ -23,14 +23,15 @@ import (
 
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 )
@@ -42,8 +43,8 @@ type HCloudRemediationScopeParams struct {
 	HCloudClient      hcloudclient.Client
 	Machine           *clusterv1.Machine
 	HCloudMachine     *infrav1.HCloudMachine
-	HetznerCluster    *infrav1.HetznerCluster
-	HCloudRemediation *infrav1.HCloudRemediation
+	HetznerCluster    *infrav2.HetznerCluster
+	HCloudRemediation *infrav2.HCloudRemediation
 }
 
 // NewHCloudRemediationScope creates a new Scope from the supplied parameters.
@@ -70,7 +71,7 @@ func NewHCloudRemediationScope(params HCloudRemediationScopeParams) (*HCloudReme
 		return nil, errors.New("failed to generate new scope from nil Logger")
 	}
 
-	patchHelper, err := v1beta1patch.NewHelper(params.HCloudRemediation, params.Client)
+	patchHelper, err := patch.NewHelper(params.HCloudRemediation, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
@@ -90,45 +91,44 @@ func NewHCloudRemediationScope(params HCloudRemediationScopeParams) (*HCloudReme
 type HCloudRemediationScope struct {
 	logr.Logger
 	Client            client.Client
-	patchHelper       *v1beta1patch.Helper
+	patchHelper       *patch.Helper
 	HCloudClient      hcloudclient.Client
 	Machine           *clusterv1.Machine
 	HCloudMachine     *infrav1.HCloudMachine
-	HCloudRemediation *infrav1.HCloudRemediation
+	HCloudRemediation *infrav2.HCloudRemediation
 }
 
 // Close closes the current scope persisting the remediation configuration and status.
-func (m *HCloudRemediationScope) Close(ctx context.Context, opts ...v1beta1patch.Option) error {
-	// set summary for v1beta1 conditions.
-	v1beta1conditions.SetSummary(m.HCloudRemediation)
+func (m *HCloudRemediationScope) Close(ctx context.Context, opts ...patch.Option) error {
+	// set summary for deprecated v1beta1 conditions.
+	deprecatedv1beta1conditions.SetSummary(m.HCloudRemediation)
 
 	allOpts := append(opts, HCloudRemediationPatchOpts()...)
 
-	// set summary for v1beta2 conditions.
-
-	readyCondition, err := v1beta2conditions.NewSummaryCondition(
+	// set summary for conditions.
+	readyCondition, err := conditions.NewSummaryCondition(
 		m.HCloudRemediation,
-		clusterv1beta1.ReadyV1Beta2Condition,
-		infrav1.HCloudRemediationV1Beta2SummaryOpts()...,
+		clusterv1.ReadyCondition,
+		infrav2.HCloudRemediationSummaryOpts()...,
 	)
 	if err != nil {
 		// Note, this could only happen if we hit edge cases in computing the summary, which should not happen due to the fact
 		// that we are passing a non empty list of ForConditionTypes.
-		m.Error(err, "Failed to set v1beta2 Ready condition")
+		m.Error(err, "Failed to set Ready condition")
 		unknownReadyCondition := metav1.Condition{
-			Type:   clusterv1beta1.ReadyV1Beta2Condition,
+			Type:   clusterv1.ReadyCondition,
 			Status: metav1.ConditionUnknown,
-			Reason: infrav1.InternalErrorV1Beta2Reason,
+			Reason: clusterv1.InternalErrorReason,
 		}
 
 		// set the ready condition with unknown status.
-		v1beta2conditions.Set(m.HCloudRemediation, unknownReadyCondition)
+		conditions.Set(m.HCloudRemediation, unknownReadyCondition)
 
 		patchErr := m.patchHelper.Patch(ctx, m.HCloudRemediation, allOpts...)
 		return errors.Join(err, patchErr)
 	}
 
-	v1beta2conditions.Set(m.HCloudRemediation, *readyCondition)
+	conditions.Set(m.HCloudRemediation, *readyCondition)
 
 	return m.patchHelper.Patch(ctx, m.HCloudRemediation, allOpts...)
 }
@@ -145,8 +145,8 @@ func (m *HCloudRemediationScope) Namespace() string {
 
 // HasRetriesLeft returns true if the retry limit is greater than retry count.
 func (m *HCloudRemediationScope) HasRetriesLeft() bool {
-	return m.HCloudRemediation.Spec.Strategy.RetryLimit > 0 &&
-		m.HCloudRemediation.Spec.Strategy.RetryLimit > m.HCloudRemediation.Status.RetryCount
+	retryLimit := ptr.Deref(m.HCloudRemediation.Spec.Strategy.RetryLimit, 0)
+	return retryLimit > 0 && retryLimit > ptr.Deref(m.HCloudRemediation.Status.RetryCount, 0)
 }
 
 // ServerIDFromProviderID returns the namespace name.
@@ -159,24 +159,24 @@ func (m *HCloudRemediationScope) PatchObject(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.HCloudRemediation, HCloudRemediationPatchOpts()...)
 }
 
-// HCloudRemediationPatchOpts returns the list of v1beta1patch.Option for HCloudRemediation.
+// HCloudRemediationPatchOpts returns the list of patch.Option for HCloudRemediation.
 // Exported so early-exit paths in the controller (that bypass the scope) can share the
 // same owned-conditions list.
-func HCloudRemediationPatchOpts() []v1beta1patch.Option {
-	return []v1beta1patch.Option{
-		// owned v1beta1 conditions.
-		v1beta1patch.WithOwnedConditions{Conditions: []clusterv1beta1.ConditionType{
-			clusterv1beta1.ReadyCondition,
-			infrav1.HCloudTokenAvailableCondition,
-			infrav1.HetznerAPIReachableCondition,
-			infrav1.RemediationSkippedCondition,
+func HCloudRemediationPatchOpts() []patch.Option {
+	return []patch.Option{
+		// owned deprecated v1beta1 conditions.
+		patch.WithOwnedV1Beta1Conditions{Conditions: []clusterv1.ConditionType{
+			clusterv1.ReadyV1Beta1Condition,
+			infrav2.HCloudTokenAvailableV1Beta1Condition,
+			infrav2.HetznerAPIReachableV1Beta1Condition,
+			infrav2.RemediationSkippedV1Beta1Condition,
 		}},
-		// owned v1beta2 conditions.
-		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
-			clusterv1beta1.ReadyV1Beta2Condition,
-			infrav1.HCloudTokenAvailableV1Beta2Condition,
-			infrav1.HCloudRateLimitExceededV1Beta2Condition,
-			infrav1.HCloudRemediationSkippedV1Beta2Condition,
+		// owned conditions.
+		patch.WithOwnedConditions{Conditions: []string{
+			clusterv1.ReadyCondition,
+			infrav2.HCloudTokenAvailableCondition,
+			infrav2.HCloudRateLimitExceededCondition,
+			infrav2.HCloudRemediationSkippedCondition,
 		}},
 	}
 }
