@@ -1421,7 +1421,8 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
 				Eventually(func() bool {
-					return isPresentAndTrueDeprecatedV1Beta1(key, instance, infrav2.NetworkReadyV1Beta1Condition)
+					return isPresentAndTrueDeprecatedV1Beta1(key, instance, infrav2.NetworkReadyV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, instance, infrav2.HetznerClusterNetworkReadyCondition, string(infrav2.HetznerClusterNetworkReadyReason))
 				}, timeout).Should(BeTrue())
 			},
 			)
