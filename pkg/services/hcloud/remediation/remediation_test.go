@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -112,5 +113,8 @@ var _ = Describe("Test rate limit condition", func() {
 		c := conditions.Get(hcloudRemediation, infrav2.HCloudRateLimitExceededCondition)
 		Expect(c).NotTo(BeNil())
 		Expect(c.Status).To(Equal(metav1.ConditionTrue))
+
+		// and the deprecated HetznerAPIReachable counterpart, kept for the v1beta1 API.
+		Expect(deprecatedv1beta1conditions.IsFalse(hcloudRemediation, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeTrue())
 	})
 })

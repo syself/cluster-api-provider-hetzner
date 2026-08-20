@@ -79,7 +79,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		return ctrl.Result{}, err
 	}
 	if skipReconciliation {
-		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav2.SkipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 

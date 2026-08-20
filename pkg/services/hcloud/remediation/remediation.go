@@ -325,14 +325,14 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 	deprecatedv1beta1conditions.MarkFalse(
 		s.scope.Machine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
-		infrav1.RemediationCooldownTriggeredReason,
+		infrav2.RemediationCooldownTriggeredReason,
 		clusterv1.ConditionSeverityWarning,
 		"Remediation cooldown active (machine will be deleted): %s", msg,
 	)
 	conditions.Set(s.scope.Machine, metav1.Condition{
 		Type:    clusterv1.MachineOwnerRemediatedCondition,
 		Status:  metav1.ConditionFalse,
-		Reason:  infrav1.RemediationCooldownTriggeredReason,
+		Reason:  infrav2.RemediationCooldownTriggeredReason,
 		Message: fmt.Sprintf("Remediation cooldown active (machine will be deleted): %s", msg),
 	})
 

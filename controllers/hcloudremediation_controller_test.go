@@ -245,6 +245,9 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
 					return fmt.Errorf("MachineOwnerRemediatedCondition not set")
 				}
+				if !isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason) {
+					return fmt.Errorf("native MachineOwnerRemediatedCondition not set")
+				}
 				return nil
 			}, timeout).Should(Succeed())
 		})
@@ -333,7 +336,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 
 				testEnv.GetLogger().Info("status of hcloudRemediation", "status", hcloudRemediation.Status.Phase)
 				return hcloudRemediation.Status.Phase == infrav2.PhaseDeleting &&
-					isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
+					isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) &&
+					isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason)
 			}, timeout).Should(BeTrue())
 		})
 		It("does no reboot and deletes the machine when retryLimit is 0", func() {
@@ -371,6 +375,9 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				}
 				if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
 					return fmt.Errorf("MachineOwnerRemediatedCondition not set")
+				}
+				if !isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason) {
+					return fmt.Errorf("native MachineOwnerRemediatedCondition not set")
 				}
 				return nil
 			}, timeout).ShouldNot(HaveOccurred())
