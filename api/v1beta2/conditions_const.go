@@ -288,6 +288,8 @@ const (
 	GetWorkloadClusterClientFailedV1Beta1Reason = "GetWorkloadClusterClientFailed"
 	// GetNodeInWorkloadClusterFailedV1Beta1Reason indicates failure in fetching the node object from the workload cluster.
 	GetNodeInWorkloadClusterFailedV1Beta1Reason = "GetNodeInWorkloadClusterFailed"
+	// NodeNotFoundV1Beta1Reason indicates the node object does not exist in the workload cluster.
+	NodeNotFoundV1Beta1Reason = "NodeNotFound"
 	// BootIDEmptyV1Beta1Reason indicates that an empty boot ID is present on the node object.
 	BootIDEmptyV1Beta1Reason = "BootIDEmpty"
 )
@@ -603,6 +605,8 @@ const (
 	HetznerBareMetalHostGettingWorkloadClusterClientFailedReason = "GettingWorkloadClusterClientFailed"
 	// HetznerBareMetalHostGettingNodeInWorkloadClusterFailedReason indicates fetching the node object from the workload cluster failed.
 	HetznerBareMetalHostGettingNodeInWorkloadClusterFailedReason = "GettingNodeInWorkloadClusterFailed"
+	// HetznerBareMetalHostNodeNotFoundReason indicates the node object does not exist in the workload cluster.
+	HetznerBareMetalHostNodeNotFoundReason = "NodeNotFound"
 	// HetznerBareMetalHostBootIDEmptyReason indicates the boot ID on the node object is empty.
 	HetznerBareMetalHostBootIDEmptyReason = "BootIDEmpty"
 )
