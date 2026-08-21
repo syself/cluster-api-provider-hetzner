@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
@@ -267,7 +268,7 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 			handler.EnqueueRequestsFromMapFunc(r.ClusterToBareMetalMachines(ctx, log)),
 		).
 		Watches(
-			&infrav1.HetznerBareMetalHost{},
+			&infrav2.HetznerBareMetalHost{},
 			handler.EnqueueRequestsFromMapFunc(BareMetalHostToBareMetalMachines(r, log)),
 		).
 		Watches(
@@ -373,7 +374,7 @@ func (r *HetznerBareMetalMachineReconciler) ClusterToBareMetalMachines(ctx conte
 // BareMetalHost and that BareMetalHost references a BareMetalMachine.
 func BareMetalHostToBareMetalMachines(c client.Client, log logr.Logger) handler.MapFunc {
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
-		host, ok := obj.(*infrav1.HetznerBareMetalHost)
+		host, ok := obj.(*infrav2.HetznerBareMetalHost)
 		if !ok {
 			log.Error(fmt.Errorf("expected a BareMetalHost but got a %T", obj),
 				"failed to get BareMetalMachine for BareMetalHost")
@@ -381,18 +382,19 @@ func BareMetalHostToBareMetalMachines(c client.Client, log logr.Logger) handler.
 		}
 
 		// If this host has a consumerRef (hbmm), then reconcile the corresponding hbmm.
+		// The consuming machine always lives in the namespace of the host.
 		if host.Spec.ConsumerRef != nil {
 			return []reconcile.Request{
 				{
 					NamespacedName: types.NamespacedName{
 						Name:      host.Spec.ConsumerRef.Name,
-						Namespace: host.Spec.ConsumerRef.Namespace,
+						Namespace: host.Namespace,
 					},
 				},
 			}
 		}
 
-		if host.Spec.Status.ErrorType != "" {
+		if host.Status.ErrorType != "" {
 			return []reconcile.Request{}
 		}
 
@@ -414,7 +416,7 @@ func BareMetalHostToBareMetalMachines(c client.Client, log logr.Logger) handler.
 				continue
 			}
 
-			hosts := []infrav1.HetznerBareMetalHost{*host}
+			hosts := []infrav2.HetznerBareMetalHost{*host}
 			chosenHost, _, err := baremetal.ChooseHost(hbmm, hosts)
 			if err != nil {
 				log.Error(err, "failed to choose host for HetznerBareMetalMachine")

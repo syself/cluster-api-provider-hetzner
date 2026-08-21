@@ -21,12 +21,13 @@ import (
 	. "github.com/onsi/gomega"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
 var _ = Describe("buildAutoSetup", func() {
 	type testCaseBuildAutoSetup struct {
-		installImageSpec *infrav1.InstallImage
+		installImageSpec infrav1.InstallImage
 		asi              autoSetupInput
 		expectedOutput   string
 	}
@@ -35,7 +36,7 @@ var _ = Describe("buildAutoSetup", func() {
 			Expect(buildAutoSetup(tc.installImageSpec, tc.asi)).Should(Equal(tc.expectedOutput))
 		},
 		Entry("multiple entries", testCaseBuildAutoSetup{
-			installImageSpec: &infrav1.InstallImage{
+			installImageSpec: infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -101,7 +102,7 @@ SUBVOL btrfs.1 @/usr /usr
 IMAGE my-image`,
 		}),
 		Entry("single entries", testCaseBuildAutoSetup{
-			installImageSpec: &infrav1.InstallImage{
+			installImageSpec: infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -148,7 +149,7 @@ SUBVOL btrfs.1 @ /
 IMAGE my-image`,
 		}),
 		Entry("multiple drives", testCaseBuildAutoSetup{
-			installImageSpec: &infrav1.InstallImage{
+			installImageSpec: infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -195,7 +196,7 @@ SUBVOL btrfs.1 @ /
 IMAGE my-image`,
 		}),
 		Entry("proper response", testCaseBuildAutoSetup{
-			installImageSpec: &infrav1.InstallImage{
+			installImageSpec: infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -259,12 +260,12 @@ var _ = Describe("Test splitHostKey", func() {
 })
 
 var _ = Describe("hasJustRebooted", func() {
-	It("returns false when RebootTriggeredAt is nil even if ErrorType is a reboot type", func() {
+	It("returns false when RebootTriggeredAt is zero even if ErrorType is a reboot type", func() {
 		host := helpers.BareMetalHost("test-host", "default",
-			helpers.WithError(infrav1.ErrorTypeSSHRebootTriggered, "", 0),
+			helpers.WithError(infrav2.ErrorTypeSSHRebootTriggered, ""),
 		)
-		// RebootTriggeredAt is intentionally nil here.
-		// Without the nil guard, hasTimedOut(nil, ...) returns false, so hasJustRebooted()
+		// RebootTriggeredAt is intentionally left at its zero value here.
+		// Without the zero guard, hasTimedOut(zero, ...) returns false, so hasJustRebooted()
 		// would return true indefinitely.
 		svc := newTestService(host, nil, nil, nil, nil)
 		Expect(svc.hasJustRebooted()).To(BeFalse())

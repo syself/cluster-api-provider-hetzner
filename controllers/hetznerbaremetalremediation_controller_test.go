@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -42,7 +43,7 @@ import (
 
 var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 	var (
-		host                        *infrav1.HetznerBareMetalHost
+		host                        *infrav2.HetznerBareMetalHost
 		hetznerBareMetalRemediation *infrav1.HetznerBareMetalRemediation
 		hetznerBaremetalMachine     *infrav1.HetznerBareMetalMachine
 		machineName                 string
@@ -299,7 +300,6 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						hostName,
 						testNs.Name,
 						helpers.WithRootDeviceHintWWN(),
-						helpers.WithHetznerClusterRef(hetznerCluster.Name),
 					)
 					Expect(testEnv.Create(ctx, host)).To(Succeed())
 
@@ -315,7 +315,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						return host.Spec.Status.ProvisioningState == infrav1.StateProvisioned
+						return host.Status.ProvisioningState == infrav2.StateProvisioned
 					}, timeout).Should(BeTrue())
 				})
 
@@ -421,7 +421,6 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 					hostName,
 					testNs.Name,
 					helpers.WithRootDeviceHintRaid(),
-					helpers.WithHetznerClusterRef(hetznerCluster.Name),
 				)
 				Expect(testEnv.Create(ctx, host)).To(Succeed())
 
