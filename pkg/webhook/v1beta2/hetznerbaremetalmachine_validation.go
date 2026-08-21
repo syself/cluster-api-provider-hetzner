@@ -98,18 +98,14 @@ func validateCustomProvisioner(customProvisioner infrav2.CustomProvisioner) fiel
 	var allErrs field.ErrorList
 	base := field.NewPath("spec", "customProvisioner")
 
-	// url and command are required and non-empty via kubebuilder MinLength markers on the type, so
-	// here we only validate their format.
-	if customProvisioner.URL != "" {
-		if _, err := url.ParseRequestURI(customProvisioner.URL); err != nil {
-			allErrs = append(allErrs, field.Invalid(base.Child("url"), customProvisioner.URL, err.Error()))
-		}
+	// url and command are required and non-empty by the CRD schema, so this only checks their format:
+	// url must be a valid URI, and command a valid basename.
+	if _, err := url.ParseRequestURI(customProvisioner.URL); err != nil {
+		allErrs = append(allErrs, field.Invalid(base.Child("url"), customProvisioner.URL, err.Error()))
 	}
 
-	if customProvisioner.Command != "" {
-		if err := utils.ValidateImageURLCommandName(customProvisioner.Command); err != nil {
-			allErrs = append(allErrs, field.Invalid(base.Child("command"), customProvisioner.Command, err.Error()))
-		}
+	if err := utils.ValidateImageURLCommandName(customProvisioner.Command); err != nil {
+		allErrs = append(allErrs, field.Invalid(base.Child("command"), customProvisioner.Command, err.Error()))
 	}
 
 	return allErrs
