@@ -451,18 +451,13 @@ func HetznerBareMetalHostV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption 
 			HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
 			HetznerBareMetalHostDeletingV1Beta2Condition,
 		},
-		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
-		// listed condition as Unknown. Several reconcile paths exit before every
-		// condition has been set (for example, before Robot credentials are
-		// checked or before the host has been provisioned), and we don't want
-		// those early exits to flip Ready to Unknown.
+		// IgnoreTypesIfMissing lists conditions that may legitimately not be present on the object.
+		// A missing one is left out of the summary input rather than counted as Unknown. At least one
+		// condition in ForConditionTypes has to stay off this list, otherwise an object with none of
+		// them set leaves the summary with an empty input, which CAPI rejects.
 		v1beta2conditions.IgnoreTypesIfMissing{
 			HetznerBareMetalHostActionCompletedV1Beta2Condition,
-			HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
-			HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
-			HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
 			HetznerBareMetalHostRebootSucceededV1Beta2Condition,
-			HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
 			HetznerBareMetalHostDeletingV1Beta2Condition,
 			HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
 		},

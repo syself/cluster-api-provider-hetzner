@@ -470,17 +470,12 @@ func HetznerBareMetalMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOpti
 			HetznerBareMetalMachineHostReadyV1Beta2Condition,
 			HetznerBareMetalMachineServerAvailableV1Beta2Condition,
 		},
-		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
-		// listed condition as Unknown. Some reconcile paths exit before every
-		// condition has been set (for example, before the token is checked or
-		// before a host is associated), and we don't want those early exits to
-		// flip Ready to Unknown.
+		// IgnoreTypesIfMissing lists conditions that may legitimately not be present on the object.
+		// A missing one is left out of the summary input rather than counted as Unknown. At least one
+		// condition in ForConditionTypes has to stay off this list, otherwise an object with none of
+		// them set leaves the summary with an empty input, which CAPI rejects.
 		v1beta2conditions.IgnoreTypesIfMissing{
-			HCloudTokenAvailableV1Beta2Condition,
-			HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
 			HetznerBareMetalMachineDeletingV1Beta2Condition,
-			HetznerBareMetalMachineHostReadyV1Beta2Condition,
-			HetznerBareMetalMachineServerAvailableV1Beta2Condition,
 		},
 		// CustomMergeStrategy is used only to override the merge reasons, so
 		// the Ready summary uses CAPI's standard Ready reasons (Ready /

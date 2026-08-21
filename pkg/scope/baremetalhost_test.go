@@ -29,6 +29,64 @@ import (
 )
 
 var _ = Describe("SetHetznerBareMetalHostV1Beta2ReadySummary", func() {
+	It("reports Ready=Unknown when only RobotCredentialsAvailable is True", func() {
+		host := &infrav1.HetznerBareMetalHost{}
+
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:   infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Reason,
+		})
+
+		SetHetznerBareMetalHostV1Beta2ReadySummary(host)
+
+		ready := v1beta2conditions.Get(host, clusterv1beta1.ReadyV1Beta2Condition)
+		Expect(ready).NotTo(BeNil())
+		Expect(ready.Status).To(Equal(metav1.ConditionUnknown))
+		Expect(ready.Reason).To(Equal(clusterv1beta1.ReadyUnknownV1Beta2Reason))
+	})
+
+	It("reports Ready=True once all required conditions are True", func() {
+		host := &infrav1.HetznerBareMetalHost{}
+
+		for _, c := range []metav1.Condition{
+			{
+				Type:   infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Reason,
+			},
+			{
+				Type:   infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Reason,
+			},
+			{
+				Type:   infrav1.HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Reason,
+			},
+			{
+				Type:   infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Reason,
+			},
+			{
+				Type:   infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Reason,
+			},
+		} {
+			v1beta2conditions.Set(host, c)
+		}
+
+		SetHetznerBareMetalHostV1Beta2ReadySummary(host)
+
+		ready := v1beta2conditions.Get(host, clusterv1beta1.ReadyV1Beta2Condition)
+		Expect(ready).NotTo(BeNil())
+		Expect(ready.Status).To(Equal(metav1.ConditionTrue))
+		Expect(ready.Reason).To(Equal(clusterv1beta1.ReadyV1Beta2Reason))
+	})
+
 	It("sets Ready=False with reason NotReady when ActionCompleted=False (PermanentError)", func() {
 		host := &infrav1.HetznerBareMetalHost{}
 
