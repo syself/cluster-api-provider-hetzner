@@ -260,7 +260,9 @@ func HetznerClusterSummaryOpts() []conditions.SummaryOption {
 			HetznerClusterTargetClusterSecretReadyCondition,
 		},
 		// IgnoreTypesIfMissing lists conditions that may legitimately not be present on the object.
-		// If any of these are missing, the summary treats them as if they are healthy.
+		// A missing one is left out of the summary input rather than counted as Unknown. At least one
+		// condition in ForConditionTypes has to stay off this list, otherwise an object with none of
+		// them set leaves the summary with an empty input, which CAPI rejects.
 		conditions.IgnoreTypesIfMissing{
 			HetznerClusterNetworkReadyCondition,
 			HetznerClusterLoadBalancerReadyCondition,
