@@ -224,12 +224,14 @@ type InstallImage struct {
 type CustomProvisioner struct {
 	// URL is the location of the image that Command provisions the machine from. CAPH passes it to
 	// Command in the rescue system.
+	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url"`
 
 	// Command is the basename of a command file below /shared on the controller pod. CAPH copies
 	// that command into the rescue system and executes it there to provision the machine from URL.
 	//
 	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	// +kubebuilder:validation:MinLength=1
 	Command string `json:"command"`
 
 	// DeviceStringType instructs CAPH to either use the short device name, or the WWN when calling

@@ -727,9 +727,10 @@ func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMach
 	}
 
 	if in.InstallImage.UsesImageURLCommand() {
-		// The custom provisioner flow uses only the image URL, command and device string. The
-		// installimage-only fields (image name and path, partitions, RAID, post-install script) have
-		// no meaning in this flow and are dropped.
+		// The custom provisioner flow uses only the image URL, command and device string.
+		// The v1beta1 webhook forbids image name and path when imageURLCommand is
+		// set, so those are always empty here. The remaining installImage fields (partitions, RAID,
+		// post-install script) have no equivalent on customProvisioner.
 		out.CustomProvisioner = &infrav2.CustomProvisioner{
 			URL:              in.InstallImage.Image.URL,
 			Command:          in.InstallImage.ImageURLCommand,

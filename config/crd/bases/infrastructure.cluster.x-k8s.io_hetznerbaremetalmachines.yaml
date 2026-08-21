@@ -608,6 +608,7 @@ spec:
                       that command into the rescue system and executes it there to provision the machine from URL.
 
                       Docs: https://syself.com/docs/caph/developers/image-url-command
+                    minLength: 1
                     type: string
                   deviceStringType:
                     description: |-
@@ -623,6 +624,7 @@ spec:
                     description: |-
                       URL is the location of the image that Command provisions the machine from. CAPH passes it to
                       Command in the rescue system.
+                    minLength: 1
                     type: string
                 required:
                 - command

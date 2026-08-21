@@ -141,28 +141,6 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			want: field.Invalid(field.NewPath("spec", "installImage", "image", "url"), "https://example.com/ubuntu-24.04.invalid", "unknown image type in URL"),
 		},
 		{
-			name: "customProvisioner without url",
-			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{
-						Command: "image-url-command-bm-test.sh",
-					},
-				},
-			},
-			want: field.Required(field.NewPath("spec", "customProvisioner", "url"), "url is required"),
-		},
-		{
-			name: "customProvisioner without command",
-			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{
-						URL: "oci://ghcr.io/example/ubuntu:v1",
-					},
-				},
-			},
-			want: field.Required(field.NewPath("spec", "customProvisioner", "command"), "command is required"),
-		},
-		{
 			name: "customProvisioner with malformed url",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
