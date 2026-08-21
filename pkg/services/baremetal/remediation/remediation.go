@@ -71,8 +71,12 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			"exit remediation because hbmm has no host annotation")
 	}
 
-	// Node is gone, so a reboot won't help. Skip reboot, go straight to delete.
+	// Node is gone, so a reboot won't help. Skip reboot and honor OnExhaustion right
+	// away, the same way handlePhaseWaiting does once retries are exhausted.
 	if conditions.GetReason(s.scope.Machine, clusterv1.MachineHealthCheckSucceededCondition) == clusterv1.MachineHealthCheckNodeDeletedReason {
+		if s.scope.BareMetalRemediation.Spec.Strategy.OnExhaustion == infrav1.OnExhaustionRetire {
+			return reconcile.Result{}, s.retireHost(ctx, host, s.scope.Machine)
+		}
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
 			"exit remediation because Node is missing (no reboot performed)")
 	}

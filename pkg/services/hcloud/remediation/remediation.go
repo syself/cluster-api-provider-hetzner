@@ -59,7 +59,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, nil
 	}
 
-	// Node is gone, so a reboot won't help. Skip reboot, go straight to delete.
+	// Node is gone, so a reboot won't help. Skip reboot and mark the machine for deletion by CAPI.
 	if conditions.GetReason(s.scope.Machine, clusterv1.MachineHealthCheckSucceededCondition) == clusterv1.MachineHealthCheckNodeDeletedReason {
 		err := s.setOwnerRemediatedConditionToFailed(ctx, "exit remediation because Node is missing (no reboot performed)")
 		if err != nil {
