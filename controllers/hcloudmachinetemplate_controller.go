@@ -239,12 +239,22 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	}
 
 	if err := r.reconcile(ctx, machineTemplateScope); err != nil {
+		// wrong server type, not an internal error. don't retry with backoff, a restart
+		// picks it up again if hcloud starts offering it.
+		notFound := errors.Is(err, machinetemplate.ErrServerTypeNotFound)
+		reason := infrav1.InternalErrorV1Beta2Reason
+		if notFound {
+			reason = infrav1.HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason
+		}
 		v1beta2conditions.Set(machineTemplate, metav1.Condition{
 			Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.InternalErrorV1Beta2Reason,
+			Reason:  reason,
 			Message: err.Error(),
 		})
+		if notFound {
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, err
 	}
 	v1beta2conditions.Set(machineTemplate, metav1.Condition{

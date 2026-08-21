@@ -29,6 +29,9 @@ import (
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 )
 
+// ErrServerTypeNotFound means spec.template.spec.type is not a known HCloud server type.
+var ErrServerTypeNotFound = fmt.Errorf("server type not found")
+
 // Service defines struct with HCloudMachineTemplate scope to reconcile HCloud machine templates.
 type Service struct {
 	scope *scope.HCloudMachineTemplateScope
@@ -86,7 +89,7 @@ func (s *Service) getCapacity(ctx context.Context) (corev1.ResourceList, error) 
 		capacity[corev1.ResourceMemory] = memory
 	}
 	if !foundServerType {
-		return nil, fmt.Errorf("failed to find server type for %s", s.scope.HCloudMachineTemplate.Spec.Template.Spec.Type)
+		return nil, fmt.Errorf("%w: %s", ErrServerTypeNotFound, s.scope.HCloudMachineTemplate.Spec.Template.Spec.Type)
 	}
 
 	return capacity, nil
