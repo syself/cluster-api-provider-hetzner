@@ -417,14 +417,14 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err := testEnv.Get(ctx, hcloudRemediationkey, hcloudRemediation); err != nil {
 					return err
 				}
-				if hcloudRemediation.Status.RetryCount != 0 {
-					return fmt.Errorf("expected RetryCount 0, got %d", hcloudRemediation.Status.RetryCount)
+				if ptr.Deref(hcloudRemediation.Status.RetryCount, 0) != 0 {
+					return fmt.Errorf("expected RetryCount 0, got %d", ptr.Deref(hcloudRemediation.Status.RetryCount, 0))
 				}
-				if hcloudRemediation.Status.LastRemediated != nil {
-					return fmt.Errorf("expected LastRemediated to be nil")
+				if !hcloudRemediation.Status.LastRemediated.IsZero() {
+					return fmt.Errorf("expected LastRemediated to be zero")
 				}
-				if hcloudRemediation.Status.Phase != infrav1.PhaseDeleting {
-					return fmt.Errorf("expected Phase %q, got %q", infrav1.PhaseDeleting, hcloudRemediation.Status.Phase)
+				if hcloudRemediation.Status.Phase != infrav2.PhaseDeleting {
+					return fmt.Errorf("expected Phase %q, got %q", infrav2.PhaseDeleting, hcloudRemediation.Status.Phase)
 				}
 				if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
 					return fmt.Errorf("MachineOwnerRemediatedCondition not set")
