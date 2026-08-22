@@ -249,6 +249,9 @@ const (
 	// DeprecatedInstanceBootstrapReadyV1Beta1Condition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
 	DeprecatedInstanceBootstrapReadyV1Beta1Condition clusterv1.ConditionType = "InstanceBootstrapReady"
 
+	// DeprecatedRateLimitExceededV1Beta1Condition reports whether the rate limit has been reached.
+	DeprecatedRateLimitExceededV1Beta1Condition clusterv1.ConditionType = "RateLimitExceeded"
+
 	// DeprecatedNetworkAttachedV1Beta1Condition reports on whether there is a network attached to the cluster.
 	DeprecatedNetworkAttachedV1Beta1Condition clusterv1.ConditionType = "NetworkAttached"
 
@@ -427,6 +430,10 @@ const (
 	HCloudMachineServerProvisionedCondition = "ServerProvisioned"
 	// HCloudMachineServerProvisionedReason surfaces when the boot state machine has completed.
 	HCloudMachineServerProvisionedReason = clusterv1.ProvisionedReason
+	// HCloudMachineCustomProvisionerRunningReason indicates the custom provisioner is running.
+	HCloudMachineCustomProvisionerRunningReason = "CustomProvisionerRunning"
+	// HCloudMachineCustomProvisionerFailedReason indicates the custom provisioner failed.
+	HCloudMachineCustomProvisionerFailedReason = "CustomProvisionerFailed"
 	// HCloudMachineBootStateUnsetTimedOutReason indicates the boot state unset timed out.
 	HCloudMachineBootStateUnsetTimedOutReason = "BootStateUnsetTimedOut"
 	// HCloudMachineBootStateInitializingReason indicates the boot state is being initialized.
@@ -505,6 +512,8 @@ const (
 )
 
 const (
+	// HCloudMachineServerAvailableCondition reports on whether the HCloud server is available.
+	HCloudMachineServerAvailableCondition = "ServerAvailable"
 	// HCloudMachineServerAvailableReason surfaces when the HCloud server is available.
 	HCloudMachineServerAvailableReason = clusterv1.AvailableReason
 	// HCloudMachineServerNotFoundReason surfaces when the HCloud server cannot be found.

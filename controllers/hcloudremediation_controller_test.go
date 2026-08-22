@@ -26,17 +26,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
@@ -46,7 +42,7 @@ import (
 var _ = Describe("HCloudRemediationReconciler", func() {
 	var (
 		hcloudRemediation *infrav2.HCloudRemediation
-		hcloudMachine     *infrav1.HCloudMachine
+		hcloudMachine     *infrav2.HCloudMachine
 		hetznerCluster    *infrav2.HetznerCluster
 
 		capiMachine *clusterv1.Machine
@@ -137,7 +133,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 		}
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
-		hcloudMachine = &infrav1.HCloudMachine{
+		hcloudMachine = &infrav2.HCloudMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      hcloudMachineName,
 				Namespace: testNs.Name,
@@ -154,7 +150,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					},
 				},
 			},
-			Spec: infrav1.HCloudMachineSpec{
+			Spec: infrav2.HCloudMachineSpec{
 				ImageName: "my-control-plane",
 				Type:      "cpx32",
 			},
@@ -218,8 +214,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					return err
 				}
 
-				if !hcloudMachine.Status.Ready {
-					return fmt.Errorf("hcloudMachine.Status.Ready is not true (yet)")
+				if !ptr.Deref(hcloudMachine.Status.Initialization.Provisioned, false) {
+					return fmt.Errorf("hcloudMachine.Status.Initialization.Provisioned is not true (yet)")
 				}
 				return nil
 			}, timeout).ShouldNot(HaveOccurred())
@@ -262,7 +258,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if hcloudMachine.Spec.ProviderID == nil {
 					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
 				}
-				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+				if hcloudMachine.Status.BootState != infrav2.HCloudBootStateOperatingSystemRunning {
 					return fmt.Errorf("hcloudMachine.Status.BootState is not HCloudBootStateOperatingSystemRunning, but: %q", hcloudMachine.Status.BootState)
 				}
 				return nil
@@ -295,7 +291,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if hcloudMachine.Spec.ProviderID == nil {
 					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
 				}
-				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+				if hcloudMachine.Status.BootState != infrav2.HCloudBootStateOperatingSystemRunning {
 					return fmt.Errorf("Expected HCloudBootStateOperatingSystemRunning, but: %q",
 						hcloudMachine.Status.BootState)
 				}
@@ -349,7 +345,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if hcloudMachine.Spec.ProviderID == nil {
 					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
 				}
-				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+				if hcloudMachine.Status.BootState != infrav2.HCloudBootStateOperatingSystemRunning {
 					return fmt.Errorf("hcloudMachine.Status.BootState is not HCloudBootStateOperatingSystemRunning, but: %q", hcloudMachine.Status.BootState)
 				}
 				return nil
@@ -389,23 +385,22 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err := testEnv.Get(ctx, hcloudMachineKey, hcloudMachine); err != nil {
 					return err
 				}
-				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+				if hcloudMachine.Status.BootState != infrav2.HCloudBootStateOperatingSystemRunning {
 					return fmt.Errorf("expected BootState %q, got %q",
-						infrav1.HCloudBootStateOperatingSystemRunning, hcloudMachine.Status.BootState)
+						infrav2.HCloudBootStateOperatingSystemRunning, hcloudMachine.Status.BootState)
 				}
 				return nil
 			}, timeout).Should(Succeed())
 
 			By("marking HCloudMachine with irrecoverable server creation failure condition")
-			patchHelper, err := v1beta1patch.NewHelper(hcloudMachine, testEnv.GetClient())
+			patchHelper, err := patch.NewHelper(hcloudMachine, testEnv.GetClient())
 			Expect(err).NotTo(HaveOccurred())
-			v1beta1conditions.MarkFalse(
-				hcloudMachine,
-				infrav1.ServerCreateSucceededCondition,
-				infrav1.ServerCreateFailedIrrecoverableErrorReason,
-				clusterv1beta1.ConditionSeverityError,
-				"server type cax31 not available in location fsn1: resource_unavailable",
-			)
+			conditions.Set(hcloudMachine, metav1.Condition{
+				Type:    infrav2.HCloudMachineServerCreatedCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav2.HCloudMachineServerCreationFailedIrrecoverablyReason,
+				Message: "server type cax31 not available in location fsn1: resource_unavailable",
+			})
 			Expect(patchHelper.Patch(ctx, hcloudMachine)).To(Succeed())
 
 			By("creating the HCloudRemediation")
@@ -468,8 +463,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err != nil {
 					return err
 				}
-				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateBootingToRealOS &&
-					hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+				if hcloudMachine.Status.BootState != infrav2.HCloudBootStateBootingToRealOS &&
+					hcloudMachine.Status.BootState != infrav2.HCloudBootStateOperatingSystemRunning {
 					return fmt.Errorf("expected stable boot state before remediation, got %q",
 						hcloudMachine.Status.BootState)
 				}
@@ -499,7 +494,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err != nil {
 					return err
 				}
-				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateProvisioningFailed {
+				if hcloudMachine.Status.BootState != infrav2.HCloudBootStateProvisioningFailed {
 					return fmt.Errorf("BootState is not HCloudBootStateProvisioningFailed, but %q",
 						hcloudMachine.Status.BootState)
 				}
@@ -529,7 +524,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err != nil {
 					return err
 				}
-				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateProvisioningFailed {
+				if hcloudMachine.Status.BootState != infrav2.HCloudBootStateProvisioningFailed {
 					return fmt.Errorf("Expected HCloudBootStateProvisioningFailed, got %q",
 						hcloudMachine.Status.BootState)
 				}

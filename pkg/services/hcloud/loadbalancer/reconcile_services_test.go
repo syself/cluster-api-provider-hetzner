@@ -224,12 +224,12 @@ func TestReconcileServices_ProxyProtocolAlreadyActive_NoChanges(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
-func controlPlaneMachineForProxy(name string, annotated bool) *infrav1.HCloudMachine {
+func controlPlaneMachineForProxy(name string, annotated bool) *infrav2.HCloudMachine {
 	annotations := map[string]string{}
 	if annotated {
 		annotations[infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation] = "true"
 	}
-	return &infrav1.HCloudMachine{
+	return &infrav2.HCloudMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metav1.NamespaceDefault,
@@ -253,6 +253,7 @@ func newProxyMigrationService(t *testing.T, mockClient *mocks.Client, machines .
 	scheme := runtime.NewScheme()
 	_ = clusterv1.AddToScheme(scheme)
 	_ = infrav1.AddToScheme(scheme)
+	_ = infrav2.AddToScheme(scheme)
 
 	svc := newTestService(t, hetznerCluster, mockClient)
 	svc.scope.Client = fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(machines...).Build()

@@ -20,7 +20,6 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 )
 
 const (
@@ -257,68 +256,6 @@ func (r *HCloudMachine) SetV1Beta2Conditions(conditions []metav1.Condition) {
 		r.Status.V1Beta2 = &HCloudMachineV1Beta2Status{}
 	}
 	r.Status.V1Beta2.Conditions = conditions
-}
-
-// HCloudMachineV1Beta2SummaryOpts returns the v1beta2 summary options for an HCloudMachine.
-// It is the single source of truth for which conditions contribute to the Ready summary,
-// used both by MachineScope.Close() and by early-exit error paths that bypass the scope.
-//
-// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
-// when multiple conditions are unhealthy, the summary lists all of them in priority
-// order (highest-priority first). The ordering reflects operational importance:
-//  1. HCloudTokenAvailable    - invalid credentials block everything.
-//  2. HCloudRateLimitExceeded - rate-limit issues (negative polarity).
-//  3. ServerCreated           - server existence precedes later lifecycle stages; bootstrap readiness is folded in as a reason.
-//  4. ServerProvisioned       - provisioning precedes availability.
-//  5. ServerAvailable
-func HCloudMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
-	return []v1beta2conditions.SummaryOption{
-		// ForConditionTypes lists every condition that contributes to Ready, in
-		// priority order. When multiple conditions are unhealthy the summary
-		// surfaces them in this order, so the most important issue is listed first.
-		v1beta2conditions.ForConditionTypes{
-			HCloudTokenAvailableV1Beta2Condition,
-			HCloudRateLimitExceededV1Beta2Condition,
-			HCloudMachineServerCreatedV1Beta2Condition,
-			HCloudMachineServerProvisionedV1Beta2Condition,
-			HCloudMachineServerAvailableV1Beta2Condition,
-		},
-		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
-		// listed condition as Unknown. Some reconcile paths exit before every
-		// condition has been set (for example, before the token is checked or
-		// before the server is created), and we don't want those early exits to
-		// flip Ready to Unknown.
-		v1beta2conditions.IgnoreTypesIfMissing{
-			HCloudTokenAvailableV1Beta2Condition,
-			HCloudMachineServerCreatedV1Beta2Condition,
-			HCloudMachineServerProvisionedV1Beta2Condition,
-			HCloudMachineServerAvailableV1Beta2Condition,
-			HCloudRateLimitExceededV1Beta2Condition,
-		},
-		// CustomMergeStrategy is used only to override the merge reasons, so
-		// the Ready summary uses CAPI's standard Ready reasons (Ready /
-		// NotReady / ReadyUnknown) instead of the generic merge defaults
-		// (IssuesReported / UnknownReported / InfoReported).
-		//
-		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
-		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
-		// skips the path that wires up the NegativePolarityConditionTypes
-		// SummaryOption into the default strategy, so the negative-polarity
-		// types must be specified explicitly inside the strategy.
-		v1beta2conditions.CustomMergeStrategy{
-			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
-				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
-					// conditions with negative polarity
-					HCloudRateLimitExceededV1Beta2Condition,
-				)),
-				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(
-					clusterv1beta1.NotReadyV1Beta2Reason,
-					clusterv1beta1.ReadyUnknownV1Beta2Reason,
-					clusterv1beta1.ReadyV1Beta2Reason,
-				)),
-			),
-		},
-	}
 }
 
 // SetBootState sets Status.BootStates and updates Status.BootStateSince.

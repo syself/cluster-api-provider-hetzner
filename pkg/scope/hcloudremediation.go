@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
@@ -42,7 +41,7 @@ type HCloudRemediationScopeParams struct {
 	Client            client.Client
 	HCloudClient      hcloudclient.Client
 	Machine           *clusterv1.Machine
-	HCloudMachine     *infrav1.HCloudMachine
+	HCloudMachine     *infrav2.HCloudMachine
 	HetznerCluster    *infrav2.HetznerCluster
 	HCloudRemediation *infrav2.HCloudRemediation
 }
@@ -94,7 +93,7 @@ type HCloudRemediationScope struct {
 	patchHelper       *patch.Helper
 	HCloudClient      hcloudclient.Client
 	Machine           *clusterv1.Machine
-	HCloudMachine     *infrav1.HCloudMachine
+	HCloudMachine     *infrav2.HCloudMachine
 	HCloudRemediation *infrav2.HCloudRemediation
 }
 

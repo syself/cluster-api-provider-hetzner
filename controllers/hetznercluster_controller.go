@@ -1060,10 +1060,14 @@ func (r *HetznerClusterReconciler) machineToHetznerCluster(ctx context.Context, 
 // watched object without an extra Get of the owning Machine — the same way clusterv1.ClusterNameLabel is
 // already read directly off these objects elsewhere in this file.
 //
-// The condition type is read via the v1beta1 constants (infrav1) rather than a v1beta2 (infrav2) one:
-// server.go and baremetal.go still set the condition through the v1beta1-typed scope, so infrav1 is the
-// actual source of truth today. Reading the same constant that's written keeps the two in sync by
-// construction, instead of relying on a separate v1beta2 constant that happens to hold the same string.
+// The condition type is compared as a string so one value serves both resources, which live on
+// different API versions: HCloudMachine's server.go writes the condition through the infrav2 type,
+// while HetznerBareMetalMachine's baremetal.go writes it through the infrav1 type. Both hold the
+// same "ServerAvailable" string, and reading the constant each resource actually writes keeps them
+// in sync by construction.
+//
+// TODO: once HetznerBareMetalMachine is migrated to v1beta2, both resources will write through the
+// same infrav2 type and this dual-constant explanation can be dropped.
 func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 	isControlPlaneMachine := func(o client.Object) bool {
 		_, ok := o.GetLabels()[clusterv1.MachineControlPlaneLabel]
@@ -1085,7 +1089,7 @@ func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 				return false
 			}
 
-			conditionType := string(infrav1.HCloudMachineServerAvailableV1Beta2Condition)
+			conditionType := string(infrav2.HCloudMachineServerAvailableCondition)
 			if _, ok := e.ObjectNew.(*infrav2.HetznerBareMetalMachine); ok {
 				conditionType = string(infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition)
 			}
