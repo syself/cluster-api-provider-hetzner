@@ -2321,12 +2321,14 @@ func statusAddresses(server *hcloud.Server) []clusterv1beta1.MachineAddress {
 	// populate addresses
 	addresses := []clusterv1beta1.MachineAddress{}
 
-	if ip := server.PublicNet.IPv4.IP.String(); ip != "" {
+	// Private-only HCloud servers have no public IPv4. A nil net.IP renders as
+	// "<nil>" when converted to a string, which is not a valid Machine address.
+	if ip := server.PublicNet.IPv4.IP; ip.IsGlobalUnicast() {
 		addresses = append(
 			addresses,
 			clusterv1beta1.MachineAddress{
 				Type:    clusterv1beta1.MachineExternalIP,
-				Address: ip,
+				Address: ip.String(),
 			},
 		)
 	}

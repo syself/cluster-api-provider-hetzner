@@ -79,6 +79,21 @@ func Test_statusAddresses(t *testing.T) {
 	}
 }
 
+func Test_statusAddressesPrivateOnlyServer(t *testing.T) {
+	server := newTestServer()
+	server.PublicNet.IPv4.IP = nil
+	server.PublicNet.IPv6.IP = nil
+
+	addresses := statusAddresses(server)
+
+	require.Equal(t, []clusterv1beta1.MachineAddress{
+		{
+			Type:    clusterv1beta1.MachineInternalIP,
+			Address: "10.0.0.2",
+		},
+	}, addresses)
+}
+
 type testCaseStatusFromHCloudServer struct {
 	isControlPlane bool
 	expectedOutput map[string]string
