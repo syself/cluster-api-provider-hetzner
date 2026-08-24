@@ -256,3 +256,117 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 		}),
 	)
 })
+
+var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() {
+	// Deterministic unit test with a fake client covering the early-exit added for a
+	// missing Node: reboot is skipped, but OnExhaustion must still decide Reuse vs Retire,
+	// same as the exhausted-retries path in handlePhaseWaiting above.
+	scheme := runtime.NewScheme()
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
+
+	type testCaseNodeDeleted struct {
+		onExhaustion             infrav1.OnExhaustionAction
+		expectHostPermanentError bool
+	}
+
+	DescribeTable("retires the host only when onExhaustion is Retire",
+		func(tc testCaseNodeDeleted) {
+			ctx := context.Background()
+
+			machine := &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-machine", Namespace: "default", UID: "machine-uid"},
+			}
+			conditions.Set(machine, metav1.Condition{
+				Type:    clusterv1.MachineHealthCheckSucceededCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  clusterv1.MachineHealthCheckNodeDeletedReason,
+				Message: "Node has been deleted",
+			})
+
+			host := &infrav1.HetznerBareMetalHost{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-host", Namespace: "default"},
+				Spec: infrav1.HetznerBareMetalHostSpec{
+					Status: infrav1.ControllerGeneratedStatus{ProvisioningState: infrav1.StateProvisioned},
+				},
+			}
+
+			bareMetalMachine := &infrav1.HetznerBareMetalMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-bm-machine",
+					Namespace: "default",
+					Annotations: map[string]string{
+						infrav1.HostAnnotation: "default/test-host",
+					},
+				},
+			}
+
+			remediation := &infrav1.HetznerBareMetalRemediation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-remediation",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{{
+						Kind:       "Machine",
+						APIVersion: clusterv1.GroupVersion.String(),
+						Name:       machine.Name,
+						UID:        machine.UID,
+					}},
+				},
+				Spec: infrav1.HetznerBareMetalRemediationSpec{
+					Strategy: &infrav1.BareMetalRemediationStrategy{
+						RemediationStrategy: infrav1.RemediationStrategy{
+							Type:       infrav1.RemediationTypeReboot,
+							RetryLimit: 1,
+							Timeout:    &metav1.Duration{Duration: time.Minute},
+						},
+						OnExhaustion: tc.onExhaustion,
+					},
+				},
+			}
+
+			c := fakeclient.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(host, machine, remediation).
+				WithStatusSubresource(machine).
+				Build()
+
+			service := &Service{scope: &scope.BareMetalRemediationScope{
+				Client:               c,
+				Machine:              machine,
+				BareMetalMachine:     bareMetalMachine,
+				BareMetalRemediation: remediation,
+			}}
+
+			res, err := service.Reconcile(ctx)
+			Expect(err).To(BeNil())
+			Expect(res.RequeueAfter).To(BeZero())
+
+			// Either way, no reboot annotation was added and remediation stops.
+			Expect(host.Annotations).NotTo(HaveKey(infrav1.RebootAnnotation))
+			Expect(remediation.Status.Phase).To(Equal(infrav1.PhaseDeleting))
+
+			updatedHost := &infrav1.HetznerBareMetalHost{}
+			Expect(c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost)).To(Succeed())
+			if tc.expectHostPermanentError {
+				Expect(updatedHost.Spec.Status.ErrorType).To(Equal(infrav1.PermanentError))
+				Expect(updatedHost.Annotations).To(HaveKey(infrav1.PermanentErrorAnnotation))
+			} else {
+				Expect(updatedHost.Spec.Status.ErrorType).To(BeEmpty())
+				Expect(updatedHost.Annotations).NotTo(HaveKey(infrav1.PermanentErrorAnnotation))
+			}
+		},
+		Entry("Retire retires the host without a reboot", testCaseNodeDeleted{
+			onExhaustion:             infrav1.OnExhaustionRetire,
+			expectHostPermanentError: true,
+		}),
+		Entry("Reuse deletes the machine without retiring the host", testCaseNodeDeleted{
+			onExhaustion:             infrav1.OnExhaustionReuse,
+			expectHostPermanentError: false,
+		}),
+		Entry("empty behaves like Reuse", testCaseNodeDeleted{
+			onExhaustion:             "",
+			expectHostPermanentError: false,
+		}),
+	)
+})

@@ -27,8 +27,9 @@ To use bare metal servers for your deployment, you can choose one of the followi
 
 In Cluster API terms, remediation is the automatic recovery behavior for failed or unhealthy
 machines. For bare metal control planes, `custom remediation` tries a reboot first and only falls
-back to replacement if needed. `Normal remediation` directly replaces the failed machine by
-unprovisioning and recreating it.
+back to replacement if needed (unless the Node is already gone, in which case it replaces the
+machine right away). `Normal remediation` directly replaces the failed machine by unprovisioning
+and recreating it.
 
 > [!NOTE]
 > These flavors are only for demonstration purposes and should not be used in production.
