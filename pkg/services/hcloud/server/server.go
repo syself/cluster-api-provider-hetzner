@@ -2323,20 +2323,20 @@ func statusAddresses(server *hcloud.Server) []clusterv1beta1.MachineAddress {
 
 	// Private-only HCloud servers have no public IPv4. A nil net.IP renders as
 	// "<nil>" when converted to a string, which is not a valid Machine address.
-	if ip := server.PublicNet.IPv4.IP; ip.IsGlobalUnicast() {
+	if !server.PublicNet.IPv4.IsUnspecified() {
 		addresses = append(
 			addresses,
 			clusterv1beta1.MachineAddress{
 				Type:    clusterv1beta1.MachineExternalIP,
-				Address: ip.String(),
+				Address: server.PublicNet.IPv4.IP.String(),
 			},
 		)
 	}
 
-	if unicastIP := server.PublicNet.IPv6.IP; unicastIP.IsGlobalUnicast() {
+	if !server.PublicNet.IPv6.IsUnspecified() {
 		// Create a copy. This is important, otherwise we modify the IP of `server`. This could lead
 		// to unexpected behaviour.
-		ip := append(net.IP(nil), unicastIP...)
+		ip := append(net.IP(nil), server.PublicNet.IPv6.IP...)
 
 		// Hetzner returns the routed /64 base, increment last byte to obtain first usable address
 		// The local value gets changed, not the IP of `server`.

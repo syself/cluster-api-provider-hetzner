@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"syscall"
 	"testing"
 	"time"
@@ -1743,6 +1744,10 @@ var _ = Describe("Reconcile", func() {
 				ID:     1,
 				Name:   "my-machine",
 				Status: hcloud.ServerStatusInitializing,
+				// The public IPv4 is needed, because provisioning connects to the server via ssh.
+				PublicNet: hcloud.ServerPublicNet{
+					IPv4: hcloud.ServerPublicNetIPv4{IP: net.ParseIP("1.2.3.4")},
+				},
 			},
 			Action: &hcloud.Action{ID: 998877},
 		}, nil)
