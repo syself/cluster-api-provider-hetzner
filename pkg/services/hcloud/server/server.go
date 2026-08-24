@@ -805,8 +805,8 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 
 	// The server is freshly created and was never started before this boot cycle, so there is no
 	// prior OS it could mistakenly reach over SSH. Attempt SSH directly instead of first checking
-	// server.RescueEnabled via a live GetServer call - ECONNREFUSED below already covers "server
-	// has not yet rebooted into rescue system".
+	// server.RescueEnabled via a live GetServer call - the ECONNREFUSED and dial timeout handling
+	// below already covers "server has not yet rebooted into rescue system".
 	sshClient, err := s.getSSHClient(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (waiting for rescue running): %w", err)
@@ -816,9 +816,23 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 	err = output.Err
 	if err != nil {
 		var msg string
-		if errors.Is(err, syscall.ECONNREFUSED) {
-			// This is common. Provide a nice message.
-			msg = "getHostName: ssh not reachable yet. Retrying"
+		var netErr net.Error
+		// A context deadline also satisfies net.Error with Timeout() == true, but it means our own
+		// reconcile ran out of time, not that the server is still booting. Keep it out of the retry
+		// branch so it still gets logged below.
+		isDialTimeout := errors.As(err, &netErr) && netErr.Timeout() &&
+			!errors.Is(err, context.DeadlineExceeded)
+		isConnRefused := errors.Is(err, syscall.ECONNREFUSED)
+		if isConnRefused || isDialTimeout {
+			// Both are common while the server is still booting: ECONNREFUSED once the network is
+			// up but sshd isn't listening yet, a dial timeout before that. Provide a nice message.
+			reason := "connection refused"
+			if isDialTimeout {
+				reason = "timeout"
+			}
+			msg = fmt.Sprintf(
+				"Waiting for the server to become reachable over SSH while it boots into the rescue system (%s)",
+				reason)
 			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 				"RetryingSSHConnection", clusterv1beta1.ConditionSeverityInfo,
 				"%s", msg)
