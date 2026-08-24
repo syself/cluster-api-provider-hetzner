@@ -172,16 +172,16 @@ func (c *cacheHCloudClient) CreateLoadBalancer(_ context.Context, opts hcloud.Lo
 		Location:         opts.Location,
 		PublicNet: hcloud.LoadBalancerPublicNet{
 			IPv4: hcloud.LoadBalancerPublicNetIPv4{
-				IP: net.IP("1.2.3.4"),
+				IP: net.ParseIP("1.2.3.4"),
 			},
 			IPv6: hcloud.LoadBalancerPublicNetIPv6{
-				IP: net.IP("2001:db8::1"),
+				IP: net.ParseIP("2001:db8::1"),
 			},
 		},
 	}
 	if opts.Network != nil {
 		lb.PrivateNet = append(lb.PrivateNet, hcloud.LoadBalancerPrivateNet{
-			IP: net.IP("10.0.0.2"),
+			IP: net.ParseIP("10.0.0.2"),
 		})
 	}
 
