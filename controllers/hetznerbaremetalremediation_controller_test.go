@@ -29,7 +29,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -387,6 +389,42 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 				It("does no reboot and deletes the machine when retryLimit is 0", func() {
 					By("creating hetznerBareMetalRemediation object with retryLimit 0")
 					hetznerBareMetalRemediation.Spec.Strategy.RetryLimit = 0
+					Expect(testEnv.Create(ctx, hetznerBareMetalRemediation)).To(Succeed())
+
+					By("checking that no reboot happened and the machine is handed to CAPI for deletion")
+					Eventually(func() error {
+						if err := testEnv.Get(ctx, hetznerBaremetalRemediationkey, hetznerBareMetalRemediation); err != nil {
+							return err
+						}
+						if hetznerBareMetalRemediation.Status.RetryCount != 0 {
+							return fmt.Errorf("expected RetryCount 0, got %d", hetznerBareMetalRemediation.Status.RetryCount)
+						}
+						if hetznerBareMetalRemediation.Status.LastRemediated != nil {
+							return fmt.Errorf("expected LastRemediated to be nil")
+						}
+						if hetznerBareMetalRemediation.Status.Phase != infrav1.PhaseDeleting {
+							return fmt.Errorf("expected Phase %q, got %q", infrav1.PhaseDeleting, hetznerBareMetalRemediation.Status.Phase)
+						}
+						if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
+							return fmt.Errorf("MachineOwnerRemediatedCondition not set")
+						}
+						return nil
+					}, timeout).ShouldNot(HaveOccurred())
+				})
+
+				It("does no reboot and deletes the machine when the Node is missing", func() {
+					By("setting the Node as deleted on capiMachine")
+					capiMachinePatchHelper, err := patch.NewHelper(capiMachine, testEnv.GetClient())
+					Expect(err).NotTo(HaveOccurred())
+					conditions.Set(capiMachine, metav1.Condition{
+						Type:    clusterv1.MachineHealthCheckSucceededCondition,
+						Status:  metav1.ConditionFalse,
+						Reason:  clusterv1.MachineHealthCheckNodeDeletedReason,
+						Message: "Node has been deleted",
+					})
+					Expect(capiMachinePatchHelper.Patch(ctx, capiMachine)).NotTo(HaveOccurred())
+
+					By("creating hetznerBareMetalRemediation object")
 					Expect(testEnv.Create(ctx, hetznerBareMetalRemediation)).To(Succeed())
 
 					By("checking that no reboot happened and the machine is handed to CAPI for deletion")

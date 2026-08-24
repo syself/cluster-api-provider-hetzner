@@ -11,6 +11,8 @@ If the MHC is configured to be used with the `HetznerBareMetalRemediationTemplat
 The `HetznerBareMetalRemediationController` reconciles this object and then sets an annotation in the relevant `HetznerBareMetalHost` object specifying the desired remediation strategy. At the moment, only "reboot" is supported.
 The `HCloudRemediationController` reboots the HCloudMachine directly via the HCloud API. For HCloud servers, there is no other strategy than "reboot" either.
 
+A reboot only makes sense if the Node still exists. If the Machine's Node was already deleted, both controllers skip the reboot and replace the machine right away, instead of waiting out the retries.
+
 Here is an example of how to configure the Machine Health Check and `HetznerBareMetalRemediationTemplate`:
 
 ```yaml
