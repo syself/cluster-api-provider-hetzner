@@ -2314,8 +2314,8 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 		service.scope.HCloudMachine.Status.Ready = true
 		service.scope.HCloudMachine.Status.BootState = infrav1.HCloudBootStateOperatingSystemRunning
-		// The Ready summary requires every lifecycle condition, so seed them all to describe a
-		// machine that is genuinely provisioned and available.
+
+		// A missing condition counts as Unknown in the Ready summary, so all four have to be set.
 		for _, c := range []metav1.Condition{
 			{
 				Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
