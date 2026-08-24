@@ -860,12 +860,14 @@ func Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(in *infr
 
 // Convert_v1beta1_BareMetalRemediationStrategy_To_v1beta2_BareMetalRemediationStrategy is hand-written
 // (the type is tagged +k8s:conversion-gen=false) because it embeds RemediationStrategy, whose conversion
-// is itself hand-written. It converts the embedded shared fields and copies the bare-metal-only OnExhaustion.
+// is itself hand-written. It converts the embedded shared fields and copies the bare-metal-only
+// OnExhaustion and RetireConditions.
 func Convert_v1beta1_BareMetalRemediationStrategy_To_v1beta2_BareMetalRemediationStrategy(in *BareMetalRemediationStrategy, out *infrav2.BareMetalRemediationStrategy, s apiconversion.Scope) error {
 	if err := Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(&in.RemediationStrategy, &out.RemediationStrategy, s); err != nil {
 		return err
 	}
 	out.OnExhaustion = infrav2.OnExhaustionAction(in.OnExhaustion)
+	out.RetireConditions = in.RetireConditions
 	return nil
 }
 
@@ -876,6 +878,7 @@ func Convert_v1beta2_BareMetalRemediationStrategy_To_v1beta1_BareMetalRemediatio
 		return err
 	}
 	out.OnExhaustion = OnExhaustionAction(in.OnExhaustion)
+	out.RetireConditions = in.RetireConditions
 	return nil
 }
 

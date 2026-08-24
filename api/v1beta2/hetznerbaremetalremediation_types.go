@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta2
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -51,6 +52,14 @@ const (
 	// capi.syself.com/permanent-error annotation. Use this for real hardware
 	// failures, where a reboot never helps.
 	OnExhaustionRetire OnExhaustionAction = "Retire"
+
+	// OnExhaustionRetireIfUnhealthyCondition retires the host (like Retire) only when the node
+	// condition that triggered the remediation is listed in RetireConditions, and reuses the host
+	// (like Reuse) for any other condition. Use it when some conditions mean real hardware
+	// failures, where a reboot never helps, so the host should be retired (for example a failed
+	// disk), while other conditions are temporary, so the host should be reused (for example a
+	// node that is briefly not ready).
+	OnExhaustionRetireIfUnhealthyCondition OnExhaustionAction = "RetireIfUnhealthyCondition"
 )
 
 // BareMetalRemediationStrategy describes how to remediate bare metal machines.
@@ -67,9 +76,19 @@ type BareMetalRemediationStrategy struct {
 	// provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
 	// error on the host, which deletes the machine and keeps the host out of the pool
 	// until a human removes the capi.syself.com/permanent-error annotation.
-	// +kubebuilder:validation:Enum=Reuse;Retire
+	// RetireIfUnhealthyCondition retires the host (like Retire) only when the node condition that
+	// triggered the remediation is listed in RetireConditions, and reuses it (like Reuse) for any
+	// other condition.
+	// +kubebuilder:validation:Enum=Reuse;Retire;RetireIfUnhealthyCondition
 	// +optional
 	OnExhaustion OnExhaustionAction `json:"onExhaustion,omitempty"`
+
+	// RetireConditions lists the node condition types that should retire the host instead of
+	// reusing it. It is only read when OnExhaustion is RetireIfUnhealthyCondition. Once the reboots
+	// run out, the host is retired if the node condition that triggered the remediation is in this
+	// list, and reused otherwise. It must be empty for the other OnExhaustion modes.
+	// +optional
+	RetireConditions []corev1.NodeConditionType `json:"retireConditions,omitempty"`
 }
 
 // HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation.

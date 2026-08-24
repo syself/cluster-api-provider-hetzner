@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -50,13 +51,15 @@ func (*HetznerBareMetalRemediationWebhook) Default(context.Context, *infrav1.Het
 var _ admission.Validator[*infrav1.HetznerBareMetalRemediation] = &HetznerBareMetalRemediationWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HetznerBareMetalRemediation.
-func (*HetznerBareMetalRemediationWebhook) ValidateCreate(context.Context, *infrav1.HetznerBareMetalRemediation) (admission.Warnings, error) {
-	return nil, nil
+func (*HetznerBareMetalRemediationWebhook) ValidateCreate(_ context.Context, remediation *infrav1.HetznerBareMetalRemediation) (admission.Warnings, error) {
+	allErrs := validateBareMetalRemediationStrategy(remediation.Spec.Strategy, field.NewPath("spec", "strategy"))
+	return nil, aggregateObjErrors(remediation.GroupVersionKind().GroupKind(), remediation.Name, allErrs)
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HetznerBareMetalRemediation.
-func (*HetznerBareMetalRemediationWebhook) ValidateUpdate(_ context.Context, _, _ *infrav1.HetznerBareMetalRemediation) (admission.Warnings, error) {
-	return nil, nil
+func (*HetznerBareMetalRemediationWebhook) ValidateUpdate(_ context.Context, _, newRemediation *infrav1.HetznerBareMetalRemediation) (admission.Warnings, error) {
+	allErrs := validateBareMetalRemediationStrategy(newRemediation.Spec.Strategy, field.NewPath("spec", "strategy"))
+	return nil, aggregateObjErrors(newRemediation.GroupVersionKind().GroupKind(), newRemediation.Name, allErrs)
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HetznerBareMetalRemediation.

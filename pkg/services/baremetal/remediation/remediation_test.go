@@ -131,13 +131,14 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 
 	type testCaseOnExhaustion struct {
 		onExhaustion             infrav1.OnExhaustionAction
+		retireConditions         []corev1.NodeConditionType
 		retryCount               int
 		healthCheckMessage       string
 		expectHostPermanentError bool
 		expectErrorMessage       string
 	}
 
-	DescribeTable("retires the host only when onExhaustion is Retire",
+	DescribeTable("retires or reuses the host based on onExhaustion",
 		func(tc testCaseOnExhaustion) {
 			ctx := context.Background()
 
@@ -168,7 +169,8 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 							RetryLimit: 1,
 							Timeout:    &metav1.Duration{Duration: time.Second},
 						},
-						OnExhaustion: tc.onExhaustion,
+						OnExhaustion:     tc.onExhaustion,
+						RetireConditions: tc.retireConditions,
 					},
 				},
 				Status: infrav1.HetznerBareMetalRemediationStatus{
@@ -254,5 +256,128 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			expectHostPermanentError: true,
 			expectErrorMessage:       "Health check failed: Condition Ready on Node is reporting status Unknown for more than 5m0s",
 		}),
+		Entry("RetireIfUnhealthyCondition retires when the triggering condition is listed", testCaseOnExhaustion{
+			onExhaustion:             infrav1.OnExhaustionRetireIfUnhealthyCondition,
+			retireConditions:         []corev1.NodeConditionType{"DisksFailure"},
+			retryCount:               1,
+			healthCheckMessage:       "Health check failed:\n  * Condition DisksFailure on Node is reporting status True with reason HardwareError for more than 5m0s",
+			expectHostPermanentError: true,
+			expectErrorMessage:       "Health check failed:\n  * Condition DisksFailure on Node is reporting status True with reason HardwareError for more than 5m0s",
+		}),
+		Entry("RetireIfUnhealthyCondition reuses when the triggering condition is not listed", testCaseOnExhaustion{
+			onExhaustion:             infrav1.OnExhaustionRetireIfUnhealthyCondition,
+			retireConditions:         []corev1.NodeConditionType{"DisksFailure"},
+			retryCount:               1,
+			healthCheckMessage:       "Health check failed:\n  * Condition Ready on Node is reporting status Unknown with reason NodeStatusUnknown for more than 5m0s",
+			expectHostPermanentError: false,
+		}),
+		Entry("RetireIfUnhealthyCondition reuses when the triggering condition is unknown", testCaseOnExhaustion{
+			onExhaustion:             infrav1.OnExhaustionRetireIfUnhealthyCondition,
+			retireConditions:         []corev1.NodeConditionType{"DisksFailure"},
+			retryCount:               1,
+			expectHostPermanentError: false,
+		}),
+		Entry("RetireIfUnhealthyCondition reuses when retireConditions is empty", testCaseOnExhaustion{
+			onExhaustion:             infrav1.OnExhaustionRetireIfUnhealthyCondition,
+			retireConditions:         nil,
+			retryCount:               1,
+			healthCheckMessage:       "Health check failed:\n  * Condition DisksFailure on Node is reporting status True with reason HardwareError for more than 5m0s",
+			expectHostPermanentError: false,
+		}),
+		Entry("RetireIfUnhealthyCondition retires when a listed condition appears among several", testCaseOnExhaustion{
+			onExhaustion:             infrav1.OnExhaustionRetireIfUnhealthyCondition,
+			retireConditions:         []corev1.NodeConditionType{"DisksFailure"},
+			retryCount:               1,
+			healthCheckMessage:       "Health check failed:\n  * Condition Ready on Node is reporting status Unknown with reason NodeStatusUnknown for more than 5m0s\n  * Condition DisksFailure on Node is reporting status True with reason HardwareError for more than 5m0s",
+			expectHostPermanentError: true,
+			expectErrorMessage:       "Health check failed:\n  * Condition Ready on Node is reporting status Unknown with reason NodeStatusUnknown for more than 5m0s\n  * Condition DisksFailure on Node is reporting status True with reason HardwareError for more than 5m0s",
+		}),
 	)
+})
+
+var _ = Describe("Test triggeredByRetireCondition", func() {
+	retireConditions := []corev1.NodeConditionType{"DisksFailure"}
+
+	// reason is the HealthCheckSucceeded reason cluster-api sets alongside the message. The retire
+	// decision only reads the message, but the drift check keys on the reason, so each case passes the
+	// reason cluster-api pairs with its message (see triggeredByRetireCondition).
+	makeMachine := func(reason, healthCheckMessage string) *clusterv1.Machine {
+		machine := &clusterv1.Machine{ObjectMeta: metav1.ObjectMeta{Name: "test-machine", Namespace: "default"}}
+		if healthCheckMessage != "" {
+			conditions.Set(machine, metav1.Condition{
+				Type:    clusterv1.MachineHealthCheckSucceededCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  reason,
+				Message: healthCheckMessage,
+			})
+		}
+		return machine
+	}
+
+	It("reuses when the Machine is gone, because the triggering condition cannot be read", func() {
+		// The DescribeTable above always builds a real Machine, so this covers the nil case.
+		retire, unrecognizedFormat := triggeredByRetireCondition(nil, retireConditions)
+		Expect(retire).To(BeFalse())
+		Expect(unrecognizedFormat).To(BeFalse())
+	})
+
+	It("retires when a listed condition is in the message", func() {
+		retire, unrecognizedFormat := triggeredByRetireCondition(
+			makeMachine(clusterv1.MachineHealthCheckUnhealthyNodeReason, "Health check failed:\n  * Condition DisksFailure on Node is reporting status True for more than 5m0s"),
+			retireConditions)
+		Expect(retire).To(BeTrue())
+		Expect(unrecognizedFormat).To(BeFalse())
+	})
+
+	It("reuses without a warning when the trigger is not a listed condition", func() {
+		retire, unrecognizedFormat := triggeredByRetireCondition(
+			makeMachine(clusterv1.MachineHealthCheckUnhealthyNodeReason, "Health check failed:\n  * Condition Ready on Node is reporting status False for more than 5m0s"),
+			retireConditions)
+		Expect(retire).To(BeFalse())
+		Expect(unrecognizedFormat).To(BeFalse())
+	})
+
+	It("warns when the node condition line no longer uses the expected format", func() {
+		retire, unrecognizedFormat := triggeredByRetireCondition(
+			makeMachine(clusterv1.MachineHealthCheckUnhealthyNodeReason, "Health check failed:\n  * Condition DisksFailure on Node reports status True"),
+			retireConditions)
+		Expect(retire).To(BeFalse())
+		Expect(unrecognizedFormat).To(BeTrue())
+	})
+
+	It("warns when a reworded message drops \"on Node\" but the reason is still UnhealthyNode", func() {
+		retire, unrecognizedFormat := triggeredByRetireCondition(
+			makeMachine(clusterv1.MachineHealthCheckUnhealthyNodeReason, "Health check failed:\n  * Condition DisksFailure for the node reports status True"),
+			retireConditions)
+		Expect(retire).To(BeFalse())
+		Expect(unrecognizedFormat).To(BeTrue())
+	})
+
+	// These triggers are not an unhealthy node condition, so retireConditions cannot apply and no
+	// warning is wanted. Each passes the reason and message cluster-api v1.13.4 pairs for a machine
+	// condition, a node startup timeout, and a deleted node. The reason is not UnhealthyNode, so the
+	// drift check stays quiet even though the message does not have the "on Node is reporting" line.
+	It("does not warn for a machine condition trigger", func() {
+		retire, unrecognizedFormat := triggeredByRetireCondition(
+			makeMachine(clusterv1.MachineHealthCheckUnhealthyMachineReason, "Health check failed:\n  * Condition HardwareFailure on Machine is reporting status True for more than 5m0s"),
+			retireConditions)
+		Expect(retire).To(BeFalse())
+		Expect(unrecognizedFormat).To(BeFalse())
+	})
+
+	It("does not warn for a node startup timeout trigger", func() {
+		retire, unrecognizedFormat := triggeredByRetireCondition(
+			makeMachine(clusterv1.MachineHealthCheckNodeStartupTimeoutReason, "Health check failed:\n  * Node failed to report startup in 10m0s"),
+			retireConditions)
+		Expect(retire).To(BeFalse())
+		Expect(unrecognizedFormat).To(BeFalse())
+	})
+
+	It("does not warn for a deleted node trigger", func() {
+		retire, unrecognizedFormat := triggeredByRetireCondition(
+			makeMachine(clusterv1.MachineHealthCheckNodeDeletedReason, "Health check failed:\n  * Node test-node has been deleted"),
+			retireConditions)
+		Expect(retire).To(BeFalse())
+		Expect(unrecognizedFormat).To(BeFalse())
+	})
 })

@@ -26,6 +26,14 @@ Set maximum of remediation retries. Zero retries if not set.
 Timeout of one remediation try. Should be of the form "10m", or "40s".
 </PropField>
 
+<PropField name="template.spec.strategy.onExhaustion" type="string" required={false}>
+What to do when the retries run out and the node is still unhealthy. `Reuse` deletes the machine and frees the host to be provisioned again. `Retire` sets a permanent error on the host, which deletes the machine and keeps the host out of the pool until a human removes the `capi.syself.com/permanent-error` annotation. `RetireIfUnhealthyCondition` retires the host (like `Retire`) only when the node condition that triggered the remediation is listed in `retireConditions`, and otherwise reuses it. When not set, remediation behaves like `Reuse`.
+</PropField>
+
+<PropField name="template.spec.strategy.retireConditions" type="[]string" required={false}>
+Node condition types that should retire the host instead of reusing it. Only used when `onExhaustion` is `RetireIfUnhealthyCondition`. Once the reboots run out, the host is retired when the node condition that triggered the remediation is in this list, and reused otherwise. Must be empty for the other `onExhaustion` modes.
+</PropField>
+
 </Collapsible>
 
 </PropField>
