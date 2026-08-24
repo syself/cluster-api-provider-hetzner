@@ -95,6 +95,27 @@ func Test_statusAddressesPrivateOnlyServer(t *testing.T) {
 	}, addresses)
 }
 
+func Test_statusAddressesMalformedIPv6(t *testing.T) {
+	server := newTestServer()
+
+	// statusAddresses increments the last byte of the IPv6 address, which needs 16 bytes.
+	// A shorter address must be skipped instead of causing a panic.
+	server.PublicNet.IPv6.IP = net.IP{1, 2, 3}
+
+	addresses := statusAddresses(server)
+
+	require.Equal(t, []clusterv1beta1.MachineAddress{
+		{
+			Type:    clusterv1beta1.MachineExternalIP,
+			Address: "1.2.3.4",
+		},
+		{
+			Type:    clusterv1beta1.MachineInternalIP,
+			Address: "10.0.0.2",
+		},
+	}, addresses)
+}
+
 type testCaseStatusFromHCloudServer struct {
 	isControlPlane bool
 	expectedOutput map[string]string

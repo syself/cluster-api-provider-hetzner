@@ -2333,7 +2333,9 @@ func statusAddresses(server *hcloud.Server) []clusterv1beta1.MachineAddress {
 		)
 	}
 
-	if !server.PublicNet.IPv6.IsUnspecified() {
+	// The length check is needed for the ip[15]++ below. hcloud-go always returns a 16 byte
+	// address here, the check only makes a broken API response harmless.
+	if !server.PublicNet.IPv6.IsUnspecified() && len(server.PublicNet.IPv6.IP) == net.IPv6len {
 		// Create a copy. This is important, otherwise we modify the IP of `server`. This could lead
 		// to unexpected behaviour.
 		ip := append(net.IP(nil), server.PublicNet.IPv6.IP...)
