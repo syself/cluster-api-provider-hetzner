@@ -302,9 +302,10 @@ func (r *HCloudMachine) SetV1Beta1Conditions(conditions clusterv1.Conditions) {
 // operational importance:
 //  1. HCloudTokenAvailable    - invalid credentials block everything.
 //  2. HCloudRateLimitExceeded - rate-limit issues (negative polarity).
-//  3. ServerCreated           - server existence precedes later lifecycle stages; bootstrap readiness is folded in as a reason.
-//  4. ServerProvisioned       - provisioning precedes availability.
-//  5. ServerAvailable
+//  3. SSHPrivateKeyAvailable  - the rescue SSH key (imageURL flow) is a precondition for creating and provisioning the server.
+//  4. ServerCreated           - server existence precedes later lifecycle stages; bootstrap readiness is folded in as a reason.
+//  5. ServerProvisioned       - provisioning precedes availability.
+//  6. ServerAvailable
 func HCloudMachineSummaryOpts() []conditions.SummaryOption {
 	return []conditions.SummaryOption{
 		// ForConditionTypes lists every condition that contributes to Ready, in
@@ -313,6 +314,7 @@ func HCloudMachineSummaryOpts() []conditions.SummaryOption {
 		conditions.ForConditionTypes{
 			HCloudTokenAvailableCondition,
 			HCloudRateLimitExceededCondition,
+			HCloudMachineSSHPrivateKeyAvailableCondition,
 			HCloudMachineServerCreatedCondition,
 			HCloudMachineServerProvisionedCondition,
 			HCloudMachineServerAvailableCondition,
@@ -324,6 +326,7 @@ func HCloudMachineSummaryOpts() []conditions.SummaryOption {
 		// flip Ready to Unknown.
 		conditions.IgnoreTypesIfMissing{
 			HCloudTokenAvailableCondition,
+			HCloudMachineSSHPrivateKeyAvailableCondition,
 			HCloudMachineServerCreatedCondition,
 			HCloudMachineServerProvisionedCondition,
 			HCloudMachineServerAvailableCondition,

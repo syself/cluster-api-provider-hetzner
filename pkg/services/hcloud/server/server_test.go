@@ -260,6 +260,7 @@ var _ = Describe("handleBootStateUnset", func() {
 		Expect(res).To(Equal(reconcile.Result{}))
 
 		Expect(isPresentAndFalseWithReasonDeprecatedV1Beta1(hcloudMachine, infrav2.SSHPrivateKeyAvailableV1Beta1Condition, infrav2.SSHPrivateKeySecretRefNotConfiguredV1Beta1Reason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav2.HCloudMachineSSHPrivateKeyAvailableCondition, metav1.ConditionFalse, infrav2.HCloudMachineSSHPrivateKeySecretRefNotConfiguredReason)).To(BeTrue())
 	})
 })
 

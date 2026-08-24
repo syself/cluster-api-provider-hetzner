@@ -120,8 +120,7 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 
 // MachineScope defines the basic context for an actuator to operate upon.
 //
-// MachineScope keeps its own fields rather than embedding ClusterScope. The two scopes track
-// different objects and hold separate patch helpers (the machine's vs the cluster's).
+// It holds the HCloudMachine being reconciled and the patch helper used to persist changes to it.
 type MachineScope struct {
 	logr.Logger
 	Client        client.Client
@@ -205,6 +204,7 @@ func machinePatchOpts() []patch.Option {
 			infrav2.BootstrapReadyV1Beta1Condition,
 			infrav2.HCloudTokenAvailableV1Beta1Condition,
 			infrav2.HetznerAPIReachableV1Beta1Condition,
+			infrav2.SSHPrivateKeyAvailableV1Beta1Condition,
 			infrav2.ServerCreateSucceededV1Beta1Condition,
 			infrav2.ServerProvisionedV1Beta1Condition,
 			infrav2.ServerAvailableV1Beta1Condition,
@@ -214,6 +214,7 @@ func machinePatchOpts() []patch.Option {
 			clusterv1.ReadyCondition,
 			infrav2.HCloudTokenAvailableCondition,
 			infrav2.HCloudRateLimitExceededCondition,
+			infrav2.HCloudMachineSSHPrivateKeyAvailableCondition,
 			infrav2.HCloudMachineServerCreatedCondition,
 			infrav2.HCloudMachineServerProvisionedCondition,
 			infrav2.HCloudMachineServerAvailableCondition,
@@ -289,10 +290,10 @@ func (m *MachineScope) ServerIDFromProviderID() (int64, error) {
 	return serverID, nil
 }
 
-// SetReady records that the machine's infrastructure is provisioned. Provisioned is a one-time
+// SetProvisioned records that the machine's infrastructure is provisioned. Provisioned is a one-time
 // signal per the CAPI infra-machine contract: once true it stays true, so a false argument is a no-op.
-func (m *MachineScope) SetReady(ready bool) {
-	if ready {
+func (m *MachineScope) SetProvisioned(provisioned bool) {
+	if provisioned {
 		m.HCloudMachine.Status.Initialization.Provisioned = ptr.To(true)
 	}
 }

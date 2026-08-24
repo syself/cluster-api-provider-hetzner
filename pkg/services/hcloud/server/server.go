@@ -256,6 +256,11 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
 		}
 		deprecatedv1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav2.SSHPrivateKeyAvailableV1Beta1Condition)
+		conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+			Type:   infrav2.HCloudMachineSSHPrivateKeyAvailableCondition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav2.HCloudMachineSSHPrivateKeyAvailableReason,
+		})
 	}
 
 	server, image, err := s.createServerFromImageNameOrURL(ctx)
@@ -1269,7 +1274,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconci
 			Status: metav1.ConditionTrue,
 			Reason: infrav2.HCloudMachineServerAvailableReason,
 		})
-		s.scope.SetReady(true)
+		s.scope.SetProvisioned(true)
 		return res, nil
 	}
 
@@ -1295,16 +1300,16 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconci
 	}
 
 	// Order matters:
-	// 1. SetReady(true) first. This is what makes the Machine become ready and
+	// 1. SetProvisioned(true) first. This is what makes the Machine become ready and
 	//    lets the Node get linked to it. Otherwise we deadlock:
 	//    reconcileLoadBalancerAttachment only adds this control plane to the
 	//    load balancer once its apiserver pod is marked healthy, and that can
 	//    only happen after the Node is linked to the Machine, which in turn
-	//    requires this call to SetReady.
+	//    requires this call to SetProvisioned.
 	// 2. Return early on a non-zero res so the False reason set on
 	//    ServerAvailable inside reconcileLoadBalancerAttachment is not overwritten.
 	// 3. Mark ServerAvailable=True only on the happy path.
-	s.scope.SetReady(true)
+	s.scope.SetProvisioned(true)
 	if res != (reconcile.Result{}) {
 		return res, nil
 	}
@@ -1582,7 +1587,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	}
 
 	// if load balancer has not been attached to a network, then it cannot add a server with private IP
-	if hasPrivateIP && deprecatedv1beta1conditions.IsFalse(s.scope.HetznerCluster, infrav2.LoadBalancerReadyV1Beta1Condition) {
+	if hasPrivateIP && conditions.IsFalse(s.scope.HetznerCluster, infrav2.HetznerClusterLoadBalancerReadyCondition) {
 		return reconcile.Result{}, nil
 	}
 
@@ -2395,6 +2400,12 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 			clusterv1.ConditionSeverityError,
 			"HetznerCluster.Spec.SSHKeys.RescueSecretRef.Name is empty",
 		)
+		conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+			Type:    infrav2.HCloudMachineSSHPrivateKeyAvailableCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav2.HCloudMachineSSHPrivateKeySecretRefNotConfiguredReason,
+			Message: "HetznerCluster.Spec.SSHKeys.RescueSecretRef.Name is empty",
+		})
 		return "", fmt.Errorf("%w: HetznerCluster.Spec.SSHKeys.RescueSecretRef.Name is empty. Can not get ssh client", errSSHKeyMisconfigured)
 	}
 
@@ -2413,6 +2424,12 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 				clusterv1.ConditionSeverityWarning,
 				"secret %s/%s not found", s.scope.Namespace(), robotSecretName,
 			)
+			conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+				Type:    infrav2.HCloudMachineSSHPrivateKeyAvailableCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav2.HCloudMachineSSHPrivateKeySecretNotFoundReason,
+				Message: fmt.Sprintf("secret %s/%s not found", s.scope.Namespace(), robotSecretName),
+			})
 		}
 
 		return "", fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
@@ -2429,6 +2446,12 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 			s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey,
 			robotSecretName,
 		)
+		conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+			Type:    infrav2.HCloudMachineSSHPrivateKeyAvailableCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav2.HCloudMachineSSHPrivateKeyFieldEmptyReason,
+			Message: fmt.Sprintf("key %q in secret %q is missing or empty", s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey, robotSecretName),
+		})
 		return "", fmt.Errorf("key %q in secret %q is missing or empty. Failed to get ssh-private-key",
 			s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey,
 			robotSecretName)
