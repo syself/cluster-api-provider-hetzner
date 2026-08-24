@@ -85,6 +85,17 @@ var _ = Describe("Loadbalancer", func() {
 			Expect(sts.IPv6).To(Equal(""))
 			Expect(sts.InternalIP).To(Equal("10.0.0.2"))
 		})
+		It("should have no internal IP if the private IP is unset", func() {
+			privateLB := &hcloud.LoadBalancer{
+				ID:         42,
+				PublicNet:  hcloud.LoadBalancerPublicNet{Enabled: false},
+				PrivateNet: []hcloud.LoadBalancerPrivateNet{{}},
+			}
+
+			sts := statusFromHCloudLB(privateLB, true, 443, logr.Discard())
+
+			Expect(sts.InternalIP).To(Equal(""))
+		})
 	})
 	Context("proxy protocol detection", func() {
 		It("reports enabled when the kube-API service has proxy protocol on", func() {

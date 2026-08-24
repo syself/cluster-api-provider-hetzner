@@ -303,6 +303,13 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	return reconcile.Result{}, nil
 }
 
+const (
+	msgLoadBalancerNotReadyYet = "enabled LoadBalancer but load balancer not ready yet"
+
+	msgLoadBalancerWithoutPublicIPv4 = "enabled LoadBalancer but the load balancer has no public IPv4, " +
+		"so it can not be used as control plane endpoint"
+)
+
 func processControlPlaneEndpoint(hetznerCluster *infrav2.HetznerCluster) {
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		lbStatus := hetznerCluster.Status.ControlPlaneLoadBalancer
@@ -329,11 +336,16 @@ func processControlPlaneEndpoint(hetznerCluster *infrav2.HetznerCluster) {
 
 			hetznerCluster.Status.Initialization.Provisioned = ptr.To(true)
 		} else {
-			const msg = "enabled LoadBalancer but load balancer not ready yet"
+			msg := msgLoadBalancerNotReadyYet
+			if lbStatus != nil && lbStatus.ID != 0 {
+				// The load balancer exists, it just has no public IPv4. Waiting will not help.
+				msg = msgLoadBalancerWithoutPublicIPv4
+			}
 			deprecatedv1beta1conditions.MarkFalse(hetznerCluster,
 				infrav2.ControlPlaneEndpointSetV1Beta1Condition,
 				infrav2.ControlPlaneEndpointNotSetV1Beta1Reason,
 				clusterv1.ConditionSeverityWarning,
+				"%s",
 				msg)
 
 			conditions.Set(hetznerCluster, metav1.Condition{
