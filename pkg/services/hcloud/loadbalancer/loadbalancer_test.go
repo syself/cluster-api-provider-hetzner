@@ -18,14 +18,38 @@ package loadbalancer
 
 import (
 	"net"
+	"testing"
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
+
+func TestIPToStatusString(t *testing.T) {
+	tests := []struct {
+		name     string
+		ip       net.IP
+		expected string
+	}{
+		// net.IP.String() returns "<nil>" for the first two cases.
+		{name: "unset IP", ip: nil, expected: ""},
+		{name: "IP without bytes", ip: net.IP{}, expected: ""},
+		{name: "unspecified IPv4", ip: net.IPv4zero, expected: ""},
+		{name: "unspecified IPv6", ip: net.IPv6unspecified, expected: ""},
+		{name: "public IPv4", ip: net.ParseIP("1.2.3.4"), expected: "1.2.3.4"},
+		{name: "public IPv6", ip: net.ParseIP("2001:db8::1"), expected: "2001:db8::1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expected, ipToStatusString(tt.ip))
+		})
+	}
+}
 
 var _ = Describe("Loadbalancer", func() {
 	Context("hcloud cluster has network attached", func() {

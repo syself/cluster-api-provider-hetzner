@@ -724,7 +724,7 @@ func statusFromHCloudLB(lb *hcloud.LoadBalancer, hasNetwork bool, kubeAPIService
 // Calling String() on such an IP returns "<nil>", which is not a valid IP address.
 // The same is true for an unset private IP.
 func ipToStatusString(ip net.IP) string {
-	if ip == nil || ip.IsUnspecified() {
+	if len(ip) == 0 || ip.IsUnspecified() {
 		return ""
 	}
 	return ip.String()
