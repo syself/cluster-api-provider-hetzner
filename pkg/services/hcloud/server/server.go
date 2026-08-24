@@ -805,8 +805,8 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 
 	// The server is freshly created and was never started before this boot cycle, so there is no
 	// prior OS it could mistakenly reach over SSH. Attempt SSH directly instead of first checking
-	// server.RescueEnabled via a live GetServer call - ECONNREFUSED below already covers "server
-	// has not yet rebooted into rescue system".
+	// server.RescueEnabled via a live GetServer call - the ECONNREFUSED and dial timeout handling
+	// below already covers "server has not yet rebooted into rescue system".
 	sshClient, err := s.getSSHClient(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (waiting for rescue running): %w", err)
@@ -817,7 +817,11 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 	if err != nil {
 		var msg string
 		var netErr net.Error
-		isDialTimeout := errors.As(err, &netErr) && netErr.Timeout()
+		// A context deadline also satisfies net.Error with Timeout() == true, but it means our own
+		// reconcile ran out of time, not that the server is still booting. Keep it out of the retry
+		// branch so it still gets logged below.
+		isDialTimeout := errors.As(err, &netErr) && netErr.Timeout() &&
+			!errors.Is(err, context.DeadlineExceeded)
 		isConnRefused := errors.Is(err, syscall.ECONNREFUSED)
 		if isConnRefused || isDialTimeout {
 			// Both are common while the server is still booting: ECONNREFUSED once the network is
