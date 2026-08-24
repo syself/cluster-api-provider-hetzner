@@ -34,6 +34,7 @@ import (
 	"github.com/syself/hrobot-go/models"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
@@ -2339,6 +2340,28 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	node := &corev1.Node{}
 	err = wlClient.Get(ctx, client.ObjectKey{Name: nodeName}, node)
 	if err != nil {
+		// The API server answered, the node just isn't there, so asking again won't help.
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("node %q not found in the workload cluster", nodeName)
+
+			v1beta1conditions.MarkFalse(
+				host,
+				infrav1.NodeBootIDRetrievedCondition,
+				infrav1.NodeNotFoundReason,
+				clusterv1beta1.ConditionSeverityWarning,
+				"%s",
+				msg)
+			v1beta2conditions.Set(host, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostNodeNotFoundV1Beta2Reason,
+				Message: msg,
+			})
+			record.Warn(host, infrav1.HetznerBareMetalHostNodeNotFoundV1Beta2Reason, msg)
+
+			return actionStop{}
+		}
+
 		err = fmt.Errorf("failed to get corresponding Node object from the workload cluster: %w", err)
 		v1beta1conditions.MarkFalse(
 			host,
