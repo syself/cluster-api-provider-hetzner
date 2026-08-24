@@ -54,7 +54,15 @@ A server joins the recyclable set by carrying two labels:
 | `caph-recycle` | `true` | The server participates in recycling and is never deleted by the controller. |
 | `caph-recycle-available` | `true` | The server is currently unclaimed and may be picked up by a machine. |
 
-To hand an existing server to CAPH, set both labels on it (for example with `hcloud server add-label`),
+While a machine is claiming a server, the controller adds two further labels itself. They are transient
+and are dropped again once the claim completes; you never set them by hand.
+
+| Label | Value | Meaning |
+| --- | --- | --- |
+| `caph-recycle-claimant` | machine name | The machine currently claiming the server. |
+| `caph-recycle-claimed-at` | Unix seconds | When the claim was written, so an abandoned claim can be aged out. |
+
+To hand an existing server to CAPH, set both of the first two labels on it (for example with `hcloud server add-label`),
 making sure its server type and location match the machines that should claim it. Any server — including
 one that was originally created by hand — becomes schedulable this way, without rebuilding it up front.
 
@@ -62,15 +70,25 @@ one that was originally created by hand — becomes schedulable this way, withou
 
 When a machine with recycling enabled is created, the controller:
 
-1. Lists servers carrying both `caph-recycle=true` and `caph-recycle-available=true`.
-2. Filters them down to those whose server type and location match the machine, and picks the candidate
-   with the lowest ID first, so concurrent claims from different machines contend deterministically.
-3. **Reserves** the candidate by dropping the `caph-recycle-available` marker and adding a transient
-   `caph-recycle-claimant` label naming the machine, then re-reads it to confirm the reservation was not
-   lost to another machine that wrote at the same time.
-4. **Rebuilds** the reserved server with the machine's image and bootstrap data.
-5. **Finalizes** the claim by giving the server the machine's name and labels and dropping the claimant
-   marker.
+1. Lists servers carrying `caph-recycle=true`.
+2. Filters them down to those that are available and whose server type and location match the machine,
+   and picks the candidate with the lowest ID first, so concurrent claims from different machines
+   contend deterministically.
+3. **Claims** the candidate by dropping the `caph-recycle-available` marker and adding a transient
+   `caph-recycle-claimant` label naming the machine, plus `caph-recycle-claimed-at` with the time of the
+   write. It then **stops and requeues** without reading anything back.
+4. On the **next reconcile**, it reads the claim again. If another machine's write landed in the
+   meantime, that machine is now the claimant and this one backs off and starts over.
+5. **Rebuilds** the claimed server with the machine's image and bootstrap data, after re-checking
+   ownership one last time immediately before the rebuild and, if the template names a placement group
+   the server is not yet in, adding it to that group.
+6. **Finalizes** the claim by giving the server the machine's name and labels and dropping the claimant
+   and timestamp markers.
+
+From then on ownership is expressed by the machine identity label. The controller resolves its server by
+ProviderID, which says nothing about who owns it, so that label is re-checked on every reconcile that
+touches a live server: a machine whose server has been taken over is handed to remediation rather than
+provisioning hardware that is not its own, and it will not return that server to the pool on deletion.
 
 The machine's identity — the label the controller's server lookup keys on — is applied only in the
 final step, after a successful rebuild. This keeps the claim idempotent: if the rebuild fails, the
@@ -94,16 +112,39 @@ never destroyed even if recycling has since been disabled on the machine.
 ## Limitations
 
 - Recycling requires `imageName`; it cannot be combined with `imageURL`.
-- Matching is by server type and location only. A machine never claims a server that does not match its
-  template, but it does not otherwise distinguish between candidates beyond picking the lowest ID.
+- Matching is by server type, location and placement group. Beyond that a machine does not distinguish
+  between candidates: it takes the lowest ID.
+- **Control planes: mind the placement group.** A rebuild does not move a server between placement
+  groups, and hcloud offers no way to take a server out of one. A candidate already sitting in a
+  *different* group is therefore skipped, and one in no group is added to the requested group before the
+  rebuild. This matters most for control planes, which rely on a spread placement group to sit on
+  separate physical hosts: a control plane silently provisioned outside that group turns one host
+  failure into a lost etcd quorum. If a pool is meant for control planes, either leave its servers
+  without a placement group or put them in the one the template names.
+
+  hcloud only moves a **stopped** server into a placement group, and it does so asynchronously. A server
+  that was just returned to the pool may still be shutting down — returning it issues an ACPI request
+  and re-pools it immediately — so the claim asks it to stop and retries on the next reconcile. A server
+  whose OS ignores ACPI never reaches that state and its claim keeps retrying; the machine stays
+  unprovisioned and visible rather than failing silently, but it needs a hand.
 - The size of the recyclable set is not managed by CAPH. If more machines are created than there are
   available recyclable servers, the surplus machines create new servers normally.
-- **Claiming is safe only while machine reconciles are serialized.** A server is reserved with an
-  optimistic label write plus a re-read, but Hetzner has no atomic (compare-and-swap) label update, so
-  two machines reconciling at the same time can, in a narrow window, both believe they reserved the same
-  server. This does not happen with the default `--hcloudmachine-concurrency=1` (reconciles run one at a
-  time); raising that flag while using recycling can cause two machines to claim one server. Keep
-  `--hcloudmachine-concurrency=1` when recycling is in use.
+- **A claim is not a lock.** Hetzner replaces a server's whole label set on update and has no atomic
+  (compare-and-swap) label write, so claiming is optimistic: whoever writes last wins. Splitting the
+  write from the verification across two reconciles makes a collision unlikely — a competing write has
+  time to land and be observed — but two claims further apart than that delay still each read back their
+  own name. Safety therefore does not rest on the claim being exclusive; it rests on ownership being
+  re-checked immediately before the rebuild (the only destructive step), on a machine that has lost its
+  claim backing off instead of touching labels it no longer owns, and on the losing machine simply
+  creating a new server. The worst outcome of a lost race is a wasted reconcile, not a shared server.
+- **Losing a server needs a `MachineHealthCheck` to be recoverable.** When a machine detects that its
+  recycled server now belongs to someone else, it annotates the CAPI machine with
+  `cluster.x-k8s.io/remediate-machine` and stops reconciling. Deleting and replacing that machine is
+  CAPI's job, not the provider's — and only a `MachineHealthCheck` acts on that annotation. Without one
+  the machine stays behind as annotated, unprovisioned and no longer reconciled, and has to be deleted
+  by hand. Measured both ways: with a `MachineHealthCheck` the machine was replaced within 30 seconds;
+  without one it sat unchanged for over eight minutes. Attach a `MachineHealthCheck` to any
+  `MachineDeployment` that uses recycling.
 - **A remediated server is returned to the pool, not quarantined.** A recycled server takes part in
   machine health checks like any node; when a `MachineHealthCheck` remediates it, the machine is deleted
   and — because recycling never destroys the server — the server is returned to the recyclable set and
@@ -120,8 +161,24 @@ never destroyed even if recycling has since been disabled on the machine.
   template SSH keys being present on a recycled node.
 - A returned server keeps the deleted machine's name until it is claimed again (only its labels are
   reset). Parked pool servers therefore show a stale machine name in the Hetzner console.
+- **A claim costs six hcloud API calls**, and more when the template asks for extras: two pool listings
+  (one per reconcile), the claim write, one ownership re-check before the rebuild, the rebuild, and the
+  finalize. Attaching a private network adds two, a placement group adds two more. Hetzner rate-limits
+  per project, so a large fleet of recycling machines reconciling at once uses a noticeable share of the
+  budget. The count is pinned by a unit test so it cannot grow unnoticed.
+- **The 15-minute claim TTL is compared against the controller's own clock.** A claim carries the wall
+  time of the controller that wrote it, and whichever controller later ages it out uses its own clock to
+  do so. After a leader change that is a different process; if its clock runs far ahead it can reclaim a
+  claim that is still live. Ordinary NTP-synced hosts are nowhere near that margin, and the ownership
+  check before the rebuild catches the consequence, but the assumption is worth knowing.
+- An abandoned claim is reclaimed after 15 minutes, not immediately. A claim is written and verified
+  within seconds, so a controller that dies in between would otherwise pin its server outside the pool
+  forever: a claimed server carries no `caph-recycle-available` marker and matches no lookup. Any machine
+  that finds a claim older than that returns the server to the pool. Claims written before
+  `caph-recycle-claimed-at` existed carry no timestamp, cannot be aged, and are logged instead of
+  reclaimed — relabel those by hand.
 - Cleanup after a failed claim is best-effort. If both the rebuild/finalize *and* the subsequent release
-  fail (for example during a sustained API outage), a server can be left reserved (labelled with a
-  claimant, not `available`); it is logged and needs to be relabelled back to `caph-recycle-available`
+  fail (for example during a sustained API outage), a server can be left claimed (labelled with a
+  claimant, not `available`); it is logged, and reclaimed automatically once the claim ages out
   by hand. It is never mistaken for a provisioned node, so this is a capacity/billing concern, not a
   correctness one.

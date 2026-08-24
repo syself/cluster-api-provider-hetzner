@@ -315,6 +315,15 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			})
 			return reconcile.Result{}, nil
 		}
+		// A recyclable server has been claimed but not verified yet. The verification is deliberately
+		// deferred to the next reconcile so that a competing claim has time to land and be observed;
+		// this requeue is that wait. See tryClaimRecyclableServer.
+		if errors.Is(err, errRecycleClaimPending) {
+			s.scope.Info("claimed a recyclable server, verifying the claim on the next reconcile",
+				"delay", recycleClaimVerifyDelay)
+			return reconcile.Result{RequeueAfter: recycleClaimVerifyDelay}, nil
+		}
+
 		if errors.Is(err, errServerCreateNotPossible) {
 			err = fmt.Errorf("createServerFromImageNameOrURL failed: %w", err)
 			s.scope.Error(err, "")
@@ -1372,6 +1381,18 @@ func (s *Service) getLiveServer(ctx context.Context) (server *hcloud.Server, res
 			Message: msg,
 		})
 		// no need to requeue.
+		return nil, reconcile.Result{}, nil
+	}
+
+	// The server was resolved by ProviderID, which says nothing about who owns it. For a recycled
+	// server that is not enough: another machine may have claimed it since. See
+	// assertRecycledServerStillOwned.
+	owned, err := s.assertRecycledServerStillOwned(ctx, server)
+	if err != nil {
+		return nil, reconcile.Result{}, err
+	}
+	if !owned {
+		// The machine is being remediated; there is nothing left to reconcile for it.
 		return nil, reconcile.Result{}, nil
 	}
 
