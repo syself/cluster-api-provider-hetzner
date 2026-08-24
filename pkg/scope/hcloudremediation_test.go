@@ -26,8 +26,6 @@ import (
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
-// HCloudRemediation has no Set...Summary helper in this package, so these tests call
-// NewSummaryCondition the same way HCloudRemediationScope.Close does.
 var _ = Describe("HCloudRemediationSummaryOpts", func() {
 	It("reports Ready=Unknown when no conditions are set yet", func() {
 		hcloudRemediation := &infrav2.HCloudRemediation{}
