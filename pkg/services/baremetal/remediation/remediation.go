@@ -30,12 +30,12 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch" // patches the still-v1beta1 HetznerBareMetalHost
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1" // HetznerBareMetalHost is still on v1beta1
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"

@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1" // HetznerBareMetalMachine is still on v1beta1
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
