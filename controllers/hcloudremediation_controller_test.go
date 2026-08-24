@@ -379,6 +379,56 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			}, timeout).ShouldNot(HaveOccurred())
 		})
 
+		It("does no reboot and deletes the machine when the Node is missing", func() {
+			By("waiting until the machine has a ProviderID and is running")
+			Eventually(func() error {
+				if err := testEnv.Client.Get(ctx, hcloudMachineKey, hcloudMachine); err != nil {
+					return err
+				}
+				if hcloudMachine.Spec.ProviderID == nil {
+					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
+				}
+				if hcloudMachine.Status.BootState != infrav2.HCloudBootStateOperatingSystemRunning {
+					return fmt.Errorf("hcloudMachine.Status.BootState is not HCloudBootStateOperatingSystemRunning, but: %q", hcloudMachine.Status.BootState)
+				}
+				return nil
+			}, timeout).NotTo(HaveOccurred())
+
+			By("setting the Node as deleted on capiMachine")
+			capiMachinePatchHelper, err := patch.NewHelper(capiMachine, testEnv.GetClient())
+			Expect(err).NotTo(HaveOccurred())
+			conditions.Set(capiMachine, metav1.Condition{
+				Type:    clusterv1.MachineHealthCheckSucceededCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  clusterv1.MachineHealthCheckNodeDeletedReason,
+				Message: "Node has been deleted",
+			})
+			Expect(capiMachinePatchHelper.Patch(ctx, capiMachine)).NotTo(HaveOccurred())
+
+			By("creating the hcloudRemediation")
+			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
+
+			By("checking that no reboot happened and the machine is handed to CAPI for deletion")
+			Eventually(func() error {
+				if err := testEnv.Get(ctx, hcloudRemediationkey, hcloudRemediation); err != nil {
+					return err
+				}
+				if ptr.Deref(hcloudRemediation.Status.RetryCount, 0) != 0 {
+					return fmt.Errorf("expected RetryCount 0, got %d", ptr.Deref(hcloudRemediation.Status.RetryCount, 0))
+				}
+				if !hcloudRemediation.Status.LastRemediated.IsZero() {
+					return fmt.Errorf("expected LastRemediated to be zero")
+				}
+				if hcloudRemediation.Status.Phase != infrav2.PhaseDeleting {
+					return fmt.Errorf("expected Phase %q, got %q", infrav2.PhaseDeleting, hcloudRemediation.Status.Phase)
+				}
+				if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
+					return fmt.Errorf("MachineOwnerRemediatedCondition not set")
+				}
+				return nil
+			}, timeout).ShouldNot(HaveOccurred())
+		})
+
 		It("should set RemediationSkippedCondition when HCloudMachine has irrecoverable server creation failure", func() {
 			By("waiting for HCloudMachine to be fully provisioned")
 			Eventually(func() error {
