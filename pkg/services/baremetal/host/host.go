@@ -2340,7 +2340,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	node := &corev1.Node{}
 	err = wlClient.Get(ctx, client.ObjectKey{Name: nodeName}, node)
 	if err != nil {
-		// A NotFound is a definitive answer, not a transient failure, so retrying cannot change it.
+		// The API server answered, the node just isn't there, so asking again won't help.
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("node %q not found in the workload cluster", nodeName)
 
