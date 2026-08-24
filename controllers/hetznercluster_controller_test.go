@@ -1841,6 +1841,42 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		}
 	})
 
+	t.Run("return false if load balancer is enabled and IPv4 is empty. ControlPlaneEndpoint should not change", func(t *testing.T) {
+		hetznerCluster := &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
+					Enabled: true,
+				},
+				ControlPlaneEndpoint: infrav2.APIEndpoint{},
+			},
+			Status: infrav2.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{
+					IPv4:       "",
+					InternalIP: "10.0.0.2",
+				},
+			},
+		}
+
+		processControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint != (infrav2.APIEndpoint{}) {
+			t.Fatalf("ControlPlaneEndpoint should not change. It should remain nil")
+		}
+
+		if isHetznerClusterProvisioned(hetznerCluster) != false {
+			t.Fatalf("return value should be false")
+		}
+
+		if !deprecatedv1beta1conditions.Has(hetznerCluster, infrav2.ControlPlaneEndpointSetV1Beta1Condition) {
+			t.Fatalf("ControlPlaneEndpointSetCondition should exist")
+		}
+
+		condition := deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.ControlPlaneEndpointSetV1Beta1Condition)
+		if condition.Status != corev1.ConditionFalse {
+			t.Fatalf("condition status should be false")
+		}
+	})
+
 	t.Run("return false if load balancer is enabled and IPv4 is '<nil>'. ControlPlaneEndpoint should not change", func(t *testing.T) {
 		hetznerCluster := &infrav2.HetznerCluster{
 			Spec: infrav2.HetznerClusterSpec{

@@ -17,6 +17,8 @@ limitations under the License.
 package loadbalancer
 
 import (
+	"net"
+
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
@@ -67,6 +69,21 @@ var _ = Describe("Loadbalancer", func() {
 		})
 		It("should be unprotected", func() {
 			Expect(sts.Protected).To(Equal(protected))
+		})
+	})
+	Context("load balancer without a public interface", func() {
+		It("should have no public IP addresses in the status", func() {
+			privateLB := &hcloud.LoadBalancer{
+				ID:         42,
+				PublicNet:  hcloud.LoadBalancerPublicNet{Enabled: false},
+				PrivateNet: []hcloud.LoadBalancerPrivateNet{{IP: net.ParseIP("10.0.0.2")}},
+			}
+
+			sts := statusFromHCloudLB(privateLB, true, 443, logr.Discard())
+
+			Expect(sts.IPv4).To(Equal(""))
+			Expect(sts.IPv6).To(Equal(""))
+			Expect(sts.InternalIP).To(Equal("10.0.0.2"))
 		})
 	})
 	Context("proxy protocol detection", func() {
