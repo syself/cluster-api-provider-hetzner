@@ -280,16 +280,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*HetznerBareMetalMachineSpec)(nil), (*v1beta2.HetznerBareMetalMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(a.(*HetznerBareMetalMachineSpec), b.(*v1beta2.HetznerBareMetalMachineSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.HetznerBareMetalMachineSpec)(nil), (*HetznerBareMetalMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(a.(*v1beta2.HetznerBareMetalMachineSpec), b.(*HetznerBareMetalMachineSpec), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*HetznerBareMetalMachineTemplate)(nil), (*v1beta2.HetznerBareMetalMachineTemplate)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_HetznerBareMetalMachineTemplate_To_v1beta2_HetznerBareMetalMachineTemplate(a.(*HetznerBareMetalMachineTemplate), b.(*v1beta2.HetznerBareMetalMachineTemplate), scope)
 	}); err != nil {
@@ -507,11 +497,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1beta2.Image)(nil), (*Image)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta2_Image_To_v1beta1_Image(a.(*v1beta2.Image), b.(*Image), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*InstallImage)(nil), (*v1beta2.InstallImage)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(a.(*InstallImage), b.(*v1beta2.InstallImage), scope)
 	}); err != nil {
 		return err
 	}
@@ -765,6 +750,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*HetznerBareMetalMachineSpec)(nil), (*v1beta2.HetznerBareMetalMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(a.(*HetznerBareMetalMachineSpec), b.(*v1beta2.HetznerBareMetalMachineSpec), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*HetznerBareMetalMachineStatus)(nil), (*v1beta2.HetznerBareMetalMachineStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMachineStatus(a.(*HetznerBareMetalMachineStatus), b.(*v1beta2.HetznerBareMetalMachineStatus), scope)
 	}); err != nil {
@@ -792,6 +782,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*HetznerSSHKeys)(nil), (*v1beta2.HetznerSSHKeys)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(a.(*HetznerSSHKeys), b.(*v1beta2.HetznerSSHKeys), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*InstallImage)(nil), (*v1beta2.InstallImage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(a.(*InstallImage), b.(*v1beta2.InstallImage), scope)
 	}); err != nil {
 		return err
 	}
@@ -847,6 +842,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*v1beta2.HetznerBareMetalHost)(nil), (*HetznerBareMetalHost)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(a.(*v1beta2.HetznerBareMetalHost), b.(*HetznerBareMetalHost), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.HetznerBareMetalMachineSpec)(nil), (*HetznerBareMetalMachineSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(a.(*v1beta2.HetznerBareMetalMachineSpec), b.(*HetznerBareMetalMachineSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -1724,9 +1724,7 @@ func Convert_v1beta2_HetznerBareMetalMachineList_To_v1beta1_HetznerBareMetalMach
 
 func autoConvert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in *HetznerBareMetalMachineSpec, out *v1beta2.HetznerBareMetalMachineSpec, s conversion.Scope) error {
 	out.ProviderID = (*string)(unsafe.Pointer(in.ProviderID))
-	if err := Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(&in.InstallImage, &out.InstallImage, s); err != nil {
-		return err
-	}
+	// WARNING: in.InstallImage requires manual conversion: inconvertible types (github.com/syself/cluster-api-provider-hetzner/api/v1beta1.InstallImage vs *github.com/syself/cluster-api-provider-hetzner/api/v1beta2.InstallImage)
 	if err := Convert_v1beta1_HostSelector_To_v1beta2_HostSelector(&in.HostSelector, &out.HostSelector, s); err != nil {
 		return err
 	}
@@ -1737,16 +1735,10 @@ func autoConvert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetal
 	return nil
 }
 
-// Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec is an autogenerated conversion function.
-func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in *HetznerBareMetalMachineSpec, out *v1beta2.HetznerBareMetalMachineSpec, s conversion.Scope) error {
-	return autoConvert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in, out, s)
-}
-
 func autoConvert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in *v1beta2.HetznerBareMetalMachineSpec, out *HetznerBareMetalMachineSpec, s conversion.Scope) error {
 	out.ProviderID = (*string)(unsafe.Pointer(in.ProviderID))
-	if err := Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(&in.InstallImage, &out.InstallImage, s); err != nil {
-		return err
-	}
+	// WARNING: in.InstallImage requires manual conversion: inconvertible types (*github.com/syself/cluster-api-provider-hetzner/api/v1beta2.InstallImage vs github.com/syself/cluster-api-provider-hetzner/api/v1beta1.InstallImage)
+	// WARNING: in.CustomProvisioner requires manual conversion: does not exist in peer-type
 	if err := Convert_v1beta2_HostSelector_To_v1beta1_HostSelector(&in.HostSelector, &out.HostSelector, s); err != nil {
 		return err
 	}
@@ -1755,11 +1747,6 @@ func autoConvert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetal
 	}
 	out.SkipCheckDisk = in.SkipCheckDisk
 	return nil
-}
-
-// Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec is an autogenerated conversion function.
-func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in *v1beta2.HetznerBareMetalMachineSpec, out *HetznerBareMetalMachineSpec, s conversion.Scope) error {
-	return autoConvert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in, out, s)
 }
 
 func autoConvert_v1beta1_HetznerBareMetalMachineTemplate_To_v1beta2_HetznerBareMetalMachineTemplate(in *HetznerBareMetalMachineTemplate, out *v1beta2.HetznerBareMetalMachineTemplate, s conversion.Scope) error {
@@ -2484,8 +2471,8 @@ func autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, 
 	if err := Convert_v1beta1_Image_To_v1beta2_Image(&in.Image, &out.Image, s); err != nil {
 		return err
 	}
-	out.ImageURLCommand = in.ImageURLCommand
-	out.DeviceStringType = v1beta2.DeviceStringType(in.DeviceStringType)
+	// WARNING: in.ImageURLCommand requires manual conversion: does not exist in peer-type
+	// WARNING: in.DeviceStringType requires manual conversion: does not exist in peer-type
 	out.PostInstallScript = in.PostInstallScript
 	out.Partitions = *(*[]v1beta2.Partition)(unsafe.Pointer(&in.Partitions))
 	out.LVMDefinitions = *(*[]v1beta2.LVMDefinition)(unsafe.Pointer(&in.LVMDefinitions))
@@ -2495,17 +2482,10 @@ func autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, 
 	return nil
 }
 
-// Convert_v1beta1_InstallImage_To_v1beta2_InstallImage is an autogenerated conversion function.
-func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out *v1beta2.InstallImage, s conversion.Scope) error {
-	return autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in, out, s)
-}
-
 func autoConvert_v1beta2_InstallImage_To_v1beta1_InstallImage(in *v1beta2.InstallImage, out *InstallImage, s conversion.Scope) error {
 	if err := Convert_v1beta2_Image_To_v1beta1_Image(&in.Image, &out.Image, s); err != nil {
 		return err
 	}
-	out.ImageURLCommand = in.ImageURLCommand
-	out.DeviceStringType = DeviceStringType(in.DeviceStringType)
 	out.PostInstallScript = in.PostInstallScript
 	out.Partitions = *(*[]Partition)(unsafe.Pointer(&in.Partitions))
 	out.LVMDefinitions = *(*[]LVMDefinition)(unsafe.Pointer(&in.LVMDefinitions))

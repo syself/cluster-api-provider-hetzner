@@ -717,6 +717,64 @@ func Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerB
 	return Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&in.Spec, &out.Spec, s)
 }
 
+// Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec converts the v1beta1 spec
+// to v1beta2. The v1beta1 installImage field carries both provisioning flows; v1beta2 splits them, so an
+// installImage that sets imageURLCommand becomes a customProvisioner.
+func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in *HetznerBareMetalMachineSpec, out *infrav2.HetznerBareMetalMachineSpec, s apiconversion.Scope) error {
+	// The generated converter handles every field except installImage, which it cannot map.
+	if err := autoConvert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in, out, s); err != nil {
+		return err
+	}
+
+	if in.InstallImage.UsesImageURLCommand() {
+		// The custom provisioner flow uses only the image URL, command and device string.
+		// The v1beta1 webhook forbids image name and path when imageURLCommand is
+		// set, so those are always empty here. The remaining installImage fields (partitions, RAID,
+		// post-install script) have no equivalent on customProvisioner.
+		out.CustomProvisioner = &infrav2.CustomProvisioner{
+			URL:              in.InstallImage.Image.URL,
+			Command:          in.InstallImage.ImageURLCommand,
+			DeviceStringType: infrav2.DeviceStringType(in.InstallImage.DeviceStringType),
+		}
+		return nil
+	}
+
+	out.InstallImage = &infrav2.InstallImage{}
+	return Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(&in.InstallImage, out.InstallImage, s)
+}
+
+// Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec converts the v1beta2 spec
+// back to v1beta1. It is the inverse of the split above: a customProvisioner maps back to the imageURLCommand
+// fields of the single v1beta1 installImage.
+func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in *infrav2.HetznerBareMetalMachineSpec, out *HetznerBareMetalMachineSpec, s apiconversion.Scope) error {
+	// The generated converter handles every field except installImage and customProvisioner, which it cannot map.
+	if err := autoConvert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in, out, s); err != nil {
+		return err
+	}
+
+	// The machine webhook rejects both being set. If both are somehow set here, customProvisioner wins.
+	if in.CustomProvisioner != nil {
+		out.InstallImage = InstallImage{
+			Image:            Image{URL: in.CustomProvisioner.URL},
+			ImageURLCommand:  in.CustomProvisioner.Command,
+			DeviceStringType: DeviceStringType(in.CustomProvisioner.DeviceStringType),
+		}
+		return nil
+	}
+
+	if in.InstallImage != nil {
+		return Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(in.InstallImage, &out.InstallImage, s)
+	}
+	return nil
+}
+
+// Convert_v1beta1_InstallImage_To_v1beta2_InstallImage converts a v1beta1 InstallImage to v1beta2. The
+// v1beta1-only imageURLCommand and deviceStringType fields belong to the custom provisioner flow, which the
+// spec converter maps to customProvisioner instead, so they are dropped here.
+func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out *infrav2.InstallImage, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in, out, s)
+}
+
 // Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus converts
 // the v1beta1 HCloudMachineTemplateStatus to v1beta2, dropping the V1Beta2 field.
 func Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus(in *HCloudMachineTemplateStatus, out *infrav2.HCloudMachineTemplateStatus, s apiconversion.Scope) error {
