@@ -1434,7 +1434,7 @@ func handleRateLimit(hm *infrav2.HCloudMachine, err error, functionName string, 
 
 // Delete implements delete method of server.
 func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
-	// Set phase to deleting.
+	// Set InstanceState to "deleting"
 	s.scope.HCloudMachine.Status.InstanceState = infrav2.InstanceStateDeleting
 
 	// Nothing to do if ProviderID was never set.
@@ -1477,8 +1477,6 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 			}
 		}
 	}
-
-	updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
 
 	// first shut the server down, then delete it
 	switch server.Status {

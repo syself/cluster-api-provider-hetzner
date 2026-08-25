@@ -528,6 +528,9 @@ var _ = Describe("Delete", func() {
 		res, err := service.Delete(context.Background())
 		Expect(err).To(BeNil())
 		Expect(res.RequeueAfter).To(Equal(30 * time.Second))
+		// While the running server is being shut down, the Phase stays "deleting" so the deletion is
+		// visible.
+		Expect(hcloudMachine.Status.InstanceState).To(Equal(infrav2.InstanceStateDeleting))
 		hcloudClient.AssertNotCalled(GinkgoT(), "DeleteServer", mock.Anything, mock.Anything)
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
