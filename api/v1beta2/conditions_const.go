@@ -243,12 +243,6 @@ const (
 	// DeprecatedHostProvisionSucceededV1Beta1Condition indicates that a host has been provisioned.
 	DeprecatedHostProvisionSucceededV1Beta1Condition clusterv1.ConditionType = "HostProvisionSucceeded"
 
-	// DeprecatedInstanceReadyV1Beta1Condition reports on current status of the instance. Ready indicates the instance is in a Running state.
-	DeprecatedInstanceReadyV1Beta1Condition clusterv1.ConditionType = "InstanceReady"
-
-	// DeprecatedInstanceBootstrapReadyV1Beta1Condition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
-	DeprecatedInstanceBootstrapReadyV1Beta1Condition clusterv1.ConditionType = "InstanceBootstrapReady"
-
 	// DeprecatedNetworkAttachedV1Beta1Condition reports on whether there is a network attached to the cluster.
 	DeprecatedNetworkAttachedV1Beta1Condition clusterv1.ConditionType = "NetworkAttached"
 

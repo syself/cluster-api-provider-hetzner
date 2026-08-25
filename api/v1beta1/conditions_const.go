@@ -250,12 +250,6 @@ const (
 	// DeprecatedHostProvisionSucceededCondition indicates that a host has been provisioned.
 	DeprecatedHostProvisionSucceededCondition clusterv1beta1.ConditionType = "HostProvisionSucceeded"
 
-	// DeprecatedInstanceReadyCondition reports on current status of the instance. Ready indicates the instance is in a Running state.
-	DeprecatedInstanceReadyCondition clusterv1beta1.ConditionType = "InstanceReady"
-
-	// DeprecatedInstanceBootstrapReadyCondition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
-	DeprecatedInstanceBootstrapReadyCondition clusterv1beta1.ConditionType = "InstanceBootstrapReady"
-
 	// DeprecatedHetznerClusterTargetClusterReadyCondition reports on whether the kubeconfig in the target cluster is ready.
 	DeprecatedHetznerClusterTargetClusterReadyCondition clusterv1beta1.ConditionType = "HetznerClusterTargetClusterReady"
 
@@ -270,9 +264,6 @@ const (
 
 	// DeprecatedAssociateBMHCondition reports on whether the Hetzner cluster is in ready state.
 	DeprecatedAssociateBMHCondition clusterv1beta1.ConditionType = "AssociateBMHCondition"
-
-	// DeprecatedRateLimitExceededCondition reports whether the rate limit has been reached.
-	DeprecatedRateLimitExceededCondition clusterv1beta1.ConditionType = "RateLimitExceeded"
 )
 
 const (
