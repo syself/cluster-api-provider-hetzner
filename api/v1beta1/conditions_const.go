@@ -247,9 +247,6 @@ const (
 // deprecated conditions.
 
 const (
-	// DeprecatedHostProvisionSucceededCondition indicates that a host has been provisioned.
-	DeprecatedHostProvisionSucceededCondition clusterv1beta1.ConditionType = "HostProvisionSucceeded"
-
 	// DeprecatedHetznerClusterTargetClusterReadyCondition reports on whether the kubeconfig in the target cluster is ready.
 	DeprecatedHetznerClusterTargetClusterReadyCondition clusterv1beta1.ConditionType = "HetznerClusterTargetClusterReady"
 
@@ -258,12 +255,6 @@ const (
 
 	// DeprecatedLoadBalancerAttachedToNetworkCondition reports on whether the load balancer is attached to a network.
 	DeprecatedLoadBalancerAttachedToNetworkCondition clusterv1beta1.ConditionType = "LoadBalancerAttachedToNetwork"
-
-	// DeprecatedHetznerBareMetalHostReadyCondition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedHetznerBareMetalHostReadyCondition clusterv1beta1.ConditionType = "HetznerBareMetalHostReady"
-
-	// DeprecatedAssociateBMHCondition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedAssociateBMHCondition clusterv1beta1.ConditionType = "AssociateBMHCondition"
 )
 
 const (

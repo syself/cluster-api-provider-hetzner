@@ -199,10 +199,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			log.Info("Provisioning state changed", "from", initialProvisioningState, "to", bmHost.Spec.Status.ProvisioningState)
 		}
 
-		// remove deprecated conditions.
-		v1beta1conditions.Delete(bmHost, infrav1.DeprecatedHetznerBareMetalHostReadyCondition)
-		v1beta1conditions.Delete(bmHost, infrav1.DeprecatedHostProvisionSucceededCondition)
-
 		v1beta1conditions.SetSummary(bmHost)
 		scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
 

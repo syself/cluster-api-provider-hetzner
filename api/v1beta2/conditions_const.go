@@ -243,12 +243,6 @@ const (
 	// DeprecatedHostProvisionSucceededV1Beta1Condition indicates that a host has been provisioned.
 	DeprecatedHostProvisionSucceededV1Beta1Condition clusterv1.ConditionType = "HostProvisionSucceeded"
 
-	// DeprecatedNetworkAttachedV1Beta1Condition reports on whether there is a network attached to the cluster.
-	DeprecatedNetworkAttachedV1Beta1Condition clusterv1.ConditionType = "NetworkAttached"
-
-	// DeprecatedLoadBalancerAttachedToNetworkV1Beta1Condition reports on whether the load balancer is attached to a network.
-	DeprecatedLoadBalancerAttachedToNetworkV1Beta1Condition clusterv1.ConditionType = "LoadBalancerAttachedToNetwork"
-
 	// DeprecatedHetznerBareMetalHostReadyV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
 	DeprecatedHetznerBareMetalHostReadyV1Beta1Condition clusterv1.ConditionType = "HetznerBareMetalHostReady"
 
