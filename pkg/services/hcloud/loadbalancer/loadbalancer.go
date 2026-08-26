@@ -429,8 +429,25 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 				return reconcile.Result{}, errors.Join(multierr, err)
 			}
 			if !allReady {
+				const msg = "waiting for all control-plane machines to be annotated before switching to an http health check"
 				s.scope.V(1).Info("health check: not all control-plane infrastructure machines annotated yet, requeueing")
-				return reconcile.Result{RequeueAfter: 10 * time.Second}, multierr
+
+				deprecatedv1beta1conditions.MarkFalse(
+					s.scope.HetznerCluster,
+					infrav2.LoadBalancerReadyV1Beta1Condition,
+					infrav2.LoadBalancerWaitingToActivateHTTPHealthCheckV1Beta1Reason,
+					clusterv1.ConditionSeverityInfo,
+					msg,
+				)
+
+				conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+					Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav2.HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason,
+					Message: msg,
+				})
+
+				return reconcile.Result{RequeueAfter: 2 * time.Minute}, multierr
 			}
 		}
 

@@ -33,6 +33,8 @@ const (
 	LoadBalancerFailedToOwnV1Beta1Reason = "LoadBalancerFailedToOwn"
 	// LoadBalancerWaitingToActivateProxyProtocolV1Beta1Reason used while proxy protocol activation waits for all control-plane machines to be annotated.
 	LoadBalancerWaitingToActivateProxyProtocolV1Beta1Reason = "LoadBalancerWaitingToActivateProxyProtocol"
+	// LoadBalancerWaitingToActivateHTTPHealthCheckV1Beta1Reason used while the switch to an http health check waits for all control-plane machines to be annotated.
+	LoadBalancerWaitingToActivateHTTPHealthCheckV1Beta1Reason = "LoadBalancerWaitingToActivateHTTPHealthCheck"
 )
 
 const (
@@ -349,6 +351,9 @@ const (
 	// HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason indicates that proxy protocol activation is
 	// waiting for all control-plane machines to be annotated.
 	HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason = "WaitingToActivateProxyProtocol"
+	// HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason indicates that the switch to an http
+	// health check is waiting for all control-plane machines to be annotated.
+	HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason = "WaitingToActivateHTTPHealthCheck"
 )
 
 const (

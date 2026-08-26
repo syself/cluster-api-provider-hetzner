@@ -529,7 +529,13 @@ func TestReconcileServices_HealthCheckMigration_MachinesNotReady_Requeues(t *tes
 
 	res, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
-	require.NotZero(t, res.RequeueAfter, "should requeue while a control-plane machine is not annotated")
+	require.Equal(t, 2*time.Minute, res.RequeueAfter, "should requeue after 2 minutes while a control-plane machine is not annotated")
+
+	cond := conditions.Get(svc.scope.HetznerCluster, infrav2.HetznerClusterLoadBalancerReadyCondition)
+	require.NotNil(t, cond, "LoadBalancerReady condition should report the http health check wait")
+	require.Equal(t, metav1.ConditionFalse, cond.Status)
+	require.Equal(t, infrav2.HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason, cond.Reason)
+
 	// No UpdateServiceOnLoadBalancer expectation was set up, so AssertExpectations fails here if
 	// the tcp check got switched to http anyway.
 	mockClient.AssertExpectations(t)
@@ -688,7 +694,7 @@ func TestReconcileServices_HealthCheckMigration_MachinesNotReady_StillEnablesPro
 
 	res, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
-	require.Equal(t, 10*time.Second, res.RequeueAfter, "should requeue while the health-check migration waits, without blocking proxy protocol")
+	require.Equal(t, 2*time.Minute, res.RequeueAfter, "should requeue while the health-check migration waits, without blocking proxy protocol")
 	require.True(t, svc.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled, "proxy protocol should still be enabled in this reconcile")
 
 	require.Len(t, updateCalls, 1, "only the proxy-protocol update should have been sent")
