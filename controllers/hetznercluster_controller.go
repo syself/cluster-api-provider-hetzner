@@ -1060,14 +1060,8 @@ func (r *HetznerClusterReconciler) machineToHetznerCluster(ctx context.Context, 
 // watched object without an extra Get of the owning Machine — the same way clusterv1.ClusterNameLabel is
 // already read directly off these objects elsewhere in this file.
 //
-// The condition type is compared as a string so one value serves both resources, which live on
-// different API versions: HCloudMachine's server.go writes the condition through the infrav2 type,
-// while HetznerBareMetalMachine's baremetal.go writes it through the infrav1 type. Both hold the
-// same "ServerAvailable" string, and reading the constant each resource actually writes keeps them
-// in sync by construction.
-//
-// TODO: once HetznerBareMetalMachine is migrated to v1beta2, both resources will write through the
-// same infrav2 type and this dual-constant explanation can be dropped.
+// The condition is matched by string. Use the same constant that server.go and baremetal.go write,
+// so a change to its value on one side cannot silently stop the predicate from firing.
 func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 	isControlPlaneMachine := func(o client.Object) bool {
 		_, ok := o.GetLabels()[clusterv1.MachineControlPlaneLabel]

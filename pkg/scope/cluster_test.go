@@ -34,10 +34,10 @@ import (
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
-func controlPlaneObjectMeta(namespace, name, clusterName string, annotated bool) metav1.ObjectMeta {
+func controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, annotation string, annotated bool) metav1.ObjectMeta {
 	annotations := map[string]string{}
 	if annotated {
-		annotations[infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation] = "true"
+		annotations[annotation] = "true"
 	}
 
 	return metav1.ObjectMeta{
@@ -51,6 +51,10 @@ func controlPlaneObjectMeta(namespace, name, clusterName string, annotated bool)
 	}
 }
 
+func controlPlaneObjectMeta(namespace, name, clusterName string, annotated bool) metav1.ObjectMeta {
+	return controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation, annotated)
+}
+
 func controlPlaneHCloudMachine(namespace, name, clusterName string, annotated bool) *infrav2.HCloudMachine {
 	return &infrav2.HCloudMachine{
 		ObjectMeta: controlPlaneObjectMeta(namespace, name, clusterName, annotated),
@@ -60,6 +64,18 @@ func controlPlaneHCloudMachine(namespace, name, clusterName string, annotated bo
 func controlPlaneBareMetalMachine(namespace, name, clusterName string, annotated bool) *infrav1.HetznerBareMetalMachine {
 	return &infrav1.HetznerBareMetalMachine{
 		ObjectMeta: controlPlaneObjectMeta(namespace, name, clusterName, annotated),
+	}
+}
+
+func controlPlaneHCloudMachineForHTTPHealthCheck(namespace, name, clusterName string, annotated bool) *infrav2.HCloudMachine {
+	return &infrav2.HCloudMachine{
+		ObjectMeta: controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, infrav2.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated),
+	}
+}
+
+func controlPlaneBareMetalMachineForHTTPHealthCheck(namespace, name, clusterName string, annotated bool) *infrav1.HetznerBareMetalMachine {
+	return &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, infrav2.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated),
 	}
 }
 
@@ -145,6 +161,100 @@ func TestAllControlPlaneInfraMachinesAnnotatedForProxyProtocol(t *testing.T) {
 			}
 
 			got, err := s.AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestAllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(t *testing.T) {
+	const (
+		namespace   = "default"
+		clusterName = "test-cluster"
+	)
+
+	scheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+	utilruntime.Must(infrav2.AddToScheme(scheme))
+
+	tests := []struct {
+		name     string
+		machines []client.Object
+		want     bool
+	}{
+		{
+			name:     "no control-plane infrastructure machines yet",
+			machines: nil,
+			want:     false,
+		},
+		{
+			name: "all hcloud control planes annotated for the http health check",
+			machines: []client.Object{
+				controlPlaneHCloudMachineForHTTPHealthCheck(namespace, "cp-1", clusterName, true),
+				controlPlaneHCloudMachineForHTTPHealthCheck(namespace, "cp-2", clusterName, true),
+			},
+			want: true,
+		},
+		{
+			name: "mixed hcloud and bare-metal control planes all annotated for the http health check",
+			machines: []client.Object{
+				controlPlaneHCloudMachineForHTTPHealthCheck(namespace, "cp-1", clusterName, true),
+				controlPlaneBareMetalMachineForHTTPHealthCheck(namespace, "cp-2", clusterName, true),
+			},
+			want: true,
+		},
+		{
+			name: "one hcloud machine still from the old template misses the annotation",
+			machines: []client.Object{
+				controlPlaneHCloudMachineForHTTPHealthCheck(namespace, "cp-1", clusterName, true),
+				controlPlaneHCloudMachineForHTTPHealthCheck(namespace, "cp-2", clusterName, false),
+			},
+			want: false,
+		},
+		{
+			name: "one bare-metal machine still from the old template misses the annotation",
+			machines: []client.Object{
+				controlPlaneHCloudMachineForHTTPHealthCheck(namespace, "cp-1", clusterName, true),
+				controlPlaneBareMetalMachineForHTTPHealthCheck(namespace, "cp-2", clusterName, false),
+			},
+			want: false,
+		},
+		{
+			name: "the proxy-protocol annotation does not satisfy the http health check gate",
+			machines: []client.Object{
+				controlPlaneHCloudMachine(namespace, "cp-1", clusterName, true),
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objects := append([]client.Object{}, tt.machines...)
+			// A worker infrastructure machine of the same cluster (no control-plane label) must
+			// never affect the result.
+			objects = append(objects, &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "worker-1",
+					Namespace: namespace,
+					Labels:    map[string]string{clusterv1.ClusterNameLabel: clusterName},
+				},
+			})
+
+			s := &ClusterScope{
+				Logger: klog.Background(),
+				Client: fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build(),
+				Cluster: &clusterv1.Cluster{
+					ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace},
+				},
+				HetznerCluster: &infrav2.HetznerCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace},
+				},
+			}
+
+			got, err := s.AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(context.Background())
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
 		})
