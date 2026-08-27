@@ -1060,10 +1060,8 @@ func (r *HetznerClusterReconciler) machineToHetznerCluster(ctx context.Context, 
 // watched object without an extra Get of the owning Machine — the same way clusterv1.ClusterNameLabel is
 // already read directly off these objects elsewhere in this file.
 //
-// The condition type is read via the v1beta1 constants (infrav1) rather than a v1beta2 (infrav2) one:
-// server.go and baremetal.go still set the condition through the v1beta1-typed scope, so infrav1 is the
-// actual source of truth today. Reading the same constant that's written keeps the two in sync by
-// construction, instead of relying on a separate v1beta2 constant that happens to hold the same string.
+// The condition is matched by string. Use the same constant that server.go and baremetal.go write,
+// so a change to its value on one side cannot silently stop the predicate from firing.
 func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 	isControlPlaneMachine := func(o client.Object) bool {
 		_, ok := o.GetLabels()[clusterv1.MachineControlPlaneLabel]
