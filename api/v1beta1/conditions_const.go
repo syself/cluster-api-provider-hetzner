@@ -411,8 +411,6 @@ const (
 	// HCloudMachineEnablingRescueActionDoneV1Beta2Reason indicates the rescue enable action is done.
 	HCloudMachineEnablingRescueActionDoneV1Beta2Reason = "EnablingRescueActionDone"
 
-	// HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason indicates getting the SSH private key failed.
-	HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason = "GettingSSHPrivateKeyFailed"
 	// HCloudMachineRetryingSSHConnectionV1Beta2Reason indicates the SSH connection is being retried.
 	HCloudMachineRetryingSSHConnectionV1Beta2Reason = "RetryingSSHConnection"
 	// HCloudMachineGettingHostnameFailedV1Beta2Reason indicates getting the hostname failed.

@@ -235,7 +235,7 @@ func TestAllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(t *testing.T) {
 			objects := append([]client.Object{}, tt.machines...)
 			// A worker infrastructure machine of the same cluster (no control-plane label) must
 			// never affect the result.
-			objects = append(objects, &infrav1.HCloudMachine{
+			objects = append(objects, &infrav2.HCloudMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "worker-1",
 					Namespace: namespace,
