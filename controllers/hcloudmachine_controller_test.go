@@ -37,7 +37,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -691,7 +691,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 				By("setting the bootstrap data")
 
-				ph, err := v1beta1patch.NewHelper(capiMachine, testEnv)
+				ph, err := patch.NewHelper(capiMachine, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
@@ -699,7 +699,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}
 
 				Eventually(func() error {
-					return ph.Patch(ctx, capiMachine, v1beta1patch.WithStatusObservedGeneration{})
+					return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
 				}, timeout, interval).Should(BeNil())
 
 				By("checking that bootstrap condition is ready")
