@@ -413,7 +413,7 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 	deprecatedv1beta1conditions.MarkFalse(
 		capiMachine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
-		infrav2.RemediationCooldownTriggeredReason,
+		infrav2.RemediationCooldownTriggeredV1Beta1Reason,
 		clusterv1.ConditionSeverityWarning,
 		"Remediation cooldown active (machine will be deleted): %s", msg,
 	)
