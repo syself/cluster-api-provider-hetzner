@@ -314,9 +314,8 @@ func processControlPlaneEndpoint(hetznerCluster *infrav2.HetznerCluster) {
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		lbStatus := hetznerCluster.Status.ControlPlaneLoadBalancer
 		// A load balancer without a public interface has no public IPv4, so it can not be used as
-		// control plane endpoint. Older versions of caph stored "<nil>" in that case, current
-		// versions store an empty string.
-		if lbStatus != nil && lbStatus.IPv4 != "" && lbStatus.IPv4 != "<nil>" {
+		// control plane endpoint.
+		if lbStatus != nil && lbStatus.IPv4 != "" {
 			defaultHost := lbStatus.IPv4
 			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 
