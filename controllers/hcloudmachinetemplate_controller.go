@@ -77,45 +77,45 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		return ctrl.Result{}, nil
 	}
 
-	machineTemplate := &infrav1.HCloudMachineTemplate{}
-	if err := r.Get(ctx, req.NamespacedName, machineTemplate); err != nil {
+	hcloudMachineTemplate := &infrav1.HCloudMachineTemplate{}
+	if err := r.Get(ctx, req.NamespacedName, hcloudMachineTemplate); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	log = log.WithValues("HCloudMachineTemplate", klog.KObj(machineTemplate))
+	log = log.WithValues("HCloudMachineTemplate", klog.KObj(hcloudMachineTemplate))
 
-	patchHelper, err := v1beta1patch.NewHelper(machineTemplate, r)
+	patchHelper, err := v1beta1patch.NewHelper(hcloudMachineTemplate, r)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get patch helper: %w", err)
 	}
 
 	defer func() {
 		// Compute v1beta1 summary.
-		v1beta1conditions.SetSummary(machineTemplate)
+		v1beta1conditions.SetSummary(hcloudMachineTemplate)
 
 		// Compute v1beta2 Ready summary from the owned conditions.
-		if err := scope.SetHCloudMachineTemplateV1Beta2SummaryCondition(machineTemplate); err != nil {
+		if err := scope.SetHCloudMachineTemplateV1Beta2SummaryCondition(hcloudMachineTemplate); err != nil {
 			log.Error(err, "Failed to set v1beta2 Ready condition")
-			v1beta2conditions.Set(machineTemplate, metav1.Condition{
+			v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 				Type:   clusterv1beta1.ReadyV1Beta2Condition,
 				Status: metav1.ConditionUnknown,
 				Reason: infrav1.InternalErrorV1Beta2Reason,
 			})
 		}
 
-		if err := patchHelper.Patch(ctx, machineTemplate, scope.MachineTemplatePatchOpts()...); err != nil {
+		if err := patchHelper.Patch(ctx, hcloudMachineTemplate, scope.MachineTemplatePatchOpts()...); err != nil {
 			log.Error(err, "failed to patch HCloudMachineTemplate")
 		}
 	}()
 
 	// removing finalizer that was set in previous versions but is not needed
 	// We can remove that code in 2025.
-	controllerutil.RemoveFinalizer(machineTemplate, infrav1.DeprecatedHCloudMachineFinalizer)
+	controllerutil.RemoveFinalizer(hcloudMachineTemplate, infrav1.DeprecatedHCloudMachineFinalizer)
 
 	// Check whether owner is a ClusterClass. In that case there is nothing to do.
-	if hasOwnerClusterClass(machineTemplate.ObjectMeta) {
-		machineTemplate.Status.OwnerType = "ClusterClass"
-		v1beta2conditions.Set(machineTemplate, metav1.Condition{
+	if hasOwnerClusterClass(hcloudMachineTemplate.ObjectMeta) {
+		hcloudMachineTemplate.Status.OwnerType = "ClusterClass"
+		v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 			Type:   infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
 			Status: metav1.ConditionTrue,
 			Reason: infrav1.HCloudMachineTemplateOwnedByClusterClassV1Beta2Reason,
@@ -124,16 +124,16 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	}
 
 	var cluster *clusterv1.Cluster
-	cluster, err = util.GetOwnerCluster(ctx, r, machineTemplate.ObjectMeta)
+	cluster, err = util.GetOwnerCluster(ctx, r, hcloudMachineTemplate.ObjectMeta)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			v1beta2conditions.Set(machineTemplate, metav1.Condition{
+			v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 				Type:   infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
 				Status: metav1.ConditionUnknown,
 				Reason: infrav1.HCloudMachineTemplateWaitingForOwnerClusterV1Beta2Reason,
 			})
 		} else {
-			v1beta2conditions.Set(machineTemplate, metav1.Condition{
+			v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 				Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
 				Status:  metav1.ConditionUnknown,
 				Reason:  infrav1.InternalErrorV1Beta2Reason,
@@ -144,21 +144,21 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	}
 	if cluster == nil {
 		log.Info(fmt.Sprintf("%s is missing ownerRef to cluster %s/%s",
-			machineTemplate.Kind, machineTemplate.Namespace, machineTemplate.Name))
-		v1beta2conditions.Set(machineTemplate, metav1.Condition{
+			hcloudMachineTemplate.Kind, hcloudMachineTemplate.Namespace, hcloudMachineTemplate.Name))
+		v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 			Type:   infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
 			Status: metav1.ConditionUnknown,
 			Reason: infrav1.HCloudMachineTemplateWaitingForOwnerClusterV1Beta2Reason,
 		})
 		return reconcile.Result{}, nil
 	}
-	machineTemplate.Status.OwnerType = cluster.Kind
+	hcloudMachineTemplate.Status.OwnerType = cluster.Kind
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
 
 	// Requeue if cluster has no infrastructure yet.
 	if !cluster.Spec.InfrastructureRef.IsDefined() {
-		v1beta2conditions.Set(machineTemplate, metav1.Condition{
+		v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 			Type:   infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
 			Status: metav1.ConditionFalse,
 			Reason: infrav1.HCloudMachineTemplateMissingInfrastructureRefV1Beta2Reason,
@@ -169,7 +169,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
-		Namespace: machineTemplate.Namespace,
+		Namespace: hcloudMachineTemplate.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
 	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
@@ -177,7 +177,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		if apierrors.IsNotFound(err) {
 			reason = clusterv1beta1.WaitingForClusterInfrastructureReadyV1Beta2Reason
 		}
-		v1beta2conditions.Set(machineTemplate, metav1.Condition{
+		v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 			Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
 			Status:  metav1.ConditionUnknown,
 			Reason:  reason,
@@ -193,19 +193,19 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	hcloudToken, err := getAndValidateHCloudTokenV1Beta1(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResultV1Beta1(ctx, err, machineTemplate, r, infrav1.HCloudMachineTemplateV1Beta2SummaryOpts())
+		return hcloudTokenErrorResultV1Beta1(ctx, err, hcloudMachineTemplate, r, infrav1.HCloudMachineTemplateV1Beta2SummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	machineTemplateScope, err := scope.NewHCloudMachineTemplateScope(scope.HCloudMachineTemplateScopeParams{
 		Logger:                &log,
-		HCloudMachineTemplate: machineTemplate,
+		HCloudMachineTemplate: hcloudMachineTemplate,
 		HCloudClient:          hcc,
 	})
 	if err != nil {
 		err := fmt.Errorf("failed to create scope: %w", err)
-		v1beta2conditions.Set(machineTemplate, metav1.Condition{
+		v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 			Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
 			Status:  metav1.ConditionUnknown,
 			Reason:  infrav1.InternalErrorV1Beta2Reason,
@@ -216,16 +216,16 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
-			v1beta1conditions.MarkFalse(machineTemplate, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1beta1.ConditionSeverityError, "wrong hcloud token")
-			v1beta2conditions.Set(machineTemplate, metav1.Condition{
+			v1beta1conditions.MarkFalse(hcloudMachineTemplate, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1beta1.ConditionSeverityError, "wrong hcloud token")
+			v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
 				Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
 				Message: "wrong hcloud token",
 			})
 		} else {
-			v1beta1conditions.MarkTrue(machineTemplate, infrav1.HCloudTokenAvailableCondition)
-			v1beta2conditions.Set(machineTemplate, metav1.Condition{
+			v1beta1conditions.MarkTrue(hcloudMachineTemplate, infrav1.HCloudTokenAvailableCondition)
+			v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 				Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
 				Status: metav1.ConditionTrue,
 				Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
@@ -234,12 +234,12 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	}()
 
 	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimitV1Beta1(machineTemplate, r.RateLimitWaitTime); wait {
+	if wait := reconcileRateLimitV1Beta1(hcloudMachineTemplate, r.RateLimitWaitTime); wait {
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	if err := r.reconcile(ctx, machineTemplateScope); err != nil {
-		v1beta2conditions.Set(machineTemplate, metav1.Condition{
+		v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 			Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
 			Reason:  infrav1.InternalErrorV1Beta2Reason,
@@ -247,7 +247,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		})
 		return reconcile.Result{}, err
 	}
-	v1beta2conditions.Set(machineTemplate, metav1.Condition{
+	v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 		Type:   infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
 		Status: metav1.ConditionTrue,
 		Reason: infrav1.HCloudMachineTemplateAvailableV1Beta2Reason,
