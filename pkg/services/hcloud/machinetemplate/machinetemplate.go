@@ -74,19 +74,21 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		if err != nil {
 			// wrong server type, not an internal error. don't retry with backoff, a restart
 			// picks it up again if hcloud starts offering it.
-			reason := infrav1.InternalErrorV1Beta2Reason
 			if errors.Is(err, ErrServerTypeNotFound) {
-				reason = infrav1.HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason
+				v1beta2conditions.Set(machineTemplate, metav1.Condition{
+					Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav1.HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason,
+					Message: err.Error(),
+				})
+				return reconcile.Result{}, nil
 			}
 			v1beta2conditions.Set(machineTemplate, metav1.Condition{
 				Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  reason,
+				Reason:  infrav1.InternalErrorV1Beta2Reason,
 				Message: err.Error(),
 			})
-			if reason == infrav1.HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason {
-				return reconcile.Result{}, nil
-			}
 			return reconcile.Result{}, fmt.Errorf("failed to get capacity: %w", err)
 		}
 
