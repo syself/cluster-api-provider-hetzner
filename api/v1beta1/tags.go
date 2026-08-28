@@ -49,6 +49,32 @@ const (
 
 	// MachineNameTagKey tags related MachineNameTag.
 	MachineNameTagKey = "machine." + NameHetznerProviderPrefix + "name"
+
+	// ServerRecycleLabelKey marks an HCloud server as recyclable. When ServerRecycling is enabled for
+	// a machine, a server with this label (value "true") that matches the machine's type and location
+	// can be claimed and rebuilt instead of creating a new server. On deletion the server keeps this
+	// label and is returned to the recyclable set instead of being deleted.
+	ServerRecycleLabelKey = NameHetznerProviderPrefix + "recycle"
+
+	// ServerRecycleAvailableLabelKey marks a recyclable server as not currently claimed by a machine
+	// (value "true"). It is removed when a machine claims the server and re-added when the machine is
+	// deleted.
+	ServerRecycleAvailableLabelKey = NameHetznerProviderPrefix + "recycle-available"
+
+	// ServerRecycleClaimantLabelKey holds the name of the machine that is currently claiming a
+	// recyclable server (value = machine name). It is set while a server is being reserved and rebuilt,
+	// after the available marker is dropped but before the machine identity is applied. Because this key
+	// is not the one the server lookup matches on, a reserved-but-not-yet-rebuilt server is never
+	// adopted as a provisioned machine, which keeps the claim idempotent if the rebuild fails.
+	ServerRecycleClaimantLabelKey = NameHetznerProviderPrefix + "recycle-claimant"
+
+	// ServerRecycleClaimedAtLabelKey holds the Unix timestamp (seconds) at which the claim recorded in
+	// ServerRecycleClaimantLabelKey was written. A claim is only ever short-lived: it is verified on the
+	// next reconcile and then either completed or released. If the controller dies in between, the
+	// claim would otherwise pin the server out of the pool forever, because a claimed server carries no
+	// available marker and therefore matches no lookup. This timestamp lets any other machine recognise
+	// such an abandoned claim and return the server to the pool.
+	ServerRecycleClaimedAtLabelKey = NameHetznerProviderPrefix + "recycle-claimed-at"
 )
 
 // ClusterHetznerCloudProviderTagKey generates the key for resources associated a cluster's HCloud cloud provider.

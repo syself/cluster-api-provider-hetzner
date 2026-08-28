@@ -161,6 +161,24 @@ spec:
                               addresses enabled.
                             type: boolean
                         type: object
+                      recycle:
+                        description: |-
+                          Recycle enables server recycling for this machine. When enabled, instead of creating a new
+                          HCloud server, the controller claims a pre-existing server that is labelled as recyclable and
+                          matches this machine's Type and location, and rebuilds it with the machine's bootstrap data. On
+                          deletion the server is returned to the recyclable set instead of being deleted. This lets a fixed
+                          set of servers back a MachineDeployment, so nodes are reused instead of provisioned and destroyed
+                          on every scale event.
+
+                          Recycling is only supported together with ImageName (snapshot provisioning) and is a best-effort
+                          optimization: if no matching recyclable server is available, a new server is created as usual.
+                        properties:
+                          enabled:
+                            default: false
+                            description: Enabled turns server recycling on for this
+                              machine.
+                            type: boolean
+                        type: object
                       sshKeys:
                         description: SSHKeys define machine-specific SSH keys and
                           override cluster-wide SSH keys.
@@ -488,6 +506,24 @@ spec:
                             default: true
                             description: EnableIPv6 defines whether server has IPv6
                               addresses enabled.
+                            type: boolean
+                        type: object
+                      recycle:
+                        description: |-
+                          Recycle enables server recycling for this machine. When enabled, instead of creating a new
+                          HCloud server, the controller claims a pre-existing server that is labelled as recyclable and
+                          matches this machine's Type and location, and rebuilds it with the machine's bootstrap data. On
+                          deletion the server is returned to the recyclable set instead of being deleted. This lets a fixed
+                          set of servers back a MachineDeployment, so nodes are reused instead of provisioned and destroyed
+                          on every scale event.
+
+                          Recycling is only supported together with ImageName (snapshot provisioning) and is a best-effort
+                          optimization: if no matching recyclable server is available, a new server is created as usual.
+                        properties:
+                          enabled:
+                            default: false
+                            description: Enabled turns server recycling on for this
+                              machine.
                             type: boolean
                         type: object
                       sshKeys:

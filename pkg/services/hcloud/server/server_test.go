@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"syscall"
 	"testing"
 	"time"
@@ -1451,6 +1452,80 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring the bootstate has transitioned to BootStateOperatingSystemRunning once the server's status changes to running")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
+	})
+
+	It("requeues instead of provisioning when a recyclable server has been claimed but not yet verified", func() {
+		By("setting the bootstrap data")
+		err := testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		By("enabling recycling on the machine")
+		service.scope.HCloudMachine.Spec.Recycle = &infrav1.ServerRecycling{Enabled: true}
+
+		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(&hcloud.ServerType{
+			Architecture: hcloud.ArchitectureX86,
+		}, nil)
+		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: "caph-image-name==ubuntu-24.04",
+			},
+			Architecture: []hcloud.Architecture{hcloud.ArchitectureX86},
+		}).Return([]*hcloud.Image{{ID: 123456, Name: "ubuntu"}}, nil)
+		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+			Name:         "ubuntu-24.04",
+			Architecture: []hcloud.Architecture{hcloud.ArchitectureX86},
+		}).Return([]*hcloud.Image{}, nil)
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return([]*hcloud.SSHKey{
+			{
+				ID:          1,
+				Name:        "sshKey1",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+			},
+		}, nil)
+
+		By("offering one matching server in the recyclable pool")
+		poolListOpts := hcloud.ServerListOpts{}
+		poolListOpts.LabelSelector = infrav1.ServerRecycleLabelKey + "==true"
+		poolServer := &hcloud.Server{
+			ID:         4711,
+			Name:       "pool-a",
+			ServerType: &hcloud.ServerType{Name: "cpx22"},
+			Location:   &hcloud.Location{Name: "nbg1"},
+			Labels: map[string]string{
+				infrav1.ServerRecycleLabelKey:          "true",
+				infrav1.ServerRecycleAvailableLabelKey: "true",
+			},
+		}
+		// The cluster has no private network, so provisioning requires a public IPv4. A rebuild cannot
+		// add one, so a pool server without it is rejected before any claim is written.
+		poolServer.PublicNet.IPv4.IP = net.ParseIP("1.2.3.4")
+		poolServer.PublicNet.IPv6.IP = net.ParseIP("2a01::1")
+		hcloudClient.On("ListServers", mock.Anything, poolListOpts).
+			Return([]*hcloud.Server{poolServer}, nil).Once()
+
+		By("expecting exactly one label write: the claim")
+		updates := 0
+		hcloudClient.On("UpdateServer", mock.Anything, mock.Anything, mock.Anything).
+			Run(func(mock.Arguments) { updates++ }).Return(poolServer, nil)
+
+		By("calling reconcile")
+		result, err := service.Reconcile(ctx)
+
+		By("ensuring the claim is verified on a later reconcile rather than in this one")
+		Expect(err).To(BeNil(), "a pending claim is a normal intermediate state, not an error")
+		Expect(result.RequeueAfter).To(Equal(recycleClaimVerifyDelay))
+		Expect(updates).To(Equal(1), "exactly one label write, the claim")
+		// hcloudClient asserts on cleanup that neither CreateServer nor RebuildServer was called: the
+		// machine must neither fall through to a normal create nor rebuild before the claim is verified.
 	})
 
 	It("recovers from a uniqueness error on CreateServer by adopting the existing server", func() {
