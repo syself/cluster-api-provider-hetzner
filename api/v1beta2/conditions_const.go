@@ -237,31 +237,6 @@ const (
 	DeletionInProgressV1Beta1Reason = "DeletionInProgress"
 )
 
-// deprecated conditions.
-
-const (
-	// DeprecatedHostProvisionSucceededV1Beta1Condition indicates that a host has been provisioned.
-	DeprecatedHostProvisionSucceededV1Beta1Condition clusterv1.ConditionType = "HostProvisionSucceeded"
-
-	// DeprecatedInstanceReadyV1Beta1Condition reports on current status of the instance. Ready indicates the instance is in a Running state.
-	DeprecatedInstanceReadyV1Beta1Condition clusterv1.ConditionType = "InstanceReady"
-
-	// DeprecatedInstanceBootstrapReadyV1Beta1Condition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
-	DeprecatedInstanceBootstrapReadyV1Beta1Condition clusterv1.ConditionType = "InstanceBootstrapReady"
-
-	// DeprecatedNetworkAttachedV1Beta1Condition reports on whether there is a network attached to the cluster.
-	DeprecatedNetworkAttachedV1Beta1Condition clusterv1.ConditionType = "NetworkAttached"
-
-	// DeprecatedLoadBalancerAttachedToNetworkV1Beta1Condition reports on whether the load balancer is attached to a network.
-	DeprecatedLoadBalancerAttachedToNetworkV1Beta1Condition clusterv1.ConditionType = "LoadBalancerAttachedToNetwork"
-
-	// DeprecatedHetznerBareMetalHostReadyV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedHetznerBareMetalHostReadyV1Beta1Condition clusterv1.ConditionType = "HetznerBareMetalHostReady"
-
-	// DeprecatedAssociateBMHV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedAssociateBMHV1Beta1Condition clusterv1.ConditionType = "AssociateBMHCondition"
-)
-
 const (
 	// RebootSucceededV1Beta1Condition indicates that the machine got rebooted successfully.
 	RebootSucceededV1Beta1Condition clusterv1.ConditionType = "RebootSucceeded"
@@ -288,6 +263,8 @@ const (
 	GetWorkloadClusterClientFailedV1Beta1Reason = "GetWorkloadClusterClientFailed"
 	// GetNodeInWorkloadClusterFailedV1Beta1Reason indicates failure in fetching the node object from the workload cluster.
 	GetNodeInWorkloadClusterFailedV1Beta1Reason = "GetNodeInWorkloadClusterFailed"
+	// NodeNotFoundV1Beta1Reason indicates the node object does not exist in the workload cluster.
+	NodeNotFoundV1Beta1Reason = "NodeNotFound"
 	// BootIDEmptyV1Beta1Reason indicates that an empty boot ID is present on the node object.
 	BootIDEmptyV1Beta1Reason = "BootIDEmpty"
 )
@@ -619,6 +596,8 @@ const (
 	HetznerBareMetalHostGettingWorkloadClusterClientFailedReason = "GettingWorkloadClusterClientFailed"
 	// HetznerBareMetalHostGettingNodeInWorkloadClusterFailedReason indicates fetching the node object from the workload cluster failed.
 	HetznerBareMetalHostGettingNodeInWorkloadClusterFailedReason = "GettingNodeInWorkloadClusterFailed"
+	// HetznerBareMetalHostNodeNotFoundReason indicates the node object does not exist in the workload cluster.
+	HetznerBareMetalHostNodeNotFoundReason = "NodeNotFound"
 	// HetznerBareMetalHostBootIDEmptyReason indicates the boot ID on the node object is empty.
 	HetznerBareMetalHostBootIDEmptyReason = "BootIDEmpty"
 )

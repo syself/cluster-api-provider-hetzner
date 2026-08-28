@@ -25,7 +25,6 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -52,9 +51,6 @@ func NewService(scope *scope.HCloudMachineTemplateScope) *Service {
 // Reconcile implements reconcilement of HCloudMachinesTemplates.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	machineTemplate := s.scope.HCloudMachineTemplate
-
-	// delete the deprecated condition from existing machinetemplate objects
-	v1beta1conditions.Delete(machineTemplate, infrav1.DeprecatedRateLimitExceededCondition)
 
 	if machineTemplate.Status.Capacity == nil {
 		serverTypes, err := s.scope.HCloudClient.ListServerTypes(ctx)

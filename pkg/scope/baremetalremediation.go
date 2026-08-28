@@ -22,11 +22,13 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1" // HetznerBareMetalMachine is still on v1beta1
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // BareMetalRemediationScopeParams defines the input parameters used to create a new Scope.
@@ -35,8 +37,8 @@ type BareMetalRemediationScopeParams struct {
 	Client               client.Client
 	Machine              *clusterv1.Machine
 	BareMetalMachine     *infrav1.HetznerBareMetalMachine
-	HetznerCluster       *infrav1.HetznerCluster
-	BareMetalRemediation *infrav1.HetznerBareMetalRemediation
+	HetznerCluster       *infrav2.HetznerCluster
+	BareMetalRemediation *infrav2.HetznerBareMetalRemediation
 }
 
 // NewBareMetalRemediationScope creates a new Scope from the supplied parameters.
@@ -55,7 +57,7 @@ func NewBareMetalRemediationScope(params BareMetalRemediationScopeParams) (*Bare
 		return nil, errors.New("failed to generate new scope from nil BareMetalMachine")
 	}
 
-	patchHelper, err := v1beta1patch.NewHelper(params.BareMetalRemediation, params.Client)
+	patchHelper, err := patch.NewHelper(params.BareMetalRemediation, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
@@ -74,14 +76,14 @@ func NewBareMetalRemediationScope(params BareMetalRemediationScopeParams) (*Bare
 type BareMetalRemediationScope struct {
 	*logr.Logger
 	Client               client.Client
-	patchHelper          *v1beta1patch.Helper
+	patchHelper          *patch.Helper
 	Machine              *clusterv1.Machine
 	BareMetalMachine     *infrav1.HetznerBareMetalMachine
-	BareMetalRemediation *infrav1.HetznerBareMetalRemediation
+	BareMetalRemediation *infrav2.HetznerBareMetalRemediation
 }
 
 // Close closes the current scope persisting the cluster configuration and status.
-func (m *BareMetalRemediationScope) Close(ctx context.Context, opts ...v1beta1patch.Option) error {
+func (m *BareMetalRemediationScope) Close(ctx context.Context, opts ...patch.Option) error {
 	return m.patchHelper.Patch(ctx, m.BareMetalRemediation, opts...)
 }
 
@@ -97,6 +99,6 @@ func (m *BareMetalRemediationScope) Namespace() string {
 
 // HasRetriesLeft returns true if the retry limit is greater than retry count.
 func (m *BareMetalRemediationScope) HasRetriesLeft() bool {
-	return m.BareMetalRemediation.Spec.Strategy.RetryLimit > 0 &&
-		m.BareMetalRemediation.Spec.Strategy.RetryLimit > m.BareMetalRemediation.Status.RetryCount
+	retryLimit := ptr.Deref(m.BareMetalRemediation.Spec.Strategy.RetryLimit, 0)
+	return retryLimit > 0 && retryLimit > ptr.Deref(m.BareMetalRemediation.Status.RetryCount, 0)
 }
