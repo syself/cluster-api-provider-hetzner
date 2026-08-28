@@ -19,10 +19,15 @@ package machinetemplate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -45,38 +50,66 @@ func NewService(scope *scope.HCloudMachineTemplateScope) *Service {
 }
 
 // Reconcile implements reconcilement of HCloudMachinesTemplates.
-func (s *Service) Reconcile(ctx context.Context) error {
-	// delete the deprecated condition from existing machinetemplate objects
-	v1beta1conditions.Delete(s.scope.HCloudMachineTemplate, infrav1.DeprecatedRateLimitExceededCondition)
+func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
+	machineTemplate := s.scope.HCloudMachineTemplate
 
-	if s.scope.HCloudMachineTemplate.Status.Capacity == nil {
-		capacity, err := s.getCapacity(ctx)
+	// delete the deprecated condition from existing machinetemplate objects
+	v1beta1conditions.Delete(machineTemplate, infrav1.DeprecatedRateLimitExceededCondition)
+
+	if machineTemplate.Status.Capacity == nil {
+		serverTypes, err := s.scope.HCloudClient.ListServerTypes(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get capacity: %w", err)
+			hcloudutil.HandleRateLimitExceededV1Beta1(machineTemplate, err, "ListServerTypes")
+			err = fmt.Errorf("failed to list server types: %w", err)
+			v1beta2conditions.Set(machineTemplate, metav1.Condition{
+				Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.InternalErrorV1Beta2Reason,
+				Message: err.Error(),
+			})
+			return reconcile.Result{}, err
 		}
 
-		s.scope.HCloudMachineTemplate.Status.Capacity = capacity
+		capacity, err := getCapacity(serverTypes, string(machineTemplate.Spec.Template.Spec.Type))
+		if err != nil {
+			// wrong server type, not an internal error. don't retry with backoff, a restart
+			// picks it up again if hcloud starts offering it.
+			reason := infrav1.InternalErrorV1Beta2Reason
+			if errors.Is(err, ErrServerTypeNotFound) {
+				reason = infrav1.HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason
+			}
+			v1beta2conditions.Set(machineTemplate, metav1.Condition{
+				Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  reason,
+				Message: err.Error(),
+			})
+			if reason == infrav1.HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason {
+				return reconcile.Result{}, nil
+			}
+			return reconcile.Result{}, fmt.Errorf("failed to get capacity: %w", err)
+		}
+
+		machineTemplate.Status.Capacity = capacity
 	}
-	return nil
+
+	v1beta2conditions.Set(machineTemplate, metav1.Condition{
+		Type:   infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HCloudMachineTemplateAvailableV1Beta2Reason,
+	})
+	return reconcile.Result{}, nil
 }
 
-func (s *Service) getCapacity(ctx context.Context) (corev1.ResourceList, error) {
-	capacity := make(corev1.ResourceList)
-	// List all server types
-	serverTypes, err := s.scope.HCloudClient.ListServerTypes(ctx)
-	if err != nil {
-		hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HCloudMachineTemplate, err, "ListServerTypes")
-		return nil, fmt.Errorf("failed to list server types: %w", err)
-	}
-
-	// Find the correct server type and check number of CPU cores and GB of memory
-	var foundServerType bool
+// getCapacity finds wantType among serverTypes and returns its CPU cores and memory as a
+// ResourceList, or ErrServerTypeNotFound if hcloud does not offer that server type.
+func getCapacity(serverTypes []*hcloud.ServerType, wantType string) (corev1.ResourceList, error) {
 	for _, serverType := range serverTypes {
-		if serverType.Name != string(s.scope.HCloudMachineTemplate.Spec.Template.Spec.Type) {
+		if serverType.Name != wantType {
 			continue
 		}
 
-		foundServerType = true
+		capacity := make(corev1.ResourceList)
 		cpu, err := GetCPUQuantityFromInt(serverType.Cores)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse quantity. CPU cores %v. Server type %+v: %w", serverType.Cores, serverType, err)
@@ -87,10 +120,8 @@ func (s *Service) getCapacity(ctx context.Context) (corev1.ResourceList, error) 
 			return nil, fmt.Errorf("failed to parse quantity. Memory %v. Server type %+v: %w", serverType.Memory, serverType, err)
 		}
 		capacity[corev1.ResourceMemory] = memory
-	}
-	if !foundServerType {
-		return nil, fmt.Errorf("%w: %s", ErrServerTypeNotFound, s.scope.HCloudMachineTemplate.Spec.Template.Spec.Type)
+		return capacity, nil
 	}
 
-	return capacity, nil
+	return nil, fmt.Errorf("%w: %s", ErrServerTypeNotFound, wantType)
 }
