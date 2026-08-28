@@ -237,19 +237,6 @@ const (
 	DeletionInProgressV1Beta1Reason = "DeletionInProgress"
 )
 
-// deprecated conditions.
-
-const (
-	// DeprecatedHostProvisionSucceededV1Beta1Condition indicates that a host has been provisioned.
-	DeprecatedHostProvisionSucceededV1Beta1Condition clusterv1.ConditionType = "HostProvisionSucceeded"
-
-	// DeprecatedHetznerBareMetalHostReadyV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedHetznerBareMetalHostReadyV1Beta1Condition clusterv1.ConditionType = "HetznerBareMetalHostReady"
-
-	// DeprecatedAssociateBMHV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedAssociateBMHV1Beta1Condition clusterv1.ConditionType = "AssociateBMHCondition"
-)
-
 const (
 	// RebootSucceededV1Beta1Condition indicates that the machine got rebooted successfully.
 	RebootSucceededV1Beta1Condition clusterv1.ConditionType = "RebootSucceeded"
