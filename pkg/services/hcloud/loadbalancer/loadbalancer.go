@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"slices"
 	"strings"
 	"time"
@@ -931,7 +932,7 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 func statusFromHCloudLB(lb *hcloud.LoadBalancer, hasNetwork bool, kubeAPIServicePort int, log logr.Logger) *infrav2.LoadBalancerStatus {
 	var internalIP string
 	if hasNetwork && len(lb.PrivateNet) > 0 {
-		internalIP = lb.PrivateNet[0].IP.String()
+		internalIP = ipToStatusString(lb.PrivateNet[0].IP)
 	}
 
 	targetObjects := make([]infrav2.LoadBalancerTarget, 0, len(lb.Targets))
@@ -964,11 +965,22 @@ func statusFromHCloudLB(lb *hcloud.LoadBalancer, hasNetwork bool, kubeAPIService
 
 	return &infrav2.LoadBalancerStatus{
 		ID:                   lb.ID,
-		IPv4:                 lb.PublicNet.IPv4.IP.String(),
-		IPv6:                 lb.PublicNet.IPv6.IP.String(),
+		IPv4:                 ipToStatusString(lb.PublicNet.IPv4.IP),
+		IPv6:                 ipToStatusString(lb.PublicNet.IPv6.IP),
 		InternalIP:           internalIP,
 		Target:               targetObjects,
 		Protected:            lb.Protection.Delete,
 		ProxyProtocolEnabled: proxyProtocolEnabled,
 	}
+}
+
+// ipToStatusString returns the IP as string, or an empty string if the IP is not set.
+// A load balancer without a public interface has no public IPv4 and no public IPv6.
+// Calling String() on such an IP returns "<nil>", which is not a valid IP address.
+// The same is true for an unset private IP.
+func ipToStatusString(ip net.IP) string {
+	if len(ip) == 0 || ip.IsUnspecified() {
+		return ""
+	}
+	return ip.String()
 }

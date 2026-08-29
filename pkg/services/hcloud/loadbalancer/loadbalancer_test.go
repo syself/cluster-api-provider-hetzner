@@ -17,16 +17,41 @@ limitations under the License.
 package loadbalancer
 
 import (
+	"net"
+	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
+
+func TestIPToStatusString(t *testing.T) {
+	tests := []struct {
+		name     string
+		ip       net.IP
+		expected string
+	}{
+		// net.IP.String() returns "<nil>" for the first two cases.
+		{name: "unset IP", ip: nil, expected: ""},
+		{name: "IP without bytes", ip: net.IP{}, expected: ""},
+		{name: "unspecified IPv4", ip: net.IPv4zero, expected: ""},
+		{name: "unspecified IPv6", ip: net.IPv6unspecified, expected: ""},
+		{name: "public IPv4", ip: net.ParseIP("1.2.3.4"), expected: "1.2.3.4"},
+		{name: "public IPv6", ip: net.ParseIP("2001:db8::1"), expected: "2001:db8::1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expected, ipToStatusString(tt.ip))
+		})
+	}
+}
 
 var _ = Describe("Loadbalancer", func() {
 	Context("hcloud cluster has network attached", func() {
@@ -70,6 +95,32 @@ var _ = Describe("Loadbalancer", func() {
 		})
 		It("should be unprotected", func() {
 			Expect(sts.Protected).To(Equal(protected))
+		})
+	})
+	Context("load balancer without a public interface", func() {
+		It("should have no public IP addresses in the status", func() {
+			privateLB := &hcloud.LoadBalancer{
+				ID:         42,
+				PublicNet:  hcloud.LoadBalancerPublicNet{Enabled: false},
+				PrivateNet: []hcloud.LoadBalancerPrivateNet{{IP: net.ParseIP("10.0.0.2")}},
+			}
+
+			sts := statusFromHCloudLB(privateLB, true, 443, logr.Discard())
+
+			Expect(sts.IPv4).To(Equal(""))
+			Expect(sts.IPv6).To(Equal(""))
+			Expect(sts.InternalIP).To(Equal("10.0.0.2"))
+		})
+		It("should have no internal IP if the private IP is unset", func() {
+			privateLB := &hcloud.LoadBalancer{
+				ID:         42,
+				PublicNet:  hcloud.LoadBalancerPublicNet{Enabled: false},
+				PrivateNet: []hcloud.LoadBalancerPrivateNet{{}},
+			}
+
+			sts := statusFromHCloudLB(privateLB, true, 443, logr.Discard())
+
+			Expect(sts.InternalIP).To(Equal(""))
 		})
 	})
 	Context("proxy protocol detection", func() {
