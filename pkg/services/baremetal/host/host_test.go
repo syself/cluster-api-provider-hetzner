@@ -2007,7 +2007,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			},
 		),
 		// connectionFailed: SSH error in Step-1, so passes through to Step-2, which also gets connection
-		// refused; returns actionContinue.
+		// refused; returns actionContinue and starts tracking ErrorTypeConnectionError so a host
+		// that is unreachable via SSH everywhere eventually escalates instead of retrying forever.
 		Entry("connectionFailed, same ports",
 			testCaseActionEnsureProvisioned{
 				outRescueSSHClientGetHostName:          sshclient.Output{Err: syscall.ECONNREFUSED},
@@ -2017,7 +2018,29 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
 				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorType(""),
+				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
+				expectsSSHClientCallCloudInitStatus:    false,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: false,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		// connectionFailed, still unreachable after connectionRefusedTimeout: give up instead of
+		// retrying forever.
+		Entry("connectionFailed, same ports, timed out",
+			testCaseActionEnsureProvisioned{
+				hostErrorType:                          infrav1.ErrorTypeConnectionError,
+				hostRebootTriggeredAt:                  ptr.To(metav1.NewTime(time.Now().Add(-15 * time.Minute))),
+				outRescueSSHClientGetHostName:          sshclient.Output{Err: syscall.ECONNREFUSED},
+				outSSHClientGetHostName:                sshclient.Output{Err: syscall.ECONNREFUSED},
+				outSSHClientCloudInitStatus:            sshclient.Output{},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				expectedActionResult:                   actionFailed{},
+				expectedErrorType:                      infrav1.FatalError,
 				expectsSSHClientCallCloudInitStatus:    false,
 				expectsSSHClientCallCheckSigterm:       false,
 				expectsSSHClientCallReboot:             false,

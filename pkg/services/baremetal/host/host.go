@@ -2102,7 +2102,10 @@ func (s *Service) checkRescueAndTriggerReboot(ctx context.Context) actionResult 
 	// and it has timed out now then trigger a hardware reboot.
 	var emptyErrorType infrav1.ErrorType
 	switch s.scope.HetznerBareMetalHost.Spec.Status.ErrorType {
-	case emptyErrorType:
+	case emptyErrorType, infrav1.ErrorTypeConnectionError:
+		// ErrorTypeConnectionError means verifyProvisionedOS previously couldn't reach
+		// the host via SSH. Now we've confirmed it's actually in rescue mode, so treat
+		// it the same as no reboot being tracked yet and trigger one.
 		// pick the available reboot type (software or hardware) and trigger it (preferred order software > hardware).
 		rebootType, errorType := rebootAndErrorTypeAfterTimeout(s.scope.HetznerBareMetalHost)
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
@@ -2211,6 +2214,27 @@ func (s *Service) verifyProvisionedOS(ctx context.Context) actionResult {
 
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned, msg)
 			return s.recordActionFailure(infrav1.FatalError, msg)
+		}
+
+		// If we have never managed to reach the host via SSH on either the rescue or the OS
+		// port for a long time, then we should mark the host as unreachable and set a fatal error.
+		var emptyErrorType infrav1.ErrorType
+		if out.Err != nil {
+			switch s.scope.HetznerBareMetalHost.Spec.Status.ErrorType {
+			case emptyErrorType:
+				s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
+				s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeConnectionError, "ssh gave connection error")
+
+			case infrav1.ErrorTypeConnectionError:
+				if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt, connectionRefusedTimeout) {
+					msg := fmt.Sprintf("host unreachable via SSH on both rescue and OS ports for over %s", connectionRefusedTimeout)
+					markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned, msg)
+					return s.recordActionFailure(infrav1.FatalError, msg)
+				}
+			}
+		} else if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
+			// SSH succeeded now (just the wrong hostname), so the connection problem is gone.
+			s.scope.HetznerBareMetalHost.ClearError()
 		}
 
 		return actionContinue{delay: 10 * time.Second}
