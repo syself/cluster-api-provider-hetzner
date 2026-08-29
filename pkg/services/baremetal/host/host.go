@@ -2204,7 +2204,7 @@ func (s *Service) verifyProvisionedOS(ctx context.Context) actionResult {
 			// It can be a dial/handshake/auth failure, a context timeout, or the remote
 			// "hostname" command itself failing to run.
 			// Only out.Err == nil means out.StdOut is a real hostname.
-			msg := fmt.Sprintf("hardware reboot timed out: OS unreachable via SSH after %s", hardwareResetTimeout)
+			msg := fmt.Sprintf("hardware reboot (to node) timed out: OS unreachable via SSH after %s", hardwareResetTimeout)
 			if out.Err == nil {
 				msg = fmt.Sprintf("hostname %q does not match expected %q after reboot", hostname, desiredHostName)
 			}

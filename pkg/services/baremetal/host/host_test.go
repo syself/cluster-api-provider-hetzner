@@ -2080,7 +2080,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
 				expectedActionResult:                   actionFailed{},
-				expectedErrorType:                      infrav1.PermanentError,
+				expectedErrorType:                      infrav1.FatalError,
 				expectsSSHClientCallCloudInitStatus:    false,
 				expectsSSHClientCallCheckSigterm:       false,
 				expectsSSHClientCallReboot:             false,
@@ -2312,7 +2312,7 @@ var _ = Describe("checkRescueAndTriggerReboot", func() {
 		robotMock := robotmock.Client{}
 		robotMock.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
 
-		service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+		service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 		// the error is still returned, and the cloud-init output is recorded in an event
 		Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionError{}))
