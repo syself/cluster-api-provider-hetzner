@@ -30,11 +30,11 @@ import (
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1" // HetznerBareMetalHost and HetznerBareMetalMachine are still on v1beta1
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -45,10 +45,10 @@ import (
 var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 	var (
 		host                        *infrav1.HetznerBareMetalHost
-		hetznerBareMetalRemediation *infrav1.HetznerBareMetalRemediation
+		hetznerBareMetalRemediation *infrav2.HetznerBareMetalRemediation
 		hetznerBaremetalMachine     *infrav1.HetznerBareMetalMachine
 		machineName                 string
-		hetznerCluster              *infrav1.HetznerCluster
+		hetznerCluster              *infrav2.HetznerCluster
 
 		capiMachine *clusterv1.Machine
 		capiCluster *clusterv1.Cluster
@@ -121,7 +121,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 
 		capiMachineKey = client.ObjectKey{Name: machineName, Namespace: testNs.Name}
 
-		hetznerCluster = &infrav1.HetznerCluster{
+		hetznerCluster = &infrav2.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "hetzner-test1",
 				Namespace: testNs.Name,
@@ -135,7 +135,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 				},
 				Labels: map[string]string{clusterv1.ClusterNameLabel: capiCluster.Name},
 			},
-			Spec: getDefaultHetznerClusterV1Beta1Spec(),
+			Spec: getDefaultHetznerClusterSpec(),
 		}
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
@@ -159,7 +159,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 			Spec: getDefaultHetznerBareMetalMachineSpec(),
 		}
 
-		hetznerBareMetalRemediation = &infrav1.HetznerBareMetalRemediation{
+		hetznerBareMetalRemediation = &infrav2.HetznerBareMetalRemediation{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "hetzner-baremetal-remediation",
 				Namespace: testNs.Name,
@@ -172,12 +172,12 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 					},
 				},
 			},
-			Spec: infrav1.HetznerBareMetalRemediationSpec{
-				Strategy: &infrav1.BareMetalRemediationStrategy{
-					RemediationStrategy: infrav1.RemediationStrategy{
-						Type:       "Reboot",
-						RetryLimit: 1,
-						Timeout:    &metav1.Duration{Duration: 1 * time.Second},
+			Spec: infrav2.HetznerBareMetalRemediationSpec{
+				Strategy: &infrav2.BareMetalRemediationStrategy{
+					RemediationStrategy: infrav2.RemediationStrategy{
+						Type:           "Reboot",
+						RetryLimit:     ptr.To(int32(1)),
+						TimeoutSeconds: 1,
 					},
 				},
 			},
@@ -271,7 +271,8 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						return isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
+						return isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) &&
+							isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason)
 					}, timeout).Should(BeTrue())
 				})
 
@@ -287,7 +288,8 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						return isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
+						return isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) &&
+							isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason)
 					}, timeout).Should(BeTrue())
 				})
 			})
@@ -358,7 +360,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						}
 
 						testEnv.GetLogger().Info("host annotations", "hostAnnotation", host.Annotations)
-						return hetznerBareMetalRemediation.Status.LastRemediated != nil && hetznerBareMetalRemediation.Status.RetryCount == 1 && val == string(b)
+						return !hetznerBareMetalRemediation.Status.LastRemediated.IsZero() && ptr.Deref(hetznerBareMetalRemediation.Status.RetryCount, 0) == 1 && val == string(b)
 					}, timeout).Should(BeTrue())
 				})
 
@@ -367,28 +369,29 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 					Expect(testEnv.Create(ctx, hetznerBareMetalRemediation)).To(Succeed())
 
 					By("updating the status to waiting and setting the last remediation to past")
-					hetznerBaremetalRemediationPatchHelper, err := v1beta1patch.NewHelper(hetznerBareMetalRemediation, testEnv.GetClient())
+					hetznerBaremetalRemediationPatchHelper, err := patch.NewHelper(hetznerBareMetalRemediation, testEnv.GetClient())
 					Expect(err).NotTo(HaveOccurred())
 
-					hetznerBareMetalRemediation.Status.Phase = infrav1.PhaseWaiting
-					hetznerBareMetalRemediation.Status.LastRemediated = &metav1.Time{Time: time.Now().Add(-2 * time.Second)}
+					hetznerBareMetalRemediation.Status.Phase = infrav2.PhaseWaiting
+					hetznerBareMetalRemediation.Status.LastRemediated = metav1.Time{Time: time.Now().Add(-2 * time.Second)}
 
 					Expect(hetznerBaremetalRemediationPatchHelper.Patch(ctx, hetznerBareMetalRemediation)).NotTo(HaveOccurred())
 
-					By("checking if hcloudRemediation is in deleting phase and capiMachine has MachineOwnerRemediatedCondition")
+					By("checking if hetznerBareMetalRemediation is in deleting phase and capiMachine has MachineOwnerRemediatedCondition")
 					Eventually(func() bool {
 						if err := testEnv.Get(ctx, hetznerBaremetalRemediationkey, hetznerBareMetalRemediation); err != nil {
 							return false
 						}
 
-						return hetznerBareMetalRemediation.Status.Phase == infrav1.PhaseDeleting &&
-							isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
+						return hetznerBareMetalRemediation.Status.Phase == infrav2.PhaseDeleting &&
+							isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) &&
+							isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason)
 					}, timeout).Should(BeTrue())
 				})
 
 				It("does no reboot and deletes the machine when retryLimit is 0", func() {
 					By("creating hetznerBareMetalRemediation object with retryLimit 0")
-					hetznerBareMetalRemediation.Spec.Strategy.RetryLimit = 0
+					hetznerBareMetalRemediation.Spec.Strategy.RetryLimit = ptr.To(int32(0))
 					Expect(testEnv.Create(ctx, hetznerBareMetalRemediation)).To(Succeed())
 
 					By("checking that no reboot happened and the machine is handed to CAPI for deletion")
@@ -396,17 +399,20 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						if err := testEnv.Get(ctx, hetznerBaremetalRemediationkey, hetznerBareMetalRemediation); err != nil {
 							return err
 						}
-						if hetznerBareMetalRemediation.Status.RetryCount != 0 {
-							return fmt.Errorf("expected RetryCount 0, got %d", hetznerBareMetalRemediation.Status.RetryCount)
+						if ptr.Deref(hetznerBareMetalRemediation.Status.RetryCount, 0) != 0 {
+							return fmt.Errorf("expected RetryCount 0, got %d", ptr.Deref(hetznerBareMetalRemediation.Status.RetryCount, 0))
 						}
-						if hetznerBareMetalRemediation.Status.LastRemediated != nil {
-							return fmt.Errorf("expected LastRemediated to be nil")
+						if !hetznerBareMetalRemediation.Status.LastRemediated.IsZero() {
+							return fmt.Errorf("expected LastRemediated to be zero")
 						}
-						if hetznerBareMetalRemediation.Status.Phase != infrav1.PhaseDeleting {
-							return fmt.Errorf("expected Phase %q, got %q", infrav1.PhaseDeleting, hetznerBareMetalRemediation.Status.Phase)
+						if hetznerBareMetalRemediation.Status.Phase != infrav2.PhaseDeleting {
+							return fmt.Errorf("expected Phase %q, got %q", infrav2.PhaseDeleting, hetznerBareMetalRemediation.Status.Phase)
 						}
 						if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
 							return fmt.Errorf("MachineOwnerRemediatedCondition not set")
+						}
+						if !isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason) {
+							return fmt.Errorf("native MachineOwnerRemediatedCondition not set")
 						}
 						return nil
 					}, timeout).ShouldNot(HaveOccurred())
@@ -432,17 +438,20 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						if err := testEnv.Get(ctx, hetznerBaremetalRemediationkey, hetznerBareMetalRemediation); err != nil {
 							return err
 						}
-						if hetznerBareMetalRemediation.Status.RetryCount != 0 {
-							return fmt.Errorf("expected RetryCount 0, got %d", hetznerBareMetalRemediation.Status.RetryCount)
+						if ptr.Deref(hetznerBareMetalRemediation.Status.RetryCount, 0) != 0 {
+							return fmt.Errorf("expected RetryCount 0, got %d", ptr.Deref(hetznerBareMetalRemediation.Status.RetryCount, 0))
 						}
-						if hetznerBareMetalRemediation.Status.LastRemediated != nil {
-							return fmt.Errorf("expected LastRemediated to be nil")
+						if !hetznerBareMetalRemediation.Status.LastRemediated.IsZero() {
+							return fmt.Errorf("expected LastRemediated to be zero")
 						}
-						if hetznerBareMetalRemediation.Status.Phase != infrav1.PhaseDeleting {
-							return fmt.Errorf("expected Phase %q, got %q", infrav1.PhaseDeleting, hetznerBareMetalRemediation.Status.Phase)
+						if hetznerBareMetalRemediation.Status.Phase != infrav2.PhaseDeleting {
+							return fmt.Errorf("expected Phase %q, got %q", infrav2.PhaseDeleting, hetznerBareMetalRemediation.Status.Phase)
 						}
 						if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
 							return fmt.Errorf("MachineOwnerRemediatedCondition not set")
+						}
+						if !isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason) {
+							return fmt.Errorf("native MachineOwnerRemediatedCondition not set")
 						}
 						return nil
 					}, timeout).ShouldNot(HaveOccurred())
@@ -484,7 +493,8 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						return false
 					}
 
-					return isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
+					return isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) &&
+						isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason)
 				}, timeout).Should(BeTrue())
 			})
 		})
