@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
@@ -92,6 +93,51 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 })
 
 var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
+	It("reports Ready=Unknown when no conditions are set yet", func() {
+		hcloudMachine := &infrav1.HCloudMachine{}
+
+		Expect(SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine)).To(Succeed())
+
+		ready := v1beta2conditions.Get(hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition)
+		Expect(ready).NotTo(BeNil())
+		Expect(ready.Status).To(Equal(metav1.ConditionUnknown))
+		Expect(ready.Reason).To(Equal(clusterv1beta1.ReadyUnknownV1Beta2Reason))
+	})
+
+	It("reports Ready=True when all required conditions are True and RateLimitExceeded is absent", func() {
+		hcloudMachine := &infrav1.HCloudMachine{}
+
+		hcloudMachine.SetV1Beta2Conditions([]metav1.Condition{
+			{
+				Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
+			},
+			{
+				Type:   infrav1.HCloudMachineServerCreatedV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HCloudMachineServerCreatedV1Beta2Reason,
+			},
+			{
+				Type:   infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HCloudMachineServerProvisionedV1Beta2Reason,
+			},
+			{
+				Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HCloudMachineServerAvailableV1Beta2Reason,
+			},
+		})
+
+		Expect(SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine)).To(Succeed())
+
+		ready := v1beta2conditions.Get(hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition)
+		Expect(ready).NotTo(BeNil())
+		Expect(ready.Status).To(Equal(metav1.ConditionTrue))
+		Expect(ready.Reason).To(Equal(clusterv1beta1.ReadyV1Beta2Reason))
+	})
+
 	It("lists all unhealthy conditions in priority order in the summary message", func() {
 		hcloudMachine := &infrav1.HCloudMachine{
 			Status: infrav1.HCloudMachineStatus{

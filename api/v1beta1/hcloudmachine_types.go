@@ -283,16 +283,11 @@ func HCloudMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
 			HCloudMachineServerProvisionedV1Beta2Condition,
 			HCloudMachineServerAvailableV1Beta2Condition,
 		},
-		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
-		// listed condition as Unknown. Some reconcile paths exit before every
-		// condition has been set (for example, before the token is checked or
-		// before the server is created), and we don't want those early exits to
-		// flip Ready to Unknown.
+		// IgnoreTypesIfMissing lists conditions that may legitimately not be present on the object.
+		// A missing one is left out of the summary input rather than counted as Unknown. At least one
+		// condition in ForConditionTypes has to stay off this list, otherwise an object with none of
+		// them set leaves the summary with an empty input, which CAPI rejects.
 		v1beta2conditions.IgnoreTypesIfMissing{
-			HCloudTokenAvailableV1Beta2Condition,
-			HCloudMachineServerCreatedV1Beta2Condition,
-			HCloudMachineServerProvisionedV1Beta2Condition,
-			HCloudMachineServerAvailableV1Beta2Condition,
 			HCloudRateLimitExceededV1Beta2Condition,
 		},
 		// CustomMergeStrategy is used only to override the merge reasons, so
@@ -330,7 +325,7 @@ func (r *HCloudMachine) SetBootState(bootState HCloudBootState) {
 	r.Status.BootStateSince = metav1.Now()
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // HCloudMachineList contains a list of HCloudMachine.
 type HCloudMachineList struct {
