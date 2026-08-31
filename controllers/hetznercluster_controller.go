@@ -1083,7 +1083,7 @@ func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 				return false
 			}
 
-			conditionType := string(infrav1.HCloudMachineServerAvailableV1Beta2Condition)
+			conditionType := string(infrav2.HCloudMachineServerAvailableCondition)
 			if _, ok := e.ObjectNew.(*infrav2.HetznerBareMetalMachine); ok {
 				conditionType = string(infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition)
 			}

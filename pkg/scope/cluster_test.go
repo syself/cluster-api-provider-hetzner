@@ -55,8 +55,8 @@ func controlPlaneObjectMeta(namespace, name, clusterName string, annotated bool)
 	return controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation, annotated)
 }
 
-func controlPlaneHCloudMachine(namespace, name, clusterName string, annotated bool) *infrav1.HCloudMachine {
-	return &infrav1.HCloudMachine{
+func controlPlaneHCloudMachine(namespace, name, clusterName string, annotated bool) *infrav2.HCloudMachine {
+	return &infrav2.HCloudMachine{
 		ObjectMeta: controlPlaneObjectMeta(namespace, name, clusterName, annotated),
 	}
 }
@@ -67,8 +67,8 @@ func controlPlaneBareMetalMachine(namespace, name, clusterName string, annotated
 	}
 }
 
-func controlPlaneHCloudMachineForHTTPHealthCheck(namespace, name, clusterName string, annotated bool) *infrav1.HCloudMachine {
-	return &infrav1.HCloudMachine{
+func controlPlaneHCloudMachineForHTTPHealthCheck(namespace, name, clusterName string, annotated bool) *infrav2.HCloudMachine {
+	return &infrav2.HCloudMachine{
 		ObjectMeta: controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, infrav2.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated),
 	}
 }
@@ -141,7 +141,7 @@ func TestAllControlPlaneInfraMachinesAnnotatedForProxyProtocol(t *testing.T) {
 			objects := append([]client.Object{}, tt.machines...)
 			// A worker infrastructure machine of the same cluster (no control-plane label) must never
 			// affect the result.
-			objects = append(objects, &infrav1.HCloudMachine{
+			objects = append(objects, &infrav2.HCloudMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "worker-1",
 					Namespace: namespace,
@@ -235,7 +235,7 @@ func TestAllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(t *testing.T) {
 			objects := append([]client.Object{}, tt.machines...)
 			// A worker infrastructure machine of the same cluster (no control-plane label) must
 			// never affect the result.
-			objects = append(objects, &infrav1.HCloudMachine{
+			objects = append(objects, &infrav2.HCloudMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "worker-1",
 					Namespace: namespace,

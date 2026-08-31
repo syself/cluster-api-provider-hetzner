@@ -350,12 +350,12 @@ func TestReconcileServices_HealthCheckUnset_LeavesLiveConfigAlone(t *testing.T) 
 	mockClient.AssertExpectations(t)
 }
 
-func controlPlaneMachineWithAnnotation(name, annotation string, annotated bool) *infrav1.HCloudMachine {
+func controlPlaneMachineWithAnnotation(name, annotation string, annotated bool) *infrav2.HCloudMachine {
 	annotations := map[string]string{}
 	if annotated {
 		annotations[annotation] = "true"
 	}
-	return &infrav1.HCloudMachine{
+	return &infrav2.HCloudMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metav1.NamespaceDefault,
@@ -368,11 +368,11 @@ func controlPlaneMachineWithAnnotation(name, annotation string, annotated bool) 
 	}
 }
 
-func controlPlaneMachineForProxy(name string, annotated bool) *infrav1.HCloudMachine {
+func controlPlaneMachineForProxy(name string, annotated bool) *infrav2.HCloudMachine {
 	return controlPlaneMachineWithAnnotation(name, infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation, annotated)
 }
 
-func controlPlaneMachineForHTTPHealthCheck(name string, annotated bool) *infrav1.HCloudMachine {
+func controlPlaneMachineForHTTPHealthCheck(name string, annotated bool) *infrav2.HCloudMachine {
 	return controlPlaneMachineWithAnnotation(name, infrav2.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated)
 }
 
@@ -389,6 +389,7 @@ func newMigrationTestService(t *testing.T, mockClient *mocks.Client, configureSp
 	scheme := runtime.NewScheme()
 	_ = clusterv1.AddToScheme(scheme)
 	_ = infrav1.AddToScheme(scheme)
+	_ = infrav2.AddToScheme(scheme)
 
 	svc := newTestService(t, hetznerCluster, mockClient)
 	svc.scope.Client = fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(machines...).Build()

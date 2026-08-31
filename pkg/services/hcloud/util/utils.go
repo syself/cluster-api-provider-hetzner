@@ -79,7 +79,7 @@ func ServerIDFromProviderID(providerID *string) (int64, error) {
 
 // conditionsObject is an API object that owns both the conditions and the deprecated v1beta1
 // conditions. HandleRateLimitExceeded accepts it so the v1beta2 resources that call the HCloud API
-// (HetznerCluster, HCloudRemediation) can share it.
+// (HetznerCluster, HCloudRemediation, HCloudMachine) can share it.
 type conditionsObject interface {
 	conditions.Setter
 	deprecatedv1beta1conditions.Setter

@@ -401,6 +401,19 @@ const (
 	// HCloudMachineServerCreationFailedReason surfaces when creating the hcloud server fails,
 	// either because the CreateServer call fails or because the create action fails afterwards.
 	HCloudMachineServerCreationFailedReason = "CreationFailed"
+
+	// HCloudMachineSSHPrivateKeyAvailableCondition reports whether the SSH private key used to connect to
+	// the rescue system is available. It is only evaluated for the imageURL flow, which installs the image
+	// over SSH in the rescue system, both before creating the server and while provisioning it.
+	HCloudMachineSSHPrivateKeyAvailableCondition = "SSHPrivateKeyAvailable"
+	// HCloudMachineSSHPrivateKeyAvailableReason indicates the SSH private key is available.
+	HCloudMachineSSHPrivateKeyAvailableReason = clusterv1.AvailableReason
+	// HCloudMachineSSHPrivateKeySecretRefNotConfiguredReason indicates HetznerCluster.Spec.SSHKeys.RescueSecretRef.Name is empty.
+	HCloudMachineSSHPrivateKeySecretRefNotConfiguredReason = "SecretRefNotConfigured"
+	// HCloudMachineSSHPrivateKeySecretNotFoundReason indicates the referenced secret does not exist.
+	HCloudMachineSSHPrivateKeySecretNotFoundReason = "SecretNotFound"
+	// HCloudMachineSSHPrivateKeyFieldEmptyReason indicates the private key field referenced in the secret is missing or empty.
+	HCloudMachineSSHPrivateKeyFieldEmptyReason = "FieldEmpty"
 )
 
 const (
@@ -409,6 +422,10 @@ const (
 	HCloudMachineServerProvisionedCondition = "ServerProvisioned"
 	// HCloudMachineServerProvisionedReason surfaces when the boot state machine has completed.
 	HCloudMachineServerProvisionedReason = clusterv1.ProvisionedReason
+	// HCloudMachineCustomProvisionerRunningReason indicates the custom provisioner is running.
+	HCloudMachineCustomProvisionerRunningReason = "CustomProvisionerRunning"
+	// HCloudMachineCustomProvisionerFailedReason indicates the custom provisioner failed.
+	HCloudMachineCustomProvisionerFailedReason = "CustomProvisionerFailed"
 	// HCloudMachineBootStateUnsetTimedOutReason indicates the boot state unset timed out.
 	HCloudMachineBootStateUnsetTimedOutReason = "BootStateUnsetTimedOut"
 	// HCloudMachineBootStateInitializingReason indicates the boot state is being initialized.
@@ -443,8 +460,6 @@ const (
 	// HCloudMachineEnablingRescueActionDoneReason indicates the rescue enable action is done.
 	HCloudMachineEnablingRescueActionDoneReason = "EnablingRescueActionDone"
 
-	// HCloudMachineGettingSSHPrivateKeyFailedReason indicates getting the SSH private key failed.
-	HCloudMachineGettingSSHPrivateKeyFailedReason = "GettingSSHPrivateKeyFailed"
 	// HCloudMachineRetryingSSHConnectionReason indicates the SSH connection is being retried.
 	HCloudMachineRetryingSSHConnectionReason = "RetryingSSHConnection"
 	// HCloudMachineGettingHostnameFailedReason indicates getting the hostname failed.
@@ -487,6 +502,8 @@ const (
 )
 
 const (
+	// HCloudMachineServerAvailableCondition reports on whether the HCloud server is available.
+	HCloudMachineServerAvailableCondition = "ServerAvailable"
 	// HCloudMachineServerAvailableReason surfaces when the HCloud server is available.
 	HCloudMachineServerAvailableReason = clusterv1.AvailableReason
 	// HCloudMachineServerNotFoundReason surfaces when the HCloud server cannot be found.

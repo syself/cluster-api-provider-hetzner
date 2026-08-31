@@ -350,7 +350,7 @@ func TestControlPlaneMachineToHetznerClusterPredicate(t *testing.T) {
 
 	withServerAvailable := func(m *infrav2.HCloudMachine, status metav1.ConditionStatus) *infrav2.HCloudMachine {
 		conditions.Set(m, metav1.Condition{
-			Type:   string(infrav1.HCloudMachineServerAvailableV1Beta2Condition),
+			Type:   infrav2.HCloudMachineServerAvailableCondition,
 			Status: status,
 			Reason: "reason",
 		})
@@ -1458,7 +1458,7 @@ func createCapiAndHcloudMachines(ctx context.Context, env *helpers.TestEnvironme
 		return err
 	}
 
-	hcloudMachine := &infrav1.HCloudMachine{
+	hcloudMachine := &infrav2.HCloudMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hcloudMachineName,
 			Namespace: namespace,
@@ -1472,7 +1472,7 @@ func createCapiAndHcloudMachines(ctx context.Context, env *helpers.TestEnvironme
 				},
 			},
 		},
-		Spec: infrav1.HCloudMachineSpec{
+		Spec: infrav2.HCloudMachineSpec{
 			ImageName: "my-control-plane",
 			Type:      "cpx32",
 		},
@@ -1711,36 +1711,44 @@ var _ = Describe("reconcileRateLimit", func() {
 	})
 
 	It("returns wait==true if HCloudRateLimitExceeded condition is True and time is not over (v1beta2)", func() {
-		hcloudMachine := &infrav1.HCloudMachine{}
-		v1beta1conditions.MarkFalse(hcloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
-		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+		// A still-v1beta1 object is used to exercise the v1beta1 rate-limit helper. HCloudMachineTemplate
+		// is one of the resources still on v1beta1 and carries the same staged v1beta2 conditions.
+		// TODO: remove this test once reconcileRateLimitV1Beta1 is gone (every resource on v1beta2, only
+		// reconcileRateLimit left).
+		hcloudMachineTemplate := &infrav1.HCloudMachineTemplate{}
+		v1beta1conditions.MarkFalse(hcloudMachineTemplate, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
+		v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 			Type:               infrav1.HCloudRateLimitExceededV1Beta2Condition,
 			Status:             metav1.ConditionTrue,
 			Reason:             infrav1.HCloudRateLimitExceededV1Beta2Reason,
 			LastTransitionTime: metav1.Now(),
 		})
-		Expect(reconcileRateLimitV1Beta1(hcloudMachine, testEnv.RateLimitWaitTime)).To(BeTrue())
-		rateLimitCond := v1beta2conditions.Get(hcloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)
+		Expect(reconcileRateLimitV1Beta1(hcloudMachineTemplate, testEnv.RateLimitWaitTime)).To(BeTrue())
+		rateLimitCond := v1beta2conditions.Get(hcloudMachineTemplate, infrav1.HCloudRateLimitExceededV1Beta2Condition)
 		Expect(rateLimitCond).NotTo(BeNil())
 		Expect(rateLimitCond.Status).To(Equal(metav1.ConditionTrue))
 		Expect(rateLimitCond.Reason).To(Equal(infrav1.HCloudRateLimitExceededV1Beta2Reason))
 	})
 
 	It("removes HCloudRateLimitExceeded condition and returns wait==false when wait time is over (v1beta2)", func() {
-		hcloudMachine := &infrav1.HCloudMachine{}
-		v1beta1conditions.MarkFalse(hcloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
-		conditionList := hcloudMachine.GetConditions()
+		// A still-v1beta1 object is used to exercise the v1beta1 rate-limit helper. HCloudMachineTemplate
+		// is one of the resources still on v1beta1 and carries the same staged v1beta2 conditions.
+		// TODO: remove this test once reconcileRateLimitV1Beta1 is gone (every resource on v1beta2, only
+		// reconcileRateLimit left).
+		hcloudMachineTemplate := &infrav1.HCloudMachineTemplate{}
+		v1beta1conditions.MarkFalse(hcloudMachineTemplate, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
+		conditionList := hcloudMachineTemplate.GetConditions()
 		conditionList[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
-		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+		v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
 			Type:               infrav1.HCloudRateLimitExceededV1Beta2Condition,
 			Status:             metav1.ConditionTrue,
 			Reason:             infrav1.HCloudRateLimitExceededV1Beta2Reason,
 			LastTransitionTime: metav1.NewTime(time.Now().Add(-time.Hour)),
 		})
-		Expect(reconcileRateLimitV1Beta1(hcloudMachine, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(reconcileRateLimitV1Beta1(hcloudMachineTemplate, testEnv.RateLimitWaitTime)).To(BeFalse())
 		// Condition must be deleted (not just set to False) so the next API call
 		// determines the real rate-limit status instead of assuming it is gone.
-		Expect(v1beta2conditions.Has(hcloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)).To(BeFalse())
+		Expect(v1beta2conditions.Has(hcloudMachineTemplate, infrav1.HCloudRateLimitExceededV1Beta2Condition)).To(BeFalse())
 	})
 
 	It("returns wait==false if rate limit condition is present but not exceeded", func() {

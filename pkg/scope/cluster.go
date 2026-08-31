@@ -180,14 +180,14 @@ func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig
 }
 
 // ListMachines returns HCloudMachines.
-func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, []*infrav1.HCloudMachine, error) {
+func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, []*infrav2.HCloudMachine, error) {
 	// get and index Machines by HCloudMachine name
 	var machineListRaw clusterv1.MachineList
 	machineByHCloudMachineName := make(map[string]*clusterv1.Machine)
 	if err := s.Client.List(ctx, &machineListRaw, client.InNamespace(s.Namespace())); err != nil {
 		return nil, nil, err
 	}
-	expectedGK := infrav1.GroupVersion.WithKind("HCloudMachine").GroupKind()
+	expectedGK := infrav2.GroupVersion.WithKind("HCloudMachine").GroupKind()
 	for pos := range machineListRaw.Items {
 		m := &machineListRaw.Items[pos]
 		actualGK := schema.GroupKind{Group: m.Spec.InfrastructureRef.APIGroup, Kind: m.Spec.InfrastructureRef.Kind}
@@ -199,13 +199,13 @@ func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, 
 	}
 
 	// match HCloudMachines to Machines
-	var hcloudMachineListRaw infrav1.HCloudMachineList
+	var hcloudMachineListRaw infrav2.HCloudMachineList
 	if err := s.Client.List(ctx, &hcloudMachineListRaw, client.InNamespace(s.Namespace())); err != nil {
 		return nil, nil, err
 	}
 
 	machineList := make([]*clusterv1.Machine, 0, len(hcloudMachineListRaw.Items))
-	hcloudMachineList := make([]*infrav1.HCloudMachine, 0, len(hcloudMachineListRaw.Items))
+	hcloudMachineList := make([]*infrav2.HCloudMachine, 0, len(hcloudMachineListRaw.Items))
 
 	for pos := range hcloudMachineListRaw.Items {
 		hm := &hcloudMachineListRaw.Items[pos]
@@ -304,7 +304,7 @@ func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context
 
 	found := 0
 
-	hcloudMachines := &infrav1.HCloudMachineList{}
+	hcloudMachines := &infrav2.HCloudMachineList{}
 	if err := s.Client.List(ctx, hcloudMachines, listOptions...); err != nil {
 		return false, fmt.Errorf("failed to list control-plane HCloudMachines: %w", err)
 	}
