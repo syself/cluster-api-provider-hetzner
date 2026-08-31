@@ -101,11 +101,6 @@ func NewService(scope *scope.MachineScope) *Service {
 
 // Reconcile implements reconcilement of HCloudMachines.
 func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
-	// delete the deprecated condition from existing machine objects
-	v1beta1conditions.Delete(s.scope.HCloudMachine, infrav1.DeprecatedInstanceReadyCondition)
-	v1beta1conditions.Delete(s.scope.HCloudMachine, infrav1.DeprecatedInstanceBootstrapReadyCondition)
-	v1beta1conditions.Delete(s.scope.HCloudMachine, infrav1.DeprecatedRateLimitExceededCondition)
-
 	if s.scope.HCloudMachine.Status.BootState == infrav1.HCloudBootStateProvisioningFailed {
 		// This hcloud machine will be removed soon.
 		s.scope.Info("hcloudmachine: ProvisioningFailed. Not reconciling this machine.")
@@ -2321,20 +2316,24 @@ func statusAddresses(server *hcloud.Server) []clusterv1beta1.MachineAddress {
 	// populate addresses
 	addresses := []clusterv1beta1.MachineAddress{}
 
-	if ip := server.PublicNet.IPv4.IP.String(); ip != "" {
+	// Private-only HCloud servers have no public IPv4. A nil net.IP renders as
+	// "<nil>" when converted to a string, which is not a valid Machine address.
+	if !server.PublicNet.IPv4.IsUnspecified() {
 		addresses = append(
 			addresses,
 			clusterv1beta1.MachineAddress{
 				Type:    clusterv1beta1.MachineExternalIP,
-				Address: ip,
+				Address: server.PublicNet.IPv4.IP.String(),
 			},
 		)
 	}
 
-	if unicastIP := server.PublicNet.IPv6.IP; unicastIP.IsGlobalUnicast() {
+	// The length check is needed for the ip[15]++ below. hcloud-go always returns a 16 byte
+	// address here, the check only makes a broken API response harmless.
+	if !server.PublicNet.IPv6.IsUnspecified() && len(server.PublicNet.IPv6.IP) == net.IPv6len {
 		// Create a copy. This is important, otherwise we modify the IP of `server`. This could lead
 		// to unexpected behaviour.
-		ip := append(net.IP(nil), unicastIP...)
+		ip := append(net.IP(nil), server.PublicNet.IPv6.IP...)
 
 		// Hetzner returns the routed /64 base, increment last byte to obtain first usable address
 		// The local value gets changed, not the IP of `server`.
