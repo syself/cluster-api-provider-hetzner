@@ -2319,20 +2319,24 @@ func statusAddresses(server *hcloud.Server) []clusterv1.MachineAddress {
 	// populate addresses
 	addresses := []clusterv1.MachineAddress{}
 
-	if ip := server.PublicNet.IPv4.IP.String(); ip != "" {
+	// Private-only HCloud servers have no public IPv4. A nil net.IP renders as
+	// "<nil>" when converted to a string, which is not a valid Machine address.
+	if !server.PublicNet.IPv4.IsUnspecified() {
 		addresses = append(
 			addresses,
 			clusterv1.MachineAddress{
 				Type:    clusterv1.MachineExternalIP,
-				Address: ip,
+				Address: server.PublicNet.IPv4.IP.String(),
 			},
 		)
 	}
 
-	if unicastIP := server.PublicNet.IPv6.IP; unicastIP.IsGlobalUnicast() {
+	// The length check is needed for the ip[15]++ below. hcloud-go always returns a 16 byte
+	// address here, the check only makes a broken API response harmless.
+	if !server.PublicNet.IPv6.IsUnspecified() && len(server.PublicNet.IPv6.IP) == net.IPv6len {
 		// Create a copy. This is important, otherwise we modify the IP of `server`. This could lead
 		// to unexpected behaviour.
-		ip := append(net.IP(nil), unicastIP...)
+		ip := append(net.IP(nil), server.PublicNet.IPv6.IP...)
 
 		// Hetzner returns the routed /64 base, increment last byte to obtain first usable address
 		// The local value gets changed, not the IP of `server`.
