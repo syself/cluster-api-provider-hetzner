@@ -1269,7 +1269,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconci
 			Status: metav1.ConditionTrue,
 			Reason: infrav2.HCloudMachineServerAvailableReason,
 		})
-		s.scope.SetProvisioned(true)
+		s.scope.SetProvisioned()
 		return res, nil
 	}
 
@@ -1295,7 +1295,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconci
 	}
 
 	// Order matters:
-	// 1. SetProvisioned(true) first. This is what makes the Machine become ready and
+	// 1. SetProvisioned() first. This is what makes the Machine become ready and
 	//    lets the Node get linked to it. Otherwise we deadlock:
 	//    reconcileLoadBalancerAttachment only adds this control plane to the
 	//    load balancer once its apiserver pod is marked healthy, and that can
@@ -1304,7 +1304,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconci
 	// 2. Return early on a non-zero res so the False reason set on
 	//    ServerAvailable inside reconcileLoadBalancerAttachment is not overwritten.
 	// 3. Mark ServerAvailable=True only on the happy path.
-	s.scope.SetProvisioned(true)
+	s.scope.SetProvisioned()
 	if res != (reconcile.Result{}) {
 		return res, nil
 	}

@@ -290,12 +290,11 @@ func (m *MachineScope) ServerIDFromProviderID() (int64, error) {
 	return serverID, nil
 }
 
-// SetProvisioned records that the machine's infrastructure is provisioned. Provisioned is a one-time
-// signal per the CAPI infra-machine contract: once true it stays true, so a false argument is a no-op.
-func (m *MachineScope) SetProvisioned(provisioned bool) {
-	if provisioned {
-		m.HCloudMachine.Status.Initialization.Provisioned = ptr.To(true)
-	}
+// SetProvisioned records that the machine's infrastructure is provisioned. Per the CAPI
+// infra-machine contract this is a one-time signal: once set it stays set, so there is nothing
+// to unset and the machine can only ever go from not provisioned to provisioned.
+func (m *MachineScope) SetProvisioned() {
+	m.HCloudMachine.Status.Initialization.Provisioned = ptr.To(true)
 }
 
 // HasServerAvailableCondition reports whether the ServerAvailable condition is currently True.
