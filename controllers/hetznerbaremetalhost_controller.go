@@ -210,9 +210,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}()
 
 	// Add a finalizer to newly created objects.
-	if bmHost.DeletionTimestamp.IsZero() &&
-		(controllerutil.AddFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
-			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer)) {
+	if bmHost.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -363,7 +361,6 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(bmHost *infrav1
 		})
 		// remove finalizers.
 		controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer)
-		controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer)
 		return reconcile.Result{Requeue: true}
 	}
 	return ctrl.Result{}
