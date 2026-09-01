@@ -51,11 +51,13 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/cluster-api/test/framework/ginkgoextensions"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // Test suite flags.
@@ -261,6 +263,7 @@ func initScheme() *runtime.Scheme {
 	sc := runtime.NewScheme()
 	framework.TryAddDefaultSchemes(sc)
 	_ = infrav1.AddToScheme(sc)
+	_ = infrav2.AddToScheme(sc)
 	return sc
 }
 
@@ -847,7 +850,7 @@ func logDeploymentContainerImages(containerType string, containers []corev1.Cont
 }
 
 func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
-	hmList := &infrav1.HCloudMachineList{}
+	hmList := &infrav2.HCloudMachineList{}
 	err := c.List(ctx, hmList)
 	if err != nil {
 		return err
@@ -873,7 +876,7 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 
 	for i := range hmList.Items {
 		hm := &hmList.Items[i]
-		if hm.Status.InstanceState == nil || *hm.Status.InstanceState == "" {
+		if hm.Status.InstanceState == "" {
 			continue
 		}
 		addresses := make([]string, 0)
@@ -886,9 +889,9 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 			id = *hm.Spec.ProviderID
 		}
 		log("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
-		log("  ProvisioningState: " + string(*hm.Status.InstanceState))
+		log("  ProvisioningState: " + string(hm.Status.InstanceState))
 
-		readyC := v1beta1conditions.Get(hm, clusterv1beta1.ReadyCondition)
+		readyC := conditions.Get(hm, clusterv1.ReadyCondition)
 		msg := ""
 		reason := ""
 		state := "?"
