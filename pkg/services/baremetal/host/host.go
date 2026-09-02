@@ -2707,7 +2707,6 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 
 func (s *Service) actionDeleting(_ context.Context) actionResult {
 	controllerutil.RemoveFinalizer(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostFinalizer)
-	controllerutil.RemoveFinalizer(s.scope.HetznerBareMetalHost, infrav1.DeprecatedBareMetalHostFinalizer)
 	return deleteComplete{}
 }
 
