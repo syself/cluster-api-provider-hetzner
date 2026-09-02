@@ -238,33 +238,19 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	if err := r.reconcile(ctx, machineTemplateScope); err != nil {
-		v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
-			Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
-			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.InternalErrorV1Beta2Reason,
-			Message: err.Error(),
-		})
-		return reconcile.Result{}, err
-	}
-	v1beta2conditions.Set(hcloudMachineTemplate, metav1.Condition{
-		Type:   infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
-		Status: metav1.ConditionTrue,
-		Reason: infrav1.HCloudMachineTemplateAvailableV1Beta2Reason,
-	})
-	return reconcile.Result{}, nil
+	return r.reconcile(ctx, machineTemplateScope)
 }
 
-func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machineTemplateScope *scope.HCloudMachineTemplateScope) error {
+func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machineTemplateScope *scope.HCloudMachineTemplateScope) (reconcile.Result, error) {
 	hcloudMachineTemplate := machineTemplateScope.HCloudMachineTemplate
 
-	// reconcile machine template
-	if err := machinetemplate.NewService(machineTemplateScope).Reconcile(ctx); err != nil {
-		return fmt.Errorf("failed to reconcile machine template for HCloudMachineTemplate %s/%s: %w",
+	result, err := machinetemplate.NewService(machineTemplateScope).Reconcile(ctx)
+	if err != nil {
+		return result, fmt.Errorf("failed to reconcile machine template for HCloudMachineTemplate %s/%s: %w",
 			hcloudMachineTemplate.Namespace, hcloudMachineTemplate.Name, err)
 	}
 
-	return nil
+	return result, nil
 }
 
 func (r *HCloudMachineTemplateReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
