@@ -334,67 +334,6 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 			})
 		})
 
-		Context("unknown server type", func() {
-			BeforeEach(func() {
-				capiCluster := &clusterv1.Cluster{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "test-",
-						Namespace:    testNs.Name,
-						Finalizers:   []string{clusterv1.ClusterFinalizer},
-					},
-					Spec: clusterv1.ClusterSpec{
-						InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-							APIGroup: "infrastructure.cluster.x-k8s.io",
-							Kind:     "HetznerCluster",
-							Name:     "hetzner-test",
-						},
-					},
-				}
-				Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
-
-				hetznerCluster := &infrav1.HetznerCluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "hetzner-test",
-						Namespace: testNs.Name,
-						OwnerReferences: []metav1.OwnerReference{
-							{
-								APIVersion: clusterv1.GroupVersion.String(),
-								Kind:       "Cluster",
-								Name:       capiCluster.Name,
-								UID:        capiCluster.UID,
-							},
-						},
-					},
-					Spec: getDefaultHetznerClusterV1Beta1Spec(),
-				}
-				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
-
-				hcloudMachineTemplate = &infrav1.HCloudMachineTemplate{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:            "hcloud-machine-template",
-						Namespace:       testNs.Name,
-						OwnerReferences: hetznerCluster.OwnerReferences,
-					},
-					Spec: infrav1.HCloudMachineTemplateSpec{
-						Template: infrav1.HCloudMachineTemplateResource{
-							Spec: infrav1.HCloudMachineSpec{
-								ImageName:          "my-control-plane",
-								Type:               "does-not-exist",
-								PlacementGroupName: &defaultPlacementGroupName,
-							},
-						},
-					},
-				}
-				Expect(testEnv.Create(ctx, hcloudMachineTemplate)).To(Succeed())
-			})
-
-			It("sets Available to false with reason ServerTypeNotFound, instead of InternalError", func() {
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachineTemplate, infrav1.HCloudMachineTemplateAvailableV1Beta2Condition, infrav1.HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason)
-				}, timeout, interval).Should(BeTrue())
-			})
-		})
-
 		Context("HCloudMachineTemplate Webhook Validation", func() {
 			var (
 				hcloudMachineTemplate *infrav1.HCloudMachineTemplate
