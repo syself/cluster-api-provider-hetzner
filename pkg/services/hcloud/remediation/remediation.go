@@ -34,6 +34,7 @@ import (
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 )
 
@@ -234,6 +235,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 		return nil, fmt.Errorf("failed to get serverID from providerID: %w", err)
 	}
 
+	hcloudclient.RecordGetServerCallByBootState("remediation")
 	server, err := s.scope.HCloudClient.GetServer(ctx, serverID)
 	if err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudRemediation, err, "GetServer")

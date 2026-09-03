@@ -36,3 +36,4 @@ This is the official documentation of Cluster API Provider Hetzner. Before start
 - [Updating Kubernetes version](/docs/caph/04-developers/04-updating-kubernetes-version.md)
 - [pre-provision-command](/docs/caph/04-developers/05-pre-provision-command.md)
 - [image-url-command](/docs/caph/04-developers/06-image-url-command.md)
+- [third-party-api-metrics](/docs/caph/04-developers/07-third-party-api-metrics.md)
