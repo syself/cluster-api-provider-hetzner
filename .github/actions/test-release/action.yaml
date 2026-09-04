@@ -7,7 +7,7 @@ runs:
       with:
         go-version-file: "go.mod"
 
-    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
       with:
         path: hack/tools/bin
         key: ${{ runner.os }}-tools-bin-release-${{ hashFiles('Makefile') }}
