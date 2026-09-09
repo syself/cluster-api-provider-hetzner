@@ -359,7 +359,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(bmHost *infrav1
 			Status: metav1.ConditionTrue,
 			Reason: infrav1.HetznerBareMetalHostDeletingV1Beta2Reason,
 		})
-		// remove finalizers.
+		// remove finalizer.
 		controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer)
 		return reconcile.Result{Requeue: true}
 	}

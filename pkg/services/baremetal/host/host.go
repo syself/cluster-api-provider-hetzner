@@ -44,7 +44,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -2703,11 +2702,6 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 	v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	v1beta2conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition)
 	return actionComplete{} // next: None
-}
-
-func (s *Service) actionDeleting(_ context.Context) actionResult {
-	controllerutil.RemoveFinalizer(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostFinalizer)
-	return deleteComplete{}
 }
 
 func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
