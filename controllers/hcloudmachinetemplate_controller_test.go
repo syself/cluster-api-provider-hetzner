@@ -333,6 +333,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				}, timeout, interval).Should(BeTrue())
 			})
 		})
+
 		Context("HCloudMachineTemplate Webhook Validation", func() {
 			var (
 				hcloudMachineTemplate *infrav1.HCloudMachineTemplate
