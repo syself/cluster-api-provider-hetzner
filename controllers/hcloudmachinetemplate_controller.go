@@ -24,6 +24,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
@@ -50,6 +51,7 @@ type HCloudMachineTemplateReconciler struct {
 	APIReader           client.Reader
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+	EventRecorder       record.EventRecorder
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -196,6 +198,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		Logger:                &log,
 		HCloudMachineTemplate: hcloudMachineTemplate,
 		HCloudClient:          hcc,
+		EventRecorder:         r.EventRecorder,
 	})
 	if err != nil {
 		err := fmt.Errorf("failed to create scope: %w", err)
@@ -248,11 +251,17 @@ func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machine
 }
 
 func (r *HCloudMachineTemplateReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav2.HCloudMachineTemplate{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
+	if err != nil {
+		return fmt.Errorf("error creating controller: %w", err)
+	}
+
+	r.EventRecorder = mgr.GetEventRecorderFor("hcloudmachinetemplate-controller")
+	return nil
 }
 
 // hasOwnerClusterClass returns whether the object has a ClusterClass as owner.

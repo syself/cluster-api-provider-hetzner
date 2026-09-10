@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
@@ -44,6 +45,7 @@ type HCloudRemediationScopeParams struct {
 	HCloudMachine     *infrav2.HCloudMachine
 	HetznerCluster    *infrav2.HetznerCluster
 	HCloudRemediation *infrav2.HCloudRemediation
+	EventRecorder     record.EventRecorder
 }
 
 // NewHCloudRemediationScope creates a new Scope from the supplied parameters.
@@ -64,6 +66,9 @@ func NewHCloudRemediationScope(params HCloudRemediationScopeParams) (*HCloudReme
 	if params.HCloudMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudMachine")
 	}
+	if params.EventRecorder == nil {
+		return nil, errors.New("cannot create hcloud remediation scope without EventRecorder")
+	}
 
 	emptyLogger := logr.Logger{}
 	if params.Logger == emptyLogger {
@@ -83,6 +88,7 @@ func NewHCloudRemediationScope(params HCloudRemediationScopeParams) (*HCloudReme
 		Machine:           params.Machine,
 		HCloudMachine:     params.HCloudMachine,
 		HCloudRemediation: params.HCloudRemediation,
+		EventRecorder:     params.EventRecorder,
 	}, nil
 }
 
@@ -95,6 +101,7 @@ type HCloudRemediationScope struct {
 	Machine           *clusterv1.Machine
 	HCloudMachine     *infrav2.HCloudMachine
 	HCloudRemediation *infrav2.HCloudRemediation
+	EventRecorder     record.EventRecorder
 }
 
 // Close closes the current scope persisting the remediation configuration and status.

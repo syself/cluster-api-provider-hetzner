@@ -52,7 +52,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	if machineTemplate.Status.Capacity == nil {
 		serverTypes, err := s.scope.HCloudClient.ListServerTypes(ctx)
 		if err != nil {
-			hcloudutil.HandleRateLimitExceeded(machineTemplate, err, "ListServerTypes")
+			hcloudutil.HandleRateLimitExceeded(machineTemplate, s.scope.EventRecorder, err, "ListServerTypes")
 			err = fmt.Errorf("failed to list server types: %w", err)
 			conditions.Set(machineTemplate, metav1.Condition{
 				Type:    infrav2.HCloudMachineTemplateAvailableCondition,

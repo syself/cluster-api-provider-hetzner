@@ -25,10 +25,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
-	"sigs.k8s.io/cluster-api/util/record"
 )
 
 const (
@@ -718,7 +718,7 @@ func (host *HetznerBareMetalHost) NeedsProvisioning() bool {
 }
 
 // SetError updates the error type and message in the status struct and increases the ErrorCount.
-func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string) {
+func (host *HetznerBareMetalHost) SetError(recorder record.EventRecorder, errType ErrorType, errMessage string) {
 	if errType == host.Spec.Status.ErrorType && errMessage == host.Spec.Status.ErrorMessage {
 		host.Spec.Status.ErrorCount++
 	} else {
@@ -738,7 +738,12 @@ func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string)
 		message := fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
 			errMessage, PermanentErrorAnnotation)
 
-		record.Warn(host, "PermanentErrorSet", message)
+		recorder.Event(
+			host,
+			corev1.EventTypeWarning,
+			HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason,
+			message,
+		)
 
 		// set the ActionCompleted condition to false with reason PermanentError.
 		v1beta1conditions.MarkFalse(host, ActionCompletedCondition,

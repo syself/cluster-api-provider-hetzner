@@ -71,7 +71,7 @@ var _ = Describe("SetErrorMessage", func() {
 				)
 			}
 
-			host.SetError(tc.errorType, tc.errorMessage)
+			host.SetError(testEventRecorder, tc.errorType, tc.errorMessage)
 			Expect(host.Spec.Status.ErrorCount).To(Equal(tc.expectedErrorCount))
 			Expect(host.Spec.Status.ErrorMessage).To(Equal(tc.expectedErrorMessage))
 			Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedErrorType))

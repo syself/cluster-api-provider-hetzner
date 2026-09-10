@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 )
@@ -282,7 +283,7 @@ var _ = Describe("Test SetError", func() {
 			errorType := ErrorType("test error type")
 			errorMessage := "test error message"
 
-			host.SetError(errorType, errorMessage)
+			host.SetError(record.NewFakeRecorder(10), errorType, errorMessage)
 
 			Expect(host.Spec.Status.ErrorCount).Should(Equal(tc.expectErrorCount))
 			Expect(host.Spec.Status.ErrorType).Should(Equal(errorType))
@@ -482,7 +483,7 @@ func TestHetznerBareMetalHost_SetError(t *testing.T) {
 			},
 		},
 	}
-	host.SetError(PermanentError, "some error")
+	host.SetError(record.NewFakeRecorder(10), PermanentError, "some error")
 	require.Equal(t, []string{PermanentErrorAnnotation, "other-annotation"}, mapKeys(host.Annotations))
 
 	wantMessage := fmt.Sprintf("some error. Remove annotation %q, if you want the controller to use the hbmh again.",
@@ -503,7 +504,7 @@ func TestHetznerBareMetalHost_SetError(t *testing.T) {
 
 	// Calling SetError again with the same type and message (as happens on every reconcile while the
 	// annotation is present) must keep the condition stable and increment ErrorCount.
-	host.SetError(PermanentError, "some error")
+	host.SetError(record.NewFakeRecorder(10), PermanentError, "some error")
 	actionCompletedCondition = v1beta2conditions.Get(&host, HetznerBareMetalHostActionCompletedV1Beta2Condition)
 	require.NotNil(t, actionCompletedCondition)
 	require.Equal(t, metav1.ConditionFalse, actionCompletedCondition.Status)
@@ -519,7 +520,7 @@ func TestHetznerBareMetalHost_SetError(t *testing.T) {
 			},
 		},
 	}
-	host.SetError(ProvisioningError, "some error")
+	host.SetError(record.NewFakeRecorder(10), ProvisioningError, "some error")
 	require.Equal(t, []string{"other-annotation"}, mapKeys(host.Annotations))
 	require.Nil(t, v1beta2conditions.Get(&host, HetznerBareMetalHostActionCompletedV1Beta2Condition))
 	require.Nil(t, v1beta1conditions.Get(&host, ActionCompletedCondition))

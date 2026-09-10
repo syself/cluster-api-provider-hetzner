@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
@@ -49,6 +50,7 @@ type ClusterScopeParams struct {
 	HCloudClient   hcloudclient.Client
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav2.HetznerCluster
+	EventRecorder  record.EventRecorder
 }
 
 // NewClusterScope creates a new Scope from the supplied parameters.
@@ -65,6 +67,9 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	}
 	if params.APIReader == nil {
 		return nil, errors.New("failed to generate new scope from nil APIReader")
+	}
+	if params.EventRecorder == nil {
+		return nil, errors.New("cannot create cluster scope without EventRecorder")
 	}
 
 	emptyLogger := logr.Logger{}
@@ -86,6 +91,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		HCloudClient:   params.HCloudClient,
 		patchHelper:    helper,
 		hetznerSecret:  params.HetznerSecret,
+		EventRecorder:  params.EventRecorder,
 	}, nil
 }
 
@@ -101,6 +107,7 @@ type ClusterScope struct {
 
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav2.HetznerCluster
+	EventRecorder  record.EventRecorder
 }
 
 // Name returns the HetznerCluster name.

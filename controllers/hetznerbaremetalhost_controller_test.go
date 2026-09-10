@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -1105,7 +1106,8 @@ func Test_removePermanentErrorIfAnnotationIsGone_AnnotationPresent(t *testing.T)
 			},
 		},
 	}
-	removed := removePermanentErrorIfAnnotationIsGone(&bmHost)
+	reconciler := &HetznerBareMetalHostReconciler{EventRecorder: record.NewFakeRecorder(10)}
+	removed := reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorType)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorCount)
@@ -1148,7 +1150,8 @@ func Test_removePermanentErrorIfAnnotationIsGone_AnnotationRemoved(t *testing.T)
 			},
 		},
 	}
-	removed := removePermanentErrorIfAnnotationIsGone(&bmHost)
+	reconciler := &HetznerBareMetalHostReconciler{EventRecorder: record.NewFakeRecorder(10)}
+	removed := reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.True(t, removed)
 	require.Empty(t, bmHost.Spec.Status.ErrorType)
 	require.Empty(t, bmHost.Spec.Status.ErrorCount)
@@ -1173,7 +1176,8 @@ func Test_removePermanentErrorIfAnnotationIsGone_NonPermanentError(t *testing.T)
 			},
 		},
 	}
-	removed := removePermanentErrorIfAnnotationIsGone(&bmHost)
+	reconciler := &HetznerBareMetalHostReconciler{EventRecorder: record.NewFakeRecorder(10)}
+	removed := reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorType)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorCount)
