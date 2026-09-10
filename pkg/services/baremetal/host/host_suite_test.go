@@ -31,7 +31,6 @@ import (
 	"k8s.io/klog/v2/textlogger"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -48,7 +47,6 @@ var testEventRecorder *clientgorecord.FakeRecorder
 
 var _ = BeforeSuite(func() {
 	testEventRecorder = clientgorecord.NewFakeRecorder(100)
-	record.InitFromRecorder(testEventRecorder)
 })
 
 const (
@@ -180,6 +178,7 @@ func newTestService(
 			Cluster:         &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}},
 			OSSSHSecret:     osSSHSecret,
 			RescueSSHSecret: rescueSSHSecret,
+			EventRecorder:   testEventRecorder,
 			WorkloadClusterClientFactory: &fakeWorkloadClusterClientFactory{
 				client: c,
 			},

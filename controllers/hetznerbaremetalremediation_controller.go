@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -47,6 +48,7 @@ type HetznerBareMetalRemediationReconciler struct {
 	client.Client
 	APIReader        client.Reader
 	WatchFilterValue string
+	EventRecorder    record.EventRecorder
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -206,6 +208,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		BareMetalMachine:     bareMetalMachine,
 		HetznerCluster:       hetznerCluster,
 		BareMetalRemediation: bareMetalRemediation,
+		EventRecorder:        r.EventRecorder,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
@@ -245,9 +248,15 @@ func (r *HetznerBareMetalRemediationReconciler) reconcileNormal(ctx context.Cont
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HetznerBareMetalRemediationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		For(&infrav2.HetznerBareMetalRemediation{}).
 		WithOptions(options).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
+	if err != nil {
+		return fmt.Errorf("error creating controller: %w", err)
+	}
+
+	r.EventRecorder = mgr.GetEventRecorderFor("hetznerbaremetalremediation-controller")
+	return nil
 }

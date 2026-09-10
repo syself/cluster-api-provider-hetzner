@@ -27,7 +27,6 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -176,7 +175,12 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 			hsm.nextState = infrav2.StateImageInstalling
 		case infrav2.StateProvisioned:
 			errMessage := "secret has been modified although a provisioned machine uses it"
-			record.Event(hsm.host, "SSHSecretUnexpectedlyModified", errMessage)
+			hsm.reconciler.scope.EventRecorder.Event(
+				hsm.host,
+				corev1.EventTypeWarning,
+				"SSHSecretUnexpectedlyModified",
+				errMessage,
+			)
 			// The user has to fix the secret. Check again in five minutes.
 			hsm.reconciler.scope.SetHostError(infrav2.RegistrationError, errMessage)
 			return actionContinue{delay: 5 * time.Minute}
@@ -202,7 +206,12 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 			Message: msg,
 		})
 
-		record.Warnf(hsm.host, "SSHKeyInvalid", msg)
+		hsm.reconciler.scope.EventRecorder.Event(
+			hsm.host,
+			corev1.EventTypeWarning,
+			"SSHKeyInvalid",
+			msg,
+		)
 		// The user has to fix the secret. Check again in five minutes.
 		hsm.reconciler.scope.SetHostError(infrav2.PreparationError, infrav2.ErrorMessageMissingOrInvalidSecretData)
 		return actionContinue{delay: 5 * time.Minute}
@@ -223,7 +232,12 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 		switch hsm.nextState {
 		case infrav2.StatePreparing, infrav2.StateRegistering, infrav2.StateImageInstalling:
 			msg := "stopped provisioning host as rescue ssh secret was updated"
-			record.Warn(hsm.host, "HostProvisioningStopped", msg)
+			hsm.reconciler.scope.EventRecorder.Event(
+				hsm.host,
+				corev1.EventTypeWarning,
+				"HostProvisioningStopped",
+				msg,
+			)
 			hsm.log.V(1).Info(msg, "state", hsm.nextState)
 			hsm.nextState = infrav2.StateNone
 		}
@@ -275,7 +289,14 @@ func (hsm *hostStateMachine) handlePreparing(ctx context.Context) actionResult {
 		return actionComplete{}
 	}
 
-	record.Eventf(hsm.host, "PreparingForProvisioning", "ServerID %d %s", hsm.host.Spec.ServerID, hsm.host.Spec.Description)
+	hsm.reconciler.scope.EventRecorder.Eventf(
+		hsm.host,
+		corev1.EventTypeNormal,
+		"PreparingForProvisioning",
+		"ServerID %d %s",
+		hsm.host.Spec.ServerID,
+		hsm.host.Spec.Description,
+	)
 
 	actResult := hsm.reconciler.actionPreparing(ctx)
 	if _, ok := actResult.(actionComplete); ok {

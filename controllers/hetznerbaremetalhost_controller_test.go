@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
@@ -122,6 +123,7 @@ func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T
 		Client:             c,
 		APIReader:          c,
 		RobotClientFactory: robotFactory,
+		EventRecorder:      record.NewFakeRecorder(100),
 	}
 
 	result, err := reconciler.Reconcile(ctx, reconcile.Request{
@@ -1092,23 +1094,24 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 			},
 		}
 	}
+	reconciler := &HetznerBareMetalHostReconciler{EventRecorder: record.NewFakeRecorder(10)}
 
 	// PermanentError with annotation --> Error should not get removed
 	bmHost := newHostWithError(map[string]string{infrav2.PermanentErrorAnnotation: ""}, infrav2.PermanentError)
-	removed := removePermanentErrorIfAnnotationIsGone(&bmHost)
+	removed := reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Status.ErrorType)
 
 	// PermanentError without annotation --> Error should get removed
 	bmHost = newHostWithError(map[string]string{"other-annotation": "some value"}, infrav2.PermanentError)
-	removed = removePermanentErrorIfAnnotationIsGone(&bmHost)
+	removed = reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.True(t, removed)
 	require.Empty(t, bmHost.Status.ErrorType)
 	require.Equal(t, map[string]string{"other-annotation": "some value"}, bmHost.Annotations)
 
 	// Other Error without annotation --> Error should not get removed
 	bmHost = newHostWithError(map[string]string{}, infrav2.ProvisioningError)
-	removed = removePermanentErrorIfAnnotationIsGone(&bmHost)
+	removed = reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Status.ErrorType)
 }
