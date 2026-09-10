@@ -518,6 +518,23 @@ const (
 	HCloudMachineDeletingReason = clusterv1.DeletingReason
 )
 
+// HCloudMachineTemplate's v1beta2 conditions.
+
+const (
+	// HCloudMachineTemplateAvailableCondition reports whether the HCloudMachineTemplate is available.
+	HCloudMachineTemplateAvailableCondition = clusterv1.AvailableCondition
+	// HCloudMachineTemplateAvailableReason surfaces when the HCloudMachineTemplate is available.
+	HCloudMachineTemplateAvailableReason = clusterv1.AvailableReason
+	// HCloudMachineTemplateOwnedByClusterClassReason surfaces when the HCloudMachineTemplate is owned by a ClusterClass.
+	HCloudMachineTemplateOwnedByClusterClassReason = "OwnedByClusterClass"
+	// HCloudMachineTemplateWaitingForOwnerClusterReason surfaces when the HCloudMachineTemplate is waiting for its owner Cluster.
+	HCloudMachineTemplateWaitingForOwnerClusterReason = "WaitingForOwnerCluster"
+	// HCloudMachineTemplateMissingInfrastructureRefReason surfaces when the owner Cluster has no infrastructure reference.
+	HCloudMachineTemplateMissingInfrastructureRefReason = "MissingInfrastructureRef"
+	// HCloudMachineTemplateServerTypeNotFoundReason surfaces when spec.template.spec.type is not a known HCloud server type.
+	HCloudMachineTemplateServerTypeNotFoundReason = "ServerTypeNotFound"
+)
+
 // HCloudRemediation's v1beta2 conditions.
 
 const (

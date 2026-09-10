@@ -24,10 +24,11 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 )
@@ -51,12 +52,12 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	if machineTemplate.Status.Capacity == nil {
 		serverTypes, err := s.scope.HCloudClient.ListServerTypes(ctx)
 		if err != nil {
-			hcloudutil.HandleRateLimitExceededV1Beta1(machineTemplate, err, "ListServerTypes")
+			hcloudutil.HandleRateLimitExceeded(machineTemplate, err, "ListServerTypes")
 			err = fmt.Errorf("failed to list server types: %w", err)
-			v1beta2conditions.Set(machineTemplate, metav1.Condition{
-				Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
+			conditions.Set(machineTemplate, metav1.Condition{
+				Type:    infrav2.HCloudMachineTemplateAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.InternalErrorV1Beta2Reason,
+				Reason:  clusterv1.InternalErrorReason,
 				Message: err.Error(),
 			})
 			return reconcile.Result{}, err
@@ -64,10 +65,10 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 
 		capacity, found, err := getCapacity(serverTypes, string(machineTemplate.Spec.Template.Spec.Type))
 		if err != nil {
-			v1beta2conditions.Set(machineTemplate, metav1.Condition{
-				Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
+			conditions.Set(machineTemplate, metav1.Condition{
+				Type:    infrav2.HCloudMachineTemplateAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.InternalErrorV1Beta2Reason,
+				Reason:  clusterv1.InternalErrorReason,
 				Message: err.Error(),
 			})
 			return reconcile.Result{}, fmt.Errorf("failed to get capacity: %w", err)
@@ -75,10 +76,10 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		if !found {
 			// wrong server type, not an internal error. don't retry with backoff, a restart
 			// picks it up again if hcloud starts offering it.
-			v1beta2conditions.Set(machineTemplate, metav1.Condition{
-				Type:    infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
+			conditions.Set(machineTemplate, metav1.Condition{
+				Type:    infrav2.HCloudMachineTemplateAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason,
+				Reason:  infrav2.HCloudMachineTemplateServerTypeNotFoundReason,
 				Message: fmt.Sprintf("failed to find server type for %s", machineTemplate.Spec.Template.Spec.Type),
 			})
 			return reconcile.Result{}, nil
@@ -87,10 +88,10 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		machineTemplate.Status.Capacity = capacity
 	}
 
-	v1beta2conditions.Set(machineTemplate, metav1.Condition{
-		Type:   infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
+	conditions.Set(machineTemplate, metav1.Condition{
+		Type:   infrav2.HCloudMachineTemplateAvailableCondition,
 		Status: metav1.ConditionTrue,
-		Reason: infrav1.HCloudMachineTemplateAvailableV1Beta2Reason,
+		Reason: infrav2.HCloudMachineTemplateAvailableReason,
 	})
 	return reconcile.Result{}, nil
 }
