@@ -27,9 +27,6 @@ const (
 	// resources associated with HCloudMachine before removing it from the
 	// apiserver.
 	HCloudMachineFinalizer = "infrastructure.cluster.x-k8s.io/hcloudmachine"
-	// DeprecatedHCloudMachineFinalizer contains the old string.
-	// The controller will automatically update to the new string.
-	DeprecatedHCloudMachineFinalizer = "hcloudmachine.infrastructure.cluster.x-k8s.io"
 )
 
 // HCloudMachineSpec defines the desired state of HCloudMachine.
