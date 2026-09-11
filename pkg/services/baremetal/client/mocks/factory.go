@@ -34,19 +34,19 @@ type SSHFactory struct {
 	mu                        sync.RWMutex
 	rescueClient              *sshmock.Client
 	osClientAfterInstallImage *sshmock.Client
-	osClientAfterCloudInit    *sshmock.Client
 }
 
 var _ sshclient.Factory = &SSHFactory{}
 
 // NewSSHFactory creates a new SSHFactory primed with the given clients.
+// PortAfterCloudInit is unused (syself/cluster-api-provider-hetzner#1682), so there
+// is no separate post-cloud-init client — OS traffic uses osClientAfterInstallImage.
 func NewSSHFactory(
 	rescueClient *sshmock.Client,
 	osClientAfterInstallImage *sshmock.Client,
-	osClientAfterCloudInit *sshmock.Client,
 ) *SSHFactory {
 	f := &SSHFactory{}
-	f.SetClients(rescueClient, osClientAfterInstallImage, osClientAfterCloudInit)
+	f.SetClients(rescueClient, osClientAfterInstallImage)
 	return f
 }
 
@@ -59,13 +59,11 @@ func NewSSHFactory(
 func (f *SSHFactory) SetClients(
 	rescue *sshmock.Client,
 	osAfterInstallImage *sshmock.Client,
-	osAfterCloudInit *sshmock.Client,
 ) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.rescueClient = rescue
 	f.osClientAfterInstallImage = osAfterInstallImage
-	f.osClientAfterCloudInit = osAfterCloudInit
 }
 
 // NewClient implements sshclient.Factory. f.mu.RLock allows multiple goroutines to call
@@ -78,9 +76,6 @@ func (f *SSHFactory) NewClient(in sshclient.Input) sshclient.Client {
 	}
 	if in.PrivateKey == "rescue-ssh-secret-private-key" {
 		return f.rescueClient
-	}
-	if in.Port == 24 {
-		return f.osClientAfterCloudInit
 	}
 	return f.osClientAfterInstallImage
 }
