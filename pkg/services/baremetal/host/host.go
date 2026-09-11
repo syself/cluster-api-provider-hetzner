@@ -398,43 +398,42 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 // handleIncompleteBoot checks if the reboot was successful.
 // If it was not successful, it tries other reboot methods.
 // Order: SSH -> Software -> Hardware.
+// It returns failed=true when the server cannot be reached in time and the caller should
+// record a fatal error on the host.
 func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, isTimeout, isConnectionRefused bool) (failed bool, err error) {
 	// Connection refused error might be a sign that the ssh port is wrong - but might also come
 	// right after a reboot and is expected then. Therefore, we wait for some time and if the
 	// error keeps coming, we give an error.
 	if isConnectionRefused {
-		if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
-			// if error has occurred before, check the timeout
-			if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt, connectionRefusedTimeout) {
-				msg := "Connection error when targeting server with ssh that might be due to a wrong ssh port. Please check."
-				if isRebootIntoRescue {
-					msg = "Connection error. Can't reach rescue system via ssh."
-				}
-				v1beta1conditions.MarkFalse(
-					s.scope.HetznerBareMetalHost,
-					infrav1.ProvisionSucceededCondition,
-					infrav1.SSHConnectionRefusedReason,
-					clusterv1beta1.ConditionSeverityError,
-					"%s",
-					msg,
-				)
-				v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
-					Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
-					Status:  metav1.ConditionFalse,
-					Reason:  infrav1.HetznerBareMetalHostSSHConnectionRefusedV1Beta2Reason,
-					Message: msg,
-				})
-				record.Warnf(s.scope.HetznerBareMetalHost, "SSHConnectionError", msg)
-				return true, fmt.Errorf("%w - might be due to wrong port", errSSHConnectionRefused)
+		if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt, connectionRefusedTimeout) {
+			msg := "Connection error when targeting server with ssh that might be due to a wrong ssh port. Please check."
+			if isRebootIntoRescue {
+				msg = "Connection error. Can't reach rescue system via ssh."
 			}
-		} else {
-			// set error in host status to check for a timeout next time
-			s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeConnectionError, "ssh gave connection error")
+			v1beta1conditions.MarkFalse(
+				s.scope.HetznerBareMetalHost,
+				infrav1.ProvisionSucceededCondition,
+				infrav1.SSHConnectionRefusedReason,
+				clusterv1beta1.ConditionSeverityError,
+				"%s",
+				msg,
+			)
+			v1beta2conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostSSHConnectionRefusedV1Beta2Reason,
+				Message: msg,
+			})
+			record.Warnf(s.scope.HetznerBareMetalHost, "SSHConnectionError", msg)
+			return true, fmt.Errorf("%w - might be due to wrong port", errSSHConnectionRefused)
 		}
 		return false, nil
 	}
 
-	// ssh gave no connection refused error but it is still saved in host status - we can remove it
+	// We used to store ErrorTypeConnectionError here when ssh refused the connection. A host
+	// upgraded from such a version can still have it. The switch below would return
+	// errUnexpectedErrorType for it, so clear it.
+	// TODO: Remove this when no host can come from a version that wrote it
 	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
 		s.scope.HetznerBareMetalHost.ClearError()
 	}
@@ -2053,8 +2052,6 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 			if err != nil {
 				msg = err.Error()
 			}
-			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
-				infrav1.StateEnsureProvisioned, msg)
 			return s.recordActionFailure(infrav1.FatalError, msg)
 		}
 		if err != nil {
