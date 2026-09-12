@@ -1997,6 +1997,45 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		),
 	)
 
+	It("records the CloudInitOutput event when the cloud-init status check returned an error", func() {
+		ctx := context.Background()
+
+		// drain events from previous tests
+		for len(testEventRecorder.Events) > 0 {
+			<-testEventRecorder.Events
+		}
+
+		portAfterInstallImage := 24
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(portAfterInstallImage),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"})
+		// an unknown cloud-init status makes checkCloudInitStatus return an error
+		sshMock.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: broken"})
+		sshMock.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+
+		robotMock := robotmock.Client{}
+		robotMock.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
+
+		service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+
+		// the error is still returned, and the cloud-init output is recorded in an event
+		Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionError{}))
+
+		var events []string
+		for len(testEventRecorder.Events) > 0 {
+			events = append(events, <-testEventRecorder.Events)
+		}
+		Expect(events).To(ContainElement(ContainSubstring("dummy content of /var/log/cloud-init-output.log")))
+		Expect(events).NotTo(ContainElement(ContainSubstring("GetCloudInitOutputFailed")))
+	})
+
 	It("sets a fatal error when the reboot into the OS times out", func() {
 		ctx := context.Background()
 		portAfterInstallImage := 24
@@ -2227,5 +2266,59 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		Expect(c.Message).To(Equal(""))
 		Expect(c.Status).To(Equal(corev1.ConditionTrue))
 		Expect(host.GetAnnotations()).To(BeEmpty())
+	})
+})
+
+var _ = Describe("actionProvisioned when the Node is missing in the workload cluster", func() {
+	It("stops reconciling instead of erroring forever", func() {
+		ctx := context.Background()
+
+		// drain events from previous tests
+		for len(testEventRecorder.Events) > 0 {
+			<-testEventRecorder.Events
+		}
+
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(23),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		service := newTestService(host, nil, nil,
+			helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
+			helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		// newTestService seeds a Node named after the host. Remove it so the
+		// workload-cluster Get returns NotFound.
+		Expect(service.scope.Client.Delete(ctx, &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: host.Name},
+		})).To(Succeed())
+
+		actResult := service.actionProvisioned(ctx)
+
+		// actionStop returns no error and schedules no requeue.
+		Expect(actResult).Should(BeAssignableToTypeOf(actionStop{}))
+		res, err := actResult.Result()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res.RequeueAfter).To(BeZero())
+
+		c := v1beta1conditions.Get(host, infrav1.NodeBootIDRetrievedCondition)
+		Expect(c).ToNot(BeNil())
+		Expect(c.Status).To(Equal(corev1.ConditionFalse))
+		Expect(c.Reason).To(Equal(infrav1.NodeNotFoundReason))
+		Expect(c.Message).To(ContainSubstring(host.Name))
+
+		c2 := v1beta2conditions.Get(host, infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition)
+		Expect(c2).ToNot(BeNil())
+		Expect(c2.Status).To(Equal(metav1.ConditionFalse))
+		Expect(c2.Reason).To(Equal(infrav1.HetznerBareMetalHostNodeNotFoundV1Beta2Reason))
+
+		var events []string
+		for len(testEventRecorder.Events) > 0 {
+			events = append(events, <-testEventRecorder.Events)
+		}
+		Expect(events).To(ContainElement(ContainSubstring(infrav1.HetznerBareMetalHostNodeNotFoundV1Beta2Reason)))
 	})
 })

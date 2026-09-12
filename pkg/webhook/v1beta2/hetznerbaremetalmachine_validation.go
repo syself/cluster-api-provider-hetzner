@@ -32,64 +32,22 @@ import (
 
 func validateHetznerBareMetalMachineSpecCreate(spec infrav2.HetznerBareMetalMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
-	installImage := spec.InstallImage
-	image := installImage.Image
 
-	if installImage.UsesImageURLCommand() {
-		if image.URL == "" {
-			allErrs = append(allErrs,
-				field.Required(field.NewPath("spec", "installImage", "image", "url"),
-					"url is required when imageURLCommand is set"),
-			)
-		} else if _, err := url.ParseRequestURI(image.URL); err != nil {
-			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "installImage", "image", "url"), image.URL, err.Error()),
-			)
-		}
-
-		if image.Name != "" {
-			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "installImage", "image", "name"), image.Name,
-					"name must be empty when imageURLCommand is set"),
-			)
-		}
-
-		if image.Path != "" {
-			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "installImage", "image", "path"), image.Path,
-					"path must be empty when imageURLCommand is set"),
-			)
-		}
-
-		if err := utils.ValidateImageURLCommandName(installImage.ImageURLCommand); err != nil {
-			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), installImage.ImageURLCommand,
-					err.Error()),
-			)
-		}
-	} else {
-		if installImage.DeviceStringType != "" {
-			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "installImage", "deviceStringType"), installImage.DeviceStringType,
-					"deviceStringType is only valid when imageURLCommand is set"),
-			)
-		}
-
-		if (image.Name == "" || image.URL == "") && image.Path == "" {
-			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "installImage", "image"), image,
-					"have to specify either image name and url or path"),
-			)
-		}
-
-		if image.URL != "" {
-			if _, err := infrav2.GetImageSuffix(image.URL); err != nil {
-				allErrs = append(allErrs,
-					field.Invalid(field.NewPath("spec", "installImage", "image", "url"), image.URL,
-						"unknown image type in URL"),
-				)
-			}
-		}
+	// installImage and customProvisioner are the two mutually exclusive provisioning flows.
+	switch {
+	case spec.InstallImage == nil && spec.CustomProvisioner == nil:
+		allErrs = append(allErrs,
+			field.Required(field.NewPath("spec"), "either installImage or customProvisioner must be set"),
+		)
+	case spec.InstallImage != nil && spec.CustomProvisioner != nil:
+		allErrs = append(allErrs,
+			field.Forbidden(field.NewPath("spec", "customProvisioner"),
+				"installImage and customProvisioner are mutually exclusive"),
+		)
+	case spec.InstallImage != nil:
+		allErrs = append(allErrs, validateInstallImage(*spec.InstallImage)...)
+	case spec.CustomProvisioner != nil:
+		allErrs = append(allErrs, validateCustomProvisioner(*spec.CustomProvisioner)...)
 	}
 
 	// validate host selector
@@ -114,11 +72,55 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav2.HetznerBareMetalMach
 	return allErrs
 }
 
+func validateInstallImage(installImage infrav2.InstallImage) field.ErrorList {
+	var allErrs field.ErrorList
+	base := field.NewPath("spec", "installImage")
+	image := installImage.Image
+
+	if (image.Name == "" || image.URL == "") && image.Path == "" {
+		allErrs = append(allErrs,
+			field.Invalid(base.Child("image"), image, "have to specify either image name and url or path"),
+		)
+	}
+
+	if image.URL != "" {
+		if _, err := infrav2.GetImageSuffix(image.URL); err != nil {
+			allErrs = append(allErrs,
+				field.Invalid(base.Child("image", "url"), image.URL, "unknown image type in URL"),
+			)
+		}
+	}
+
+	return allErrs
+}
+
+func validateCustomProvisioner(customProvisioner infrav2.CustomProvisioner) field.ErrorList {
+	var allErrs field.ErrorList
+	base := field.NewPath("spec", "customProvisioner")
+
+	// url and command are required and non-empty by the CRD schema, so this only checks their format:
+	// url must be a valid URI, and command a valid basename.
+	if _, err := url.ParseRequestURI(customProvisioner.URL); err != nil {
+		allErrs = append(allErrs, field.Invalid(base.Child("url"), customProvisioner.URL, err.Error()))
+	}
+
+	if err := utils.ValidateImageURLCommandName(customProvisioner.Command); err != nil {
+		allErrs = append(allErrs, field.Invalid(base.Child("command"), customProvisioner.Command, err.Error()))
+	}
+
+	return allErrs
+}
+
 func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec infrav2.HetznerBareMetalMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	if !reflect.DeepEqual(newSpec.InstallImage, oldSpec.InstallImage) {
 		allErrs = append(allErrs,
 			field.Forbidden(field.NewPath("spec", "installImage"), "installImage is immutable"),
+		)
+	}
+	if !reflect.DeepEqual(newSpec.CustomProvisioner, oldSpec.CustomProvisioner) {
+		allErrs = append(allErrs,
+			field.Forbidden(field.NewPath("spec", "customProvisioner"), "customProvisioner is immutable"),
 		)
 	}
 	if !reflect.DeepEqual(newSpec.SSHSpec, oldSpec.SSHSpec) {

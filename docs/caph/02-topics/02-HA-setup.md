@@ -1,8 +1,7 @@
 ---
 title: High availability setup
-metatitle: Setting Up High Availability Cluster Configuration with Cluster API Provider Hetzner
-sidebar: High availability setup
 description: How to achieve high availability in clusters managed by CAPH.
+metatitle: Setting Up High Availability Cluster Configuration with Cluster API Provider Hetzner
 ---
 
 ## HA Cluster API Components
