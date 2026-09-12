@@ -290,7 +290,6 @@ func (r *HCloudMachineReconciler) reconcileDelete(ctx context.Context, machineSc
 	}
 	// Machine is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav2.HCloudMachineFinalizer)
-	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav2.DeprecatedHCloudMachineFinalizer)
 
 	return reconcile.Result{}, nil
 }
@@ -300,7 +299,6 @@ func (r *HCloudMachineReconciler) reconcileNormal(ctx context.Context, machineSc
 
 	// If the HCloudMachine doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(machineScope.HCloudMachine, infrav2.HCloudMachineFinalizer)
-	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav2.DeprecatedHCloudMachineFinalizer)
 
 	// Register the finalizer immediately to avoid orphaning HCloud resources on delete.
 	if err := machineScope.PatchObject(ctx); err != nil {

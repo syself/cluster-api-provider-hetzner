@@ -34,7 +34,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
@@ -106,10 +105,6 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 			log.Error(err, "failed to patch HCloudMachineTemplate")
 		}
 	}()
-
-	// removing finalizer that was set in previous versions but is not needed
-	// We can remove that code in 2025.
-	controllerutil.RemoveFinalizer(hcloudMachineTemplate, infrav2.DeprecatedHCloudMachineFinalizer)
 
 	// Check whether owner is a ClusterClass. In that case there is nothing to do.
 	if hasOwnerClusterClass(hcloudMachineTemplate.ObjectMeta) {
