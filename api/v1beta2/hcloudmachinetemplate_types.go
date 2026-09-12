@@ -123,8 +123,6 @@ func (r *HCloudMachineTemplate) SetV1Beta1Conditions(conditions clusterv1.Condit
 }
 
 // HCloudMachineTemplateSummaryOpts returns the summary options for an HCloudMachineTemplate.
-// It is the single source of truth for which conditions contribute to the Ready summary, used both
-// by SetHCloudMachineTemplateSummaryCondition and by early-exit error paths that bypass it.
 //
 // The order of conditions in ForConditionTypes defines the priority for the Ready summary:
 // when multiple conditions are unhealthy, the summary lists all of them in priority
