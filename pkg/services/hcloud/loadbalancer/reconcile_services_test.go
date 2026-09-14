@@ -251,6 +251,8 @@ func TestReconcileServices_HealthCheckSet_AddsKubeAPIServiceWithHealthCheck(t *t
 	require.NotNil(t, capturedOpts.HealthCheck)
 	require.Equal(t, hcloud.LoadBalancerServiceProtocolHTTP, capturedOpts.HealthCheck.Protocol)
 	require.Equal(t, "/readyz", *capturedOpts.HealthCheck.HTTP.Path)
+	require.NotNil(t, capturedOpts.HealthCheck.Port)
+	require.Equal(t, testLBDestPort, *capturedOpts.HealthCheck.Port)
 	mockClient.AssertExpectations(t)
 }
 
@@ -348,12 +350,12 @@ func TestReconcileServices_HealthCheckUnset_LeavesLiveConfigAlone(t *testing.T) 
 	mockClient.AssertExpectations(t)
 }
 
-func controlPlaneMachineWithAnnotation(name, annotation string, annotated bool) *infrav1.HCloudMachine {
+func controlPlaneMachineWithAnnotation(name, annotation string, annotated bool) *infrav2.HCloudMachine {
 	annotations := map[string]string{}
 	if annotated {
 		annotations[annotation] = "true"
 	}
-	return &infrav1.HCloudMachine{
+	return &infrav2.HCloudMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metav1.NamespaceDefault,
@@ -366,11 +368,11 @@ func controlPlaneMachineWithAnnotation(name, annotation string, annotated bool) 
 	}
 }
 
-func controlPlaneMachineForProxy(name string, annotated bool) *infrav1.HCloudMachine {
+func controlPlaneMachineForProxy(name string, annotated bool) *infrav2.HCloudMachine {
 	return controlPlaneMachineWithAnnotation(name, infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation, annotated)
 }
 
-func controlPlaneMachineForHTTPHealthCheck(name string, annotated bool) *infrav1.HCloudMachine {
+func controlPlaneMachineForHTTPHealthCheck(name string, annotated bool) *infrav2.HCloudMachine {
 	return controlPlaneMachineWithAnnotation(name, infrav2.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated)
 }
 
@@ -387,6 +389,7 @@ func newMigrationTestService(t *testing.T, mockClient *mocks.Client, configureSp
 	scheme := runtime.NewScheme()
 	_ = clusterv1.AddToScheme(scheme)
 	_ = infrav1.AddToScheme(scheme)
+	_ = infrav2.AddToScheme(scheme)
 
 	svc := newTestService(t, hetznerCluster, mockClient)
 	svc.scope.Client = fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(machines...).Build()
@@ -527,7 +530,13 @@ func TestReconcileServices_HealthCheckMigration_MachinesNotReady_Requeues(t *tes
 
 	res, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
-	require.NotZero(t, res.RequeueAfter, "should requeue while a control-plane machine is not annotated")
+	require.Equal(t, 2*time.Minute, res.RequeueAfter, "should requeue after 2 minutes while a control-plane machine is not annotated")
+
+	cond := conditions.Get(svc.scope.HetznerCluster, infrav2.HetznerClusterLoadBalancerReadyCondition)
+	require.NotNil(t, cond, "LoadBalancerReady condition should report the http health check wait")
+	require.Equal(t, metav1.ConditionFalse, cond.Status)
+	require.Equal(t, infrav2.HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason, cond.Reason)
+
 	// No UpdateServiceOnLoadBalancer expectation was set up, so AssertExpectations fails here if
 	// the tcp check got switched to http anyway.
 	mockClient.AssertExpectations(t)
@@ -564,6 +573,51 @@ func TestReconcileServices_HealthCheckMigration_MachinesReady_SwitchesInPlace(t 
 	require.NotNil(t, capturedOpts.HealthCheck)
 	require.Equal(t, hcloud.LoadBalancerServiceProtocolHTTP, capturedOpts.HealthCheck.Protocol)
 	require.Equal(t, "/readyz", *capturedOpts.HealthCheck.HTTP.Path)
+	require.NotNil(t, capturedOpts.HealthCheck.Port)
+	require.Equal(t, testLBDestPort, *capturedOpts.HealthCheck.Port)
+	mockClient.AssertExpectations(t)
+}
+
+// TestReconcileServices_HealthCheckBackToTCP_UpdatesInPlaceWithoutGate verifies that switching
+// the health check from http back to tcp is applied right away, without waiting for the
+// control-plane rollout. Only a switch away from tcp can mark a backend that does not answer
+// the path unhealthy.
+func TestReconcileServices_HealthCheckBackToTCP_UpdatesInPlaceWithoutGate(t *testing.T) {
+	hetznerCluster := newTestHetznerCluster()
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+		Protocol: "tcp",
+	}
+
+	mockClient := &mocks.Client{}
+	// scope.Client is intentionally left nil: reaching it would panic, so this also proves the
+	// gate is never consulted for a switch back to tcp.
+	svc := newTestService(t, hetznerCluster, mockClient)
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{
+				ListenPort: testKubeAPIListenPort,
+				HealthCheck: hcloud.LoadBalancerServiceHealthCheck{
+					Protocol: hcloud.LoadBalancerServiceProtocolHTTP,
+					Port:     testLBDestPort,
+					HTTP:     &hcloud.LoadBalancerServiceHealthCheckHTTP{Path: "/readyz"},
+				},
+			},
+		},
+	}
+
+	var capturedOpts hcloud.LoadBalancerUpdateServiceOpts
+	mockClient.On("UpdateServiceOnLoadBalancer", mock.Anything, hcloudLB, testKubeAPIListenPort, mock.Anything).
+		Run(func(args mock.Arguments) {
+			capturedOpts = args.Get(3).(hcloud.LoadBalancerUpdateServiceOpts)
+		}).
+		Return(nil)
+
+	res, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	require.Zero(t, res.RequeueAfter)
+	require.NotNil(t, capturedOpts.HealthCheck)
+	require.Equal(t, hcloud.LoadBalancerServiceProtocolTCP, capturedOpts.HealthCheck.Protocol)
+	require.Nil(t, capturedOpts.HealthCheck.HTTP)
 	mockClient.AssertExpectations(t)
 }
 
@@ -641,7 +695,7 @@ func TestReconcileServices_HealthCheckMigration_MachinesNotReady_StillEnablesPro
 
 	res, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
-	require.Equal(t, 10*time.Second, res.RequeueAfter, "should requeue while the health-check migration waits, without blocking proxy protocol")
+	require.Equal(t, 2*time.Minute, res.RequeueAfter, "should requeue while the health-check migration waits, without blocking proxy protocol")
 	require.True(t, svc.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled, "proxy protocol should still be enabled in this reconcile")
 
 	require.Len(t, updateCalls, 1, "only the proxy-protocol update should have been sent")

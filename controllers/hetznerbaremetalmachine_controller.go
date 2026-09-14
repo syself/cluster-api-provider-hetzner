@@ -140,7 +140,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
-	hcloudToken, _, err := getAndValidateHCloudTokenV1Beta1(ctx, req.Namespace, hetznerCluster, secretManager)
+	hcloudToken, err := getAndValidateHCloudTokenV1Beta1(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
 		return hcloudTokenErrorResultV1Beta1(ctx, err, hbmMachine, r, infrav1.HetznerBareMetalMachineV1Beta2SummaryOpts())
 	}
@@ -217,7 +217,6 @@ func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context,
 	}
 	// Machine is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(machineScope.BareMetalMachine, infrav1.HetznerBareMetalMachineFinalizer)
-	controllerutil.RemoveFinalizer(machineScope.BareMetalMachine, infrav1.DeprecatedBareMetalMachineFinalizer)
 
 	return result, nil
 }
@@ -225,7 +224,6 @@ func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context,
 func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context, machineScope *scope.BareMetalMachineScope) (reconcile.Result, error) {
 	// If the HetznerBareMetalMachine doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(machineScope.BareMetalMachine, infrav1.HetznerBareMetalMachineFinalizer)
-	controllerutil.RemoveFinalizer(machineScope.BareMetalMachine, infrav1.DeprecatedBareMetalMachineFinalizer)
 
 	// Register the finalizer immediately to avoid orphaning HetznerBareMetal resources on delete
 	if err := machineScope.PatchObject(ctx); err != nil {

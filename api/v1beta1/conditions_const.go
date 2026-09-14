@@ -314,6 +314,8 @@ const (
 	HCloudMachineTemplateWaitingForOwnerClusterV1Beta2Reason = "WaitingForOwnerCluster"
 	// HCloudMachineTemplateMissingInfrastructureRefV1Beta2Reason surfaces when the owner Cluster has no infrastructure reference.
 	HCloudMachineTemplateMissingInfrastructureRefV1Beta2Reason = "MissingInfrastructureRef"
+	// HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason surfaces when spec.template.spec.type is not a known HCloud server type.
+	HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason = "ServerTypeNotFound"
 )
 
 const (
@@ -380,8 +382,6 @@ const (
 	// HCloudMachineEnablingRescueActionDoneV1Beta2Reason indicates the rescue enable action is done.
 	HCloudMachineEnablingRescueActionDoneV1Beta2Reason = "EnablingRescueActionDone"
 
-	// HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason indicates getting the SSH private key failed.
-	HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason = "GettingSSHPrivateKeyFailed"
 	// HCloudMachineRetryingSSHConnectionV1Beta2Reason indicates the SSH connection is being retried.
 	HCloudMachineRetryingSSHConnectionV1Beta2Reason = "RetryingSSHConnection"
 	// HCloudMachineGettingHostnameFailedV1Beta2Reason indicates getting the hostname failed.

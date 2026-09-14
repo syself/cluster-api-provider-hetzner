@@ -20,14 +20,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 var _ = Describe("Test ServerIDFromProviderID", func() {
 	It("gives error on nil providerID", func() {
-		hcloudMachine := infrav1.HCloudMachine{}
+		hcloudMachine := infrav2.HCloudMachine{}
 		machineScope := MachineScope{HCloudMachine: &hcloudMachine}
 
 		serverID, err := machineScope.ServerIDFromProviderID()
@@ -44,7 +45,7 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 
 	DescribeTable("Test ServerIDFromProviderID",
 		func(tc testCaseServerIDFromProviderID) {
-			hcloudMachine := infrav1.HCloudMachine{}
+			hcloudMachine := infrav2.HCloudMachine{}
 			hcloudMachine.Spec.ProviderID = &tc.providerID
 
 			machineScope := MachineScope{HCloudMachine: &hcloudMachine}
@@ -91,86 +92,62 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 	)
 })
 
-var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
+var _ = Describe("HCloudMachineSummaryOpts", func() {
 	It("lists all unhealthy conditions in priority order in the summary message", func() {
-		hcloudMachine := &infrav1.HCloudMachine{
-			Status: infrav1.HCloudMachineStatus{
-				V1Beta2: &infrav1.HCloudMachineV1Beta2Status{},
-			},
-		}
+		hcloudMachine := &infrav2.HCloudMachine{}
 
-		hcloudMachine.SetV1Beta2Conditions([]metav1.Condition{
+		hcloudMachine.SetConditions([]metav1.Condition{
 			// ServerAvailable=False (lowest priority issue).
 			{
-				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Type:    infrav2.HCloudMachineServerAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineServerNotFoundV1Beta2Reason,
+				Reason:  infrav2.HCloudMachineServerNotFoundReason,
 				Message: "server is not available",
 			},
-			// Set HCloudTokenAvailable=False (highest priority issue).
+			// HCloudTokenAvailable=False (highest priority issue).
 			{
-				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
+				Type:    infrav2.HCloudTokenAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
+				Reason:  infrav2.HCloudTokenInvalidReason,
 				Message: "token is invalid",
 			},
 		})
 
-		Expect(SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine)).To(Succeed())
-
-		readyCond := hcloudMachine.GetV1Beta2Conditions()
-		var summaryMsg string
-		for _, c := range readyCond {
-			if c.Type == clusterv1beta1.ReadyV1Beta2Condition {
-				summaryMsg = c.Message
-				Expect(c.Status).To(Equal(metav1.ConditionFalse))
-				break
-			}
-		}
-		Expect(summaryMsg).ToNot(BeEmpty(), "Ready summary condition should have a message")
+		readyCondition, err := conditions.NewSummaryCondition(hcloudMachine, clusterv1.ReadyCondition, infrav2.HCloudMachineSummaryOpts()...)
+		Expect(err).To(BeNil())
+		Expect(readyCondition).ToNot(BeNil())
+		Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
 
 		// The summary message lists all unhealthy conditions in ForConditionTypes order.
 		// HCloudTokenAvailable (priority 1) before ServerAvailable (priority 5).
-		Expect(summaryMsg).To(MatchRegexp(`(?s)token is invalid.*server is not available`))
+		Expect(readyCondition.Message).To(MatchRegexp(`(?s)token is invalid.*server is not available`))
 	})
 
 	It("surfaces RateLimitExceeded before ServerAvailable when both are unhealthy", func() {
-		hcloudMachine := &infrav1.HCloudMachine{
-			Status: infrav1.HCloudMachineStatus{
-				V1Beta2: &infrav1.HCloudMachineV1Beta2Status{},
-			},
-		}
+		hcloudMachine := &infrav2.HCloudMachine{}
 
-		hcloudMachine.SetV1Beta2Conditions([]metav1.Condition{
+		hcloudMachine.SetConditions([]metav1.Condition{
 			// HCloudRateLimitExceeded=True (negative polarity, priority 2).
 			{
-				Type:    infrav1.HCloudRateLimitExceededV1Beta2Condition,
+				Type:    infrav2.HCloudRateLimitExceededCondition,
 				Status:  metav1.ConditionTrue,
-				Reason:  infrav1.HCloudRateLimitExceededV1Beta2Reason,
+				Reason:  infrav2.HCloudRateLimitExceededReason,
 				Message: "rate limit exceeded",
 			},
 			// ServerAvailable=False with Deleting reason (priority 5).
 			{
-				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Type:    infrav2.HCloudMachineServerAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineDeletingV1Beta2Reason,
+				Reason:  infrav2.HCloudMachineDeletingReason,
 				Message: "machine is deleting",
 			},
 		})
 
-		Expect(SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine)).To(Succeed())
-
-		readyCond := hcloudMachine.GetV1Beta2Conditions()
-		var summaryMsg string
-		for _, c := range readyCond {
-			if c.Type == clusterv1beta1.ReadyV1Beta2Condition {
-				summaryMsg = c.Message
-				break
-			}
-		}
-		Expect(summaryMsg).ToNot(BeEmpty())
+		readyCondition, err := conditions.NewSummaryCondition(hcloudMachine, clusterv1.ReadyCondition, infrav2.HCloudMachineSummaryOpts()...)
+		Expect(err).To(BeNil())
+		Expect(readyCondition).ToNot(BeNil())
 
 		// HCloudRateLimitExceeded (priority 2) before ServerAvailable (priority 5).
-		Expect(summaryMsg).To(MatchRegexp(`(?s)rate limit exceeded.*machine is deleting`))
+		Expect(readyCondition.Message).To(MatchRegexp(`(?s)rate limit exceeded.*machine is deleting`))
 	})
 })

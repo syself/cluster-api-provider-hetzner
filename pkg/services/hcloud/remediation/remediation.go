@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
@@ -52,7 +51,7 @@ func NewService(scope *scope.HCloudRemediationScope) *Service {
 
 // Reconcile implements reconcilement of HCloudRemediation.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
-	if s.scope.HCloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+	if s.scope.HCloudMachine.Status.BootState != infrav2.HCloudBootStateOperatingSystemRunning {
 		err := s.setOwnerRemediatedConditionToFailed(ctx,
 			fmt.Sprintf("exit remediation because infra machine is in BootState %s (no need to try a reboot)", s.scope.HCloudMachine.Status.BootState))
 		if err != nil {
@@ -114,7 +113,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	// Only evaluated on a fresh CR (Phase is empty) to avoid interrupting in-progress remediations.
 	if s.scope.HCloudRemediation.Status.Phase == "" {
 		cooldown := s.scope.HCloudRemediation.Spec.Strategy.EffectiveCooldown()
-		if cooldown > 0 && s.scope.HCloudMachine.Status.LastRemediatedAt != nil {
+		if cooldown > 0 && !s.scope.HCloudMachine.Status.LastRemediatedAt.IsZero() {
 			since := time.Since(s.scope.HCloudMachine.Status.LastRemediatedAt.Time)
 			if since < cooldown {
 				err := s.markRemediationSkipped(ctx,
@@ -308,7 +307,7 @@ func (s *Service) markRemediationSucceeded(ctx context.Context, msg string) erro
 	}
 
 	now := metav1.Now()
-	s.scope.HCloudMachine.Status.LastRemediatedAt = &now
+	s.scope.HCloudMachine.Status.LastRemediatedAt = now
 
 	if err := hcloudMachinePatchHelper.Patch(ctx, s.scope.HCloudMachine); err != nil {
 		return fmt.Errorf("failed to patch hcloud machine: %w", err)

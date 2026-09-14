@@ -31,8 +31,7 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
-	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1" // deprecated conditions on the v1beta2 HCloudRemediation
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"           // conditions on the still-v1beta1 HCloudMachine
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,7 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -163,7 +161,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	log = log.WithValues("Machine", klog.KObj(machine))
 
 	// Fetch the HCloudMachine instance.
-	hcloudMachine := &infrav1.HCloudMachine{}
+	hcloudMachine := &infrav2.HCloudMachine{}
 
 	key := client.ObjectKey{
 		Name:      machine.Spec.InfrastructureRef.Name,
@@ -182,9 +180,9 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	// Skip remediation for machines that failed to create with irrecoverable errors (e.g. invalid_input, resource_unavailable).
 	// These errors cannot be fixed by rebooting or replacing the machine.
 	// We return without error so the MHC does not keep retrying remediation.
-	if v1beta1conditions.IsFalse(hcloudMachine, infrav1.ServerCreateSucceededCondition) &&
-		v1beta1conditions.GetReason(hcloudMachine, infrav1.ServerCreateSucceededCondition) == infrav1.ServerCreateFailedIrrecoverableErrorReason {
-		irrecoverableMsg := v1beta1conditions.GetMessage(hcloudMachine, infrav1.ServerCreateSucceededCondition)
+	if conditions.IsFalse(hcloudMachine, infrav2.HCloudMachineServerCreatedCondition) &&
+		conditions.GetReason(hcloudMachine, infrav2.HCloudMachineServerCreatedCondition) == infrav2.HCloudMachineServerCreationFailedIrrecoverablyReason {
+		irrecoverableMsg := conditions.GetMessage(hcloudMachine, infrav2.HCloudMachineServerCreatedCondition)
 		log.Info("Skipping remediation for machine with irrecoverable creation failure",
 			"reason", irrecoverableMsg,
 		)

@@ -20,7 +20,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 )
 
 // HCloudMachineTemplateSpec defines the desired state of HCloudMachineTemplate.
@@ -29,6 +28,12 @@ type HCloudMachineTemplateSpec struct {
 }
 
 // HCloudMachineTemplateStatus defines the observed state of HCloudMachineTemplate.
+//
+// The v1beta2 HCloudMachineTemplateStatus has its final API shape (status.conditions as
+// []metav1.Condition and status.deprecated.v1beta1.conditions), which does not map field-for-field
+// onto this v1beta1 status. conversion-gen cannot express that mapping, so it is skipped here and
+// the conversion is hand written in conversion.go.
+// +k8s:conversion-gen=false
 type HCloudMachineTemplateStatus struct {
 	// Capacity defines the resource capacity for this machine.
 	// This value is used for autoscaling from zero operations as defined in:
@@ -104,45 +109,6 @@ func (r *HCloudMachineTemplate) SetV1Beta2Conditions(conditions []metav1.Conditi
 		r.Status.V1Beta2 = &HCloudMachineTemplateV1Beta2Status{}
 	}
 	r.Status.V1Beta2.Conditions = conditions
-}
-
-// HCloudMachineTemplateV1Beta2SummaryOpts returns the v1beta2 summary options for an HCloudMachineTemplate.
-// It is the single source of truth for which conditions contribute to the Ready summary.
-//
-// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
-// when multiple conditions are unhealthy, the summary lists all of them in priority
-// order (highest-priority first).
-//  1. HCloudTokenAvailable    - invalid credentials block everything.
-//  2. HCloudRateLimitExceeded - rate-limit issues (negative polarity).
-//  3. Available               - template availability and early-return visibility.
-func HCloudMachineTemplateV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
-	return []v1beta2conditions.SummaryOption{
-		v1beta2conditions.ForConditionTypes{
-			HCloudTokenAvailableV1Beta2Condition,
-			HCloudRateLimitExceededV1Beta2Condition,
-			HCloudMachineTemplateAvailableV1Beta2Condition,
-		},
-		// HCloudTokenAvailable and HCloudRateLimitExceeded are optional inputs:
-		// token availability is only known after token validation, and rate-limit
-		// state is only present while rate limited.
-		v1beta2conditions.IgnoreTypesIfMissing{
-			HCloudTokenAvailableV1Beta2Condition,
-			HCloudRateLimitExceededV1Beta2Condition,
-		},
-		v1beta2conditions.CustomMergeStrategy{
-			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
-				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
-					// negative polarity condition.
-					HCloudRateLimitExceededV1Beta2Condition,
-				)),
-				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(
-					clusterv1beta1.NotReadyV1Beta2Reason,
-					clusterv1beta1.ReadyUnknownV1Beta2Reason,
-					clusterv1beta1.ReadyV1Beta2Reason,
-				)),
-			),
-		},
-	}
 }
 
 //+kubebuilder:object:root=true
