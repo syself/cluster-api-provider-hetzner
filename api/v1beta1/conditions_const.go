@@ -244,37 +244,6 @@ const (
 	DeletionInProgressReason = "DeletionInProgress"
 )
 
-// deprecated conditions.
-
-const (
-	// DeprecatedHostProvisionSucceededCondition indicates that a host has been provisioned.
-	DeprecatedHostProvisionSucceededCondition clusterv1beta1.ConditionType = "HostProvisionSucceeded"
-
-	// DeprecatedInstanceReadyCondition reports on current status of the instance. Ready indicates the instance is in a Running state.
-	DeprecatedInstanceReadyCondition clusterv1beta1.ConditionType = "InstanceReady"
-
-	// DeprecatedInstanceBootstrapReadyCondition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
-	DeprecatedInstanceBootstrapReadyCondition clusterv1beta1.ConditionType = "InstanceBootstrapReady"
-
-	// DeprecatedHetznerClusterTargetClusterReadyCondition reports on whether the kubeconfig in the target cluster is ready.
-	DeprecatedHetznerClusterTargetClusterReadyCondition clusterv1beta1.ConditionType = "HetznerClusterTargetClusterReady"
-
-	// DeprecatedNetworkAttachedCondition reports on whether there is a network attached to the cluster.
-	DeprecatedNetworkAttachedCondition clusterv1beta1.ConditionType = "NetworkAttached"
-
-	// DeprecatedLoadBalancerAttachedToNetworkCondition reports on whether the load balancer is attached to a network.
-	DeprecatedLoadBalancerAttachedToNetworkCondition clusterv1beta1.ConditionType = "LoadBalancerAttachedToNetwork"
-
-	// DeprecatedHetznerBareMetalHostReadyCondition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedHetznerBareMetalHostReadyCondition clusterv1beta1.ConditionType = "HetznerBareMetalHostReady"
-
-	// DeprecatedAssociateBMHCondition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedAssociateBMHCondition clusterv1beta1.ConditionType = "AssociateBMHCondition"
-
-	// DeprecatedRateLimitExceededCondition reports whether the rate limit has been reached.
-	DeprecatedRateLimitExceededCondition clusterv1beta1.ConditionType = "RateLimitExceeded"
-)
-
 const (
 	// RebootSucceededCondition indicates that the machine got rebooted successfully.
 	RebootSucceededCondition clusterv1beta1.ConditionType = "RebootSucceeded"
@@ -301,6 +270,8 @@ const (
 	GetWorkloadClusterClientFailedReason = "GetWorkloadClusterClientFailed"
 	// GetNodeInWorkloadClusterFailedReason indicates failure in fetching the node object from the workload cluster.
 	GetNodeInWorkloadClusterFailedReason = "GetNodeInWorkloadClusterFailed"
+	// NodeNotFoundReason indicates the node object does not exist in the workload cluster.
+	NodeNotFoundReason = "NodeNotFound"
 	// BootIDEmptyReason indicates that an empty boot ID is present on the node object.
 	BootIDEmptyReason = "BootIDEmpty"
 )
@@ -343,6 +314,8 @@ const (
 	HCloudMachineTemplateWaitingForOwnerClusterV1Beta2Reason = "WaitingForOwnerCluster"
 	// HCloudMachineTemplateMissingInfrastructureRefV1Beta2Reason surfaces when the owner Cluster has no infrastructure reference.
 	HCloudMachineTemplateMissingInfrastructureRefV1Beta2Reason = "MissingInfrastructureRef"
+	// HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason surfaces when spec.template.spec.type is not a known HCloud server type.
+	HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason = "ServerTypeNotFound"
 )
 
 const (
@@ -409,8 +382,6 @@ const (
 	// HCloudMachineEnablingRescueActionDoneV1Beta2Reason indicates the rescue enable action is done.
 	HCloudMachineEnablingRescueActionDoneV1Beta2Reason = "EnablingRescueActionDone"
 
-	// HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason indicates getting the SSH private key failed.
-	HCloudMachineGettingSSHPrivateKeyFailedV1Beta2Reason = "GettingSSHPrivateKeyFailed"
 	// HCloudMachineRetryingSSHConnectionV1Beta2Reason indicates the SSH connection is being retried.
 	HCloudMachineRetryingSSHConnectionV1Beta2Reason = "RetryingSSHConnection"
 	// HCloudMachineGettingHostnameFailedV1Beta2Reason indicates getting the hostname failed.
@@ -549,16 +520,6 @@ const (
 	HetznerClusterDeletingV1Beta2Reason = clusterv1beta1.DeletingV1Beta2Reason
 )
 
-// HCloudRemediation v1beta2 conditions and reasons.
-const (
-	// HCloudRemediationSkippedV1Beta2Condition reports that remediation was skipped because
-	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
-	HCloudRemediationSkippedV1Beta2Condition = "RemediationSkipped"
-	// HCloudRemediationIrrecoverableServerCreateFailureV1Beta2Reason indicates remediation was skipped because
-	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
-	HCloudRemediationIrrecoverableServerCreateFailureV1Beta2Reason = "IrrecoverableServerCreateFailure"
-)
-
 // HetznerBareMetalMachine v1beta2 condition types.
 const (
 	// HetznerBareMetalMachineHostAssociatedV1Beta2Condition is true when the host is associated.
@@ -694,6 +655,8 @@ const (
 	HetznerBareMetalHostGettingWorkloadClusterClientFailedV1Beta2Reason = "GettingWorkloadClusterClientFailed"
 	// HetznerBareMetalHostGettingNodeInWorkloadClusterFailedV1Beta2Reason indicates fetching the node object from the workload cluster failed.
 	HetznerBareMetalHostGettingNodeInWorkloadClusterFailedV1Beta2Reason = "GettingNodeInWorkloadClusterFailed"
+	// HetznerBareMetalHostNodeNotFoundV1Beta2Reason indicates the node object does not exist in the workload cluster.
+	HetznerBareMetalHostNodeNotFoundV1Beta2Reason = "NodeNotFound"
 	// HetznerBareMetalHostBootIDEmptyV1Beta2Reason indicates the boot ID on the node object is empty.
 	HetznerBareMetalHostBootIDEmptyV1Beta2Reason = "BootIDEmpty"
 )

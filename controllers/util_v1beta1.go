@@ -70,7 +70,7 @@ func reconcileRateLimitV1Beta1(setter v1beta1conditions.Setter, rateLimitWaitTim
 }
 
 // getAndValidateHCloudTokenV1Beta1 is the still-v1beta1 counterpart of getAndValidateHCloudToken.
-func getAndValidateHCloudTokenV1Beta1(ctx context.Context, namespace string, hetznerCluster *infrav1.HetznerCluster, secretManager *secretutil.SecretManager) (string, *corev1.Secret, error) {
+func getAndValidateHCloudTokenV1Beta1(ctx context.Context, namespace string, hetznerCluster *infrav1.HetznerCluster, secretManager *secretutil.SecretManager) (string, error) {
 	// retrieve Hetzner secret
 	secretNamespacedName := types.NamespacedName{Namespace: namespace, Name: hetznerCluster.Spec.HetznerSecret.Name}
 
@@ -83,19 +83,19 @@ func getAndValidateHCloudTokenV1Beta1(ctx context.Context, namespace string, het
 	)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return "", nil, &secretutil.ResolveSecretRefError{Message: fmt.Sprintf("The Hetzner secret %s does not exist", secretNamespacedName)}
+			return "", &secretutil.ResolveSecretRefError{Message: fmt.Sprintf("The Hetzner secret %s does not exist", secretNamespacedName)}
 		}
-		return "", nil, err
+		return "", err
 	}
 
 	hcloudToken := string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.HCloudToken])
 
 	// Validate token
 	if hcloudToken == "" {
-		return "", nil, &secretutil.HCloudTokenValidationError{}
+		return "", &secretutil.HCloudTokenValidationError{}
 	}
 
-	return hcloudToken, hetznerSecret, nil
+	return hcloudToken, nil
 }
 
 // hcloudTokenErrorResultV1Beta1 is the still-v1beta1 counterpart of hcloudTokenErrorResult. It sets

@@ -34,6 +34,7 @@ import (
 	"github.com/syself/hrobot-go/models"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
@@ -43,7 +44,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -2097,8 +2097,6 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		if exitStatus != 0 || out.StdErr != "" {
 			err = errors.Join(err, fmt.Errorf("failed to get cloud init output (ssh connection worked): %s",
 				out.String()))
-		}
-		if err != nil {
 			record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
 				"GetCloudInitOutput failed to get /var/log/cloud-init-output.log: %s",
 				err)
@@ -2107,6 +2105,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 				infrav1.StateEnsureProvisioned, err.Error())
 			return actionError{err: err}
 		}
+
 		record.Eventf(s.scope.HetznerBareMetalHost, "CloudInitOutput", "cloud init output:\n%s",
 			out.StdOut)
 		return ar
@@ -2340,6 +2339,28 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	node := &corev1.Node{}
 	err = wlClient.Get(ctx, client.ObjectKey{Name: nodeName}, node)
 	if err != nil {
+		// The API server answered, the node just isn't there, so asking again won't help.
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("node %q not found in the workload cluster", nodeName)
+
+			v1beta1conditions.MarkFalse(
+				host,
+				infrav1.NodeBootIDRetrievedCondition,
+				infrav1.NodeNotFoundReason,
+				clusterv1beta1.ConditionSeverityWarning,
+				"%s",
+				msg)
+			v1beta2conditions.Set(host, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostNodeNotFoundV1Beta2Reason,
+				Message: msg,
+			})
+			record.Warn(host, infrav1.HetznerBareMetalHostNodeNotFoundV1Beta2Reason, msg)
+
+			return actionStop{}
+		}
+
 		err = fmt.Errorf("failed to get corresponding Node object from the workload cluster: %w", err)
 		v1beta1conditions.MarkFalse(
 			host,
@@ -2681,12 +2702,6 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 	v1beta1conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	v1beta2conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Condition)
 	return actionComplete{} // next: None
-}
-
-func (s *Service) actionDeleting(_ context.Context) actionResult {
-	controllerutil.RemoveFinalizer(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostFinalizer)
-	controllerutil.RemoveFinalizer(s.scope.HetznerBareMetalHost, infrav1.DeprecatedBareMetalHostFinalizer)
-	return deleteComplete{}
 }
 
 func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {

@@ -1,8 +1,7 @@
 ---
 title: SSH key management
-metatitle: Secure SSH Key Management for Remote Access in Hetzner with Cluster API
-sidebar: SSH key management
 description: Details about SSH keys and its importance with regards to clusters managed by CAPH.
+metatitle: Secure SSH Key Management for Remote Access in Hetzner with Cluster API
 ---
 
 This section provides details about SSH keys and its importance with regards to CAPH.
@@ -17,11 +16,8 @@ In CAPH, SSH keys help in establishing secure communication remotely with Kubern
 
 ## In Hetzner Cloud
 
-{% callout %}
-
-You are responsible for uploading your public ssh key to hetzner cloud. This can be done using `hcloud` CLI or hetznercloud console.
-
-{% /callout %}
+> [!NOTE]
+> You are responsible for uploading your public ssh key to hetzner cloud. This can be done using `hcloud` CLI or hetznercloud console.
 
 All keys that exist in Hetzner Cloud and are specified in `HetznerCluster` spec are included when provisioning machines. Therefore, they can be used to access those machines via SSH.
 

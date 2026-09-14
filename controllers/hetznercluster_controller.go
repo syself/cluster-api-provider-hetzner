@@ -58,6 +58,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -216,7 +217,6 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 
 	// If the HetznerCluster doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(hetznerCluster, infrav2.HetznerClusterFinalizer)
-	controllerutil.RemoveFinalizer(hetznerCluster, infrav2.DeprecatedHetznerClusterFinalizer)
 
 	if err := clusterScope.PatchObject(ctx); err != nil {
 		return reconcile.Result{}, err
@@ -460,7 +460,6 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 
 	// Cluster is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(clusterScope.HetznerCluster, infrav2.HetznerClusterFinalizer)
-	controllerutil.RemoveFinalizer(clusterScope.HetznerCluster, infrav2.DeprecatedHetznerClusterFinalizer)
 
 	return reconcile.Result{}, nil
 }
@@ -862,6 +861,16 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 			handler.EnqueueRequestsFromMapFunc(r.clusterToHetznerCluster),
 			builder.WithPredicates(IgnoreInsignificantClusterStatusUpdates(log)),
 		).
+		Watches(
+			&infrav2.HetznerBareMetalMachine{},
+			handler.EnqueueRequestsFromMapFunc(r.machineToHetznerCluster),
+			builder.WithPredicates(controlPlaneMachineToHetznerClusterPredicate()),
+		).
+		Watches(
+			&infrav2.HCloudMachine{},
+			handler.EnqueueRequestsFromMapFunc(r.machineToHetznerCluster),
+			builder.WithPredicates(controlPlaneMachineToHetznerClusterPredicate()),
+		).
 		Complete(r)
 	if err != nil {
 		return fmt.Errorf("error creating controller: %w", err)
@@ -1015,5 +1024,74 @@ func IgnoreInsignificantHetznerClusterStatusUpdates(logger logr.Logger) predicat
 		CreateFunc:  func(_ event.CreateEvent) bool { return true },
 		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
 		GenericFunc: func(_ event.GenericEvent) bool { return true },
+	}
+}
+
+// machineToHetznerCluster maps an HetznerBareMetalMachine or HCloudMachine to the owning HetznerCluster.
+func (r *HetznerClusterReconciler) machineToHetznerCluster(ctx context.Context, o client.Object) []reconcile.Request {
+	clusterName := o.GetLabels()[clusterv1.ClusterNameLabel]
+	if clusterName == "" {
+		return nil
+	}
+
+	cluster := &clusterv1.Cluster{}
+	if err := r.Get(ctx, client.ObjectKey{Namespace: o.GetNamespace(), Name: clusterName}, cluster); err != nil {
+		return nil
+	}
+
+	if !cluster.Spec.InfrastructureRef.IsDefined() || cluster.Spec.InfrastructureRef.Kind != "HetznerCluster" {
+		return nil
+	}
+
+	return []reconcile.Request{{
+		NamespacedName: client.ObjectKey{Namespace: o.GetNamespace(), Name: cluster.Spec.InfrastructureRef.Name},
+	}}
+}
+
+// controlPlaneMachineToHetznerClusterPredicate returns a predicate that fires only for control plane
+// machines, and only when:
+//   - the machine is deleted (so the HetznerCluster can update its LB target status), or
+//   - ServerAvailableCondition transitions to True.
+//
+// CAPI propagates the owning Machine's labels (including clusterv1.MachineControlPlaneLabel) onto the
+// HCloudMachine/HetznerBareMetalMachine object at creation time, so the role can be read directly off the
+// watched object without an extra Get of the owning Machine — the same way clusterv1.ClusterNameLabel is
+// already read directly off these objects elsewhere in this file.
+//
+// The condition is matched by string. Use the same constant that server.go and baremetal.go write,
+// so a change to its value on one side cannot silently stop the predicate from firing.
+func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
+	isControlPlaneMachine := func(o client.Object) bool {
+		_, ok := o.GetLabels()[clusterv1.MachineControlPlaneLabel]
+		return ok
+	}
+
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if !isControlPlaneMachine(e.ObjectNew) {
+				return false
+			}
+
+			oldGetter, ok := e.ObjectOld.(conditions.Getter)
+			if !ok {
+				return false
+			}
+			newGetter, ok := e.ObjectNew.(conditions.Getter)
+			if !ok {
+				return false
+			}
+
+			conditionType := string(infrav2.HCloudMachineServerAvailableCondition)
+			if _, ok := e.ObjectNew.(*infrav2.HetznerBareMetalMachine); ok {
+				conditionType = string(infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition)
+			}
+
+			wasTrue := conditions.IsTrue(oldGetter, conditionType)
+			isTrue := conditions.IsTrue(newGetter, conditionType)
+			return !wasTrue && isTrue
+		},
+		CreateFunc:  func(_ event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return isControlPlaneMachine(e.Object) },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
 	}
 }

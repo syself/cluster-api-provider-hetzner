@@ -1,8 +1,7 @@
 ---
 title: HetznerBareMetalHost
-metatitle: HetznerBareMetalHost Object Reference
-sidebar: HetznerBareMetalHost
 description: The HetznerBareMetalHost has a one-to-one relationship to a Hetzner dedicated server. It's used to make bare metal servers available to your clusters.
+metatitle: HetznerBareMetalHost Object Reference
 ---
 
 The `HetznerBareMetalHost` object has a one-to-one relationship to a Hetzner dedicated server. Its ID is specified in the specs. The host object does not belong to a certain `HetznerCluster`, but can be used by multiple clusters. This is useful, as one host object per server is enough and you can easily see whether a host is used by one of your clusters or not.
@@ -31,17 +30,53 @@ Maintenance mode means that the host will not be consumed by any `HetznerBareMet
 
 ## Overview of HetznerBareMetalHost.Spec
 
-| Key                        | Type       | Default | Required | Description                                                                                                                                                                                                                                                                                  |
-| -------------------------- | ---------- | ------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `serverID`                 | `int`      |         | yes      | Server ID of the Hetzner dedicated server, you can find it on your Hetzner robot dashboard                                                                                                                                                                                                   |
-| `rootDeviceHints`          | `object`   |         | no       | It is important to find the correct root device. If none are specified, the host will stop provisioning in between to wait for the details to be specified. HardwareDetails in the host's status can be used to find the correct device. Currently, you can specify one disk or a raid setup |
-| `rootDeviceHints.wwn`      | `string`   |         | no       | Unique storage identifier for non raid setups                                                                                                                                                                                                                                                |
-| `rootDeviceHints.raid`     | `object`   |         | no       | Used to provide the controller with information on which disks a raid can be established                                                                                                                                                                                                     |
-| `rootDeviceHints.raid.wwn` | `[]string` |         | no       | Defines a list of Unique storage identifiers used for raid setups                                                                                                                                                                                                                            |
-| `consumerRef`              | `object`   |         | no       | Used by the controller and references the bare metal machine that consumes this host                                                                                                                                                                                                         |
-| `maintenanceMode`          | `bool`     |         | no       | If set to true, the host deprovisions and will not be consumed by any bare metal machine                                                                                                                                                                                                     |
-| `description`              | `string`   |         | no       | Description can be used to store some valuable information about this host                                                                                                                                                                                                                   |
-| `status`                   | `object`   |         | no       | The controller writes this status. As there are some that cannot be regenerated during any reconcilement, the status is in the specs of the object - not the actual status. DO NOT EDIT!!!                                                                                                   |
+<PropField name="serverID" type="int" required={true}>
+Server ID of the Hetzner dedicated server, you can find it on your Hetzner robot dashboard.
+</PropField>
+
+<PropField name="rootDeviceHints" type="object" required={false}>
+
+It is important to find the correct root device. If none are specified, the host will stop provisioning in between to wait for the details to be specified. HardwareDetails in the host's status can be used to find the correct device. Currently, you can specify one disk or a raid setup.
+
+<Collapsible title="properties">
+
+<PropField name="rootDeviceHints.wwn" type="string" required={false}>
+Unique storage identifier for non raid setups.
+</PropField>
+
+<PropField name="rootDeviceHints.raid" type="object" required={false}>
+
+Used to provide the controller with information on which disks a raid can be established.
+
+<Collapsible title="properties">
+
+<PropField name="rootDeviceHints.raid.wwn" type="[]string" required={false}>
+Defines a list of Unique storage identifiers used for raid setups.
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
+<PropField name="consumerRef" type="object" required={false}>
+Used by the controller and references the bare metal machine that consumes this host.
+</PropField>
+
+<PropField name="maintenanceMode" type="bool" required={false}>
+If set to true, the host deprovisions and will not be consumed by any bare metal machine.
+</PropField>
+
+<PropField name="description" type="string" required={false}>
+Description can be used to store some valuable information about this host.
+</PropField>
+
+<PropField name="status" type="object" required={false}>
+The controller writes this status. As there are some that cannot be regenerated during any reconcilement, the status is in the specs of the object - not the actual status. DO NOT EDIT!!!
+</PropField>
 
 ## Example of the HetznerBareMetalHost object
 

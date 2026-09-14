@@ -65,7 +65,6 @@ func (hsm *hostStateMachine) handlers() map[infrav1.ProvisioningState]stateHandl
 		infrav1.StateEnsureProvisioned: hsm.handleEnsureProvisioned,
 		infrav1.StateProvisioned:       hsm.handleProvisioned,
 		infrav1.StateDeprovisioning:    hsm.handleDeprovisioning,
-		infrav1.StateDeleting:          hsm.handleDeleting,
 	}
 }
 
@@ -366,10 +365,6 @@ func (hsm *hostStateMachine) handleDeprovisioning(ctx context.Context) actionRes
 		return actionComplete{}
 	}
 	return actResult
-}
-
-func (hsm *hostStateMachine) handleDeleting(ctx context.Context) actionResult {
-	return hsm.reconciler.actionDeleting(ctx)
 }
 
 func (hsm *hostStateMachine) provisioningCancelled() bool {
