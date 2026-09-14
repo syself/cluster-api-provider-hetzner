@@ -271,6 +271,14 @@ const (
 	BootIDEmptyV1Beta1Reason = "BootIDEmpty"
 )
 
+const (
+	// ActionCompletedV1Beta1Condition reports whether the last action on the host completed successfully.
+	// Absent on healthy hosts; only present when a permanent error has been recorded.
+	ActionCompletedV1Beta1Condition clusterv1.ConditionType = "ActionCompleted"
+	// ActionCompletedPermanentErrorV1Beta1Reason represents a fatal, non-recoverable error that persists on the host.
+	ActionCompletedPermanentErrorV1Beta1Reason = "PermanentError"
+)
+
 // v1beta2 conditions.
 
 // common conditions used across resource types.
@@ -664,10 +672,30 @@ const (
 )
 
 const (
-	// HetznerBareMetalHostActionCompletedCondition surfaces the host's current provisioning or operational
-	// action. It is present only while an action is in progress or the host is stuck (carrying the reason and
-	// message for that state) and is removed once the action clears; it has no steady-state True.
+	// HetznerBareMetalHostActionCompletedCondition reports whether the last action on the host completed
+	// without an error. The message carries the error text if an error occurs.
 	HetznerBareMetalHostActionCompletedCondition = "ActionCompleted"
+
+	// HetznerBareMetalHostActionCompletedReason indicates the last action completed without an error.
+	HetznerBareMetalHostActionCompletedReason = "Completed"
+	// HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason indicates a reboot via SSH was triggered.
+	HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason = "SSHRebootTriggered"
+	// HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason indicates a software reboot via the Robot API was triggered.
+	HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason = "SoftwareRebootTriggered"
+	// HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason indicates a hardware reboot was triggered.
+	HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason = "HardwareRebootTriggered"
+	// HetznerBareMetalHostActionCompletedRegistrationErrorReason indicates the server info could not be read or the spec is incomplete.
+	HetznerBareMetalHostActionCompletedRegistrationErrorReason = "RegistrationError"
+	// HetznerBareMetalHostActionCompletedPreparationErrorReason indicates a step before provisioning failed.
+	HetznerBareMetalHostActionCompletedPreparationErrorReason = "PreparationError"
+	// HetznerBareMetalHostActionCompletedProvisioningErrorReason indicates provisioning or deprovisioning failed.
+	HetznerBareMetalHostActionCompletedProvisioningErrorReason = "ProvisioningError"
+	// HetznerBareMetalHostActionCompletedFatalErrorReason indicates an unrecoverable error that deletes the machine.
+	HetznerBareMetalHostActionCompletedFatalErrorReason = "FatalError"
+	// HetznerBareMetalHostActionCompletedPermanentErrorReason indicates an error that stays on the host until an operator clears it.
+	HetznerBareMetalHostActionCompletedPermanentErrorReason = "PermanentError"
+	// HetznerBareMetalHostActionCompletedUnknownErrorReason is the fallback for an unrecognized error type.
+	HetznerBareMetalHostActionCompletedUnknownErrorReason = "UnknownError"
 )
 
 // HetznerBareMetalMachine's v1beta2 conditions.

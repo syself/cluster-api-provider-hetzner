@@ -21,10 +21,14 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	"sigs.k8s.io/cluster-api/util/record"
 )
 
 const (
@@ -383,6 +387,79 @@ func (host *HetznerBareMetalHost) SetV1Beta1Conditions(conditions clusterv1.Cond
 	host.Status.Deprecated.V1Beta1.Conditions = conditions
 }
 
+// HetznerBareMetalHostSummaryOpts returns the summary options for a HetznerBareMetalHost.
+//
+// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
+// when multiple conditions are unhealthy, the summary lists all of them in priority
+// order (highest-priority first). Credentials and provisioning problems must outrank
+// Deleting, since deletion may itself need credentials to succeed.
+//  1. RobotCredentialsAvailable - invalid Robot credentials block every Robot API call.
+//  2. ActionCompleted           - the last action on the host failed.
+//  3. RobotRateLimitExceeded    - rate-limit issues (negative polarity).
+//  4. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
+//  5. RootDeviceHintsValidated  - device hints must validate before provisioning.
+//  6. ProvisionSucceeded        - provisioning state (rescue -> image -> OS).
+//  7. RebootSucceeded           - post-provision reboot via annotation.
+//  8. NodeBootIDRetrieved       - workload-cluster Node check after provisioning.
+//  9. Deleting                  - deletion state (negative polarity).
+func HetznerBareMetalHostSummaryOpts() []conditions.SummaryOption {
+	return []conditions.SummaryOption{
+		// ForConditionTypes lists every condition that contributes to Ready, in
+		// priority order. When multiple conditions are unhealthy the summary
+		// surfaces them in this order, so the most important issue is listed first.
+		conditions.ForConditionTypes{
+			HetznerBareMetalHostRobotCredentialsAvailableCondition,
+			HetznerBareMetalHostActionCompletedCondition,
+			HetznerBareMetalHostRobotRateLimitExceededCondition,
+			HetznerBareMetalHostSSHKeysAvailableCondition,
+			HetznerBareMetalHostRootDeviceHintsValidatedCondition,
+			HetznerBareMetalHostProvisionSucceededCondition,
+			HetznerBareMetalHostRebootSucceededCondition,
+			HetznerBareMetalHostNodeBootIDRetrievedCondition,
+			HetznerBareMetalHostDeletingCondition,
+		},
+		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
+		// listed condition as Unknown. Several reconcile paths exit before every
+		// condition has been set (for example, before Robot credentials are
+		// checked or before the host has been provisioned), and we don't want
+		// those early exits to flip Ready to Unknown.
+		conditions.IgnoreTypesIfMissing{
+			HetznerBareMetalHostActionCompletedCondition,
+			HetznerBareMetalHostSSHKeysAvailableCondition,
+			HetznerBareMetalHostRootDeviceHintsValidatedCondition,
+			HetznerBareMetalHostProvisionSucceededCondition,
+			HetznerBareMetalHostRebootSucceededCondition,
+			HetznerBareMetalHostNodeBootIDRetrievedCondition,
+			HetznerBareMetalHostDeletingCondition,
+			HetznerBareMetalHostRobotRateLimitExceededCondition,
+		},
+		// CustomMergeStrategy is used only to override the merge reasons, so
+		// the Ready summary uses CAPI's standard Ready reasons (Ready /
+		// NotReady / ReadyUnknown) instead of the generic merge defaults
+		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
+		conditions.CustomMergeStrategy{
+			MergeStrategy: conditions.DefaultMergeStrategy(
+				conditions.GetPriorityFunc(conditions.GetDefaultMergePriorityFunc(
+					// conditions with negative polarity
+					HetznerBareMetalHostRobotRateLimitExceededCondition,
+					HetznerBareMetalHostDeletingCondition,
+				)),
+				conditions.ComputeReasonFunc(conditions.GetDefaultComputeMergeReasonFunc(
+					clusterv1.NotReadyReason,
+					clusterv1.ReadyUnknownReason,
+					clusterv1.ReadyReason,
+				)),
+			),
+		},
+	}
+}
+
 // SSHStatus contains all status information about SSHStatus.
 type SSHStatus struct {
 	// CurrentRescue gives information about the secret where the rescue ssh key is stored.
@@ -597,6 +674,82 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 		}
 	}
 	return false
+}
+
+// SetError sets the error type on the status and records it on the ActionCompleted condition. The
+// reboot state machine reads the error type back to pick the next reboot method.
+func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) {
+	host.Status.ErrorType = errorType
+
+	status, reason := actionCompletedFor(errorType)
+	conditions.Set(host, metav1.Condition{
+		Type:    HetznerBareMetalHostActionCompletedCondition,
+		Status:  status,
+		Reason:  reason,
+		Message: errorMessage,
+	})
+
+	if errorType == PermanentError {
+		if host.Annotations == nil {
+			host.Annotations = make(map[string]string, 1)
+		}
+		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
+		record.Warnf(host, "PermanentErrorSet", "%s. Remove annotation %q, if you want the controller to use the hbmh again.",
+			errorMessage, PermanentErrorAnnotation)
+
+		// The deprecated v1beta1 condition only reports a permanent error. Clients that read the
+		// host through the v1beta1 API see it in status.conditions.
+		deprecatedv1beta1conditions.MarkFalse(host, ActionCompletedV1Beta1Condition,
+			ActionCompletedPermanentErrorV1Beta1Reason, clusterv1.ConditionSeverityError, "%s", errorMessage)
+	}
+}
+
+// ClearError clears the error type and reports the last action as completed.
+func (host *HetznerBareMetalHost) ClearError() {
+	host.Status.ErrorType = ""
+	conditions.Set(host, metav1.Condition{
+		Type:   HetznerBareMetalHostActionCompletedCondition,
+		Status: metav1.ConditionTrue,
+		Reason: HetznerBareMetalHostActionCompletedReason,
+	})
+	deprecatedv1beta1conditions.Delete(host, ActionCompletedV1Beta1Condition)
+}
+
+// ErrorMessage returns the message SetError recorded on the ActionCompleted condition. It returns
+// an empty string when the host has no ActionCompleted condition.
+func (host *HetznerBareMetalHost) ErrorMessage() string {
+	actionCompleted := conditions.Get(host, HetznerBareMetalHostActionCompletedCondition)
+	if actionCompleted == nil {
+		return ""
+	}
+	return actionCompleted.Message
+}
+
+// actionCompletedFor maps an ErrorType to the status and reason for the ActionCompleted condition.
+// A triggered reboot is not a failure. The host is waiting for the server to come back, and those
+// types report True. Every other type reports False, an unknown one with the UnknownError reason.
+func actionCompletedFor(errorType ErrorType) (metav1.ConditionStatus, string) {
+	switch errorType {
+	case ErrorTypeSSHRebootTriggered:
+		return metav1.ConditionTrue, HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason
+	case ErrorTypeSoftwareRebootTriggered:
+		return metav1.ConditionTrue, HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason
+	case ErrorTypeHardwareRebootTriggered:
+		return metav1.ConditionTrue, HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason
+	case ErrorTypeConnectionError:
+		return metav1.ConditionFalse, HetznerBareMetalHostSSHConnectionRefusedReason
+	case RegistrationError:
+		return metav1.ConditionFalse, HetznerBareMetalHostActionCompletedRegistrationErrorReason
+	case PreparationError:
+		return metav1.ConditionFalse, HetznerBareMetalHostActionCompletedPreparationErrorReason
+	case ProvisioningError:
+		return metav1.ConditionFalse, HetznerBareMetalHostActionCompletedProvisioningErrorReason
+	case FatalError:
+		return metav1.ConditionFalse, HetznerBareMetalHostActionCompletedFatalErrorReason
+	case PermanentError:
+		return metav1.ConditionFalse, HetznerBareMetalHostActionCompletedPermanentErrorReason
+	}
+	return metav1.ConditionFalse, HetznerBareMetalHostActionCompletedUnknownErrorReason
 }
 
 // HasRebootAnnotation checks for the existence of reboot annotations and returns true if at least one exists.
