@@ -25,7 +25,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
@@ -718,7 +717,9 @@ func (host *HetznerBareMetalHost) NeedsProvisioning() bool {
 }
 
 // SetError updates the error type and message in the status struct and increases the ErrorCount.
-func (host *HetznerBareMetalHost) SetError(recorder record.EventRecorder, errType ErrorType, errMessage string) {
+// When errType is PermanentError, it reports permanentErrorSet as true along with the message that
+// callers holding an EventRecorder should emit as a "PermanentErrorSet" warning event.
+func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string) (permanentErrorSet bool, message string) {
 	if errType == host.Spec.Status.ErrorType && errMessage == host.Spec.Status.ErrorMessage {
 		host.Spec.Status.ErrorCount++
 	} else {
@@ -727,35 +728,32 @@ func (host *HetznerBareMetalHost) SetError(recorder record.EventRecorder, errTyp
 	}
 	host.Spec.Status.ErrorType = errType
 	host.Spec.Status.ErrorMessage = errMessage
-	if errType == PermanentError {
-		// set the permanent error annotation.
-		if host.Annotations == nil {
-			host.Annotations = make(map[string]string, 1)
-		}
-
-		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
-
-		message := fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
-			errMessage, PermanentErrorAnnotation)
-
-		recorder.Event(
-			host,
-			corev1.EventTypeWarning,
-			HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason,
-			message,
-		)
-
-		// set the ActionCompleted condition to false with reason PermanentError.
-		v1beta1conditions.MarkFalse(host, ActionCompletedCondition,
-			ActionCompletedPermanentErrorReason, clusterv1beta1.ConditionSeverityError,
-			"%s", message)
-		v1beta2conditions.Set(host, metav1.Condition{
-			Type:    HetznerBareMetalHostActionCompletedV1Beta2Condition,
-			Status:  metav1.ConditionFalse,
-			Reason:  HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason,
-			Message: message,
-		})
+	if errType != PermanentError {
+		return false, ""
 	}
+
+	// set the permanent error annotation.
+	if host.Annotations == nil {
+		host.Annotations = make(map[string]string, 1)
+	}
+
+	host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
+
+	message = fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
+		errMessage, PermanentErrorAnnotation)
+
+	// set the ActionCompleted condition to false with reason PermanentError.
+	v1beta1conditions.MarkFalse(host, ActionCompletedCondition,
+		ActionCompletedPermanentErrorReason, clusterv1beta1.ConditionSeverityError,
+		"%s", message)
+	v1beta2conditions.Set(host, metav1.Condition{
+		Type:    HetznerBareMetalHostActionCompletedV1Beta2Condition,
+		Status:  metav1.ConditionFalse,
+		Reason:  HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason,
+		Message: message,
+	})
+
+	return true, message
 }
 
 // ClearError removes the error on the host and resets the error count to 0.

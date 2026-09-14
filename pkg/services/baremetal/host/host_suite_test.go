@@ -77,7 +77,7 @@ var (
 )
 
 func newTestHostStateMachine(host *infrav1.HetznerBareMetalHost, service *Service) *hostStateMachine {
-	return newHostStateMachine(host, service, testEventRecorder, log)
+	return newHostStateMachine(host, service, log)
 }
 
 var fakeBootID = "1234321"

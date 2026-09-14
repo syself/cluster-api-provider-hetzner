@@ -200,7 +200,7 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 		s.scope.EventRecorder.Event(
 			s.scope.HetznerCluster,
 			corev1.EventTypeWarning,
-			infrav2.HetznerClusterLoadBalancerAttachingToNetworkFailedReason,
+			"FailedAttachLoadBalancer",
 			err.Error(),
 		)
 		deprecatedv1beta1conditions.MarkFalse(
@@ -506,7 +506,7 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 		s.scope.EventRecorder.Event(
 			s.scope.HetznerCluster,
 			corev1.EventTypeWarning,
-			infrav2.HetznerClusterLoadBalancerCreationFailedReason,
+			"FailedCreateLoadBalancer",
 			err.Error(),
 		)
 
@@ -815,7 +815,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerCluster,
 				corev1.EventTypeWarning,
-				infrav2.HetznerClusterLoadBalancerUpdateFailedReason,
+				"FailedUpdateLoadBalancer",
 				err.Error(),
 			)
 			deprecatedv1beta1conditions.MarkFalse(
@@ -858,7 +858,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 		s.scope.EventRecorder.Event(
 			s.scope.HetznerCluster,
 			corev1.EventTypeWarning,
-			infrav2.HetznerClusterLoadBalancerDeletionFailedReason,
+			"FailedLoadBalancerDelete",
 			err.Error(),
 		)
 		deprecatedv1beta1conditions.MarkFalse(
@@ -986,7 +986,7 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 		s.scope.EventRecorder.Event(
 			s.scope.HetznerCluster,
 			corev1.EventTypeWarning,
-			infrav2.HetznerClusterLoadBalancerOwningFailedReason,
+			"FailedUpdateLoadBalancer",
 			err.Error(),
 		)
 		deprecatedv1beta1conditions.MarkFalse(

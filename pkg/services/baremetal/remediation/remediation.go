@@ -295,7 +295,9 @@ func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetal
 			reason = fmt.Sprintf("node still unhealthy after %d failed reboot(s)", retryCount)
 		}
 	}
-	host.SetError(s.scope.EventRecorder, infrav1.PermanentError, reason)
+	if permanentErrorSet, message := host.SetError(infrav1.PermanentError, reason); permanentErrorSet {
+		s.scope.EventRecorder.Event(host, corev1.EventTypeWarning, "PermanentErrorSet", message)
+	}
 
 	if err := patchHelper.Patch(ctx, host); err != nil {
 		return fmt.Errorf("failed to patch: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)

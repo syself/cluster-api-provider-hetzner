@@ -122,7 +122,7 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 		})
 	}
 
-	hostStateMachine := newHostStateMachine(s.scope.HetznerBareMetalHost, s, s.scope.EventRecorder, s.scope.Logger)
+	hostStateMachine := newHostStateMachine(s.scope.HetznerBareMetalHost, s, s.scope.Logger)
 
 	// reconcile state
 	actResult := hostStateMachine.ReconcileState(ctx)
@@ -136,9 +136,23 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 }
 
 func (s *Service) recordActionFailure(errorType infrav1.ErrorType, errorMessage string) actionFailed {
-	s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, errorType, errorMessage)
+	s.setHostError(errorType, errorMessage)
 	s.scope.Error(errActionFailure, errorMessage, "errorType", errorType)
 	return actionFailed{ErrorType: errorType, errorCount: s.scope.HetznerBareMetalHost.Spec.Status.ErrorCount}
+}
+
+// setHostError updates the host's error status and, if the error is permanent, emits the
+// corresponding warning event since HetznerBareMetalHost.SetError itself must stay free of any
+// EventRecorder dependency.
+func (s *Service) setHostError(errType infrav1.ErrorType, errMessage string) {
+	if permanentErrorSet, message := s.scope.HetznerBareMetalHost.SetError(errType, errMessage); permanentErrorSet {
+		s.scope.EventRecorder.Event(
+			s.scope.HetznerBareMetalHost,
+			corev1.EventTypeWarning,
+			"PermanentErrorSet",
+			message,
+		)
+	}
 }
 
 // previous: None
@@ -169,7 +183,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
-				infrav1.HetznerBareMetalHostRobotCredentialsInvalidV1Beta2Reason,
+				infrav1.RobotCredentialsInvalidReason,
 				msg,
 			)
 
@@ -199,7 +213,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 				infrav1.HetznerBareMetalHostServerNotFoundV1Beta2Reason,
 				msg,
 			)
-			s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.PermanentError, msg)
+			s.setHostError(infrav1.PermanentError, msg)
 			return actionStop{}
 		}
 		if errors.Is(err, os.ErrDeadlineExceeded) {
@@ -242,7 +256,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 			infrav1.HetznerBareMetalHostServerHasNoIPv4V1Beta2Reason,
 			msg,
 		)
-		s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.PermanentError, msg)
+		s.setHostError(infrav1.PermanentError, msg)
 		return actionStop{}
 	}
 
@@ -295,7 +309,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 			s.createSSHRebootEvent(ctx, msg)
 			s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
 			// we immediately set an error message in the host status to track the reboot we just performed
-			s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.ErrorTypeSSHRebootTriggered, fmt.Sprintf("Phase %s, reboot via ssh: %s",
+			s.setHostError(infrav1.ErrorTypeSSHRebootTriggered, fmt.Sprintf("Phase %s, reboot via ssh: %s",
 				s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, msg))
 			return actionComplete{} // next: Registering
 		}
@@ -313,7 +327,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 	msg := s.createRebootEvent(ctx, rebootType, "Reboot into rescue system.")
 	// we immediately set an error message in the host status to track the reboot we just performed.
 	// This is not a real error. Sooner or later we should track the reboots differently.
-	s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, errorType, msg)
+	s.setHostError(errorType, msg)
 	return actionComplete{} // next: Registering
 }
 
@@ -445,14 +459,14 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 				s.scope.EventRecorder.Event(
 					s.scope.HetznerBareMetalHost,
 					corev1.EventTypeWarning,
-					infrav1.HetznerBareMetalHostSSHConnectionRefusedV1Beta2Reason,
+					"SSHConnectionError",
 					msg,
 				)
 				return true, fmt.Errorf("%w - might be due to wrong port", errSSHConnectionRefused)
 			}
 		} else {
 			// set error in host status to check for a timeout next time
-			s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.ErrorTypeConnectionError, "ssh gave connection error")
+			s.setHostError(infrav1.ErrorTypeConnectionError, "ssh gave connection error")
 		}
 		return false, nil
 	}
@@ -471,7 +485,7 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 		if isTimeout {
 			// A timeout error from SSH indicates that the server did not yet finish rebooting.
 			// As the server has no error set yet, set error message and return.
-			s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.ErrorTypeSSHRebootTriggered, "ssh timeout error - server has not restarted yet")
+			s.setHostError(infrav1.ErrorTypeSSHRebootTriggered, "ssh timeout error - server has not restarted yet")
 			return false, nil
 		}
 
@@ -521,7 +535,7 @@ func (s *Service) handleErrorTypeSSHRebootFailed(ctx context.Context, isSSHTimeo
 			rebootInto, rebootType)
 		msg = s.createRebootEvent(ctx, rebootType, msg)
 		// we immediately set an error message in the host status to track the reboot we just performed
-		s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, errorType, msg)
+		s.setHostError(errorType, msg)
 	}
 	return nil
 }
@@ -569,7 +583,7 @@ func (s *Service) handleErrorTypeSoftwareRebootFailed(ctx context.Context, isSSH
 			rebootInto, infrav1.RebootTypeHardware)
 		msg = s.createRebootEvent(ctx, infrav1.RebootTypeHardware, msg)
 		// we immediately set an error message in the host status to track the reboot we just performed
-		s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.ErrorTypeHardwareRebootTriggered, msg)
+		s.setHostError(infrav1.ErrorTypeHardwareRebootTriggered, msg)
 	}
 
 	return nil
@@ -628,7 +642,7 @@ func (s *Service) handleErrorTypeHardwareRebootFailed(ctx context.Context, isSSH
 		s.scope.EventRecorder.Event(
 			s.scope.HetznerBareMetalHost,
 			corev1.EventTypeWarning,
-			infrav1.HetznerBareMetalHostRebootTimeoutReachedV1Beta2Reason,
+			"HardwareRebootTimedOut",
 			msg,
 		)
 
@@ -745,7 +759,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeNormal,
-				"HardwareDetails Changed",
+				"HardwareDetails changed",
 				diff,
 			)
 		}
@@ -1290,7 +1304,7 @@ func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 			msg,
 		)
 		ctrl.LoggerFrom(ctx).Error(errors.New("PreProvisioningFailed"), msg)
-		s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.PermanentError, msg)
+		s.setHostError(infrav1.PermanentError, msg)
 		return actionStop{}
 	}
 
@@ -1308,7 +1322,7 @@ func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 			filepath.Base(s.scope.PreProvisionCommand),
 			output,
 		)
-		s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.PermanentError, output)
+		s.setHostError(infrav1.PermanentError, output)
 		return actionStop{}
 	}
 
@@ -1359,7 +1373,7 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 			msg,
 		)
 		ctrl.LoggerFrom(ctx).Error(errors.New("ImageInstallingFailed"), msg)
-		s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.PermanentError, msg)
+		s.setHostError(infrav1.PermanentError, msg)
 		return actionStop{}
 	}
 
@@ -1715,10 +1729,10 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
-				infrav1.HetznerBareMetalHostCheckingDiskFailedV1Beta2Reason,
+				infrav1.CheckDiskFailedReason,
 				msg,
 			)
-			s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.PermanentError, msg)
+			s.setHostError(infrav1.PermanentError, msg)
 			return actionStop{}
 		}
 		// The annotation or machine spec field was set. Just create a warning and move on.
@@ -1768,10 +1782,10 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 				s.scope.EventRecorder.Event(
 					s.scope.HetznerBareMetalHost,
 					corev1.EventTypeWarning,
-					infrav1.HetznerBareMetalHostWipingDiskFailedV1Beta2Reason,
+					infrav1.WipeDiskFailedReason,
 					msg,
 				)
-				s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.PermanentError, msg)
+				s.setHostError(infrav1.PermanentError, msg)
 				return actionStop{}
 			}
 			// some other error happened. It is likely that the ssh connection failed.
@@ -1794,7 +1808,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
-				infrav1.HetznerBareMetalHostWipingDiskFailedV1Beta2Reason,
+				infrav1.WipeDiskFailedReason,
 				msg,
 			)
 			return actionContinue{
@@ -1841,7 +1855,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 				infrav1.HetznerBareMetalHostLinuxOnOtherDiskFoundV1Beta2Reason,
 				msg,
 			)
-			s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.PermanentError, msg)
+			s.setHostError(infrav1.PermanentError, msg)
 			return actionStop{}
 		}
 
@@ -1865,7 +1879,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 		})
 		s.scope.EventRecorder.Event(
 			s.scope.HetznerBareMetalHost,
-			corev1.EventTypeNormal,
+			corev1.EventTypeWarning,
 			infrav1.HetznerBareMetalHostSSHToRescueSystemFailedV1Beta2Reason,
 			msg,
 		)
@@ -2098,7 +2112,7 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
-				infrav1.HetznerBareMetalHostDownloadingImageFailedV1Beta2Reason,
+				infrav1.ImageDownloadFailedReason,
 				err.Error(),
 			)
 			return autoSetupInput{}, actionError{err: err}
@@ -2232,7 +2246,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		s.scope.EventRecorder.Event(
 			s.scope.HetznerBareMetalHost,
 			corev1.EventTypeNormal,
-			infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Reason,
+			"ServerProvisioned",
 			"server successfully provisioned ('ensure-provisioned' was skipped)",
 		)
 		v1beta1conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
@@ -2382,7 +2396,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	s.scope.EventRecorder.Event(
 		s.scope.HetznerBareMetalHost,
 		corev1.EventTypeNormal,
-		infrav1.HetznerBareMetalHostProvisionSucceededV1Beta2Reason,
+		"ServerProvisioned",
 		"server successfully provisioned",
 	)
 	v1beta1conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
@@ -2425,7 +2439,7 @@ func (s *Service) checkCloudInitStatus(ctx context.Context, sshClient sshclient.
 		}
 		s.createSSHRebootEvent(ctx, msg)
 		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
-		s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.ErrorTypeSSHRebootTriggered, "ssh reboot just triggered")
+		s.setHostError(infrav1.ErrorTypeSSHRebootTriggered, "ssh reboot just triggered")
 		s.scope.EventRecorder.Event(
 			s.scope.HetznerBareMetalHost,
 			corev1.EventTypeWarning,
@@ -2598,7 +2612,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// When no reboot is requested the boot ID is non-critical; requeue and wait for kubelet to populate it.
 		if rebootDesired {
 			s.scope.Error(errors.New(msg), "")
-			s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.FatalError, msg)
+			s.setHostError(infrav1.FatalError, msg)
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
@@ -2684,7 +2698,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// Without a boot ID we can't confirm a reboot completed, so that is fatal error.
 		// When no reboot is requested the boot ID is non-critical; requeue and wait for kubelet to populate it.
 		if rebootDesired {
-			s.scope.HetznerBareMetalHost.SetError(s.scope.EventRecorder, infrav1.FatalError, msg)
+			s.setHostError(infrav1.FatalError, msg)
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
@@ -2815,7 +2829,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 					s.scope.EventRecorder.Event(
 						s.scope.HetznerBareMetalHost,
 						corev1.EventTypeWarning,
-						infrav1.HetznerBareMetalHostRobotCredentialsInvalidV1Beta2Reason,
+						infrav1.RobotCredentialsInvalidReason,
 						msg,
 					)
 
@@ -2947,7 +2961,7 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
-				infrav1.HetznerBareMetalHostRobotCredentialsInvalidV1Beta2Reason,
+				infrav1.RobotCredentialsInvalidReason,
 				msg,
 			)
 
@@ -2988,7 +3002,7 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 				s.scope.EventRecorder.Eventf(
 					s.scope.HetznerBareMetalHost,
 					corev1.EventTypeWarning,
-					"FailedResetKubeadm",
+					"FailedResetKubeAdm",
 					"failed to reset kubeadm: %s",
 					out.Err.Error(),
 				)
@@ -2996,7 +3010,7 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 				s.scope.EventRecorder.Event(
 					s.scope.HetznerBareMetalHost,
 					corev1.EventTypeNormal,
-					"SuccessfulResetKubeadm",
+					"SuccessfulResetKubeAdm",
 					"Reset was successful.",
 				)
 			}
@@ -3039,7 +3053,7 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 		s.scope.EventRecorder.Event(
 			s.scope.HetznerBareMetalHost,
 			corev1.EventTypeWarning,
-			infrav1.HetznerBareMetalHostRobotRateLimitExceededV1Beta2Reason,
+			"RateLimitExceeded",
 			msg,
 		)
 	}

@@ -1691,7 +1691,7 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 		s.scope.EventRecorder.Event(
 			hm,
 			corev1.EventTypeWarning,
-			infrav2.HCloudMachineGettingServerImageFailedReason,
+			"FailedGetServerImage",
 			msg,
 		)
 		s.scope.Error(nil, msg)
@@ -1730,7 +1730,7 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 		s.scope.EventRecorder.Event(
 			hm,
 			corev1.EventTypeWarning,
-			infrav2.HCloudMachineGettingRawBootstrapDataFailedReason,
+			"FailedGetBootstrapData",
 			msg,
 		)
 		s.scope.Error(nil, msg)
@@ -1753,7 +1753,7 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 		s.scope.EventRecorder.Event(
 			hm,
 			corev1.EventTypeWarning,
-			infrav2.HCloudMachineGettingServerImageFailedReason,
+			"FailedGetServerImage",
 			msg,
 		)
 		s.scope.Error(nil, msg)
@@ -1921,7 +1921,7 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 		s.scope.EventRecorder.Event(
 			hm,
 			corev1.EventTypeWarning,
-			infrav2.HCloudMachineServerCreationFailedReason,
+			"FailedCreateHCloudServer",
 			msg,
 		)
 		return hcloud.ServerCreateResult{}, handleRateLimit(hm, s.scope.EventRecorder, err, "CreateServer", msg)
@@ -2115,7 +2115,7 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 		s.scope.EventRecorder.Event(
 			s.scope.HCloudMachine,
 			corev1.EventTypeWarning,
-			infrav2.HCloudMachineServerImageAmbiguousReason,
+			"ImageNameAmbiguous",
 			msg,
 		)
 		deprecatedv1beta1conditions.MarkFalse(

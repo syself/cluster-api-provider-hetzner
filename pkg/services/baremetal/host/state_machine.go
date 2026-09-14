@@ -23,7 +23,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
@@ -35,23 +34,21 @@ import (
 // hostStateMachine is a finite state machine that manages transitions between
 // the states of a BareMetalHost.
 type hostStateMachine struct {
-	host          *infrav1.HetznerBareMetalHost
-	reconciler    *Service
-	nextState     infrav1.ProvisioningState
-	log           logr.Logger
-	eventRecorder record.EventRecorder
+	host       *infrav1.HetznerBareMetalHost
+	reconciler *Service
+	nextState  infrav1.ProvisioningState
+	log        logr.Logger
 }
 
 var errNoHandlerFound = fmt.Errorf("no handler found")
 
-func newHostStateMachine(host *infrav1.HetznerBareMetalHost, reconciler *Service, eventRecorder record.EventRecorder, log logr.Logger) *hostStateMachine {
+func newHostStateMachine(host *infrav1.HetznerBareMetalHost, reconciler *Service, log logr.Logger) *hostStateMachine {
 	currentState := host.Spec.Status.ProvisioningState
 	r := hostStateMachine{
-		host:          host,
-		reconciler:    reconciler,
-		nextState:     currentState, // Remain in current state by default
-		log:           log,
-		eventRecorder: eventRecorder,
+		host:       host,
+		reconciler: reconciler,
+		nextState:  currentState, // Remain in current state by default
+		log:        log,
 	}
 	return &r
 }
@@ -177,7 +174,7 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 			hsm.nextState = infrav1.StateImageInstalling
 		case infrav1.StateProvisioned:
 			errMessage := "secret has been modified although a provisioned machine uses it"
-			hsm.eventRecorder.Event(
+			hsm.reconciler.scope.EventRecorder.Event(
 				hsm.host,
 				corev1.EventTypeWarning,
 				"SSHSecretUnexpectedlyModified",
@@ -206,10 +203,10 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 			Message: msg,
 		})
 
-		hsm.eventRecorder.Event(
+		hsm.reconciler.scope.EventRecorder.Event(
 			hsm.host,
 			corev1.EventTypeWarning,
-			infrav1.HetznerBareMetalHostSSHKeysInvalidV1Beta2Reason,
+			infrav1.SSHCredentialsInSecretInvalidReason,
 			msg,
 		)
 		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
@@ -230,7 +227,7 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 		switch hsm.nextState {
 		case infrav1.StatePreparing, infrav1.StateRegistering, infrav1.StateImageInstalling:
 			msg := "stopped provisioning host as rescue ssh secret was updated"
-			hsm.eventRecorder.Event(
+			hsm.reconciler.scope.EventRecorder.Event(
 				hsm.host,
 				corev1.EventTypeWarning,
 				"HostProvisioningStopped",
@@ -285,7 +282,7 @@ func (hsm *hostStateMachine) handlePreparing(ctx context.Context) actionResult {
 		return actionComplete{}
 	}
 
-	hsm.eventRecorder.Eventf(
+	hsm.reconciler.scope.EventRecorder.Eventf(
 		hsm.host,
 		corev1.EventTypeNormal,
 		"PreparingForProvisioning",

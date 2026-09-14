@@ -71,7 +71,7 @@ var _ = Describe("SetErrorMessage", func() {
 				)
 			}
 
-			host.SetError(testEventRecorder, tc.errorType, tc.errorMessage)
+			host.SetError(tc.errorType, tc.errorMessage)
 			Expect(host.Spec.Status.ErrorCount).To(Equal(tc.expectedErrorCount))
 			Expect(host.Spec.Status.ErrorMessage).To(Equal(tc.expectedErrorMessage))
 			Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedErrorType))
@@ -1698,7 +1698,7 @@ NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJ
 		for len(testEventRecorder.Events) > 0 {
 			events = append(events, <-testEventRecorder.Events)
 		}
-		Expect(events).To(ContainElement(ContainSubstring("HardwareDetails Changed")))
+		Expect(events).To(ContainElement(ContainSubstring("HardwareDetails changed")))
 	})
 
 	It("invalidates RootDeviceHints in cases where a hardware change leads to different wwns", func() {

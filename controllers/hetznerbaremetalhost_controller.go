@@ -518,7 +518,7 @@ func (r *HetznerBareMetalHostReconciler) hetznerSecretErrorResult(
 		r.EventRecorder.Eventf(
 			bmHost,
 			corev1.EventTypeWarning,
-			infrav1.HetznerBareMetalHostSecretUnreachableV1Beta2Reason,
+			infrav1.HetznerSecretUnreachableReason,
 			"%s: %s",
 			infrav1.ErrorMessageMissingHetznerSecret,
 			err.Error(),

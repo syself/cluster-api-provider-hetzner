@@ -121,6 +121,7 @@ func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T
 		Client:             c,
 		APIReader:          c,
 		RobotClientFactory: robotFactory,
+		EventRecorder:      record.NewFakeRecorder(10),
 	}
 
 	result, err := reconciler.Reconcile(ctx, reconcile.Request{

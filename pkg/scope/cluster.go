@@ -69,7 +69,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		return nil, errors.New("failed to generate new scope from nil APIReader")
 	}
 	if params.EventRecorder == nil {
-		return nil, errors.New("cannot create cluster scope without EventRecorder")
+		return nil, errors.New("failed to generate new scope from nil EventRecorder")
 	}
 
 	emptyLogger := logr.Logger{}

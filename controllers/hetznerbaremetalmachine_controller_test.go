@@ -609,7 +609,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 				By("waiting for the successful kubeadm reset event")
 				Eventually(func() bool {
-					return hasEvent(ctx, testEnv, testNs.Name, host.Name, "SuccessfulResetKubeadm", "Reset was successful.")
+					return hasEvent(ctx, testEnv, testNs.Name, host.Name, "SuccessfulResetKubeAdm", "Reset was successful.")
 				}, timeout, time.Second).Should(BeTrue())
 			})
 

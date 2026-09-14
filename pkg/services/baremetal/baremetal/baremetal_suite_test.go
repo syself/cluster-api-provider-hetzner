@@ -45,7 +45,7 @@ func newTestService(
 			Logger:           log,
 			Client:           client,
 			BareMetalMachine: bmMachine,
-			EventRecorder:    record.NewFakeRecorder(10),
+			EventRecorder:    record.NewFakeRecorder(100),
 		},
 	}
 }
