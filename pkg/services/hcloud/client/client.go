@@ -56,7 +56,10 @@ type Client interface {
 	DeleteServiceFromLoadBalancer(context.Context, *hcloud.LoadBalancer, int) error
 	ListImages(context.Context, hcloud.ImageListOpts) ([]*hcloud.Image, error)
 	CreateServer(context.Context, hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error)
+	RebuildServer(context.Context, *hcloud.Server, hcloud.ServerRebuildOpts) (hcloud.ServerRebuildResult, error)
+	UpdateServer(context.Context, *hcloud.Server, hcloud.ServerUpdateOpts) (*hcloud.Server, error)
 	AttachServerToNetwork(context.Context, *hcloud.Server, hcloud.ServerAttachToNetworkOpts) error
+	DetachServerFromNetwork(context.Context, *hcloud.Server, hcloud.ServerDetachFromNetworkOpts) error
 	ListServers(context.Context, hcloud.ServerListOpts) ([]*hcloud.Server, error)
 	GetServer(context.Context, int64) (*hcloud.Server, error)
 	DeleteServer(context.Context, *hcloud.Server) error
@@ -238,8 +241,23 @@ func (c *realClient) CreateServer(ctx context.Context, opts hcloud.ServerCreateO
 	return res, err
 }
 
+func (c *realClient) RebuildServer(ctx context.Context, server *hcloud.Server, opts hcloud.ServerRebuildOpts) (hcloud.ServerRebuildResult, error) {
+	res, _, err := c.client.Server.RebuildWithResult(ctx, server, opts)
+	return res, err
+}
+
+func (c *realClient) UpdateServer(ctx context.Context, server *hcloud.Server, opts hcloud.ServerUpdateOpts) (*hcloud.Server, error) {
+	res, _, err := c.client.Server.Update(ctx, server, opts)
+	return res, err
+}
+
 func (c *realClient) AttachServerToNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) error {
 	_, _, err := c.client.Server.AttachToNetwork(ctx, server, opts)
+	return err
+}
+
+func (c *realClient) DetachServerFromNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerDetachFromNetworkOpts) error {
+	_, _, err := c.client.Server.DetachFromNetwork(ctx, server, opts)
 	return err
 }
 

@@ -595,6 +595,7 @@ func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCr
 		Labels:         opts.Labels,
 		Image:          opts.Image,
 		ServerType:     opts.ServerType,
+		Location:       opts.Location,
 		PlacementGroup: opts.PlacementGroup,
 		Status:         hcloud.ServerStatusRunning,
 	}
@@ -616,6 +617,40 @@ func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCr
 	c.serverCache.idMap[server.ID] = server
 	c.serverCache.nameMap[server.Name] = struct{}{}
 	return result, nil
+}
+
+func (c *cacheHCloudClient) RebuildServer(_ context.Context, server *hcloud.Server, opts hcloud.ServerRebuildOpts) (hcloud.ServerRebuildResult, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	s, found := c.serverCache.idMap[server.ID]
+	if !found {
+		return hcloud.ServerRebuildResult{}, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	s.Image = opts.Image
+	s.Status = hcloud.ServerStatusRunning
+	return hcloud.ServerRebuildResult{Action: &hcloud.Action{ID: 1}}, nil
+}
+
+func (c *cacheHCloudClient) UpdateServer(_ context.Context, server *hcloud.Server, opts hcloud.ServerUpdateOpts) (*hcloud.Server, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	s, found := c.serverCache.idMap[server.ID]
+	if !found {
+		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	if opts.Labels != nil {
+		s.Labels = opts.Labels
+	}
+	if opts.Name != "" {
+		delete(c.serverCache.nameMap, s.Name)
+		s.Name = opts.Name
+		c.serverCache.nameMap[s.Name] = struct{}{}
+	}
+	return s, nil
 }
 
 func (c *cacheHCloudClient) AttachServerToNetwork(_ context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) error {
@@ -641,6 +676,24 @@ func (c *cacheHCloudClient) AttachServerToNetwork(_ context.Context, server *hcl
 	// Add it
 	c.networkCache.idMap[opts.Network.ID].Servers = append(c.networkCache.idMap[opts.Network.ID].Servers, server)
 	return nil
+}
+
+func (c *cacheHCloudClient) DetachServerFromNetwork(_ context.Context, server *hcloud.Server, opts hcloud.ServerDetachFromNetworkOpts) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	network, found := c.networkCache.idMap[opts.Network.ID]
+	if !found {
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	for i, s := range network.Servers {
+		if s.ID == server.ID {
+			network.Servers = append(network.Servers[:i], network.Servers[i+1:]...)
+			return nil
+		}
+	}
+	return hcloud.Error{Code: hcloud.ErrorCodeServerNotAttachedToNetwork, Message: "not attached"}
 }
 
 func (c *cacheHCloudClient) ListServers(_ context.Context, opts hcloud.ServerListOpts) ([]*hcloud.Server, error) {

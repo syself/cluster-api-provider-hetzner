@@ -115,5 +115,14 @@ func validateHCloudMachineSpec(spec infrav1.HCloudMachineSpec) field.ErrorList {
 		}
 	}
 
+	// Server recycling reuses a pre-existing server by rebuilding it with the machine's bootstrap
+	// data. The imageURL flow provisions via the rescue system and cannot be reproduced by a rebuild,
+	// so recycling is only supported with imageName.
+	if spec.Recycle != nil && spec.Recycle.Enabled && spec.ImageURL != "" {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "recycle", "enabled"), spec.Recycle.Enabled,
+				"server recycling is only supported with imageName, not imageURL"))
+	}
+
 	return allErrs
 }
