@@ -154,7 +154,6 @@ type TestEnvironment struct {
 	HCloudSSHClient              *sshmock.Client
 	RescueSSHClient              *sshmock.Client
 	OSSSHClientAfterInstallImage *sshmock.Client
-	OSSSHClientAfterCloudInit    *sshmock.Client
 	RobotClient                  *robotmock.Client
 	cancel                       context.CancelFunc
 	RateLimitWaitTime            time.Duration
