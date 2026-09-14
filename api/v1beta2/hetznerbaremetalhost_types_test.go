@@ -17,15 +17,9 @@ limitations under the License.
 package v1beta2
 
 import (
-	"cmp"
-	"slices"
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Test update secret status", func() {
@@ -41,18 +35,18 @@ var _ = Describe("Test update secret status", func() {
 	Context("Test UpdateRescueSSHStatus", func() {
 		err = host.UpdateRescueSSHStatus(secret)
 		Expect(err).To(BeNil())
-		Expect(host.Spec.Status.SSHStatus.CurrentRescue.Reference.Name).Should(Equal(secret.Name))
-		Expect(host.Spec.Status.SSHStatus.CurrentRescue.Reference.Namespace).Should(Equal(secret.Namespace))
-		Expect(host.Spec.Status.SSHStatus.CurrentRescue.DataHash).Should(Equal(hash))
+		Expect(host.Status.SSHStatus.CurrentRescue.Reference.Name).Should(Equal(secret.Name))
+		Expect(host.Status.SSHStatus.CurrentRescue.Reference.Namespace).Should(Equal(secret.Namespace))
+		Expect(host.Status.SSHStatus.CurrentRescue.DataHash).Should(Equal(hash))
 	})
 
 	Context("Test UpdateOSSSHStatus", func() {
 		err = host.UpdateOSSSHStatus(secret)
 		Expect(err).To(BeNil())
 
-		Expect(host.Spec.Status.SSHStatus.CurrentOS.Reference.Name).Should(Equal(secret.Name))
-		Expect(host.Spec.Status.SSHStatus.CurrentOS.Reference.Namespace).Should(Equal(secret.Namespace))
-		Expect(host.Spec.Status.SSHStatus.CurrentOS.DataHash).Should(Equal(hash))
+		Expect(host.Status.SSHStatus.CurrentOS.Reference.Name).Should(Equal(secret.Name))
+		Expect(host.Status.SSHStatus.CurrentOS.Reference.Namespace).Should(Equal(secret.Namespace))
+		Expect(host.Status.SSHStatus.CurrentOS.DataHash).Should(Equal(hash))
 	})
 
 	Context("Test statusFromSecret", func() {
@@ -193,7 +187,7 @@ var _ = Describe("Test HasSoftwareReboot", func() {
 	DescribeTable("Test HasSoftwareReboot",
 		func(tc testCaseHasSoftwareReboot) {
 			host := HetznerBareMetalHost{}
-			host.Spec.Status.RebootTypes = tc.rebootTypes
+			host.Status.RebootTypes = tc.rebootTypes
 			Expect(host.HasSoftwareReboot()).Should(Equal(tc.expectBool))
 		},
 		Entry("has software reboot - single reboot type", testCaseHasSoftwareReboot{
@@ -220,7 +214,7 @@ var _ = Describe("Test HasHardwareReboot", func() {
 	DescribeTable("Test HasHardwareReboot",
 		func(tc testCaseHasHardwareReboot) {
 			host := HetznerBareMetalHost{}
-			host.Spec.Status.RebootTypes = tc.rebootTypes
+			host.Status.RebootTypes = tc.rebootTypes
 			Expect(host.HasHardwareReboot()).Should(Equal(tc.expectBool))
 		},
 		Entry("has hardware reboot - single reboot type", testCaseHasHardwareReboot{
@@ -238,74 +232,6 @@ var _ = Describe("Test HasHardwareReboot", func() {
 	)
 })
 
-var _ = Describe("Test NeedsProvisioning", func() {
-	type testCaseNeedsProvisioning struct {
-		installImage *InstallImage
-		expectBool   bool
-	}
-
-	DescribeTable("Test NeedsProvisioning",
-		func(tc testCaseNeedsProvisioning) {
-			host := HetznerBareMetalHost{}
-			host.Spec.Status.InstallImage = tc.installImage
-			Expect(host.NeedsProvisioning()).Should(Equal(tc.expectBool))
-		},
-		Entry("has installImage", testCaseNeedsProvisioning{
-			installImage: &InstallImage{},
-			expectBool:   true,
-		}),
-		Entry("has no installImage", testCaseNeedsProvisioning{
-			installImage: nil,
-			expectBool:   false,
-		}),
-	)
-})
-
-var _ = Describe("Test SetError", func() {
-	type testCaseSetError struct {
-		existingErrorCount   int
-		existingErrorType    ErrorType
-		existingErrorMessage string
-		expectErrorCount     int
-	}
-
-	DescribeTable("Test SetError",
-		func(tc testCaseSetError) {
-			host := HetznerBareMetalHost{}
-			host.Spec.Status.ErrorCount = tc.existingErrorCount
-			host.Spec.Status.ErrorType = tc.existingErrorType
-			host.Spec.Status.ErrorMessage = tc.existingErrorMessage
-
-			errorType := ErrorType("test error type")
-			errorMessage := "test error message"
-
-			host.SetError(errorType, errorMessage)
-
-			Expect(host.Spec.Status.ErrorCount).Should(Equal(tc.expectErrorCount))
-			Expect(host.Spec.Status.ErrorType).Should(Equal(errorType))
-			Expect(host.Spec.Status.ErrorMessage).Should(Equal(errorMessage))
-		},
-		Entry("no existing error", testCaseSetError{
-			existingErrorCount:   0,
-			existingErrorType:    ErrorType(""),
-			existingErrorMessage: "",
-			expectErrorCount:     1,
-		}),
-		Entry("existing error - different error", testCaseSetError{
-			existingErrorCount:   2,
-			existingErrorType:    ErrorTypeConnectionError,
-			existingErrorMessage: "existing error message",
-			expectErrorCount:     1,
-		}),
-		Entry("existing error - same error", testCaseSetError{
-			existingErrorCount:   2,
-			existingErrorType:    ErrorType("test error type"),
-			existingErrorMessage: "test error message",
-			expectErrorCount:     3,
-		}),
-	)
-})
-
 var _ = Describe("Test GetIPAddress", func() {
 	type testCaseGetIPAddress struct {
 		ipv4         string
@@ -315,7 +241,7 @@ var _ = Describe("Test GetIPAddress", func() {
 
 	DescribeTable("Test GetIPAddress",
 		func(tc testCaseGetIPAddress) {
-			status := ControllerGeneratedStatus{}
+			status := HetznerBareMetalHostStatus{}
 			status.IPv4 = tc.ipv4
 			status.IPv6 = tc.ipv6
 
@@ -335,39 +261,6 @@ var _ = Describe("Test GetIPAddress", func() {
 			ipv4:         "127.0.0.1",
 			ipv6:         "2001:db8:3333:4444:5555:6666:7777:8888",
 			expectString: "127.0.0.1",
-		}),
-	)
-})
-
-var _ = Describe("Test ClearError", func() {
-	type testCaseClearError struct {
-		existingErrorCount   int
-		existingErrorType    ErrorType
-		existingErrorMessage string
-	}
-
-	DescribeTable("Test ClearError",
-		func(tc testCaseClearError) {
-			host := HetznerBareMetalHost{}
-			host.Spec.Status.ErrorCount = tc.existingErrorCount
-			host.Spec.Status.ErrorType = tc.existingErrorType
-			host.Spec.Status.ErrorMessage = tc.existingErrorMessage
-
-			host.ClearError()
-
-			Expect(host.Spec.Status.ErrorCount).Should(Equal(0))
-			Expect(host.Spec.Status.ErrorType).Should(Equal(ErrorType("")))
-			Expect(host.Spec.Status.ErrorMessage).Should(Equal(""))
-		},
-		Entry("no existing error", testCaseClearError{
-			existingErrorCount:   0,
-			existingErrorType:    ErrorType(""),
-			existingErrorMessage: "",
-		}),
-		Entry("existing error", testCaseClearError{
-			existingErrorCount:   2,
-			existingErrorType:    ErrorTypeConnectionError,
-			existingErrorMessage: "existing error message",
 		}),
 	)
 })
@@ -458,36 +351,3 @@ var _ = Describe("Test ClearRebootAnnotations", func() {
 		}),
 	)
 })
-
-func mapKeys[K cmp.Ordered, V any](m map[K]V) []K {
-	ret := make([]K, 0, len(m))
-	for k := range m {
-		ret = append(ret, k)
-	}
-	slices.Sort(ret)
-	return ret
-}
-
-func TestHetznerBareMetalHost_SetError(t *testing.T) {
-	// A PermanentError should add the PermanentErrorAnnotation
-	host := HetznerBareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				"other-annotation": "some value",
-			},
-		},
-	}
-	host.SetError(PermanentError, "some error")
-	require.Equal(t, []string{PermanentErrorAnnotation, "other-annotation"}, mapKeys(host.Annotations))
-
-	// Other errors should not add the PermanentErrorAnnotation
-	host = HetznerBareMetalHost{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				"other-annotation": "some value",
-			},
-		},
-	}
-	host.SetError(ProvisioningError, "some error")
-	require.Equal(t, []string{"other-annotation"}, mapKeys(host.Annotations))
-}

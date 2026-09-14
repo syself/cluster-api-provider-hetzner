@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 var lb *hcloud.LoadBalancer
@@ -207,13 +207,13 @@ const ipv6 = "2001:db8::1"
 const protected = false
 const internalIP = "10.0.0.2"
 
-var targets = []infrav1.LoadBalancerTarget{
+var targets = []infrav2.LoadBalancerTarget{
 	{
-		Type:     infrav1.LoadBalancerTargetTypeServer,
+		Type:     infrav2.LoadBalancerTargetTypeServer,
 		ServerID: 80,
 	},
 	{
-		Type:     infrav1.LoadBalancerTargetTypeServer,
+		Type:     infrav2.LoadBalancerTargetTypeServer,
 		ServerID: 81,
 	},
 }

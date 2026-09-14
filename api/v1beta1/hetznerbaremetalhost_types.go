@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 )
@@ -35,10 +36,6 @@ const (
 	// hosts to block delete operations until the physical host can be
 	// deprovisioned.
 	HetznerBareMetalHostFinalizer = "infrastructure.cluster.x-k8s.io/hetznerbaremetalhost"
-
-	// DeprecatedBareMetalHostFinalizer contains the old string.
-	// The controller will automatically update to the new string.
-	DeprecatedBareMetalHostFinalizer = "hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
 
 	// HostAnnotation is the key for an annotation that should go on a HetznerBareMetalMachine to
 	// reference what HetznerBareMetalHost it corresponds to. The annotation is a string in the
@@ -426,13 +423,14 @@ func (host *HetznerBareMetalHost) SetV1Beta2Conditions(conditions []metav1.Condi
 // order (highest-priority first). Credentials and provisioning problems must outrank
 // Deleting, since deletion may itself need credentials to succeed.
 //  1. RobotCredentialsAvailable - invalid Robot credentials block every Robot API call.
-//  2. RobotRateLimitExceeded    - rate-limit issues (negative polarity).
-//  3. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
-//  4. RootDeviceHintsValidated  - device hints must validate before provisioning.
-//  5. ProvisionSucceeded        - provisioning state (rescue -> image -> OS).
-//  6. RebootSucceeded           - post-provision reboot via annotation.
-//  7. NodeBootIDRetrieved       - workload-cluster Node check after provisioning.
-//  8. Deleting                  - deletion state (negative polarity).
+//  2. ActionCompleted           - fatal permanent error requiring manual intervention.
+//  3. RobotRateLimitExceeded    - rate-limit issues (negative polarity).
+//  4. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
+//  5. RootDeviceHintsValidated  - device hints must validate before provisioning.
+//  6. ProvisionSucceeded        - provisioning state (rescue -> image -> OS).
+//  7. RebootSucceeded           - post-provision reboot via annotation.
+//  8. NodeBootIDRetrieved       - workload-cluster Node check after provisioning.
+//  9. Deleting                  - deletion state (negative polarity).
 func HetznerBareMetalHostV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
 	return []v1beta2conditions.SummaryOption{
 		// ForConditionTypes lists every condition that contributes to Ready, in
@@ -440,6 +438,7 @@ func HetznerBareMetalHostV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption 
 		// surfaces them in this order, so the most important issue is listed first.
 		v1beta2conditions.ForConditionTypes{
 			HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+			HetznerBareMetalHostActionCompletedV1Beta2Condition,
 			HetznerBareMetalHostRobotRateLimitExceededV1Beta2Condition,
 			HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
 			HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
@@ -454,6 +453,7 @@ func HetznerBareMetalHostV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption 
 		// checked or before the host has been provisioned), and we don't want
 		// those early exits to flip Ready to Unknown.
 		v1beta2conditions.IgnoreTypesIfMissing{
+			HetznerBareMetalHostActionCompletedV1Beta2Condition,
 			HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
 			HetznerBareMetalHostRootDeviceHintsValidatedV1Beta2Condition,
 			HetznerBareMetalHostProvisionSucceededV1Beta2Condition,
@@ -607,6 +607,11 @@ type HardwareDetails struct {
 }
 
 // HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
+//
+// The v1beta1 host stores its controller-generated status in spec.status, so this status subresource
+// carries no data. The v1beta2 shape moves that status into the real status subresource, a cross-field
+// move that conversion-gen cannot express, so the conversion is hand-written at the object level.
+// +k8s:conversion-gen=false
 type HetznerBareMetalHostStatus struct{}
 
 // +kubebuilder:object:root=true
@@ -723,12 +728,28 @@ func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string)
 	host.Spec.Status.ErrorType = errType
 	host.Spec.Status.ErrorMessage = errMessage
 	if errType == PermanentError {
+		// set the permanent error annotation.
 		if host.Annotations == nil {
 			host.Annotations = make(map[string]string, 1)
 		}
+
 		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
-		record.Warnf(host, "PermanentErrorSet", "Remove annotation %q, if you want the controller to use the hbmh again.",
-			PermanentErrorAnnotation)
+
+		message := fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
+			errMessage, PermanentErrorAnnotation)
+
+		record.Warn(host, "PermanentErrorSet", message)
+
+		// set the ActionCompleted condition to false with reason PermanentError.
+		v1beta1conditions.MarkFalse(host, ActionCompletedCondition,
+			ActionCompletedPermanentErrorReason, clusterv1beta1.ConditionSeverityError,
+			"%s", message)
+		v1beta2conditions.Set(host, metav1.Condition{
+			Type:    HetznerBareMetalHostActionCompletedV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason,
+			Message: message,
+		})
 	}
 }
 
@@ -742,6 +763,8 @@ func (host *HetznerBareMetalHost) ClearError() {
 		host.Spec.Status.ErrorMessage = ""
 	}
 	host.Spec.Status.ErrorCount = 0
+	v1beta1conditions.Delete(host, ActionCompletedCondition)
+	v1beta2conditions.Delete(host, HetznerBareMetalHostActionCompletedV1Beta2Condition)
 }
 
 // HasRebootAnnotation checks for the existence of reboot annotations and returns true if at least one exists.

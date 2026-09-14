@@ -201,11 +201,13 @@ linters:
       - linters:
           - staticcheck
         text: 'SA1019: "sigs\.k8s\.io/cluster-api/util/deprecated/v1beta1/(patch|conditions(/v1beta2)?)" is deprecated'
-      # CAPI deprecated clusterv1.ConditionType (the v1beta1 condition typedef) when the v1beta2
-      # condition list landed. Test helpers still need it to assert against legacy-shadow conditions.
+      # CAPI deprecated the v1beta1 condition typedefs (Condition, Conditions, ConditionType,
+      # ConditionSeverity) in core/v1beta2 when the v1beta2 condition list landed. We intentionally
+      # store deprecated v1beta1 conditions as these core/v1beta2 copies under
+      # status.deprecated.v1beta1.conditions, and test helpers assert against legacy-shadow conditions.
       - linters:
           - staticcheck
-        text: 'SA1019: clusterv1\.ConditionType is deprecated'
+        text: 'SA1019: clusterv1\.Condition(Type|Severity|s)? is deprecated'
       # controller-runtime v0.23 deprecated mgr.GetEventRecorderFor in favor of GetEventRecorder,
       # but the new API returns events.EventRecorder while CAPI's record.InitFromRecorder still
       # takes the old client-go record.EventRecorder. Until CAPI migrates, we keep the old call.

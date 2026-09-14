@@ -18,36 +18,61 @@ limitations under the License.
 package mocks
 
 import (
+	"sync"
+
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 )
 
-type sshFactory struct {
+// SSHFactory is a test SSH client factory whose mock clients can be hot-swapped between
+// tests via SetClients without replacing the factory pointer on the reconciler. A
+// sync.RWMutex ensures that concurrent NewClient calls (from in-flight reconcile
+// goroutines) and SetClients calls (from the test reset path) never race.
+type SSHFactory struct {
+	mu                        sync.RWMutex
 	rescueClient              *sshmock.Client
 	osClientAfterInstallImage *sshmock.Client
 	osClientAfterCloudInit    *sshmock.Client
 }
 
-// NewSSHFactory creates a new factory for SSH clients.
+var _ sshclient.Factory = &SSHFactory{}
+
+// NewSSHFactory creates a new SSHFactory primed with the given clients.
 func NewSSHFactory(
 	rescueClient *sshmock.Client,
 	osClientAfterInstallImage *sshmock.Client,
 	osClientAfterCloudInit *sshmock.Client,
-) sshclient.Factory {
-	return &sshFactory{
-		rescueClient:              rescueClient,
-		osClientAfterInstallImage: osClientAfterInstallImage,
-		osClientAfterCloudInit:    osClientAfterCloudInit,
-	}
+) *SSHFactory {
+	f := &SSHFactory{}
+	f.SetClients(rescueClient, osClientAfterInstallImage, osClientAfterCloudInit)
+	return f
 }
 
-var _ = sshclient.Factory(&sshFactory{})
+// SetClients atomically replaces the mock clients returned by NewClient (defined below). The
+// finish() func returned by ResetAndInitNamespace calls this after all On() expectations are
+// registered, so any goroutine that calls NewClient after this returns sees a fully-configured
+// mock. f.mu guards only the SSHFactory fields against data races between SetClients and
+// NewClient; the ReconcileGate in the reconcilers is what prevents Reconcile from running
+// while mocks are being swapped between tests.
+func (f *SSHFactory) SetClients(
+	rescue *sshmock.Client,
+	osAfterInstallImage *sshmock.Client,
+	osAfterCloudInit *sshmock.Client,
+) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.rescueClient = rescue
+	f.osClientAfterInstallImage = osAfterInstallImage
+	f.osClientAfterCloudInit = osAfterCloudInit
+}
 
-// NewClient implements the NewClient function of the SSHFactory interface.
-func (f *sshFactory) NewClient(in sshclient.Input) sshclient.Client {
-	// return rescueClient when private key rescue-private-key is given. Otherwise give the os private key.
+// NewClient implements sshclient.Factory. f.mu.RLock allows multiple goroutines to call
+// NewClient concurrently while guarding the client fields against a concurrent SetClients write.
+func (f *SSHFactory) NewClient(in sshclient.Input) sshclient.Client {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	if in.Port == 0 {
 		panic("no port specified for ssh client")
 	}

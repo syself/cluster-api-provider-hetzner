@@ -1,8 +1,7 @@
 ---
 title: Upgrading the Kubernetes Cluster API Provider Hetzner
-metatitle: Upgrade Process for Kubernetes Clusters with CAPH
-sidebar: Upgrading the Kubernetes Cluster API Provider Hetzner
 description: How to upgrade Cluster API and Cluster API Provider Hetzner.
+metatitle: Upgrade Process for Kubernetes Clusters with CAPH
 ---
 
 This guide explains how to upgrade Cluster API and Cluster API Provider Hetzner (aka CAPH). Additionally, it also references [upgrading your kubernetes version](#external-cluster-api-reference) as part of this guide.
@@ -58,9 +57,9 @@ Checking new release availability...
 Latest release available for the v1beta2 API Version of Cluster API (contract):
 
 NAME                     NAMESPACE                           TYPE                     CURRENT VERSION   NEXT VERSION
-bootstrap-kubeadm        capi-kubeadm-bootstrap-system       BootstrapProvider        v1.12.7            v1.13.1
-control-plane-kubeadm    capi-kubeadm-control-plane-system   ControlPlaneProvider     v1.12.7            v1.13.1
-cluster-api              capi-system                         CoreProvider             v1.12.7            v1.13.1
+bootstrap-kubeadm        capi-kubeadm-bootstrap-system       BootstrapProvider        v1.12.7            v1.13.4
+control-plane-kubeadm    capi-kubeadm-control-plane-system   ControlPlaneProvider     v1.12.7            v1.13.4
+cluster-api              capi-system                         CoreProvider             v1.12.7            v1.13.4
 infrastructure-hetzner   caph-system                         InfrastructureProvider   v1.0.7           Already up to date
 
 You can now apply the upgrade by executing the following command:
@@ -72,15 +71,12 @@ Docs: [clusterctl upgrade plan](https://cluster-api.sigs.k8s.io/clusterctl/comma
 
 You might be surprised that for `infrastructure-hetzner`, you see the "Already up to date" message below "NEXT VERSION".
 
-{% callout %}
-
-`clusterctl upgrade plan` does not display pre-release versions by default.
-
-{% /callout %}
+> [!NOTE]
+> `clusterctl upgrade plan` does not display pre-release versions by default.
 
 ## Upgrade cluster-API
 
-We will upgrade cluster API core components to the v1.13.1 version.
+We will upgrade cluster API core components to the v1.13.4 version.
 Use the command, which you saw in the plan:
 
 ```console
@@ -92,20 +88,17 @@ Scaling down Provider="cluster-api" Version="v1.12.7" Namespace="capi-system"
 Scaling down Provider="bootstrap-kubeadm" Version="v1.12.7" Namespace="capi-kubeadm-bootstrap-system"
 Scaling down Provider="control-plane-kubeadm" Version="v1.12.7" Namespace="capi-kubeadm-control-plane-system"
 Deleting Provider="cluster-api" Version="v1.12.7" Namespace="capi-system"
-Installing Provider="cluster-api" Version="v1.13.1" TargetNamespace="capi-system"
+Installing Provider="cluster-api" Version="v1.13.4" TargetNamespace="capi-system"
 Deleting Provider="bootstrap-kubeadm" Version="v1.12.7" Namespace="capi-kubeadm-bootstrap-system"
-Installing Provider="bootstrap-kubeadm" Version="v1.13.1" TargetNamespace="capi-kubeadm-bootstrap-system"
+Installing Provider="bootstrap-kubeadm" Version="v1.13.4" TargetNamespace="capi-kubeadm-bootstrap-system"
 Deleting Provider="control-plane-kubeadm" Version="v1.12.7" Namespace="capi-kubeadm-control-plane-system"
-Installing Provider="control-plane-kubeadm" Version="v1.13.1" TargetNamespace="capi-kubeadm-control-plane-system"
+Installing Provider="control-plane-kubeadm" Version="v1.13.4" TargetNamespace="capi-kubeadm-control-plane-system"
 ```
 
 Great, cluster-API was upgraded.
 
-{% callout %}
-
-If you want to update only one components or update components one by one then there are flags for that under `clusterctl upgrade apply` subcommand like `--bootstrap`, `--control-plane` and `--core`.
-
-{% /callout %}
+> [!NOTE]
+> If you want to update only one components or update components one by one then there are flags for that under `clusterctl upgrade apply` subcommand like `--bootstrap`, `--control-plane` and `--core`.
 
 ## Upgrade CAPH
 
@@ -114,13 +107,13 @@ You can find the latest version of CAPH here:
 <https://github.com/syself/cluster-api-provider-hetzner/tags>
 
 ```console
-$ clusterctl upgrade apply --infrastructure=hetzner:v1.0.7
+$ clusterctl upgrade apply --infrastructure=hetzner:v1.0.1
 Checking cert-manager version...
 Cert-manager is already up to date
 Performing upgrade...
 Scaling down Provider="infrastructure-hetzner" Version="" Namespace="caph-system"
 Deleting Provider="infrastructure-hetzner" Version="" Namespace="caph-system"
-Installing Provider="infrastructure-hetzner" Version="v1.0.7" TargetNamespace="caph-system"
+Installing Provider="infrastructure-hetzner" Version="v1.0.1" TargetNamespace="caph-system"
 ```
 
 After the upgrade, you'll notice the new pod spinning up the `caph-system` namespace.
@@ -131,11 +124,8 @@ NAME                                       READY   STATUS    RESTARTS   AGE
 caph-controller-manager-85fcb6ffcb-4sj6d   1/1     Running   0          79s
 ```
 
-{% callout %}
-
-Please note that `clusterctl` doesn't support pre-release of GitHub by default so if you want to use a pre-release, you'll have to specify the version such as `hetzner:v1.0.7`
-
-{% /callout %}
+> [!NOTE]
+> Please note that `clusterctl` doesn't support pre-release of GitHub by default so if you want to use a pre-release, you'll have to specify the version such as `hetzner:v1.0.1`
 
 ## Check your cluster
 
@@ -145,11 +135,8 @@ Check the health of your workload cluster with your preferred tools and ensure t
 
 After upgrading cluster API, you may want to update the Kubernetes version of your controlplane and worker nodes. Those details can be found in the [Cluster API documentation](https://cluster-api.sigs.k8s.io/tasks/upgrading-clusters).
 
-{% callout %}
-
-The update can be done on either management cluster or workload cluster separately as well.
-
-{% /callout %}
+> [!NOTE]
+> The update can be done on either management cluster or workload cluster separately as well.
 
 You should upgrade your kubernetes version after considering that a Cluster API minor release supports (when it’s initially created):
 

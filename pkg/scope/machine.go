@@ -24,33 +24,39 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
 // MachineScopeParams defines the input parameters used to create a new Scope.
 type MachineScopeParams struct {
-	ClusterScopeParams
+	Client           client.Client
+	APIReader        client.Reader
+	Logger           logr.Logger
+	HetznerSecret    *corev1.Secret
+	HCloudClient     hcloudclient.Client
+	Cluster          *clusterv1.Cluster
+	HetznerCluster   *infrav2.HetznerCluster
 	Machine          *clusterv1.Machine
-	HCloudMachine    *infrav1.HCloudMachine
+	HCloudMachine    *infrav2.HCloudMachine
 	SSHClientFactory sshclient.Factory
 }
-
-const maxShutDownTime = 2 * time.Minute
 
 var (
 	// ErrBootstrapDataNotReady return an error if no bootstrap data is ready.
@@ -74,19 +80,38 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 	if params.HCloudMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudMachine")
 	}
-
-	cs, err := NewClusterScope(params.ClusterScopeParams)
-	if err != nil {
-		return nil, fmt.Errorf("failed create new cluster scope: %w", err)
+	if params.Cluster == nil {
+		return nil, errors.New("failed to generate new scope from nil Cluster")
+	}
+	if params.HetznerCluster == nil {
+		return nil, errors.New("failed to generate new scope from nil HetznerCluster")
+	}
+	if params.HCloudClient == nil {
+		return nil, errors.New("failed to generate new scope from nil HCloudClient")
+	}
+	if params.APIReader == nil {
+		return nil, errors.New("failed to generate new scope from nil APIReader")
 	}
 
-	cs.patchHelper, err = v1beta1patch.NewHelper(params.HCloudMachine, params.Client)
+	emptyLogger := logr.Logger{}
+	if params.Logger == emptyLogger {
+		return nil, errors.New("failed to generate new scope from nil Logger")
+	}
+
+	patchHelper, err := patch.NewHelper(params.HCloudMachine, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
 	return &MachineScope{
-		ClusterScope:     *cs,
+		Logger:           params.Logger,
+		Client:           params.Client,
+		APIReader:        params.APIReader,
+		patchHelper:      patchHelper,
+		hetznerSecret:    params.HetznerSecret,
+		HCloudClient:     params.HCloudClient,
+		Cluster:          params.Cluster,
+		HetznerCluster:   params.HetznerCluster,
 		Machine:          params.Machine,
 		HCloudMachine:    params.HCloudMachine,
 		SSHClientFactory: params.SSHClientFactory,
@@ -94,41 +119,53 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 }
 
 // MachineScope defines the basic context for an actuator to operate upon.
+//
+// It holds the HCloudMachine being reconciled and the patch helper used to persist changes to it.
 type MachineScope struct {
-	ClusterScope
+	logr.Logger
+	Client        client.Client
+	APIReader     client.Reader
+	patchHelper   *patch.Helper
+	hetznerSecret *corev1.Secret
+
+	HCloudClient hcloudclient.Client
+
+	Cluster        *clusterv1.Cluster
+	HetznerCluster *infrav2.HetznerCluster
+
 	Machine          *clusterv1.Machine
-	HCloudMachine    *infrav1.HCloudMachine
+	HCloudMachine    *infrav2.HCloudMachine
 	SSHClientFactory sshclient.Factory
 }
 
 // Close closes the current scope persisting the machine configuration and status.
 func (m *MachineScope) Close(ctx context.Context) error {
-	// set summary for v1beta1 conditions.
-	v1beta1conditions.SetSummary(m.HCloudMachine)
+	// set summary for deprecated v1beta1 conditions.
+	deprecatedv1beta1conditions.SetSummary(m.HCloudMachine)
 
-	// set summary for v1beta2 conditions.
-	readyCondition, err := v1beta2conditions.NewSummaryCondition(
+	// set summary for conditions.
+	readyCondition, err := conditions.NewSummaryCondition(
 		m.HCloudMachine,
-		clusterv1beta1.ReadyV1Beta2Condition,
-		infrav1.HCloudMachineV1Beta2SummaryOpts()...,
+		clusterv1.ReadyCondition,
+		infrav2.HCloudMachineSummaryOpts()...,
 	)
 	if err != nil {
 		// Note, this could only happen if we hit edge cases in computing the summary, which should not happen due to the fact
 		// that we are passing a non empty list of ForConditionTypes.
-		m.Error(err, "Failed to set v1beta2 Ready condition")
+		m.Error(err, "Failed to set Ready condition")
 		unknownReadyCondition := metav1.Condition{
-			Type:   clusterv1beta1.ReadyV1Beta2Condition,
+			Type:   clusterv1.ReadyCondition,
 			Status: metav1.ConditionUnknown,
-			Reason: infrav1.InternalErrorV1Beta2Reason,
+			Reason: clusterv1.InternalErrorReason,
 		}
 
-		v1beta2conditions.Set(m.HCloudMachine, unknownReadyCondition)
+		conditions.Set(m.HCloudMachine, unknownReadyCondition)
 
 		patchErr := m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
 		return errors.Join(err, patchErr)
 	}
 
-	v1beta2conditions.Set(m.HCloudMachine, *readyCondition)
+	conditions.Set(m.HCloudMachine, *readyCondition)
 
 	return m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
 }
@@ -148,39 +185,39 @@ func (m *MachineScope) Namespace() string {
 	return m.HCloudMachine.Namespace
 }
 
+// HetznerSecret returns the hetzner secret.
+func (m *MachineScope) HetznerSecret() *corev1.Secret {
+	return m.hetznerSecret
+}
+
 // PatchObject persists the machine spec and status.
 func (m *MachineScope) PatchObject(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
 }
 
-// SetHCloudMachineV1Beta2SummaryCondition computes the HCloudMachine v1beta2 Ready condition.
-func SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine *infrav1.HCloudMachine) error {
-	return v1beta2conditions.SetSummaryCondition(hcloudMachine, hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition,
-		infrav1.HCloudMachineV1Beta2SummaryOpts()...,
-	)
-}
-
 // machinePatchOpts returns the list of patch.Option for HCloudMachine.
-func machinePatchOpts() []v1beta1patch.Option {
-	return []v1beta1patch.Option{
-		// owned v1beta1 conditions.
-		v1beta1patch.WithOwnedConditions{Conditions: []clusterv1beta1.ConditionType{
-			clusterv1beta1.ReadyCondition,
-			infrav1.BootstrapReadyCondition,
-			infrav1.HCloudTokenAvailableCondition,
-			infrav1.HetznerAPIReachableCondition,
-			infrav1.ServerCreateSucceededCondition,
-			infrav1.ServerProvisionedCondition,
-			infrav1.ServerAvailableCondition,
+func machinePatchOpts() []patch.Option {
+	return []patch.Option{
+		// owned deprecated v1beta1 conditions.
+		patch.WithOwnedV1Beta1Conditions{Conditions: []clusterv1.ConditionType{
+			clusterv1.ReadyV1Beta1Condition,
+			infrav2.BootstrapReadyV1Beta1Condition,
+			infrav2.HCloudTokenAvailableV1Beta1Condition,
+			infrav2.HetznerAPIReachableV1Beta1Condition,
+			infrav2.SSHPrivateKeyAvailableV1Beta1Condition,
+			infrav2.ServerCreateSucceededV1Beta1Condition,
+			infrav2.ServerProvisionedV1Beta1Condition,
+			infrav2.ServerAvailableV1Beta1Condition,
 		}},
-		// owned v1beta2 conditions.
-		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
-			clusterv1beta1.ReadyV1Beta2Condition,
-			infrav1.HCloudTokenAvailableV1Beta2Condition,
-			infrav1.HCloudRateLimitExceededV1Beta2Condition,
-			infrav1.HCloudMachineServerCreatedV1Beta2Condition,
-			infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
-			infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+		// owned conditions.
+		patch.WithOwnedConditions{Conditions: []string{
+			clusterv1.ReadyCondition,
+			infrav2.HCloudTokenAvailableCondition,
+			infrav2.HCloudRateLimitExceededCondition,
+			infrav2.HCloudMachineSSHPrivateKeyAvailableCondition,
+			infrav2.HCloudMachineServerCreatedCondition,
+			infrav2.HCloudMachineServerProvisionedCondition,
+			infrav2.HCloudMachineServerAvailableCondition,
 		}},
 	}
 }
@@ -201,7 +238,7 @@ func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string)
 //
 // Background: the hcloudmachine controller has no permission to delete a capi machine. That's why
 // this extra step (via remediate-machine annotation) is needed.
-func SetRemediateMachineAnnotationToDeleteMachine(ctx context.Context, crClient client.Client, capiMachine *clusterv1.Machine, hcloudMachine *infrav1.HCloudMachine, message string) error {
+func SetRemediateMachineAnnotationToDeleteMachine(ctx context.Context, crClient client.Client, capiMachine *clusterv1.Machine, hcloudMachine *infrav2.HCloudMachine, message string) error {
 	// Create a patch base
 	patch := client.MergeFrom(capiMachine.DeepCopy())
 
@@ -220,14 +257,14 @@ func SetRemediateMachineAnnotationToDeleteMachine(ctx context.Context, crClient 
 		"HCloudMachineWillBeRemediated",
 		"HCloudMachine will be remediated: %s", message)
 
-	hcloudMachine.SetBootState(infrav1.HCloudBootStateProvisioningFailed)
+	hcloudMachine.SetBootState(infrav2.HCloudBootStateProvisioningFailed)
 
 	return nil
 }
 
 // SetRegion sets the region field on the machine.
 func (m *MachineScope) SetRegion(region string) {
-	m.HCloudMachine.Status.Region = infrav1.Region(region)
+	m.HCloudMachine.Status.Region = infrav2.Region(region)
 }
 
 // SetProviderID sets the providerID field on the machine.
@@ -253,25 +290,21 @@ func (m *MachineScope) ServerIDFromProviderID() (int64, error) {
 	return serverID, nil
 }
 
-// SetReady sets the ready field on the machine.
-func (m *MachineScope) SetReady(ready bool) {
-	m.HCloudMachine.Status.Ready = ready
+// SetProvisioned records that the machine's infrastructure is provisioned. Per the CAPI
+// infra-machine contract this is a one-time signal: once set it stays set, so there is nothing
+// to unset and the machine can only ever go from not provisioned to provisioned.
+func (m *MachineScope) SetProvisioned() {
+	m.HCloudMachine.Status.Initialization.Provisioned = ptr.To(true)
 }
 
-// HasServerAvailableCondition checks whether ServerAvailable condition is set on true.
+// HasServerAvailableCondition reports whether the ServerAvailable condition is currently True.
+//
+// The delete flow relies on this as a one-shot gate: a running server is shut down while
+// ServerAvailable is still True, the shutdown step then sets it False, and the next reconcile deletes
+// the server instead of shutting it down again. For this to work, Delete() must not set
+// ServerAvailable to False before this gate runs, otherwise the graceful shutdown would be skipped.
 func (m *MachineScope) HasServerAvailableCondition() bool {
-	return v1beta1conditions.IsTrue(m.HCloudMachine, infrav1.ServerAvailableCondition)
-}
-
-// HasServerTerminatedCondition checks the whether ServerAvailable condition is false with reason "terminated".
-func (m *MachineScope) HasServerTerminatedCondition() bool {
-	return v1beta1conditions.IsFalse(m.HCloudMachine, infrav1.ServerAvailableCondition) &&
-		v1beta1conditions.GetReason(m.HCloudMachine, infrav1.ServerAvailableCondition) == infrav1.ServerTerminatingReason
-}
-
-// HasShutdownTimedOut checks the whether the HCloud server is terminated.
-func (m *MachineScope) HasShutdownTimedOut() bool {
-	return time.Now().After(v1beta1conditions.GetLastTransitionTime(m.HCloudMachine, infrav1.ServerAvailableCondition).Add(maxShutDownTime))
+	return conditions.IsTrue(m.HCloudMachine, infrav2.HCloudMachineServerAvailableCondition)
 }
 
 // IsBootstrapDataReady checks the readiness of a capi machine's bootstrap data.

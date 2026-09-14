@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -50,11 +51,13 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/cluster-api/test/framework/ginkgoextensions"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // Test suite flags.
@@ -85,9 +88,10 @@ var (
 
 // Test suite global vars.
 var (
-	ctx              = ctrl.SetupSignalHandler()
-	suiteStartTime   = time.Now()
-	errPermanentHBMH = errors.New("permanent HetznerBareMetalHost error")
+	ctx                = ctrl.SetupSignalHandler()
+	suiteStartTime     = time.Now()
+	errPermanentHBMH   = errors.New("permanent HetznerBareMetalHost error")
+	errNoAvailableHost = errors.New("no available bare-metal host")
 
 	// e2eConfig to be used for this test, read from configPath.
 	e2eConfig *clusterctl.E2EConfig
@@ -259,6 +263,7 @@ func initScheme() *runtime.Scheme {
 	sc := runtime.NewScheme()
 	framework.TryAddDefaultSchemes(sc)
 	_ = infrav1.AddToScheme(sc)
+	_ = infrav2.AddToScheme(sc)
 	return sc
 }
 
@@ -305,10 +310,31 @@ func createClusterctlLocalRepository(ctx context.Context, config *clusterctl.E2E
 	return clusterctlConfig
 }
 
+// pullKindNodeImageWithRetry pulls the kind node image before cluster creation to handle transient
+// Docker Hub failures without aborting the whole suite.
+func pullKindNodeImageWithRetry(ctx context.Context) {
+	image := fmt.Sprintf("%s:%s", bootstrap.DefaultNodeImageRepository, bootstrap.DefaultNodeImageVersion)
+	const maxAttempts = 3
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		out, err := exec.CommandContext(ctx, "docker", "pull", image).CombinedOutput() //nolint:gosec
+		if err == nil {
+			return
+		}
+		lastErr = err
+		GinkgoLogr.Info("docker pull failed", "image", image, "attempt", attempt, "maxAttempts", maxAttempts, "output", string(out))
+		if attempt < maxAttempts {
+			time.Sleep(time.Duration(attempt) * 15 * time.Second)
+		}
+	}
+	Expect(lastErr).ToNot(HaveOccurred(), "Failed to pull kind node image %s after %d attempts", image, maxAttempts)
+}
+
 func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme, useExistingCluster bool) (bootstrap.ClusterProvider, framework.ClusterProxy) {
 	var clusterProvider bootstrap.ClusterProvider
 	kubeconfigPath := ""
 	if !useExistingCluster {
+		pullKindNodeImageWithRetry(ctx)
 		clusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
 			Name:               config.ManagementClusterName,
 			RequiresDockerSock: config.HasDockerProvider(),
@@ -339,7 +365,7 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 		case <-time.After(30 * time.Second):
 			err := logStatus(ctx, restConfig, c, ccmLogs)
 			if err != nil {
-				if errors.Is(err, errPermanentHBMH) {
+				if errors.Is(err, errPermanentHBMH) || errors.Is(err, errNoAvailableHost) {
 					Fail(err.Error())
 				}
 				log(fmt.Sprintf("Error logging status: %v", err))
@@ -362,6 +388,10 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 	}
 
 	if err := logBareMetalHostStatus(ctx, c); err != nil {
+		return err
+	}
+
+	if err := checkBareMetalMachineNoAvailableHost(ctx, c); err != nil {
 		return err
 	}
 
@@ -820,7 +850,7 @@ func logDeploymentContainerImages(containerType string, containers []corev1.Cont
 }
 
 func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
-	hmList := &infrav1.HCloudMachineList{}
+	hmList := &infrav2.HCloudMachineList{}
 	err := c.List(ctx, hmList)
 	if err != nil {
 		return err
@@ -846,7 +876,7 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 
 	for i := range hmList.Items {
 		hm := &hmList.Items[i]
-		if hm.Status.InstanceState == nil || *hm.Status.InstanceState == "" {
+		if hm.Status.InstanceState == "" {
 			continue
 		}
 		addresses := make([]string, 0)
@@ -859,9 +889,9 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 			id = *hm.Spec.ProviderID
 		}
 		log("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
-		log("  ProvisioningState: " + string(*hm.Status.InstanceState))
+		log("  ProvisioningState: " + string(hm.Status.InstanceState))
 
-		readyC := v1beta1conditions.Get(hm, clusterv1beta1.ReadyCondition)
+		readyC := conditions.Get(hm, clusterv1.ReadyCondition)
 		msg := ""
 		reason := ""
 		state := "?"
@@ -959,6 +989,23 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState) + " | Ready Condition: " + state + " " + reason + " " + msg)
 	}
 	return errors.Join(allErrors...)
+}
+
+func checkBareMetalMachineNoAvailableHost(ctx context.Context, c client.Client) error {
+	machineList := &infrav1.HetznerBareMetalMachineList{}
+	if err := c.List(ctx, machineList); err != nil {
+		return fmt.Errorf("failed to list HetznerBareMetalMachines: %w", err)
+	}
+	for _, machine := range machineList.Items {
+		if machine.DeletionTimestamp != nil {
+			continue
+		}
+		cond := v1beta1conditions.Get(&machine, infrav1.HostAssociateSucceededCondition)
+		if cond != nil && cond.Status == corev1.ConditionFalse && cond.Reason == string(infrav1.NoAvailableHostReason) {
+			return fmt.Errorf("%w: HetznerBareMetalMachine %s/%s: %s", errNoAvailableHost, machine.Namespace, machine.Name, cond.Message)
+		}
+	}
+	return nil
 }
 
 func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.ClusterProxy, config *clusterctl.E2EConfig, clusterctlConfig, artifactFolder string) {

@@ -115,11 +115,6 @@ var _ = Describe("Test Image.GetDetails", func() {
 	)
 })
 
-func TestInstallImageUsesImageURLCommand(t *testing.T) {
-	require.True(t, InstallImage{ImageURLCommand: "image-url-command-test.sh"}.UsesImageURLCommand())
-	require.False(t, InstallImage{}.UsesImageURLCommand())
-}
-
 var _ = Describe("Test GetImageSuffix", func() {
 	type testCaseGetImageSuffix struct {
 		url          string
@@ -252,9 +247,9 @@ func Test_Image_String(t *testing.T) {
 		{
 			Image{
 				Name: "nfs",
-				Path: "/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz",
+				Path: "/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.zst",
 			},
-			"nfs (/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz)",
+			"nfs (/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.zst)",
 		},
 	} {
 		require.Equal(t, row.expected, row.image.String())
