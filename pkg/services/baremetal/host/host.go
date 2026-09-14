@@ -413,7 +413,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 				s.scope.EventRecorder.Event(
 					s.scope.HetznerBareMetalHost,
 					corev1.EventTypeWarning,
-					infrav1.HetznerBareMetalHostSSHKeyAlreadyExistsV1Beta2Reason,
+					infrav1.SSHKeyAlreadyExistsReason,
 					msg,
 				)
 				return infrav1.SSHKey{}, s.recordActionFailure(infrav1.PreparationError, msg)

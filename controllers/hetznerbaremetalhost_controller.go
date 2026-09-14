@@ -400,7 +400,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					Reason:  infrav1.HetznerBareMetalHostOSSSHSecretMissingV1Beta2Reason,
 					Message: msg,
 				})
-				r.EventRecorder.Eventf(
+				r.EventRecorder.Event(
 					bmHost,
 					corev1.EventTypeWarning,
 					infrav1.HetznerBareMetalHostOSSSHSecretMissingV1Beta2Reason,
@@ -548,7 +548,7 @@ func (r *HetznerBareMetalHostReconciler) hetznerSecretErrorResult(
 		r.EventRecorder.Event(
 			bmHost,
 			corev1.EventTypeWarning,
-			infrav1.HetznerBareMetalHostRobotCredentialsInvalidV1Beta2Reason,
+			infrav1.RobotCredentialsInvalidReason,
 			err.Error(),
 		)
 		return res, nil
