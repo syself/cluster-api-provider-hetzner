@@ -19,9 +19,12 @@ type Image struct {
 	Architecture string            `json:"architecture"`
 	RapidDeploy  bool              `json:"rapid_deploy"`
 	Protection   ImageProtection   `json:"protection"`
-	Deprecated   *time.Time        `json:"deprecated"`
 	Deleted      *time.Time        `json:"deleted"`
 	Labels       map[string]string `json:"labels"`
+
+	// Deprecated: [Image.Deprecated] is deprecated, use [Image.Deprecation] instead.
+	Deprecated *time.Time `json:"deprecated"`
+	DeprecatableResource
 }
 
 // ImageProtection represents the protection level of a image.
