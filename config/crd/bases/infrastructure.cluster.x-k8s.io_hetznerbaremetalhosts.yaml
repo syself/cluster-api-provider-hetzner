@@ -369,6 +369,16 @@ spec:
                           - volume
                           type: object
                         type: array
+                      deviceStringType:
+                        description: |-
+                          DeviceStringType instructs CAPH to either use the short device name, or the WWN when calling
+                          ImageURLCommand. It is not used when ImageURLCommand is not set. "" and "short" both pass
+                          the short device name (e.g. "sda"); "wwn" passes the WWN (e.g. "eui.00253885910c8cec").
+                        enum:
+                        - ""
+                        - short
+                        - wwn
+                        type: string
                       image:
                         description: Image is the image to be provisioned. It defines
                           the image for baremetal machine.
@@ -396,7 +406,7 @@ spec:
                           Docs: https://syself.com/docs/caph/developers/image-url-command
 
                           ImageURLCommand must be set if the machine should be provisioned from Image.URL without
-                          installimage. The command name must start with image-url-command-.
+                          installimage.
                         type: string
                       logicalVolumeDefinitions:
                         description: LVMDefinitions defines the logical volume definitions

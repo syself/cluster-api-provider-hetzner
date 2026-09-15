@@ -345,6 +345,81 @@ func TestIgnoreInsignificantHetznerClusterStatusUpdates(t *testing.T) {
 
 // TestWorkloadClusterSecretNames verifies which workload-cluster secrets CAPH
 // reconciles for the configured management-cluster secret name.
+func TestControlPlaneMachineToHetznerClusterPredicate(t *testing.T) {
+	predicate := controlPlaneMachineToHetznerClusterPredicate()
+
+	withServerAvailable := func(m *infrav2.HCloudMachine, status metav1.ConditionStatus) *infrav2.HCloudMachine {
+		conditions.Set(m, metav1.Condition{
+			Type:   infrav2.HCloudMachineServerAvailableCondition,
+			Status: status,
+			Reason: "reason",
+		})
+		return m
+	}
+
+	controlPlaneHCloudMachine := func(name string) *infrav2.HCloudMachine {
+		return &infrav2.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+				Labels:    map[string]string{clusterv1.MachineControlPlaneLabel: ""},
+			},
+		}
+	}
+
+	workerHCloudMachine := func(name string) *infrav2.HCloudMachine {
+		return &infrav2.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+			},
+		}
+	}
+
+	t.Run("update: control plane machine ServerAvailable transitions to True", func(t *testing.T) {
+		oldObj := withServerAvailable(controlPlaneHCloudMachine("cp-0"), metav1.ConditionFalse)
+		newObj := withServerAvailable(controlPlaneHCloudMachine("cp-0"), metav1.ConditionTrue)
+		require.True(t, predicate.Update(event.UpdateEvent{ObjectOld: oldObj, ObjectNew: newObj}))
+	})
+
+	t.Run("update: worker machine ServerAvailable transitions to True", func(t *testing.T) {
+		oldObj := withServerAvailable(workerHCloudMachine("md-0"), metav1.ConditionFalse)
+		newObj := withServerAvailable(workerHCloudMachine("md-0"), metav1.ConditionTrue)
+		require.False(t, predicate.Update(event.UpdateEvent{ObjectOld: oldObj, ObjectNew: newObj}))
+	})
+
+	t.Run("update: control plane machine ServerAvailable stays True", func(t *testing.T) {
+		oldObj := withServerAvailable(controlPlaneHCloudMachine("cp-0"), metav1.ConditionTrue)
+		newObj := withServerAvailable(controlPlaneHCloudMachine("cp-0"), metav1.ConditionTrue)
+		require.False(t, predicate.Update(event.UpdateEvent{ObjectOld: oldObj, ObjectNew: newObj}))
+	})
+
+	t.Run("delete: control plane machine", func(t *testing.T) {
+		require.True(t, predicate.Delete(event.DeleteEvent{Object: controlPlaneHCloudMachine("cp-0")}))
+	})
+
+	t.Run("delete: worker machine", func(t *testing.T) {
+		require.False(t, predicate.Delete(event.DeleteEvent{Object: workerHCloudMachine("md-0")}))
+	})
+
+	t.Run("update: bare metal control plane machine uses its own condition type", func(t *testing.T) {
+		oldObj := &infrav2.HetznerBareMetalMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cp-0",
+				Namespace: "default",
+				Labels:    map[string]string{clusterv1.MachineControlPlaneLabel: ""},
+			},
+		}
+		newObj := oldObj.DeepCopy()
+		conditions.Set(newObj, metav1.Condition{
+			Type:   string(infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition),
+			Status: metav1.ConditionTrue,
+			Reason: "reason",
+		})
+		require.True(t, predicate.Update(event.UpdateEvent{ObjectOld: oldObj, ObjectNew: newObj}))
+	})
+}
+
 func TestWorkloadClusterSecretNames(t *testing.T) {
 	testCases := []struct {
 		name       string
@@ -660,7 +735,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			hcloudClient       hcloudclient.Client
 		)
 		BeforeEach(func() {
-			testNs, err = testEnv.ResetAndCreateNamespace(ctx, "cluster-tests")
+			var finish func()
+			testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "cluster-tests")
+			defer finish()
 			Expect(err).NotTo(HaveOccurred())
 			hcloudClient = testEnv.HCloudClientFactory.NewClient("fake-token")
 
@@ -1344,7 +1421,8 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
 				Eventually(func() bool {
-					return isPresentAndTrueDeprecatedV1Beta1(key, instance, infrav2.NetworkReadyV1Beta1Condition)
+					return isPresentAndTrueDeprecatedV1Beta1(key, instance, infrav2.NetworkReadyV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, instance, infrav2.HetznerClusterNetworkReadyCondition, string(infrav2.HetznerClusterNetworkReadyReason))
 				}, timeout).Should(BeTrue())
 			},
 			)
@@ -1380,7 +1458,7 @@ func createCapiAndHcloudMachines(ctx context.Context, env *helpers.TestEnvironme
 		return err
 	}
 
-	hcloudMachine := &infrav1.HCloudMachine{
+	hcloudMachine := &infrav2.HCloudMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hcloudMachineName,
 			Namespace: namespace,
@@ -1394,7 +1472,7 @@ func createCapiAndHcloudMachines(ctx context.Context, env *helpers.TestEnvironme
 				},
 			},
 		},
-		Spec: infrav1.HCloudMachineSpec{
+		Spec: infrav2.HCloudMachineSpec{
 			ImageName: "my-control-plane",
 			Type:      "cpx32",
 		},
@@ -1416,7 +1494,9 @@ var _ = Describe("Hetzner secret", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hetzner-secret")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hetzner-secret")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -1514,7 +1594,9 @@ var _ = Describe("HetznerCluster validation", func() {
 	)
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 	})
 	AfterEach(func() {
@@ -1629,36 +1711,46 @@ var _ = Describe("reconcileRateLimit", func() {
 	})
 
 	It("returns wait==true if HCloudRateLimitExceeded condition is True and time is not over (v1beta2)", func() {
-		hcloudMachine := &infrav1.HCloudMachine{}
-		v1beta1conditions.MarkFalse(hcloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
-		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+		// A still-v1beta1 object is used to exercise the v1beta1 rate-limit helper.
+		// HetznerBareMetalMachine is one of the resources still on v1beta1 and carries the same staged
+		// v1beta2 conditions.
+		// TODO: remove this test once reconcileRateLimitV1Beta1 is gone (every resource on v1beta2, only
+		// reconcileRateLimit left).
+		bmMachine := &infrav1.HetznerBareMetalMachine{}
+		v1beta1conditions.MarkFalse(bmMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
+		v1beta2conditions.Set(bmMachine, metav1.Condition{
 			Type:               infrav1.HCloudRateLimitExceededV1Beta2Condition,
 			Status:             metav1.ConditionTrue,
 			Reason:             infrav1.HCloudRateLimitExceededV1Beta2Reason,
 			LastTransitionTime: metav1.Now(),
 		})
-		Expect(reconcileRateLimitV1Beta1(hcloudMachine, testEnv.RateLimitWaitTime)).To(BeTrue())
-		rateLimitCond := v1beta2conditions.Get(hcloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)
+		Expect(reconcileRateLimitV1Beta1(bmMachine, testEnv.RateLimitWaitTime)).To(BeTrue())
+		rateLimitCond := v1beta2conditions.Get(bmMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)
 		Expect(rateLimitCond).NotTo(BeNil())
 		Expect(rateLimitCond.Status).To(Equal(metav1.ConditionTrue))
 		Expect(rateLimitCond.Reason).To(Equal(infrav1.HCloudRateLimitExceededV1Beta2Reason))
 	})
 
 	It("removes HCloudRateLimitExceeded condition and returns wait==false when wait time is over (v1beta2)", func() {
-		hcloudMachine := &infrav1.HCloudMachine{}
-		v1beta1conditions.MarkFalse(hcloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
-		conditionList := hcloudMachine.GetConditions()
+		// A still-v1beta1 object is used to exercise the v1beta1 rate-limit helper.
+		// HetznerBareMetalMachine is one of the resources still on v1beta1 and carries the same staged
+		// v1beta2 conditions.
+		// TODO: remove this test once reconcileRateLimitV1Beta1 is gone (every resource on v1beta2, only
+		// reconcileRateLimit left).
+		bmMachine := &infrav1.HetznerBareMetalMachine{}
+		v1beta1conditions.MarkFalse(bmMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
+		conditionList := bmMachine.GetConditions()
 		conditionList[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
-		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+		v1beta2conditions.Set(bmMachine, metav1.Condition{
 			Type:               infrav1.HCloudRateLimitExceededV1Beta2Condition,
 			Status:             metav1.ConditionTrue,
 			Reason:             infrav1.HCloudRateLimitExceededV1Beta2Reason,
 			LastTransitionTime: metav1.NewTime(time.Now().Add(-time.Hour)),
 		})
-		Expect(reconcileRateLimitV1Beta1(hcloudMachine, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(reconcileRateLimitV1Beta1(bmMachine, testEnv.RateLimitWaitTime)).To(BeFalse())
 		// Condition must be deleted (not just set to False) so the next API call
 		// determines the real rate-limit status instead of assuming it is gone.
-		Expect(v1beta2conditions.Has(hcloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)).To(BeFalse())
+		Expect(v1beta2conditions.Has(bmMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)).To(BeFalse())
 	})
 
 	It("returns wait==false if rate limit condition is present but not exceeded", func() {
@@ -1791,6 +1883,22 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		condition := deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.ControlPlaneEndpointSetV1Beta1Condition)
 		if condition.Status != corev1.ConditionFalse {
 			t.Fatalf("condition status should be false")
+		}
+	})
+
+	t.Run("does not panic if load balancer is enabled but Status.ControlPlaneLoadBalancer itself is nil (load balancer not reconciled yet)", func(t *testing.T) {
+		hetznerCluster := &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
+					Enabled: true,
+				},
+			},
+		}
+
+		processControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != "" || hetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
+			t.Fatalf("ControlPlaneEndpoint should not be set when the load balancer is not reconciled yet")
 		}
 	})
 

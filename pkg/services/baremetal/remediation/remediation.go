@@ -25,16 +25,18 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch" // patches the still-v1beta1 HetznerBareMetalHost
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1" // HetznerBareMetalHost is still on v1beta1
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
 )
@@ -71,6 +73,16 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			"exit remediation because hbmm has no host annotation")
 	}
 
+	// Node is gone, so a reboot won't help. Skip reboot and honor OnExhaustion right
+	// away, the same way handlePhaseWaiting does once retries are exhausted.
+	if conditions.GetReason(s.scope.Machine, clusterv1.MachineHealthCheckSucceededCondition) == clusterv1.MachineHealthCheckNodeDeletedReason {
+		if s.scope.BareMetalRemediation.Spec.Strategy.OnExhaustion == infrav2.OnExhaustionRetire {
+			return reconcile.Result{}, s.retireHost(ctx, host, s.scope.Machine)
+		}
+		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
+			"exit remediation because Node is missing (no reboot performed)")
+	}
+
 	if host.Spec.Status.HasFatalError() {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
 			fmt.Sprintf("exit remediation because host has error: %s: %s",
@@ -91,7 +103,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			"exit remediation because host is in maintenance mode")
 	}
 
-	if s.scope.BareMetalRemediation.Spec.Strategy.Type != infrav1.RemediationTypeReboot {
+	if s.scope.BareMetalRemediation.Spec.Strategy.Type != infrav2.RemediationTypeReboot {
 		record.Warn(s.scope.BareMetalRemediation, "UnsupportedRemediationStrategy", "unsupported remediation strategy")
 		return reconcile.Result{}, nil
 	}
@@ -117,15 +129,15 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 
 	// If no phase set, default to running
 	if s.scope.BareMetalRemediation.Status.Phase == "" {
-		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseRunning
+		s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseRunning
 	}
 
 	switch s.scope.BareMetalRemediation.Status.Phase {
-	case infrav1.PhaseRunning:
+	case infrav2.PhaseRunning:
 		return s.handlePhaseRunning(ctx, host)
-	case infrav1.PhaseWaiting:
-		return s.handlePhaseWaiting(ctx)
-	case infrav1.PhaseDeleting, infrav1.PhaseSucceeded:
+	case infrav2.PhaseWaiting:
+		return s.handlePhaseWaiting(ctx, host)
+	case infrav2.PhaseDeleting, infrav2.PhaseSucceeded:
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, fmt.Errorf("internal error, unhandled BareMetalRemediation.Status.Phase: %v", s.scope.BareMetalRemediation.Status.Phase)
@@ -133,8 +145,18 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 }
 
 func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
+	// retryLimit 0 disables reboots (see RemediationStrategy.RetryLimit), so there
+	// is no remediation to perform. Mark the machine for deletion by CAPI.
+	if !s.scope.HasRetriesLeft() && s.scope.BareMetalRemediation.Status.LastRemediated.IsZero() {
+		if err := s.setOwnerRemediatedConditionToFailed(ctx, "exit remediation because retryLimit is 0 (no reboot performed)"); err != nil {
+			record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
+			return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
+		}
+		return reconcile.Result{}, nil
+	}
+
 	// if host has not been remediated yet, do that now
-	if s.scope.BareMetalRemediation.Status.LastRemediated == nil {
+	if s.scope.BareMetalRemediation.Status.LastRemediated.IsZero() {
 		if err := s.remediate(ctx, host); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed remediate host: %w", err)
 		}
@@ -142,8 +164,8 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerB
 
 	// if no retries are left, then change to phase waiting and return
 	if !s.scope.HasRetriesLeft() {
-		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseWaiting
-		return
+		s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseWaiting
+		return reconcile.Result{}, nil
 	}
 
 	nextRemediation := s.timeUntilNextRemediation(time.Now())
@@ -184,13 +206,13 @@ func (s *Service) remediate(ctx context.Context, host *infrav1.HetznerBareMetalH
 
 	// update status of BareMetalRemediation object
 	now := metav1.Now()
-	s.scope.BareMetalRemediation.Status.LastRemediated = &now
-	s.scope.BareMetalRemediation.Status.RetryCount++
+	s.scope.BareMetalRemediation.Status.LastRemediated = now
+	s.scope.BareMetalRemediation.Status.RetryCount = ptr.To(ptr.Deref(s.scope.BareMetalRemediation.Status.RetryCount, 0) + 1)
 
 	return nil
 }
 
-func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result, err error) {
+func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
 	nextCheck := s.timeUntilNextRemediation(time.Now())
 
 	if nextCheck > 0 {
@@ -207,15 +229,60 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result,
 			"reboot remediation succeeded: Node is healthy again")
 	}
 
+	// Reboots are exhausted and the node is still unhealthy, so the machine is deleted
+	// either way. Retire deletes it by setting a permanent error on the host (retireHost),
+	// which also keeps the host out of the pool. Without Retire we fall through to
+	// setOwnerRemediatedConditionToFailed below and the host can be provisioned again.
+	if s.scope.BareMetalRemediation.Spec.Strategy.OnExhaustion == infrav2.OnExhaustionRetire {
+		return reconcile.Result{}, s.retireHost(ctx, host, capiMachine)
+	}
+
 	return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx, "because retryLimit is reached and reboot timed out")
+}
+
+// retireHost sets a permanent error on the host so it leaves the cluster instead of
+// being reused. The permanent error deletes the machine through the HasFatalError path,
+// and skipHost keeps the host out of selection (the error is not cleared on deprovision)
+// until a human removes the permanent-error annotation.
+func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetalHost, capiMachine *clusterv1.Machine) error {
+	patchHelper, err := v1beta1patch.NewHelper(host, s.scope.Client)
+	if err != nil {
+		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
+	}
+
+	// The MachineHealthCheck writes the node condition that made the machine unhealthy onto
+	// the Machine's HealthCheckSucceeded condition. Use it as the reason so the permanent
+	// error explains why the host was retired. Fall back to how remediation ended when the
+	// Machine or the message is missing.
+	var reason string
+	if capiMachine != nil {
+		reason = conditions.GetMessage(capiMachine, clusterv1.MachineHealthCheckSucceededCondition)
+	}
+	if reason == "" {
+		// RetryCount is the number of reboots attempted; it is 0 when retryLimit is 0.
+		reason = "retryLimit is 0, node retired without a reboot attempt"
+		if retryCount := ptr.Deref(s.scope.BareMetalRemediation.Status.RetryCount, 0); retryCount > 0 {
+			reason = fmt.Sprintf("node still unhealthy after %d failed reboot(s)", retryCount)
+		}
+	}
+	host.SetError(infrav1.PermanentError, reason)
+
+	if err := patchHelper.Patch(ctx, host); err != nil {
+		return fmt.Errorf("failed to patch: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
+	}
+
+	record.Warn(s.scope.BareMetalRemediation, "HostRetired", reason)
+
+	s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseDeleting
+	return nil
 }
 
 // timeUntilNextRemediation checks if it is time to execute a next remediation step
 // and returns seconds to next remediation time.
 func (s *Service) timeUntilNextRemediation(now time.Time) time.Duration {
-	timeout := s.scope.BareMetalRemediation.Spec.Strategy.Timeout.Duration
+	timeout := time.Duration(s.scope.BareMetalRemediation.Spec.Strategy.TimeoutSeconds) * time.Second
 	// status is not updated yet
-	if s.scope.BareMetalRemediation.Status.LastRemediated == nil {
+	if s.scope.BareMetalRemediation.Status.LastRemediated.IsZero() {
 		return timeout
 	}
 
@@ -240,7 +307,7 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 		record.Event(s.scope.BareMetalRemediation, "CapiMachineGone", "CAPI machine does not exist. Remediation will be stopped. Infra Machine will be deleted soon by GC.")
 
 		// do not retry
-		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
+		s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseDeleting
 		return nil
 	}
 
@@ -278,7 +345,7 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	record.Event(s.scope.BareMetalRemediation, "ExitRemediation", msg)
 
 	// do not retry
-	s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
+	s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseDeleting
 	return nil
 }
 
@@ -318,7 +385,7 @@ func (s *Service) markRemediationSucceeded(ctx context.Context, capiMachine *clu
 
 	record.Event(s.scope.BareMetalRemediation, "RemediationSucceeded", msg)
 
-	s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseSucceeded
+	s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseSucceeded
 	return nil
 }
 
@@ -332,7 +399,7 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 			return fmt.Errorf("failed to get capi machine: %w", err)
 		}
 		record.Event(s.scope.BareMetalRemediation, "CapiMachineGone", "CAPI machine does not exist. Remediation will be stopped. Infra Machine will be deleted soon by GC.")
-		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
+		s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseDeleting
 		return nil
 	}
 
@@ -346,14 +413,14 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 	deprecatedv1beta1conditions.MarkFalse(
 		capiMachine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
-		infrav1.RemediationCooldownTriggeredReason,
+		infrav2.RemediationCooldownTriggeredV1Beta1Reason,
 		clusterv1.ConditionSeverityWarning,
 		"Remediation cooldown active (machine will be deleted): %s", msg,
 	)
 	conditions.Set(capiMachine, metav1.Condition{
 		Type:    clusterv1.MachineOwnerRemediatedCondition,
 		Status:  metav1.ConditionFalse,
-		Reason:  infrav1.RemediationCooldownTriggeredReason,
+		Reason:  infrav2.RemediationCooldownTriggeredReason,
 		Message: fmt.Sprintf("Remediation cooldown active (machine will be deleted): %s", msg),
 	})
 
@@ -363,7 +430,7 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 
 	record.Event(s.scope.BareMetalRemediation, "RemediationSkipped", msg)
 
-	s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
+	s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseDeleting
 	return nil
 }
 

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -73,6 +74,12 @@ type HetznerBareMetalHostReconciler struct {
 	Namespace string
 	// WorkloadClusterClientFactory overrides the default real factory. Intended for tests only.
 	WorkloadClusterClientFactory scope.WorkloadClusterClientFactory
+
+	// ReconcileGate, when non-nil, is held as a read lock for the full duration of each Reconcile
+	// call. Between tests, the test setup holds it as a write lock while swapping mock clients.
+	// A write lock can only be acquired once all read lock holders (in-flight reconciles) finish,
+	// so mock clients are never swapped while a Reconcile is running.
+	ReconcileGate *sync.RWMutex
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete
@@ -81,6 +88,11 @@ type HetznerBareMetalHostReconciler struct {
 
 // Reconcile implements the reconcilement of HetznerBareMetalHost objects.
 func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
+	if r.ReconcileGate != nil {
+		r.ReconcileGate.RLock()
+		defer r.ReconcileGate.RUnlock()
+	}
+
 	log := ctrl.LoggerFrom(ctx)
 
 	if r.Namespace != "" && req.Namespace != r.Namespace {
@@ -187,11 +199,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			log.Info("Provisioning state changed", "from", initialProvisioningState, "to", bmHost.Spec.Status.ProvisioningState)
 		}
 
-		// remove deprecated conditions.
-		v1beta1conditions.Delete(bmHost, infrav1.DeprecatedHetznerBareMetalHostReadyCondition)
-		v1beta1conditions.Delete(bmHost, infrav1.DeprecatedHostProvisionSucceededCondition)
-		v1beta1conditions.Delete(bmHost, infrav1.DeprecatedRateLimitExceededCondition)
-
 		v1beta1conditions.SetSummary(bmHost)
 		scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
 
@@ -203,9 +210,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}()
 
 	// Add a finalizer to newly created objects.
-	if bmHost.DeletionTimestamp.IsZero() &&
-		(controllerutil.AddFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
-			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer)) {
+	if bmHost.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -354,9 +359,8 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(bmHost *infrav1
 			Status: metav1.ConditionTrue,
 			Reason: infrav1.HetznerBareMetalHostDeletingV1Beta2Reason,
 		})
-		// remove finalizers.
+		// remove finalizer.
 		controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer)
-		controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer)
 		return reconcile.Result{Requeue: true}
 	}
 	return ctrl.Result{}
@@ -594,6 +598,8 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 	return nil
 }
 
+// removePermanentErrorIfAnnotationIsGone clears the permanent error status once the user removes
+// the permanent-error annotation.
 func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost,
 ) (removed bool) {
 	if bmHost.Spec.Status.ErrorType != infrav1.PermanentError {
@@ -606,9 +612,12 @@ func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost
 			return false
 		}
 	}
+
 	bmHost.Spec.Status.ErrorType = ""
 	bmHost.Spec.Status.ErrorMessage = ""
 	bmHost.Spec.Status.ErrorCount = 0
+	v1beta1conditions.Delete(bmHost, infrav1.ActionCompletedCondition)
+	v1beta2conditions.Delete(bmHost, infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition)
 	record.Eventf(bmHost, "PermanentErrorWasRemoved", "The permanent error was removed, because the annotation %q was removed",
 		infrav1.PermanentErrorAnnotation)
 	return true

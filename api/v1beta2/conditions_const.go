@@ -31,6 +31,10 @@ const (
 	LoadBalancerServiceSyncFailedV1Beta1Reason = "LoadBalancerServiceSyncFailed"
 	// LoadBalancerFailedToOwnV1Beta1Reason used when no owned label could be set on a load balancer.
 	LoadBalancerFailedToOwnV1Beta1Reason = "LoadBalancerFailedToOwn"
+	// LoadBalancerWaitingToActivateProxyProtocolV1Beta1Reason used while proxy protocol activation waits for all control-plane machines to be annotated.
+	LoadBalancerWaitingToActivateProxyProtocolV1Beta1Reason = "LoadBalancerWaitingToActivateProxyProtocol"
+	// LoadBalancerWaitingToActivateHTTPHealthCheckV1Beta1Reason used while the switch to an http health check waits for all control-plane machines to be annotated.
+	LoadBalancerWaitingToActivateHTTPHealthCheckV1Beta1Reason = "LoadBalancerWaitingToActivateHTTPHealthCheck"
 )
 
 const (
@@ -235,31 +239,6 @@ const (
 	DeletionInProgressV1Beta1Reason = "DeletionInProgress"
 )
 
-// deprecated conditions.
-
-const (
-	// DeprecatedHostProvisionSucceededV1Beta1Condition indicates that a host has been provisioned.
-	DeprecatedHostProvisionSucceededV1Beta1Condition clusterv1.ConditionType = "HostProvisionSucceeded"
-
-	// DeprecatedInstanceReadyV1Beta1Condition reports on current status of the instance. Ready indicates the instance is in a Running state.
-	DeprecatedInstanceReadyV1Beta1Condition clusterv1.ConditionType = "InstanceReady"
-
-	// DeprecatedInstanceBootstrapReadyV1Beta1Condition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
-	DeprecatedInstanceBootstrapReadyV1Beta1Condition clusterv1.ConditionType = "InstanceBootstrapReady"
-
-	// DeprecatedNetworkAttachedV1Beta1Condition reports on whether there is a network attached to the cluster.
-	DeprecatedNetworkAttachedV1Beta1Condition clusterv1.ConditionType = "NetworkAttached"
-
-	// DeprecatedLoadBalancerAttachedToNetworkV1Beta1Condition reports on whether the load balancer is attached to a network.
-	DeprecatedLoadBalancerAttachedToNetworkV1Beta1Condition clusterv1.ConditionType = "LoadBalancerAttachedToNetwork"
-
-	// DeprecatedHetznerBareMetalHostReadyV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedHetznerBareMetalHostReadyV1Beta1Condition clusterv1.ConditionType = "HetznerBareMetalHostReady"
-
-	// DeprecatedAssociateBMHV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedAssociateBMHV1Beta1Condition clusterv1.ConditionType = "AssociateBMHCondition"
-)
-
 const (
 	// RebootSucceededV1Beta1Condition indicates that the machine got rebooted successfully.
 	RebootSucceededV1Beta1Condition clusterv1.ConditionType = "RebootSucceeded"
@@ -286,6 +265,8 @@ const (
 	GetWorkloadClusterClientFailedV1Beta1Reason = "GetWorkloadClusterClientFailed"
 	// GetNodeInWorkloadClusterFailedV1Beta1Reason indicates failure in fetching the node object from the workload cluster.
 	GetNodeInWorkloadClusterFailedV1Beta1Reason = "GetNodeInWorkloadClusterFailed"
+	// NodeNotFoundV1Beta1Reason indicates the node object does not exist in the workload cluster.
+	NodeNotFoundV1Beta1Reason = "NodeNotFound"
 	// BootIDEmptyV1Beta1Reason indicates that an empty boot ID is present on the node object.
 	BootIDEmptyV1Beta1Reason = "BootIDEmpty"
 )
@@ -342,6 +323,12 @@ const (
 	HetznerClusterLoadBalancerUpdateFailedReason = "UpdateFailed"
 	// HetznerClusterLoadBalancerDeletionFailedReason indicates that an error occurred during load balancer delete.
 	HetznerClusterLoadBalancerDeletionFailedReason = "DeletionFailed"
+	// HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason indicates that proxy protocol activation is
+	// waiting for all control-plane machines to be annotated.
+	HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason = "WaitingToActivateProxyProtocol"
+	// HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason indicates that the switch to an http
+	// health check is waiting for all control-plane machines to be annotated.
+	HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason = "WaitingToActivateHTTPHealthCheck"
 )
 
 const (
@@ -388,6 +375,180 @@ const (
 
 	// HetznerClusterDeletingReason surfaces when the HetznerCluster is being deleted.
 	HetznerClusterDeletingReason = clusterv1.DeletingReason
+)
+
+// HCloudMachine's v1beta2 conditions.
+
+const (
+	// HCloudMachineServerCreatedCondition reports on whether the HCloud server was created.
+	HCloudMachineServerCreatedCondition = "ServerCreated"
+	// HCloudMachineServerCreatedReason surfaces when the HCloud server has been created.
+	HCloudMachineServerCreatedReason = "Created"
+	// HCloudMachineServerWaitingForBootstrapDataReason surfaces when the server cannot be created because bootstrap data is not yet available.
+	HCloudMachineServerWaitingForBootstrapDataReason = clusterv1.WaitingForBootstrapDataReason
+	// HCloudMachineServerCreationFailedIrrecoverablyReason surfaces an irrecoverable create failure.
+	HCloudMachineServerCreationFailedIrrecoverablyReason = "CreationFailedIrrecoverably"
+	// HCloudMachineServerImageNotFoundReason surfaces when the specified image cannot be found.
+	HCloudMachineServerImageNotFoundReason = "ImageNotFound"
+	// HCloudMachineServerImageAmbiguousReason surfaces when multiple images match the specified name.
+	HCloudMachineServerImageAmbiguousReason = "ImageAmbiguous"
+	// HCloudMachineServerTypeNotFoundReason surfaces when the specified server type cannot be found.
+	HCloudMachineServerTypeNotFoundReason = "ServerTypeNotFound"
+	// HCloudMachineServerSSHKeyNotFoundReason surfaces when a required SSH key is not present in HCloud.
+	HCloudMachineServerSSHKeyNotFoundReason = "SSHKeyNotFound"
+	// HCloudMachineServerPlacementGroupNotFoundReason surfaces when the specified placement group does not exist.
+	HCloudMachineServerPlacementGroupNotFoundReason = "PlacementGroupNotFound"
+	// HCloudMachineServerCreationFailedReason surfaces when creating the hcloud server fails,
+	// either because the CreateServer call fails or because the create action fails afterwards.
+	HCloudMachineServerCreationFailedReason = "CreationFailed"
+
+	// HCloudMachineSSHPrivateKeyAvailableCondition reports whether the SSH private key used to connect to
+	// the rescue system is available. It is only evaluated for the imageURL flow, which installs the image
+	// over SSH in the rescue system, both before creating the server and while provisioning it.
+	HCloudMachineSSHPrivateKeyAvailableCondition = "SSHPrivateKeyAvailable"
+	// HCloudMachineSSHPrivateKeyAvailableReason indicates the SSH private key is available.
+	HCloudMachineSSHPrivateKeyAvailableReason = clusterv1.AvailableReason
+	// HCloudMachineSSHPrivateKeySecretRefNotConfiguredReason indicates HetznerCluster.Spec.SSHKeys.RescueSecretRef.Name is empty.
+	HCloudMachineSSHPrivateKeySecretRefNotConfiguredReason = "SecretRefNotConfigured"
+	// HCloudMachineSSHPrivateKeySecretNotFoundReason indicates the referenced secret does not exist.
+	HCloudMachineSSHPrivateKeySecretNotFoundReason = "SecretNotFound"
+	// HCloudMachineSSHPrivateKeyFieldEmptyReason indicates the private key field referenced in the secret is missing or empty.
+	HCloudMachineSSHPrivateKeyFieldEmptyReason = "FieldEmpty"
+)
+
+const (
+	// HCloudMachineServerProvisionedCondition reports on whether the HCloud server has completed
+	// boot-time provisioning (rescue boot, image install, OS startup).
+	HCloudMachineServerProvisionedCondition = "ServerProvisioned"
+	// HCloudMachineServerProvisionedReason surfaces when the boot state machine has completed.
+	HCloudMachineServerProvisionedReason = clusterv1.ProvisionedReason
+	// HCloudMachineCustomProvisionerRunningReason indicates the custom provisioner is running.
+	HCloudMachineCustomProvisionerRunningReason = "CustomProvisionerRunning"
+	// HCloudMachineCustomProvisionerFailedReason indicates the custom provisioner failed.
+	HCloudMachineCustomProvisionerFailedReason = "CustomProvisionerFailed"
+	// HCloudMachineBootStateUnsetTimedOutReason indicates the boot state unset timed out.
+	HCloudMachineBootStateUnsetTimedOutReason = "BootStateUnsetTimedOut"
+	// HCloudMachineBootStateInitializingReason indicates the boot state is being initialized.
+	HCloudMachineBootStateInitializingReason = "BootStateInitializing"
+	// HCloudMachineBootStateInitializingTimedOutReason indicates the boot state initialization timed out.
+	HCloudMachineBootStateInitializingTimedOutReason = "BootStateInitializingTimedOut"
+	// HCloudMachineProvisioningServerReason indicates the server is being provisioned.
+	HCloudMachineProvisioningServerReason = "Provisioning"
+	// HCloudMachineServerStatusUnknownReason indicates the hcloud server returned a status that the controller does not handle.
+	HCloudMachineServerStatusUnknownReason = "ServerStatusUnknown"
+	// HCloudMachineActionIDCreateServerNotSetReason indicates the ActionIDCreateServer status field is not set.
+	HCloudMachineActionIDCreateServerNotSetReason = "ActionIDCreateServerNotSet"
+	// HCloudMachineCreatingServerReason indicates the hcloud server is being created.
+	HCloudMachineCreatingServerReason = "CreatingServer"
+	// HCloudMachineGettingServerCreationStatusFailedReason indicates checking the server creation progress failed.
+	HCloudMachineGettingServerCreationStatusFailedReason = "GettingServerCreationStatusFailed"
+
+	// HCloudMachineWaitingForRescueSystemReason indicates waiting for the rescue system to be enabled.
+	HCloudMachineWaitingForRescueSystemReason = "WaitingForRescueSystem"
+	// HCloudMachineEnablingRescueSystemFailedReason indicates enabling the rescue system failed.
+	HCloudMachineEnablingRescueSystemFailedReason = "EnablingRescueSystemFailed"
+	// HCloudMachineEnablingRescueTimedOutReason indicates enabling rescue system timed out.
+	HCloudMachineEnablingRescueTimedOutReason = "EnablingRescueTimedOut"
+	// HCloudMachineActionIDForEnablingRescueSystemNotSetReason indicates the action ID for enabling rescue is not set.
+	HCloudMachineActionIDForEnablingRescueSystemNotSetReason = "ActionIDForEnablingRescueSystemNotSet"
+	// HCloudMachineEnablingRescueGetActionFailedReason indicates getting the rescue enable action failed.
+	HCloudMachineEnablingRescueGetActionFailedReason = "EnablingRescueGetActionFailed"
+	// HCloudMachineWaitingForEnablingRescueActionReason indicates waiting for the rescue enable action to finish.
+	HCloudMachineWaitingForEnablingRescueActionReason = "WaitingForEnablingRescueAction"
+	// HCloudMachineEnablingRescueActionFailedReason indicates the rescue enable action failed.
+	HCloudMachineEnablingRescueActionFailedReason = "EnablingRescueActionFailed"
+	// HCloudMachineEnablingRescueActionDoneReason indicates the rescue enable action is done.
+	HCloudMachineEnablingRescueActionDoneReason = "EnablingRescueActionDone"
+
+	// HCloudMachineRetryingSSHConnectionReason indicates the SSH connection is being retried.
+	HCloudMachineRetryingSSHConnectionReason = "RetryingSSHConnection"
+	// HCloudMachineGettingHostnameFailedReason indicates getting the hostname failed.
+	HCloudMachineGettingHostnameFailedReason = "GettingHostnameFailed"
+	// HCloudMachineUnexpectedHostnameReason indicates the remote hostname was unexpected.
+	HCloudMachineUnexpectedHostnameReason = "UnexpectedHostname"
+
+	// HCloudMachineBootingToRescueReason indicates the server is booting to rescue mode.
+	HCloudMachineBootingToRescueReason = "BootingToRescue"
+	// HCloudMachineBootingToRescueTimedOutReason indicates booting to rescue mode timed out.
+	HCloudMachineBootingToRescueTimedOutReason = "BootingToRescueTimedOut"
+
+	// HCloudMachineImageURLCommandNotAccessibleReason indicates the image URL command is not accessible.
+	HCloudMachineImageURLCommandNotAccessibleReason = "ImageURLCommandNotAccessible"
+	// HCloudMachineStartImageURLCommandFailedReason indicates starting the image URL command failed.
+	HCloudMachineStartImageURLCommandFailedReason = "StartImageURLCommandFailed"
+	// HCloudMachineStartImageURLCommandNonZeroExitCodeReason indicates the image URL command returned a non-zero exit code.
+	HCloudMachineStartImageURLCommandNonZeroExitCodeReason = "StartImageURLCommandNonZeroExitCode"
+	// HCloudMachineHCloudImageURLCommandRunningReason indicates the image URL command is running.
+	HCloudMachineHCloudImageURLCommandRunningReason = "HCloudImageURLCommandRunning"
+	// HCloudMachineRunningImageURLCommandTimedOutReason indicates the running image command timed out.
+	HCloudMachineRunningImageURLCommandTimedOutReason = "RunningImageURLCommandTimedOut"
+	// HCloudMachineImageURLCommandFailedReason indicates the image command failed.
+	HCloudMachineImageURLCommandFailedReason = "ImageURLCommandFailed"
+	// HCloudMachineBootingToRealOSReason indicates the server is booting to the real OS.
+	HCloudMachineBootingToRealOSReason = "BootingToRealOS"
+	// HCloudMachineBootingToRealOSTimedOutReason indicates booting to the real OS timed out.
+	HCloudMachineBootingToRealOSTimedOutReason = "BootingToRealOSTimedOut"
+
+	// HCloudMachineGettingServerImageFailedReason indicates getting the server image failed.
+	HCloudMachineGettingServerImageFailedReason = "GettingServerImageFailed"
+	// HCloudMachineGettingRawBootstrapDataFailedReason indicates getting the raw bootstrap data failed.
+	HCloudMachineGettingRawBootstrapDataFailedReason = "GettingRawBootstrapDataFailed"
+	// HCloudMachinePoweringOnServerFailedReason indicates powering on the server failed.
+	HCloudMachinePoweringOnServerFailedReason = "PoweringOnServerFailed"
+	// HCloudMachineServerOffReason indicates the server is off.
+	HCloudMachineServerOffReason = "ServerOff"
+	// HCloudMachineServerOffTimeoutReason indicates the server off timeout was reached.
+	HCloudMachineServerOffTimeoutReason = "ServerOffTimeoutReached"
+)
+
+const (
+	// HCloudMachineServerAvailableCondition reports on whether the HCloud server is available.
+	HCloudMachineServerAvailableCondition = "ServerAvailable"
+	// HCloudMachineServerAvailableReason surfaces when the HCloud server is available.
+	HCloudMachineServerAvailableReason = clusterv1.AvailableReason
+	// HCloudMachineServerNotFoundReason surfaces when the HCloud server cannot be found.
+	HCloudMachineServerNotFoundReason = "NotFound"
+	// HCloudMachineAttachingToNetworkFailedReason surfaces a network attachment failure.
+	HCloudMachineAttachingToNetworkFailedReason = "AttachingToNetworkFailed"
+	// HCloudMachineWaitingForAPIServerReason indicates waiting for the API server to be healthy.
+	HCloudMachineWaitingForAPIServerReason = "WaitingForAPIServer"
+	// HCloudMachineAttachingToLoadBalancerFailedReason surfaces a load balancer attachment failure.
+	HCloudMachineAttachingToLoadBalancerFailedReason = "AttachingToLoadBalancerFailed"
+	// HCloudMachineDeletingReason surfaces when the HCloudMachine is being deleted.
+	HCloudMachineDeletingReason = clusterv1.DeletingReason
+)
+
+// HCloudMachineTemplate's v1beta2 conditions.
+
+const (
+	// HCloudMachineTemplateAvailableCondition reports whether the HCloudMachineTemplate is available.
+	HCloudMachineTemplateAvailableCondition = clusterv1.AvailableCondition
+	// HCloudMachineTemplateAvailableReason surfaces when the HCloudMachineTemplate is available.
+	HCloudMachineTemplateAvailableReason = clusterv1.AvailableReason
+	// HCloudMachineTemplateOwnedByClusterClassReason surfaces when the HCloudMachineTemplate is owned by a ClusterClass.
+	HCloudMachineTemplateOwnedByClusterClassReason = "OwnedByClusterClass"
+	// HCloudMachineTemplateWaitingForOwnerClusterReason surfaces when the HCloudMachineTemplate is waiting for its owner Cluster.
+	HCloudMachineTemplateWaitingForOwnerClusterReason = "WaitingForOwnerCluster"
+	// HCloudMachineTemplateMissingInfrastructureRefReason surfaces when the owner Cluster has no infrastructure reference.
+	HCloudMachineTemplateMissingInfrastructureRefReason = "MissingInfrastructureRef"
+	// HCloudMachineTemplateServerTypeNotFoundReason surfaces when spec.template.spec.type is not a known HCloud server type.
+	HCloudMachineTemplateServerTypeNotFoundReason = "ServerTypeNotFound"
+)
+
+// HCloudRemediation's v1beta2 conditions.
+
+const (
+	// HCloudRemediationSkippedCondition reports that remediation was skipped because
+	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
+	HCloudRemediationSkippedCondition = "RemediationSkipped"
+	// HCloudRemediationIrrecoverableServerCreateFailureReason indicates remediation was skipped because
+	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
+	HCloudRemediationIrrecoverableServerCreateFailureReason = "IrrecoverableServerCreateFailure"
+	// RemediationCooldownTriggeredReason indicates that the machine became unhealthy
+	// again within the cooldown window following a prior remediation. Rather than
+	// rebooting again, the controller sets MachineOwnerRemediated to False so CAPI
+	// escalates by deleting the machine.
+	RemediationCooldownTriggeredReason = "RemediationCooldownTriggered"
 )
 
 // HetznerBareMetalHost's v1beta2 conditions.
@@ -474,6 +635,8 @@ const (
 	HetznerBareMetalHostGettingWorkloadClusterClientFailedReason = "GettingWorkloadClusterClientFailed"
 	// HetznerBareMetalHostGettingNodeInWorkloadClusterFailedReason indicates fetching the node object from the workload cluster failed.
 	HetznerBareMetalHostGettingNodeInWorkloadClusterFailedReason = "GettingNodeInWorkloadClusterFailed"
+	// HetznerBareMetalHostNodeNotFoundReason indicates the node object does not exist in the workload cluster.
+	HetznerBareMetalHostNodeNotFoundReason = "NodeNotFound"
 	// HetznerBareMetalHostBootIDEmptyReason indicates the boot ID on the node object is empty.
 	HetznerBareMetalHostBootIDEmptyReason = "BootIDEmpty"
 )

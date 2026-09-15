@@ -32,10 +32,6 @@ const (
 	// removing it from the apiserver.
 	HetznerBareMetalMachineFinalizer = "infrastructure.cluster.x-k8s.io/hetznerbaremetalmachine"
 
-	// DeprecatedBareMetalMachineFinalizer contains the old string.
-	// The controller will automatically update to the new string.
-	DeprecatedBareMetalMachineFinalizer = "hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io"
-
 	// BareMetalHostNamePrefix is a prefix for all hostNames of bare metal servers.
 	BareMetalHostNamePrefix = "bm-"
 )
@@ -44,6 +40,17 @@ var errUnknownSuffix = errors.New("unknown suffix")
 
 // ImageType defines the accepted image types.
 type ImageType string
+
+// DeviceStringType controls what CAPH passes as the device argument to CustomProvisioner.Command.
+// Allowed values are "" (same as "short"), "short", and "wwn".
+type DeviceStringType string
+
+const (
+	// DeviceStringTypeShort passes the short device name (e.g. "sda") to CustomProvisioner.Command.
+	DeviceStringTypeShort DeviceStringType = "short"
+	// DeviceStringTypeWWN passes the WWN (e.g. "eui.00253885910c8cec") to CustomProvisioner.Command.
+	DeviceStringTypeWWN DeviceStringType = "wwn"
+)
 
 const (
 	// ImageTypeTar defines the image type for tar files.
@@ -75,8 +82,15 @@ type HetznerBareMetalMachineSpec struct {
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
-	// InstallImage is the configuration that is used for the autosetup configuration for installing an OS via InstallImage.
-	InstallImage InstallImage `json:"installImage"`
+	// InstallImage provisions the machine with the Hetzner installimage tool.
+	// Exactly one of installImage or customProvisioner must be set.
+	// +optional
+	InstallImage *InstallImage `json:"installImage,omitempty"`
+
+	// CustomProvisioner provisions the machine with a custom command instead of installimage.
+	// Exactly one of installImage or customProvisioner must be set.
+	// +optional
+	CustomProvisioner *CustomProvisioner `json:"customProvisioner,omitempty"`
 
 	// HostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
 	// This is used to limit the set of HetznerBareMetalHost objects considered for
@@ -86,6 +100,11 @@ type HetznerBareMetalMachineSpec struct {
 
 	// SSHSpec gives a reference on the secret where SSH details are specified as well as ports for SSH.
 	SSHSpec SSHSpec `json:"sshSpec,omitempty"`
+
+	// SkipCheckDisk skips the CheckDisk step during provisioning.
+	// This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
+	// +optional
+	SkipCheckDisk bool `json:"skipCheckDisk,omitempty"`
 }
 
 // HostSelector specifies matching criteria for labels on BareMetalHosts.
@@ -159,22 +178,10 @@ type SSHSecretKeyRef struct {
 	PrivateKey string `json:"privateKey"`
 }
 
-// InstallImage defines the configuration for InstallImage.
+// InstallImage defines the configuration for provisioning a machine with the Hetzner installimage tool.
 type InstallImage struct {
 	// Image is the image to be provisioned. It defines the image for baremetal machine.
 	Image Image `json:"image"`
-
-	// ImageURLCommand is the basename of a command file below /shared on the controller pod which
-	// provisions a machine from Image.URL. CAPH copies that command into the rescue system and
-	// executes it there.
-	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
-	//
-	// ImageURLCommand must be set if the machine should be provisioned from Image.URL without
-	// installimage. The command name must start with image-url-command-.
-	// +kubebuilder:validation:Optional
-	// +optional
-	ImageURLCommand string `json:"imageURLCommand,omitempty"`
 
 	// PostInstallScript (Bash) is used for configuring commands that should be executed after installimage.
 	// It is passed along with the installimage command.
@@ -208,9 +215,27 @@ type InstallImage struct {
 	SwraidLevel int `json:"swraidLevel,omitempty"`
 }
 
-// UsesImageURLCommand reports whether the machine should be provisioned via image-url-command.
-func (installImage InstallImage) UsesImageURLCommand() bool {
-	return installImage.ImageURLCommand != ""
+// CustomProvisioner defines the configuration for provisioning a machine with a custom command
+// instead of the Hetzner installimage tool.
+type CustomProvisioner struct {
+	// URL is the location of the image that Command provisions the machine from. CAPH passes it to
+	// Command in the rescue system.
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url"`
+
+	// Command is the basename of a command file below /shared on the controller pod. CAPH copies
+	// that command into the rescue system and executes it there to provision the machine from URL.
+	//
+	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	// +kubebuilder:validation:MinLength=1
+	Command string `json:"command"`
+
+	// DeviceStringType instructs CAPH to either use the short device name, or the WWN when calling
+	// Command. "" and "short" both pass the short device name (e.g. "sda"); "wwn" passes the WWN
+	// (e.g. "eui.00253885910c8cec").
+	// +kubebuilder:validation:Enum="";short;wwn
+	// +optional
+	DeviceStringType DeviceStringType `json:"deviceStringType,omitempty"`
 }
 
 // Image defines the properties for the autosetup config.
@@ -316,7 +341,7 @@ type LVMDefinition struct {
 // HetznerBareMetalMachineStatus defines the observed state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineStatus struct {
 	// conditions represents the observations of a HetznerBareMetalMachine's current state.
-	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated and HostReady.
+	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady and ServerAvailable.
 	// +optional
 	// +listType=map
 	// +listMapKey=type
