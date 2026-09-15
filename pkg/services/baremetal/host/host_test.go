@@ -845,6 +845,60 @@ var _ = Describe("handleIncompleteBoot", func() {
 			}),
 		)
 	})
+
+	Context("connection refused", func() {
+		DescribeTable("keeps the reboot method in the host status while the timeout has not passed",
+			func(errorType infrav1.ErrorType) {
+				robotMock := robotmock.Client{}
+				robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
+
+				host := helpers.BareMetalHost("test-host", "default",
+					helpers.WithRebootTypes([]infrav1.RebootType{
+						infrav1.RebootTypeSoftware,
+						infrav1.RebootTypeHardware,
+					}),
+					helpers.WithSSHSpec(),
+					helpers.WithSSHStatus(),
+					helpers.WithError(errorType, "", 1),
+					helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Minute))),
+				)
+				service := newTestService(host, &robotMock, nil, nil, nil)
+
+				failed, err := service.handleIncompleteBoot(context.Background(), true, false, true)
+				Expect(err).To(Succeed())
+				Expect(failed).To(BeFalse())
+				Expect(host.Spec.Status.ErrorType).To(Equal(errorType))
+				Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
+			},
+			Entry("ssh reboot", infrav1.ErrorTypeSSHRebootTriggered),
+			Entry("software reboot", infrav1.ErrorTypeSoftwareRebootTriggered),
+			Entry("hardware reboot", infrav1.ErrorTypeHardwareRebootTriggered),
+		)
+
+		It("clears a stored ErrorTypeConnectionError once ssh answers again", func() {
+			robotMock := robotmock.Client{}
+			robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(nil, nil)
+			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
+			robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
+
+			host := helpers.BareMetalHost("test-host", "default",
+				helpers.WithRebootTypes([]infrav1.RebootType{
+					infrav1.RebootTypeSoftware,
+					infrav1.RebootTypeHardware,
+				}),
+				helpers.WithSSHSpec(),
+				helpers.WithSSHStatus(),
+				helpers.WithError(infrav1.ErrorTypeConnectionError, "", 1),
+				helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Hour))),
+			)
+			service := newTestService(host, &robotMock, nil, nil, nil)
+
+			failed, err := service.handleIncompleteBoot(context.Background(), true, true, false)
+			Expect(err).To(Succeed())
+			Expect(failed).To(BeFalse())
+			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeSSHRebootTriggered))
+		})
+	})
 })
 
 var _ = Describe("ensureSSHKey", func() {
@@ -1572,9 +1626,7 @@ var _ = Describe("actionRegistering", func() {
 
 			actResult := service.actionRegistering(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
-			if tc.expectedErrorType != infrav1.ErrorType("") {
-				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedErrorType))
-			}
+			Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedErrorType))
 		},
 		Entry("timeout", testCaseActionRegisteringIncompleteBoot{
 			getHostNameOutput: sshclient.Output{Err: timeout},
@@ -1582,7 +1634,7 @@ var _ = Describe("actionRegistering", func() {
 		}),
 		Entry("connectionRefused", testCaseActionRegisteringIncompleteBoot{
 			getHostNameOutput: sshclient.Output{Err: syscall.ECONNREFUSED},
-			expectedErrorType: infrav1.ErrorTypeConnectionError,
+			expectedErrorType: infrav1.ErrorType(""),
 		}),
 	)
 
@@ -1859,9 +1911,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 
 			actResult := service.actionEnsureProvisioned(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(in.expectedActionResult))
-			if in.expectedErrorType != infrav1.ErrorType("") {
-				Expect(host.Spec.Status.ErrorType).To(Equal(in.expectedErrorType))
-			}
+			Expect(host.Spec.Status.ErrorType).To(Equal(in.expectedErrorType))
 			if in.expectsSSHClientCallCloudInitStatus {
 				Expect(sshMock.AssertCalled(GinkgoT(), "CloudInitStatus", mock.Anything)).To(BeTrue())
 			} else {
@@ -1969,7 +2019,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
 				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorType(""),
+				expectedErrorType:                      infrav1.ErrorTypeSSHRebootTriggered,
 				expectsSSHClientCallCloudInitStatus:    true,
 				expectsSSHClientCallCheckSigterm:       false,
 				expectsSSHClientCallReboot:             true,
@@ -1986,7 +2036,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
 				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
+				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    false,
 				expectsSSHClientCallCheckSigterm:       false,
 				expectsSSHClientCallReboot:             false,
@@ -2060,6 +2110,64 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		Expect(actResult).To(BeAssignableToTypeOf(actionFailed{}))
 		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.FatalError))
 		Expect(host.Spec.Status.ErrorMessage).To(ContainSubstring("hardware reboot (to node) timed out"))
+	})
+
+	It("reports the host as still provisioning while the connection refused timeout has not passed", func() {
+		ctx := context.Background()
+		portAfterInstallImage := 24
+
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(portAfterInstallImage),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithError(infrav1.ErrorTypeSoftwareRebootTriggered, "", 1),
+			helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Minute))),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: syscall.ECONNREFUSED})
+
+		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+
+		Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionContinue{}))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeSoftwareRebootTriggered))
+
+		condition := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(condition).ToNot(BeNil())
+		Expect(condition.Reason).To(Equal(infrav1.StillProvisioningReason))
+	})
+
+	It("keeps failing with the same fatal error when the provisioned server keeps refusing the ssh connection", func() {
+		ctx := context.Background()
+		portAfterInstallImage := 24
+
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(portAfterInstallImage),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithError(infrav1.ErrorTypeSoftwareRebootTriggered, "", 1),
+			helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Hour))),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: syscall.ECONNREFUSED})
+
+		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+
+		for run := 1; run <= 3; run++ {
+			Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionFailed{}), "run %d", run)
+			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.FatalError), "run %d", run)
+			Expect(host.Spec.Status.ErrorCount).To(Equal(run), "run %d", run)
+
+			condition := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
+			Expect(condition).ToNot(BeNil(), "run %d", run)
+			Expect(condition.Reason).To(Equal(infrav1.SSHConnectionRefusedReason), "run %d", run)
+			Expect(condition.Message).To(ContainSubstring("wrong ssh port"), "run %d", run)
+		}
 	})
 })
 
