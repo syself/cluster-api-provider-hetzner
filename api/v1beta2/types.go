@@ -287,6 +287,36 @@ type LoadBalancerSpec struct {
 	// selects, so a switch converges without manual cleanup in the HCloud API.
 	// +optional
 	TargetAddressFamily LoadBalancerTargetAddressFamily `json:"targetAddressFamily,omitempty"`
+
+	// HealthCheck configures the health check the load balancer uses to determine whether the
+	// kube-apiserver service on a control-plane node is healthy. If omitted, the load balancer's
+	// default behavior (a plain TCP check, with Hetzner's default interval, timeout and retries)
+	// is unchanged.
+	//
+	// Switching Protocol to http or https lets the load balancer check the kube-apiserver's actual
+	// readiness (e.g. path "/readyz") instead of just whether the port accepts connections. Only
+	// the kube-apiserver service is affected; extra services are never given a custom health
+	// check. Doing so requires the kube-apiserver to serve that path without authentication,
+	// since the load balancer's health check request is unauthenticated. This is not configured
+	// by CAPH; the cluster operator must allow anonymous access to the configured path on the
+	// apiserver.
+	//
+	// On an existing cluster, switching from tcp to an http or https check waits until every
+	// control-plane infra machine carries the annotation
+	// capi.syself.com/http-health-check-for-controlplane-loadbalancer: "true", set on the
+	// control-plane infra machine template. This is checked on every reconcile, so it applies to
+	// every switch away from tcp, not only the first one. Until the annotation is there the tcp
+	// check stays in place, so the switch never marks a backend that does not yet answer the path
+	// unhealthy. This mirrors the proxy-protocol migration in EnableProxyProtocol. Any other change
+	// (e.g. a path or timeout change while already on http/https) is applied immediately, without
+	// this gate; nothing checks that the targets already pass the new check, so change these only
+	// once they do.
+	//
+	// Leaving HealthCheck out means CAPH does not manage the check, so a load balancer that
+	// already has one keeps it. Deleting the field after an http check was applied therefore does
+	// not undo that check.
+	// +optional
+	HealthCheck *LoadBalancerHealthCheckSpec `json:"healthCheck,omitempty"`
 }
 
 // TargetAddressFamilyOrDefault returns the address family to use for the "ip" targets of
@@ -319,6 +349,71 @@ func (spec LoadBalancerSpec) WantsIPv4() bool {
 func (spec LoadBalancerSpec) WantsIPv6() bool {
 	family := spec.TargetAddressFamilyOrDefault()
 	return family == LoadBalancerTargetAddressFamilyIPv6 || family == LoadBalancerTargetAddressFamilyDualStack
+}
+
+// LoadBalancerHealthCheckSpec configures the health check a load balancer service uses. Field
+// names mirror the Hetzner Cloud API's load balancer health_check object; see
+// https://docs.hetzner.cloud/reference/cloud#tag/load-balancer-actions/add_load_balancer_service
+// for the current defaults and limits.
+type LoadBalancerHealthCheckSpec struct {
+	// Protocol is the protocol used for the health check. If omitted, "tcp" is used, matching the
+	// load balancer's own default behavior.
+	// +kubebuilder:validation:Enum=tcp;http;https
+	// +kubebuilder:default=tcp
+	Protocol string `json:"protocol"`
+
+	// Port is the target port the check runs against. It defaults to the service's destination
+	// port. Set it when the health-check endpoint is served on a different port than the API
+	// server itself.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port *int `json:"port,omitempty"`
+
+	// IntervalSeconds is the time in seconds between two consecutive health checks. If omitted,
+	// Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec above).
+	// +optional
+	// +kubebuilder:validation:Minimum=3
+	// +kubebuilder:validation:Maximum=60
+	IntervalSeconds *int `json:"intervalSeconds,omitempty"`
+
+	// TimeoutSeconds is the time in seconds to wait for a health check attempt to succeed. If
+	// omitted, Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec
+	// above).
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=60
+	TimeoutSeconds *int `json:"timeoutSeconds,omitempty"`
+
+	// Retries is the number of consecutive failed health checks before a target is considered
+	// unhealthy. The same number of successful checks makes it healthy again. If omitted,
+	// Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec above).
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=5
+	Retries *int `json:"retries,omitempty"`
+
+	// Path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
+	// Protocol is http or https.
+	// +optional
+	Path *string `json:"path,omitempty"`
+
+	// Domain sets the Host header sent with the HTTP(S) health check request. Only valid when
+	// Protocol is http or https.
+	// +optional
+	Domain *string `json:"domain,omitempty"`
+
+	// Response is a string that must be contained in the HTTP(S) response for the check to pass.
+	// Only valid when Protocol is http or https.
+	// +optional
+	Response *string `json:"response,omitempty"`
+
+	// StatusCodes are the HTTP response status codes counted as healthy, for example ["200"].
+	// Single codes ("200") and wildcards ("2??") are both allowed. If empty, Hetzner's own default
+	// is used (see the API reference on LoadBalancerHealthCheckSpec above). Only valid when
+	// Protocol is http or https.
+	// +optional
+	StatusCodes []string `json:"statusCodes,omitempty"`
 }
 
 // LoadBalancerServiceSpec defines a load balancer Target.

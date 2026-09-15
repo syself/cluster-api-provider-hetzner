@@ -444,6 +444,42 @@ func fuzzyConversionTestFunc(scheme *runtime.Scheme, hub conversion.Hub, spoke c
 	})
 }
 
+// TestConvertHetznerBareMetalMachineCustomProvisioner verifies that a v1beta1 installImage that sets
+// imageURLCommand converts to a v1beta2 customProvisioner and back to the same installImage.
+func TestConvertHetznerBareMetalMachineCustomProvisioner(t *testing.T) {
+	src := HetznerBareMetalMachineSpec{
+		InstallImage: InstallImage{
+			Image:            Image{URL: "oci://ghcr.io/example/ubuntu:v1"},
+			ImageURLCommand:  "image-url-command-bm-test.sh",
+			DeviceStringType: DeviceStringTypeWWN,
+		},
+	}
+
+	var hub infrav2.HetznerBareMetalMachineSpec
+	if err := Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(&src, &hub, nil); err != nil {
+		t.Fatalf("convert to v1beta2 failed: %v", err)
+	}
+	if hub.InstallImage != nil {
+		t.Fatalf("installImage should be nil for the custom provisioner flow, got %#v", hub.InstallImage)
+	}
+	wantCustom := &infrav2.CustomProvisioner{
+		URL:              "oci://ghcr.io/example/ubuntu:v1",
+		Command:          "image-url-command-bm-test.sh",
+		DeviceStringType: infrav2.DeviceStringTypeWWN,
+	}
+	if !reflect.DeepEqual(hub.CustomProvisioner, wantCustom) {
+		t.Fatalf("customProvisioner mismatch:\n got: %#v\nwant: %#v", hub.CustomProvisioner, wantCustom)
+	}
+
+	var back HetznerBareMetalMachineSpec
+	if err := Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&hub, &back, nil); err != nil {
+		t.Fatalf("convert back to v1beta1 failed: %v", err)
+	}
+	if !reflect.DeepEqual(back.InstallImage, src.InstallImage) {
+		t.Fatalf("round trip installImage mismatch:\n got: %#v\nwant: %#v", back.InstallImage, src.InstallImage)
+	}
+}
+
 // TestHetznerBareMetalMachineConvertToPromoteV1Beta2Shape verifies that converting a v1beta1
 // HetznerBareMetalMachine to v1beta2 promotes the staged v1beta2 conditions, demotes the old
 // v1beta1 conditions, maps status.ready to status.initialization.provisioned, and moves the
@@ -786,6 +822,128 @@ func TestRemediationDurationToSeconds(t *testing.T) {
 				t.Fatalf("expected %d, got %d", tc.want, got)
 			}
 		})
+	}
+}
+
+// TestHCloudMachineTemplateConvertToPromoteV1Beta2Shape verifies that converting a v1beta1
+// HCloudMachineTemplate to v1beta2 promotes the staged v1beta2 conditions to status.conditions and
+// demotes the old v1beta1 conditions into status.deprecated.v1beta1.conditions.
+func TestHCloudMachineTemplateConvertToPromoteV1Beta2Shape(t *testing.T) {
+	legacyConditions := clusterv1beta1.Conditions{
+		{
+			Type:               clusterv1beta1.ConditionType("LegacyReady"),
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyReady",
+			Message:            "legacy condition",
+		},
+	}
+	v1beta2Conditions := []metav1.Condition{
+		{
+			Type:               infrav2.HCloudMachineTemplateAvailableCondition,
+			Status:             metav1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(2, 0),
+			Reason:             infrav2.HCloudMachineTemplateAvailableReason,
+			Message:            "template is available",
+		},
+	}
+
+	src := &HCloudMachineTemplate{
+		Status: HCloudMachineTemplateStatus{
+			OwnerType:  "Cluster",
+			Conditions: legacyConditions,
+			V1Beta2: &HCloudMachineTemplateV1Beta2Status{
+				Conditions: v1beta2Conditions,
+			},
+		},
+	}
+
+	dst := &infrav2.HCloudMachineTemplate{}
+	if err := src.ConvertTo(dst); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+
+	if !reflect.DeepEqual(dst.Status.Conditions, v1beta2Conditions) {
+		t.Fatalf("v1beta2 status.conditions mismatch:\n got: %#v\nwant: %#v", dst.Status.Conditions, v1beta2Conditions)
+	}
+	if got := dst.GetV1Beta1Conditions(); len(got) != 1 || got[0].Reason != "LegacyReady" {
+		t.Fatalf("deprecated v1beta1 conditions were not preserved: %#v", got)
+	}
+	if dst.Status.OwnerType != "Cluster" {
+		t.Fatalf("status.ownerType = %q, want %q", dst.Status.OwnerType, "Cluster")
+	}
+}
+
+// TestHCloudMachineTemplateConvertFromDemoteV1Beta2Shape verifies that converting a v1beta2
+// HCloudMachineTemplate back to v1beta1 demotes v1beta2-only fields into the compatibility locations
+// used by the v1beta1 API.
+func TestHCloudMachineTemplateConvertFromDemoteV1Beta2Shape(t *testing.T) {
+	legacyConditions := clusterv1.Conditions{
+		{
+			Type:               clusterv1.ConditionType("LegacyReady"),
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyReady",
+			Message:            "legacy condition",
+		},
+	}
+	v1beta2Conditions := []metav1.Condition{
+		{
+			Type:               infrav2.HCloudMachineTemplateAvailableCondition,
+			Status:             metav1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(2, 0),
+			Reason:             infrav2.HCloudMachineTemplateOwnedByClusterClassReason,
+			Message:            "template is available",
+		},
+	}
+
+	src := &infrav2.HCloudMachineTemplate{
+		Status: infrav2.HCloudMachineTemplateStatus{
+			OwnerType:  "ClusterClass",
+			Conditions: v1beta2Conditions,
+			Deprecated: &infrav2.HCloudMachineTemplateDeprecatedStatus{
+				V1Beta1: &infrav2.HCloudMachineTemplateV1Beta1DeprecatedStatus{
+					Conditions: legacyConditions,
+				},
+			},
+		},
+	}
+
+	dst := &HCloudMachineTemplate{}
+	if err := dst.ConvertFrom(src); err != nil {
+		t.Fatalf("failed to convert from v1beta2: %v", err)
+	}
+
+	if dst.Status.V1Beta2 == nil || !reflect.DeepEqual(dst.Status.V1Beta2.Conditions, v1beta2Conditions) {
+		t.Fatalf("staged status.v1beta2.conditions mismatch: %#v", dst.Status.V1Beta2)
+	}
+	if len(dst.Status.Conditions) != 1 || dst.Status.Conditions[0].Reason != "LegacyReady" {
+		t.Fatalf("deprecated v1beta1 conditions were not restored: %#v", dst.Status.Conditions)
+	}
+	if dst.Status.OwnerType != "ClusterClass" {
+		t.Fatalf("status.ownerType = %q, want %q", dst.Status.OwnerType, "ClusterClass")
+	}
+}
+
+// TestHCloudMachineTemplateConditionsNilRoundTrip verifies that a template with no conditions on
+// either surface converts both ways without growing an empty conditions wrapper.
+func TestHCloudMachineTemplateConditionsNilRoundTrip(t *testing.T) {
+	src := &HCloudMachineTemplate{Status: HCloudMachineTemplateStatus{OwnerType: "Cluster"}}
+
+	hub := &infrav2.HCloudMachineTemplate{}
+	if err := src.ConvertTo(hub); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+	if hub.Status.Conditions != nil || hub.Status.Deprecated != nil {
+		t.Fatalf("empty status grew condition fields: %#v", hub.Status)
+	}
+
+	restored := &HCloudMachineTemplate{}
+	if err := restored.ConvertFrom(hub); err != nil {
+		t.Fatalf("failed to convert back to v1beta1: %v", err)
+	}
+	if restored.Status.Conditions != nil || restored.Status.V1Beta2 != nil {
+		t.Fatalf("empty status grew condition fields on the way back: %#v", restored.Status)
 	}
 }
 
@@ -1306,9 +1464,33 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 				in.Deprecated = nil
 			}
 		},
+		// HCloudMachineTemplate v1beta1 status: collapse empty condition slices to nil, and drop the
+		// V1Beta2 wrapper unless it carries conditions, so the bare v1beta2 status.conditions round trips.
+		// Both fields are omitempty, so an empty list and a nil list are the same on the wire and a
+		// stored object never tells them apart.
 		func(in *HCloudMachineTemplateStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
-			in.V1Beta2 = nil
+			if len(in.Conditions) == 0 {
+				in.Conditions = nil
+			}
+			if in.V1Beta2 != nil && len(in.V1Beta2.Conditions) == 0 {
+				in.V1Beta2 = nil
+			}
+		},
+		// HCloudMachineTemplate v1beta2 status (hub side): conditions and the deprecated wrapper have the
+		// same empty-vs-nil ambiguity, so normalize them to make the round trip match. The deprecated
+		// wrapper survives only when it carries conditions.
+		func(in *infrav2.HCloudMachineTemplateStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if len(in.Conditions) == 0 {
+				in.Conditions = nil
+			}
+			if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil && len(in.Deprecated.V1Beta1.Conditions) == 0 {
+				in.Deprecated.V1Beta1.Conditions = nil
+			}
+			if in.Deprecated != nil && (in.Deprecated.V1Beta1 == nil || in.Deprecated.V1Beta1.Conditions == nil) {
+				in.Deprecated = nil
+			}
 		},
 		// HetznerBareMetalMachine v1beta1 status: collapse empty condition slices to nil, drop the
 		// V1Beta2 wrapper unless it carries conditions, and collapse a non-nil pointer to the zero time
@@ -1345,6 +1527,41 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 			if in.Deprecated != nil && (in.Deprecated.V1Beta1 == nil || in.Deprecated.V1Beta1.Conditions == nil) {
 				in.Deprecated = nil
+			}
+		},
+		// HetznerBareMetalMachine v1beta1 installImage: the flat v1beta1 shape carries both provisioning
+		// flows in one field, but v1beta2 splits them into installImage and customProvisioner. Only the
+		// fields of the selected flow survive the round trip, so drop the fields of the other flow.
+		func(in *InstallImage, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.UsesImageURLCommand() {
+				// custom provisioner flow: only image.url, imageURLCommand and deviceStringType survive.
+				in.Image.Name = ""
+				in.Image.Path = ""
+				in.PostInstallScript = ""
+				in.Partitions = nil
+				in.LVMDefinitions = nil
+				in.BTRFSDefinitions = nil
+				in.Swraid = 0
+				in.SwraidLevel = 0
+			} else {
+				// installimage flow: deviceStringType belongs to the custom provisioner flow.
+				in.DeviceStringType = ""
+			}
+		},
+		// HetznerBareMetalMachine v1beta2 spec (hub side): installImage and customProvisioner are mutually
+		// exclusive, so keep exactly one set. customProvisioner needs a command because that is what selects
+		// the flow when converting back to the single flat v1beta1 installImage.
+		func(in *infrav2.HetznerBareMetalMachineSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			switch {
+			case in.CustomProvisioner != nil:
+				in.InstallImage = nil
+				if in.CustomProvisioner.Command == "" {
+					in.CustomProvisioner.Command = "provision.sh" // any non-empty value works; the content is not read here
+				}
+			case in.InstallImage == nil:
+				in.InstallImage = &infrav2.InstallImage{}
 			}
 		},
 		// HCloudRemediation v1beta1 status: keep retryCount in the non-negative v1beta2 int32 range,

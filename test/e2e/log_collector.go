@@ -38,6 +38,7 @@ import (
 	kinderrors "sigs.k8s.io/kind/pkg/errors"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 const (
@@ -234,11 +235,11 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 		}
 		return hostIPAddr, nil
 	case "HCloudMachine":
-		hm := &infrav1.HCloudMachine{}
+		hm := &infrav2.HCloudMachine{}
 		if err := c.Get(ctx, key, hm); err != nil {
 			return "", fmt.Errorf("get HCloudMachine %s: %w", key, err)
 		}
-		hostIPAddr := externalIPFromAddresses(toV1Beta2Addresses(hm.Status.Addresses))
+		hostIPAddr := externalIPFromAddresses(hm.Status.Addresses)
 		if hostIPAddr == "" {
 			return "", fmt.Errorf("HCloudMachine %s has no ExternalIP in status.addresses: %+v", key, hm.Status.Addresses)
 		}
