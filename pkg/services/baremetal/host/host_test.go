@@ -47,10 +47,11 @@ var errTest = fmt.Errorf("test error")
 
 var _ = Describe("SetError and ClearError", func() {
 	type testCaseSetError struct {
-		errorType      infrav2.ErrorType
-		errorMessage   string
-		expectedStatus metav1.ConditionStatus
-		expectedReason string
+		errorType             infrav2.ErrorType
+		errorMessage          string
+		expectedStatus        metav1.ConditionStatus
+		expectedReason        string
+		expectedV1Beta1Reason string
 	}
 
 	DescribeTable("SetError sets the error type and the ActionCompleted condition",
@@ -66,30 +67,44 @@ var _ = Describe("SetError and ClearError", func() {
 			Expect(actionCompleted.Status).To(Equal(tc.expectedStatus))
 			Expect(actionCompleted.Reason).To(Equal(tc.expectedReason))
 			Expect(actionCompleted.Message).To(Equal(tc.errorMessage))
+
+			deprecated := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
+			Expect(deprecated).ToNot(BeNil())
+			if tc.expectedStatus == metav1.ConditionTrue {
+				Expect(deprecated.Status).To(Equal(corev1.ConditionTrue))
+			} else {
+				Expect(deprecated.Status).To(Equal(corev1.ConditionFalse))
+				Expect(deprecated.Reason).To(Equal(tc.expectedV1Beta1Reason))
+				Expect(deprecated.Message).To(Equal(tc.errorMessage))
+			}
 		},
 		Entry("registration error", testCaseSetError{
-			errorType:      infrav2.RegistrationError,
-			errorMessage:   "registration failed",
-			expectedStatus: metav1.ConditionFalse,
-			expectedReason: infrav2.HetznerBareMetalHostActionCompletedRegistrationErrorReason,
+			errorType:             infrav2.RegistrationError,
+			errorMessage:          "registration failed",
+			expectedStatus:        metav1.ConditionFalse,
+			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedRegistrationErrorReason,
+			expectedV1Beta1Reason: infrav2.ActionCompletedRegistrationErrorV1Beta1Reason,
 		}),
 		Entry("preparation error", testCaseSetError{
-			errorType:      infrav2.PreparationError,
-			errorMessage:   "preparation failed",
-			expectedStatus: metav1.ConditionFalse,
-			expectedReason: infrav2.HetznerBareMetalHostActionCompletedPreparationErrorReason,
+			errorType:             infrav2.PreparationError,
+			errorMessage:          "preparation failed",
+			expectedStatus:        metav1.ConditionFalse,
+			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedPreparationErrorReason,
+			expectedV1Beta1Reason: infrav2.ActionCompletedPreparationErrorV1Beta1Reason,
 		}),
 		Entry("provisioning error", testCaseSetError{
-			errorType:      infrav2.ProvisioningError,
-			errorMessage:   "provisioning failed",
-			expectedStatus: metav1.ConditionFalse,
-			expectedReason: infrav2.HetznerBareMetalHostActionCompletedProvisioningErrorReason,
+			errorType:             infrav2.ProvisioningError,
+			errorMessage:          "provisioning failed",
+			expectedStatus:        metav1.ConditionFalse,
+			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedProvisioningErrorReason,
+			expectedV1Beta1Reason: infrav2.ActionCompletedProvisioningErrorV1Beta1Reason,
 		}),
 		Entry("fatal error", testCaseSetError{
-			errorType:      infrav2.FatalError,
-			errorMessage:   "fatal failure",
-			expectedStatus: metav1.ConditionFalse,
-			expectedReason: infrav2.HetznerBareMetalHostActionCompletedFatalErrorReason,
+			errorType:             infrav2.FatalError,
+			errorMessage:          "fatal failure",
+			expectedStatus:        metav1.ConditionFalse,
+			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedFatalErrorReason,
+			expectedV1Beta1Reason: infrav2.ActionCompletedFatalErrorV1Beta1Reason,
 		}),
 		Entry("ssh reboot triggered", testCaseSetError{
 			errorType:      infrav2.ErrorTypeSSHRebootTriggered,
@@ -110,10 +125,11 @@ var _ = Describe("SetError and ClearError", func() {
 			expectedReason: infrav2.HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason,
 		}),
 		Entry("connection error", testCaseSetError{
-			errorType:      infrav2.ErrorTypeConnectionError,
-			errorMessage:   "connection error",
-			expectedStatus: metav1.ConditionFalse,
-			expectedReason: infrav2.HetznerBareMetalHostSSHConnectionRefusedReason,
+			errorType:             infrav2.ErrorTypeConnectionError,
+			errorMessage:          "connection error",
+			expectedStatus:        metav1.ConditionFalse,
+			expectedReason:        infrav2.HetznerBareMetalHostSSHConnectionRefusedReason,
+			expectedV1Beta1Reason: infrav2.SSHConnectionRefusedV1Beta1Reason,
 		}),
 	)
 
@@ -197,20 +213,14 @@ var _ = Describe("SetError and ClearError", func() {
 		Expect(host.ErrorMessage()).To(Equal("cloud init returned an error"))
 	})
 
-	It("ClearError clears the error type and reports the action as completed", func() {
+	It("ClearError removes the error type and both ActionCompleted conditions", func() {
 		host := helpers.BareMetalHost("test-host", "default")
 		host.SetError(infrav2.PermanentError, "permanent failure")
 
 		host.ClearError()
 
 		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorType("")))
-
-		actionCompleted := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
-		Expect(actionCompleted).ToNot(BeNil())
-		Expect(actionCompleted.Status).To(Equal(metav1.ConditionTrue))
-		Expect(actionCompleted.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedReason))
-		Expect(actionCompleted.Message).To(BeEmpty())
-
+		Expect(conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
 		Expect(deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)).To(BeNil())
 	})
 })
@@ -2537,9 +2547,7 @@ var _ = Describe("SetError and ClearError", func() {
 
 		host.ClearError()
 
-		ac = conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
-		Expect(ac).NotTo(BeNil())
-		Expect(ac.Status).To(Equal(metav1.ConditionTrue))
+		Expect(conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
 		Expect(host.Status.ErrorType).To(BeEmpty())
 	})
 })

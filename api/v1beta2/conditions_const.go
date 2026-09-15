@@ -272,11 +272,21 @@ const (
 )
 
 const (
-	// ActionCompletedV1Beta1Condition reports whether the last action on the host completed successfully.
-	// Absent on healthy hosts; only present when a permanent error has been recorded.
+	// ActionCompletedV1Beta1Condition reports whether the last action on the host completed without an
+	// error. The message carries the error text if an error occurs.
 	ActionCompletedV1Beta1Condition clusterv1.ConditionType = "ActionCompleted"
-	// ActionCompletedPermanentErrorV1Beta1Reason represents a fatal, non-recoverable error that persists on the host.
+	// ActionCompletedRegistrationErrorV1Beta1Reason indicates the server info could not be read or the spec is incomplete.
+	ActionCompletedRegistrationErrorV1Beta1Reason = "RegistrationError"
+	// ActionCompletedPreparationErrorV1Beta1Reason indicates a step before provisioning failed.
+	ActionCompletedPreparationErrorV1Beta1Reason = "PreparationError"
+	// ActionCompletedProvisioningErrorV1Beta1Reason indicates provisioning or deprovisioning failed.
+	ActionCompletedProvisioningErrorV1Beta1Reason = "ProvisioningError"
+	// ActionCompletedFatalErrorV1Beta1Reason indicates an unrecoverable error that deletes the machine.
+	ActionCompletedFatalErrorV1Beta1Reason = "FatalError"
+	// ActionCompletedPermanentErrorV1Beta1Reason indicates an error that stays on the host until an operator clears it.
 	ActionCompletedPermanentErrorV1Beta1Reason = "PermanentError"
+	// ActionCompletedUnknownErrorV1Beta1Reason is the fallback for an unrecognized error type.
+	ActionCompletedUnknownErrorV1Beta1Reason = "UnknownError"
 )
 
 // v1beta2 conditions.
@@ -673,11 +683,10 @@ const (
 
 const (
 	// HetznerBareMetalHostActionCompletedCondition reports whether the last action on the host completed
-	// without an error. The message carries the error text if an error occurs.
+	// without an error. It is absent when the host has nothing to report. The message carries the error
+	// text if an error occurs.
 	HetznerBareMetalHostActionCompletedCondition = "ActionCompleted"
 
-	// HetznerBareMetalHostActionCompletedReason indicates the last action completed without an error.
-	HetznerBareMetalHostActionCompletedReason = "Completed"
 	// HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason indicates a reboot via SSH was triggered.
 	HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason = "SSHRebootTriggered"
 	// HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason indicates a software reboot via the Robot API was triggered.
