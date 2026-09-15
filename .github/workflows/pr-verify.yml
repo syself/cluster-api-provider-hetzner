@@ -18,7 +18,7 @@ jobs:
     name: Verify Pull Request
     steps:
       - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Fix Env Var HOME
         uses: ./.github/actions/fixes
@@ -73,7 +73,7 @@ jobs:
           SSH_KEY_NAME: ${{ secrets.SSH_KEY_NAME || 'ci-key' }}
         run: make verify-generated-files
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "24"
       - name: Install renovate
@@ -103,7 +103,7 @@ jobs:
             }
       - name: Generate Labels
         if: github.event.pull_request.head.repo.full_name == github.repository # Skip forked PRs
-        uses: actions/labeler@f27b608878404679385c85cfa523b85ccb86e213 # v6
+        uses: actions/labeler@b8dd2d9be0f68b860e7dae5dae7d772984eacd6d # v6
         with:
           configuration-path: .github/labeler.yaml
       - name: Sync Labels
