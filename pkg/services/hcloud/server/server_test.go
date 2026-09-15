@@ -2413,12 +2413,32 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 		service.scope.HCloudMachine.Status.Initialization.Provisioned = ptr.To(true)
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateOperatingSystemRunning
-		// Setting HCloudTokenAvailableV1Beta2Condition here so the summary condition can be computed.
-		conditions.Set(service.scope.HCloudMachine, metav1.Condition{
-			Type:   infrav2.HCloudTokenAvailableCondition,
-			Status: metav1.ConditionTrue,
-			Reason: infrav2.HCloudTokenAvailableReason,
-		})
+
+		// A missing condition counts as Unknown in the Ready summary, so all four have to be set.
+		for _, c := range []metav1.Condition{
+			{
+				Type:   infrav2.HCloudTokenAvailableCondition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav2.HCloudTokenAvailableReason,
+			},
+			{
+				Type:   infrav2.HCloudMachineServerCreatedCondition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav2.HCloudMachineServerCreatedReason,
+			},
+			{
+				Type:   infrav2.HCloudMachineServerProvisionedCondition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav2.HCloudMachineServerProvisionedReason,
+			},
+			{
+				Type:   infrav2.HCloudMachineServerAvailableCondition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav2.HCloudMachineServerAvailableReason,
+			},
+		} {
+			conditions.Set(service.scope.HCloudMachine, c)
+		}
 
 		By("making GetServer return a rate-limit error")
 		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(nil, hcloud.Error{
