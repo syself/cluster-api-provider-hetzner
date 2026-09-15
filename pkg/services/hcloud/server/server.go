@@ -244,14 +244,10 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	// trying to access the api-server, so they get retried.
 	if hm.Spec.ImageURL != "" {
 		privateKey, err := s.getSSHPrivateKey(ctx)
-		if err != nil {
-			s.scope.Error(err, "")
-			if errors.Is(err, errSSHKeyMisconfigured) {
-				return reconcile.Result{}, nil
-			}
-			return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+		if err == nil {
+			err = s.checkSSHPrivateKeyMatchesHCloud(ctx, privateKey)
 		}
-		if err := s.checkSSHPrivateKeyMatchesHCloud(ctx, privateKey); err != nil {
+		if err != nil {
 			s.scope.Error(err, "")
 			if errors.Is(err, errSSHKeyMisconfigured) {
 				return reconcile.Result{}, nil
@@ -2481,24 +2477,20 @@ func (s *Service) checkSSHPrivateKeyMatchesHCloud(ctx context.Context, privateKe
 
 	hcloudSSHKeys, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{Name: sshKeyName})
 	if err != nil {
-		return fmt.Errorf("failed listing ssh keys from hcloud: %w", err)
+		return handleRateLimit(s.scope.HCloudMachine, err, "ListSSHKeys", "failed listing ssh keys from hcloud")
 	}
-
-	var hcloudSSHKey *hcloud.SSHKey
-	for _, key := range hcloudSSHKeys {
-		if key.Name == sshKeyName {
-			hcloudSSHKey = key
-			break
-		}
-	}
-	if hcloudSSHKey == nil {
+	if len(hcloudSSHKeys) == 0 {
 		// Not registered under that name. getSSHKeys() reports this as SSHKeyNotFound later on.
 		return nil
 	}
+	hcloudSSHKey := hcloudSSHKeys[0]
 
 	signer, err := ssh.ParsePrivateKey([]byte(privateKey))
 	if err != nil {
-		return fmt.Errorf("failed to parse ssh private key: %w", err)
+		msg := fmt.Sprintf("failed to parse private key in secret: %s", err)
+		s.scope.Error(err, msg)
+		s.markSSHPrivateKeyMismatch(msg)
+		return fmt.Errorf("%w: %s", errSSHKeyMisconfigured, msg)
 	}
 	fingerprint := ssh.FingerprintLegacyMD5(signer.PublicKey())
 
@@ -2508,23 +2500,29 @@ func (s *Service) checkSSHPrivateKeyMatchesHCloud(ctx context.Context, privateKe
 			sshKeyName, fingerprint, hcloudSSHKey.Fingerprint,
 		)
 		s.scope.Error(nil, msg)
-		deprecatedv1beta1conditions.MarkFalse(
-			s.scope.HCloudMachine,
-			infrav2.SSHPrivateKeyAvailableV1Beta1Condition,
-			infrav2.SSHPrivateKeyMismatchV1Beta1Reason,
-			clusterv1.ConditionSeverityError,
-			"%s", msg,
-		)
-		conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-			Type:    infrav2.HCloudMachineSSHPrivateKeyAvailableCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HCloudMachineSSHPrivateKeyMismatchReason,
-			Message: msg,
-		})
+		s.markSSHPrivateKeyMismatch(msg)
 		return fmt.Errorf("%w: %s", errSSHKeyMisconfigured, msg)
 	}
 
 	return nil
+}
+
+// markSSHPrivateKeyMismatch sets the SSHPrivateKeyAvailable conditions to false with a reason
+// indicating that the private key does not match what is registered in Hetzner Cloud.
+func (s *Service) markSSHPrivateKeyMismatch(msg string) {
+	deprecatedv1beta1conditions.MarkFalse(
+		s.scope.HCloudMachine,
+		infrav2.SSHPrivateKeyAvailableV1Beta1Condition,
+		infrav2.SSHPrivateKeyMismatchV1Beta1Reason,
+		clusterv1.ConditionSeverityError,
+		"%s", msg,
+	)
+	conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+		Type:    infrav2.HCloudMachineSSHPrivateKeyAvailableCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  infrav2.HCloudMachineSSHPrivateKeyMismatchReason,
+		Message: msg,
+	})
 }
 
 // getSSHClient uses HetznerCluster.Spec.SSHKeys.RescueSecretRef to get the ssh private key.

@@ -419,7 +419,7 @@ const (
 	HCloudMachineSSHPrivateKeyFieldEmptyReason = "FieldEmpty"
 	// HCloudMachineSSHPrivateKeyMismatchReason indicates the private key does not match the public key
 	// registered in Hetzner Cloud under the SSH key name used for server creation.
-	HCloudMachineSSHPrivateKeyMismatchReason = "KeyMismatch"
+	HCloudMachineSSHPrivateKeyMismatchReason = "Mismatch"
 )
 
 const (
