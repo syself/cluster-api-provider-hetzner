@@ -84,7 +84,7 @@ const (
 	SSHPrivateKeyFieldEmptyV1Beta1Reason = "SSHPrivateKeyFieldEmpty"
 	// SSHPrivateKeyMismatchV1Beta1Reason indicates that the private key does not match the public key
 	// registered in Hetzner Cloud under the SSH key name used for server creation.
-	SSHPrivateKeyMismatchV1Beta1Reason = "SSHPrivateKeyMismatch" //nolint:gosec
+	SSHPrivateKeyMismatchV1Beta1Reason = "SSHPrivateKeyMismatch"
 )
 
 const (
