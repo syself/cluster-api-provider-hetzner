@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-FROM docker.io/library/alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11 AS import-cache
+FROM docker.io/library/alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS import-cache
 
 RUN --mount=type=bind,target=/host-tmp \
     --mount=type=cache,target=/root/.cache \
@@ -27,7 +27,7 @@ RUN --mount=type=bind,target=/host-tmp \
       tar xzf /host-tmp/go-pkg-cache.tar.gz --no-same-owner -C /go/pkg; \
     fi
 
-FROM docker.io/library/alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11 AS cache-creator
+FROM docker.io/library/alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS cache-creator
 RUN --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/go/pkg \
     tar czf /tmp/go-build-cache.tar.gz -C /root/.cache/go-build . ; \
