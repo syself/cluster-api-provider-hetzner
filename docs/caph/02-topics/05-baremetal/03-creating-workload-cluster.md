@@ -1,17 +1,13 @@
 ---
 title: Creating a workload cluster with bare metal servers
-metatitle: Provisioning a Kubernetes Workload Cluster with Bare Metal Servers
-sidebar: Creating a workload cluster with bare metal servers
 description: Create workload clusters on Hetzner using bare metal servers as nodes in an automated way, using CAPI custom resources.
+metatitle: Provisioning a Kubernetes Workload Cluster with Bare Metal Servers
 ---
 
 ## Creating Workload Cluster
 
-{% callout %}
-
-Secrets as of now are hardcoded given we are using a flavor which is essentially a template. If you want to use your own naming convention for secrets then you'll have to update the templates. Please make sure that you pay attention to the sshkey name.
-
-{% /callout %}
+> [!NOTE]
+> Secrets as of now are hardcoded given we are using a flavor which is essentially a template. If you want to use your own naming convention for secrets then you'll have to update the templates. Please make sure that you pay attention to the sshkey name.
 
 For bare metal, use the Syself CCM until an upstream release includes [PR fix robot name lookup
 after stale cache miss](https://github.com/hetznercloud/hcloud-cloud-controller-manager/pull/1204).
@@ -94,19 +90,13 @@ chmod go-r workload-kubeconfig # required to avoid helm warning
 
 ## Deploy Cluster Addons
 
-{% callout %}
-
-This is important for the functioning of the cluster otherwise the cluster won't work.
-
-{% /callout %}
+> [!NOTE]
+> This is important for the functioning of the cluster otherwise the cluster won't work.
 
 ### Deploying the Hetzner Cloud Controller Manager
 
-{% callout %}
-
-This requires a secret containing access credentials to both Hetzner Robot and HCloud.
-
-{% /callout %}
+> [!NOTE]
+> This requires a secret containing access credentials to both Hetzner Robot and HCloud.
 
 For bare metal, use the Syself CCM until an upstream release includes [PR fix robot name lookup
 after stale cache miss](https://github.com/hetznercloud/hcloud-cloud-controller-manager/pull/1204).

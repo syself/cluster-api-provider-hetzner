@@ -52,9 +52,10 @@ type Client interface {
 	AddIPTargetToLoadBalancer(context.Context, hcloud.LoadBalancerAddIPTargetOpts, *hcloud.LoadBalancer) error
 	DeleteIPTargetOfLoadBalancer(context.Context, *hcloud.LoadBalancer, net.IP) error
 	AddServiceToLoadBalancer(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerAddServiceOpts) error
+	UpdateServiceOnLoadBalancer(context.Context, *hcloud.LoadBalancer, int, hcloud.LoadBalancerUpdateServiceOpts) error
 	DeleteServiceFromLoadBalancer(context.Context, *hcloud.LoadBalancer, int) error
 	ListImages(context.Context, hcloud.ImageListOpts) ([]*hcloud.Image, error)
-	CreateServer(context.Context, hcloud.ServerCreateOpts) (*hcloud.Server, error)
+	CreateServer(context.Context, hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error)
 	AttachServerToNetwork(context.Context, *hcloud.Server, hcloud.ServerAttachToNetworkOpts) error
 	ListServers(context.Context, hcloud.ServerListOpts) ([]*hcloud.Server, error)
 	GetServer(context.Context, int64) (*hcloud.Server, error)
@@ -218,6 +219,11 @@ func (c *realClient) AddServiceToLoadBalancer(ctx context.Context, lb *hcloud.Lo
 	return err
 }
 
+func (c *realClient) UpdateServiceOnLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int, opts hcloud.LoadBalancerUpdateServiceOpts) error {
+	_, _, err := c.client.LoadBalancer.UpdateService(ctx, lb, listenPort, opts)
+	return err
+}
+
 func (c *realClient) DeleteServiceFromLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int) error {
 	_, _, err := c.client.LoadBalancer.DeleteService(ctx, lb, listenPort)
 	return err
@@ -227,9 +233,9 @@ func (c *realClient) ListImages(ctx context.Context, opts hcloud.ImageListOpts) 
 	return c.client.Image.AllWithOpts(ctx, opts)
 }
 
-func (c *realClient) CreateServer(ctx context.Context, opts hcloud.ServerCreateOpts) (*hcloud.Server, error) {
+func (c *realClient) CreateServer(ctx context.Context, opts hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error) {
 	res, _, err := c.client.Server.Create(ctx, opts)
-	return res.Server, err
+	return res, err
 }
 
 func (c *realClient) AttachServerToNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) error {
@@ -284,6 +290,9 @@ func (c *realClient) RebootServer(ctx context.Context, server *hcloud.Server) er
 
 func (c *realClient) PowerOnServer(ctx context.Context, server *hcloud.Server) error {
 	_, _, err := c.client.Server.Poweron(ctx, server)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
 	return err
 }
 
@@ -337,6 +346,9 @@ func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hclo
 func (c *realClient) EnableRescueSystem(ctx context.Context, server *hcloud.Server, rescueOpts *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
 	result, _, err := c.client.Server.EnableRescue(ctx, server, *rescueOpts)
 	if err != nil {
+		if strings.Contains(err.Error(), errStringUnauthorized) {
+			return result, fmt.Errorf("%w: EnableRescue failed for %d: %w", ErrUnauthorized, server.ID, err)
+		}
 		return result, fmt.Errorf("EnableRescue failed for %d: %w", server.ID, err)
 	}
 	return result, nil
@@ -357,6 +369,11 @@ func (c *realClient) GetAction(ctx context.Context, actionID int64) (*hcloud.Act
 			return action, fmt.Errorf("%w: getting hcloud action failed: %w", ErrUnauthorized, err)
 		}
 		return action, fmt.Errorf("getting hcloud action failed: %w", err)
+	}
+	// GetByID returns a nil action and no error when the action does not exist.
+	// Return an error instead, so callers can rely on the action being non-nil when err is nil.
+	if action == nil {
+		return nil, fmt.Errorf("hcloud action %d not found", actionID)
 	}
 	return action, nil
 }

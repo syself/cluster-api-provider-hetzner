@@ -21,19 +21,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
+	"k8s.io/utils/ptr"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -52,14 +55,8 @@ func NewService(scope *scope.ClusterScope) *Service {
 // ErrNoLoadBalancerAvailable indicates that no available load balancer could be fond.
 var ErrNoLoadBalancerAvailable = fmt.Errorf("no available load balancer")
 
-// ErrControlPlaneEndpointNotSet indicates that hetznercluster.spec.controlPlaneEndpoint is not set.
-var ErrControlPlaneEndpointNotSet = errors.New("hetznercluster.spec.controlPlaneEndpoint is not set")
-
 // Reconcile implements the life cycle of HCloud load balancers.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
-	// delete the deprecated condition from existing cluster objects
-	v1beta1conditions.Delete(s.scope.HetznerCluster, infrav1.DeprecatedLoadBalancerAttachedToNetworkCondition)
-
 	if !s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		return reconcile.Result{}, nil
 	}
@@ -86,52 +83,28 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		} else {
 			lb, err = s.createLoadBalancer(ctx)
 			if err != nil {
-				if errors.Is(err, ErrControlPlaneEndpointNotSet) {
-					// When an external ControlPlane Provider gets used (Kamaji), it might
-					// need some time until the endpoint is available.
-					err = fmt.Errorf("requeue, waiting for control-plane endpoint to be set: %w",
-						err)
-					v1beta1conditions.MarkFalse(
-						s.scope.HetznerCluster,
-						infrav1.LoadBalancerReadyCondition,
-						"MissingControlPlaneEndpoint",
-						clusterv1beta1.ConditionSeverityWarning,
-						"%s",
-						err.Error(),
-					)
-
-					v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-						Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
-						Status:  metav1.ConditionFalse,
-						Reason:  infrav1.HetznerClusterLoadBalancerMissingControlPlaneEndpointV1Beta2Reason,
-						Message: err.Error(),
-					})
-
-					s.scope.Info(err.Error())
-					return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
-				}
 				return reconcile.Result{}, fmt.Errorf("failed to create load balancer: %w", err)
 			}
 		}
 	}
 
-	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = statusFromHCloudLB(lb, s.scope.HetznerCluster.Status.Network != nil, log)
+	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = statusFromHCloudLB(lb, s.scope.HetznerCluster.Status.Network != nil, int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port), log)
 
 	// check whether load balancer name, algorithm or type has been changed
 	if err := s.reconcileLBProperties(ctx, lb); err != nil {
-		v1beta1conditions.MarkFalse(
+		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
-			infrav1.LoadBalancerReadyCondition,
-			infrav1.LoadBalancerUpdateFailedReason,
-			clusterv1beta1.ConditionSeverityWarning,
+			infrav2.LoadBalancerReadyV1Beta1Condition,
+			infrav2.LoadBalancerUpdateFailedV1Beta1Reason,
+			clusterv1.ConditionSeverityWarning,
 			"%s",
 			err.Error(),
 		)
 
-		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+		conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerClusterLoadBalancerMissingControlPlaneEndpointV1Beta2Reason,
+			Reason:  infrav2.HetznerClusterLoadBalancerUpdateFailedReason,
 			Message: err.Error(),
 		})
 
@@ -142,32 +115,34 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile network attachment: %w", err)
 	}
 
-	if err := s.reconcileServices(ctx, lb); err != nil {
-		v1beta1conditions.MarkFalse(
+	if res, err := s.reconcileServices(ctx, lb); err != nil {
+		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
-			infrav1.LoadBalancerReadyCondition,
-			infrav1.LoadBalancerServiceSyncFailedReason,
-			clusterv1beta1.ConditionSeverityWarning,
+			infrav2.LoadBalancerReadyV1Beta1Condition,
+			infrav2.LoadBalancerServiceSyncFailedV1Beta1Reason,
+			clusterv1.ConditionSeverityWarning,
 			"%s",
 			err.Error(),
 		)
 
-		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+		conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerClusterLoadBalancerSyncingServicesFailedV1Beta2Reason,
+			Reason:  infrav2.HetznerClusterLoadBalancerSyncingServicesFailedReason,
 			Message: err.Error(),
 		})
 
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile services: %w", err)
+	} else if res != (reconcile.Result{}) {
+		return res, nil
 	}
 
-	v1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav1.LoadBalancerReadyCondition)
+	deprecatedv1beta1conditions.MarkTrue(s.scope.HetznerCluster, infrav2.LoadBalancerReadyV1Beta1Condition)
 
-	v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-		Type:   infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+	conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+		Type:   infrav2.HetznerClusterLoadBalancerReadyCondition,
 		Status: metav1.ConditionTrue,
-		Reason: string(infrav1.HetznerClusterLoadBalancerReadyV1Beta2Reason),
+		Reason: string(infrav2.HetznerClusterLoadBalancerReadyReason),
 	})
 
 	return reconcile.Result{}, nil
@@ -187,19 +162,19 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 	// attach load balancer to network
 	if s.scope.HetznerCluster.Status.Network == nil {
 		err := fmt.Errorf("no network found in object status")
-		v1beta1conditions.MarkFalse(
+		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
-			infrav1.LoadBalancerReadyCondition,
-			infrav1.NetworkAttachFailedReason,
-			clusterv1beta1.ConditionSeverityWarning,
+			infrav2.LoadBalancerReadyV1Beta1Condition,
+			infrav2.NetworkAttachFailedV1Beta1Reason,
+			clusterv1.ConditionSeverityWarning,
 			"%s",
 			err.Error(),
 		)
 
-		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+		conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerClusterLoadBalancerAttachingToNetworkFailedV1Beta2Reason,
+			Reason:  infrav2.HetznerClusterLoadBalancerAttachingToNetworkFailedReason,
 			Message: err.Error(),
 		})
 
@@ -223,19 +198,19 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 		err = fmt.Errorf("failed to attach load balancer to network: %w", err)
 
 		record.Warnf(s.scope.HetznerCluster, "FailedAttachLoadBalancer", err.Error())
-		v1beta1conditions.MarkFalse(
+		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
-			infrav1.LoadBalancerReadyCondition,
-			infrav1.NetworkAttachFailedReason,
-			clusterv1beta1.ConditionSeverityError,
+			infrav2.LoadBalancerReadyV1Beta1Condition,
+			infrav2.NetworkAttachFailedV1Beta1Reason,
+			clusterv1.ConditionSeverityError,
 			"%s",
 			err.Error(),
 		)
 
-		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+		conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerClusterLoadBalancerAttachingToNetworkFailedV1Beta2Reason,
+			Reason:  infrav2.HetznerClusterLoadBalancerAttachingToNetworkFailedReason,
 			Message: err.Error(),
 		})
 
@@ -285,97 +260,226 @@ func (s *Service) reconcileLBProperties(ctx context.Context, lb *hcloud.LoadBala
 	return multierr
 }
 
-func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer) error {
+func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer) (reconcile.Result, error) {
 	extraServicesSpec := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices
 
-	// build slices and maps to make diffs
-	haveServiceListenPorts := make([]int, 0, len(lb.Services))
 	wantServiceListenPorts := make([]int, 0, len(extraServicesSpec)+1)
-	wantServiceListenPortsMap := make(map[int]infrav1.LoadBalancerServiceSpec, len(extraServicesSpec)+1)
+	wantServiceListenPortsMap := make(map[int]infrav2.LoadBalancerServiceSpec, len(extraServicesSpec)+1)
 
-	// filter kubeAPI service out
+	existingServicesByPort := make(map[int]hcloud.LoadBalancerService, len(lb.Services))
 	for _, service := range lb.Services {
-		haveServiceListenPorts = append(haveServiceListenPorts, service.ListenPort)
+		existingServicesByPort[service.ListenPort] = service
 	}
+
+	kubeAPIServicePort := int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)
 
 	for _, serviceInSpec := range extraServicesSpec {
 		wantServiceListenPorts = append(wantServiceListenPorts, serviceInSpec.ListenPort)
 		wantServiceListenPortsMap[serviceInSpec.ListenPort] = serviceInSpec
 	}
 
-	// add kubeAPI service if exists
-	if s.scope.HetznerCluster.Spec.ControlPlaneEndpoint != nil && s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
-		kubeAPIServicePort := int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)
+	// add kubeAPI service if the endpoint port is known
+	if kubeAPIServicePort != 0 {
 		wantServiceListenPorts = append(wantServiceListenPorts, kubeAPIServicePort)
-		wantServiceListenPortsMap[kubeAPIServicePort] = infrav1.LoadBalancerServiceSpec{
+		wantServiceListenPortsMap[kubeAPIServicePort] = infrav2.LoadBalancerServiceSpec{
 			Protocol:        "tcp",
 			ListenPort:      kubeAPIServicePort,
 			DestinationPort: s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Port,
 		}
 	}
 
-	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, haveServiceListenPorts)
+	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, slices.Collect(maps.Keys(existingServicesByPort)))
 
-	// delete services which are registered for lb but are not in specs
+	// Two cases for the kube-API service:
+	//   - present without proxy protocol → an existing cluster enabling it: wait until every
+	//     control-plane infrastructure machine is annotated, then switch it on in place below.
+	//   - absent → create it below from the spec value. The service is only absent when an
+	//     existing load balancer is taken over instead of creating a new one, or if the service
+	//     got manually deleted.
+	existingKubeAPIService, kubeAPIServiceExists := existingServicesByPort[kubeAPIServicePort]
+	proxyProtocolAlreadyActive := kubeAPIServiceExists && existingKubeAPIService.Proxyprotocol
+
+	// proxyProtocolShouldGetEnabled: whether proxy protocol should get enabled now.
+	// The control-plane infrastructure machines are only checked when the spec wants proxy protocol
+	// but the LB service doesn't have it yet. When the service is absent or already has it, no check
+	// is made.
+	var proxyProtocolShouldGetEnabled bool
+	var requeueForProxyProtocol bool
+	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && kubeAPIServiceExists && !proxyProtocolAlreadyActive {
+		var err error
+		proxyProtocolShouldGetEnabled, err = s.scope.AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if !proxyProtocolShouldGetEnabled {
+			const msg = "waiting for all control-plane machines to be annotated before enabling proxy protocol"
+			s.scope.V(1).Info("proxy protocol: not all control-plane infrastructure machines annotated yet, requeueing")
+			requeueForProxyProtocol = true
+
+			deprecatedv1beta1conditions.MarkFalse(
+				s.scope.HetznerCluster,
+				infrav2.LoadBalancerReadyV1Beta1Condition,
+				infrav2.LoadBalancerWaitingToActivateProxyProtocolV1Beta1Reason,
+				clusterv1.ConditionSeverityInfo,
+				msg,
+			)
+
+			conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+				Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav2.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason,
+				Message: msg,
+			})
+		}
+	}
+
+	// delete services that are no longer in the spec
 	var multierr error
 
 	for _, listenPort := range toDelete {
-		if _, ok := wantServiceListenPortsMap[listenPort]; !ok {
-			if err := s.scope.HCloudClient.DeleteServiceFromLoadBalancer(ctx, lb, listenPort); err != nil {
-				// return immediately on rate limit
-				hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteServiceFromLoadBalancer")
-				multierr = errors.Join(multierr, fmt.Errorf("failed to delete service from load balancer: %w", err))
-				if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-					return multierr
-				}
+		if err := s.scope.HCloudClient.DeleteServiceFromLoadBalancer(ctx, lb, listenPort); err != nil {
+			// return immediately on rate limit
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteServiceFromLoadBalancer")
+			multierr = errors.Join(multierr, fmt.Errorf("failed to delete service from load balancer: %w", err))
+			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				return reconcile.Result{}, multierr
 			}
 		}
 	}
 
-	// create services which are in specs and not yet in API
+	// create services that are in the spec but not yet on the LB
 	for i, listenPort := range toCreate {
 		proxyProtocol := false
+		var healthCheck *hcloud.LoadBalancerAddServiceOptsHealthCheck
 		destinationPort := wantServiceListenPortsMap[listenPort].DestinationPort
+		if listenPort == kubeAPIServicePort {
+			// Proxy protocol and health check are only relevant for the kube-API service, which
+			// is created here straight from the spec value. The annotation check only guards
+			// enabling proxy protocol or migrating the health check on a service that already exists.
+			proxyProtocol = s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
+			healthCheck = healthCheckAddOpts(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck, destinationPort)
+		}
 		serviceOpts := hcloud.LoadBalancerAddServiceOpts{
 			Protocol:        hcloud.LoadBalancerServiceProtocol(wantServiceListenPortsMap[listenPort].Protocol),
 			ListenPort:      &toCreate[i],
 			DestinationPort: &destinationPort,
 			Proxyprotocol:   &proxyProtocol,
+			HealthCheck:     healthCheck,
 		}
 		if err := s.scope.HCloudClient.AddServiceToLoadBalancer(ctx, lb, serviceOpts); err != nil {
 			// return immediately on rate limit
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "AddServiceToLoadBalancer")
 			multierr = errors.Join(multierr, fmt.Errorf("failed to add service to load balancer: %w", err))
 			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-				return multierr
+				return reconcile.Result{}, multierr
+			}
+		} else if listenPort == kubeAPIServicePort {
+			// Status.ControlPlaneLoadBalancer was snapshotted from the LB state fetched at the
+			// start of Reconcile, before this service was created, so it still shows the old
+			// value. Update it now so callers observe the change in this reconcile instead of
+			// waiting for the next one (e.g. the next full resync, up to --sync-period later).
+			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled = proxyProtocol
+		}
+	}
+
+	if requeueForProxyProtocol {
+		return reconcile.Result{RequeueAfter: 2 * time.Minute}, multierr
+	}
+
+	// If proxy protocol is not active yet but should be, activate it in place. HCloud's
+	// update_service flips Proxyprotocol on the live service, so the kube-API service is
+	// never absent from the LB.
+	if proxyProtocolShouldGetEnabled && !proxyProtocolAlreadyActive {
+		proxyProtocol := true
+		updateOpts := hcloud.LoadBalancerUpdateServiceOpts{Proxyprotocol: &proxyProtocol}
+		if err := s.scope.HCloudClient.UpdateServiceOnLoadBalancer(ctx, lb, kubeAPIServicePort, updateOpts); err != nil {
+			// return immediately on rate limit
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateServiceOnLoadBalancer")
+			multierr = errors.Join(multierr, fmt.Errorf("failed to update kube-API service on load balancer to enable proxy protocol: %w", err))
+			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				return reconcile.Result{}, multierr
+			}
+		} else {
+			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled = true
+		}
+	}
+
+	// If the kube-API service already exists and its health check no longer matches the spec,
+	// update it in place. The health check runs against this port on the control-plane machine,
+	// unless healthCheck.port sets another one. kubeAPIServicePort is a different port:
+	// the one the load balancer listens on. UpdateServiceOnLoadBalancer takes it to pick the
+	// service to update.
+	kubeAPIDestinationPort := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Port
+
+	if wantHealthCheck := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck; wantHealthCheck != nil &&
+		kubeAPIServiceExists && healthCheckDiffers(existingKubeAPIService.HealthCheck, wantHealthCheck, kubeAPIDestinationPort) {
+		// Switching a live service from a tcp check to an http or https check can mark every
+		// backend unhealthy at once if the backends don't answer the path yet, which would take
+		// the API server offline. So wait until every control-plane infra machine carries the
+		// annotation, the same as the proxy-protocol migration: the annotation is set on the new
+		// control-plane infrastructure machine template, so the switch happens only after every
+		// control plane runs an image that serves the health-check path. A tcp check, or a
+		// change that stays within http/https, is applied without the gate.
+		if healthCheckMigratesToHTTP(existingKubeAPIService.HealthCheck, wantHealthCheck) {
+			allReady, err := s.scope.AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(ctx)
+			if err != nil {
+				return reconcile.Result{}, errors.Join(multierr, err)
+			}
+			if !allReady {
+				const msg = "waiting for all control-plane machines to be annotated before switching to an http health check"
+				s.scope.V(1).Info("health check: not all control-plane infrastructure machines annotated yet, requeueing")
+
+				deprecatedv1beta1conditions.MarkFalse(
+					s.scope.HetznerCluster,
+					infrav2.LoadBalancerReadyV1Beta1Condition,
+					infrav2.LoadBalancerWaitingToActivateHTTPHealthCheckV1Beta1Reason,
+					clusterv1.ConditionSeverityInfo,
+					msg,
+				)
+
+				conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+					Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav2.HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason,
+					Message: msg,
+				})
+
+				return reconcile.Result{RequeueAfter: 2 * time.Minute}, multierr
+			}
+		}
+
+		updateOpts := hcloud.LoadBalancerUpdateServiceOpts{HealthCheck: healthCheckUpdateOpts(wantHealthCheck, kubeAPIDestinationPort)}
+		if err := s.scope.HCloudClient.UpdateServiceOnLoadBalancer(ctx, lb, kubeAPIServicePort, updateOpts); err != nil {
+			// return immediately on rate limit
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateServiceOnLoadBalancer")
+			multierr = errors.Join(multierr, fmt.Errorf("failed to update kube-API service on load balancer to apply health check: %w", err))
+			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				return reconcile.Result{}, multierr
 			}
 		}
 	}
-	return multierr
+	return reconcile.Result{}, multierr
 }
 
 func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, error) {
-	opts, err := createOptsFromSpec(s.scope.HetznerCluster)
-	if err != nil {
-		return nil, err
-	}
+	opts := createOptsFromSpec(s.scope.HetznerCluster)
 	lb, err := s.scope.HCloudClient.CreateLoadBalancer(ctx, opts)
 	if err != nil {
 		err = fmt.Errorf("failed to create load balancer: %w", err)
 		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "CreateLoadBalancer")
-		v1beta1conditions.MarkFalse(
+		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
-			infrav1.LoadBalancerReadyCondition,
-			infrav1.LoadBalancerCreateFailedReason,
-			clusterv1beta1.ConditionSeverityError,
+			infrav2.LoadBalancerReadyV1Beta1Condition,
+			infrav2.LoadBalancerCreateFailedV1Beta1Reason,
+			clusterv1.ConditionSeverityError,
 			"%s",
 			err.Error(),
 		)
 
-		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+		conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerClusterLoadBalancerCreationFailedV1Beta2Reason,
+			Reason:  infrav2.HetznerClusterLoadBalancerCreationFailedReason,
 			Message: err.Error(),
 		})
 
@@ -388,24 +492,249 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 	return lb, nil
 }
 
-func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOpts, error) {
+// healthCheckCreateOpts builds the hcloud health-check options for the kube-apiserver service
+// when the load balancer is created. It returns nil when spec is nil, and CAPH then sends no
+// health check, so the load balancer keeps its own default. A new cluster gets its health check
+// here, so it never goes through the tcp to http wait in reconcileServices.
+func healthCheckCreateOpts(spec *infrav2.LoadBalancerHealthCheckSpec, servicePort int) *hcloud.LoadBalancerCreateOptsServiceHealthCheck {
+	f := healthCheckOptsFromSpec(spec, servicePort)
+	if f == nil {
+		return nil
+	}
+
+	opts := &hcloud.LoadBalancerCreateOptsServiceHealthCheck{
+		Protocol: f.Protocol,
+		Port:     f.Port,
+		Interval: f.Interval,
+		Timeout:  f.Timeout,
+		Retries:  f.Retries,
+	}
+	if f.TLS != nil {
+		opts.HTTP = &hcloud.LoadBalancerCreateOptsServiceHealthCheckHTTP{
+			Domain:      f.Domain,
+			Path:        f.Path,
+			Response:    f.Response,
+			StatusCodes: f.StatusCodes,
+			TLS:         f.TLS,
+		}
+	}
+	return opts
+}
+
+// healthCheckAddOpts builds the hcloud health-check options for a kube-apiserver service that is
+// added to an existing load balancer. It returns nil when spec is nil, and CAPH then sends no
+// health check, so the load balancer keeps its own default.
+func healthCheckAddOpts(spec *infrav2.LoadBalancerHealthCheckSpec, servicePort int) *hcloud.LoadBalancerAddServiceOptsHealthCheck {
+	f := healthCheckOptsFromSpec(spec, servicePort)
+	if f == nil {
+		return nil
+	}
+
+	opts := &hcloud.LoadBalancerAddServiceOptsHealthCheck{
+		Protocol: f.Protocol,
+		Port:     f.Port,
+		Interval: f.Interval,
+		Timeout:  f.Timeout,
+		Retries:  f.Retries,
+	}
+	if f.TLS != nil {
+		opts.HTTP = &hcloud.LoadBalancerAddServiceOptsHealthCheckHTTP{
+			Domain:      f.Domain,
+			Path:        f.Path,
+			Response:    f.Response,
+			StatusCodes: f.StatusCodes,
+			TLS:         f.TLS,
+		}
+	}
+	return opts
+}
+
+// healthCheckUpdateOpts builds the hcloud health-check options for updating the health check on
+// a kube-apiserver service that already exists. It mirrors healthCheckAddOpts for the update API.
+func healthCheckUpdateOpts(spec *infrav2.LoadBalancerHealthCheckSpec, servicePort int) *hcloud.LoadBalancerUpdateServiceOptsHealthCheck {
+	f := healthCheckOptsFromSpec(spec, servicePort)
+	if f == nil {
+		return nil
+	}
+
+	opts := &hcloud.LoadBalancerUpdateServiceOptsHealthCheck{
+		Protocol: f.Protocol,
+		Port:     f.Port,
+		Interval: f.Interval,
+		Timeout:  f.Timeout,
+		Retries:  f.Retries,
+	}
+	if f.TLS != nil {
+		opts.HTTP = &hcloud.LoadBalancerUpdateServiceOptsHealthCheckHTTP{
+			Domain:      f.Domain,
+			Path:        f.Path,
+			Response:    f.Response,
+			StatusCodes: f.StatusCodes,
+			TLS:         f.TLS,
+		}
+	}
+	return opts
+}
+
+// healthCheckOpts holds the fields shared by the three structurally-identical hcloud
+// health-check options types used for creating, adding and updating a load balancer service.
+// Go doesn't let one type be reused across all three request builders, so this is converted
+// into each of them by healthCheckCreateOpts, healthCheckAddOpts and healthCheckUpdateOpts.
+type healthCheckOpts struct {
+	Protocol    hcloud.LoadBalancerServiceProtocol
+	Port        *int
+	Interval    *time.Duration
+	Timeout     *time.Duration
+	Retries     *int
+	Domain      *string
+	Path        *string
+	Response    *string
+	StatusCodes []string
+	// TLS is set only for an http or https check, so it also marks whether the HTTP
+	// sub-options have to be built at all.
+	TLS *bool
+}
+
+// healthCheckOptsFromSpec reads spec into the fields the three hcloud option types share. It
+// returns nil when spec is nil. servicePort is the port the health check runs against when spec
+// sets no port of its own.
+func healthCheckOptsFromSpec(spec *infrav2.LoadBalancerHealthCheckSpec, servicePort int) *healthCheckOpts {
+	if spec == nil {
+		return nil
+	}
+
+	protocol := hcloud.LoadBalancerServiceProtocolTCP
+	if spec.Protocol != "" {
+		protocol = hcloud.LoadBalancerServiceProtocol(spec.Protocol)
+	}
+
+	port := ptr.Deref(spec.Port, servicePort)
+
+	opts := &healthCheckOpts{
+		Protocol: protocol,
+		Port:     &port,
+		Retries:  spec.Retries,
+	}
+	if spec.IntervalSeconds != nil {
+		interval := time.Duration(*spec.IntervalSeconds) * time.Second
+		opts.Interval = &interval
+	}
+	if spec.TimeoutSeconds != nil {
+		timeout := time.Duration(*spec.TimeoutSeconds) * time.Second
+		opts.Timeout = &timeout
+	}
+
+	if isHTTPHealthCheckProtocol(protocol) {
+		opts.Domain = spec.Domain
+		opts.Path = spec.Path
+		opts.Response = spec.Response
+		opts.StatusCodes = spec.StatusCodes
+		tls := protocol == hcloud.LoadBalancerServiceProtocolHTTPS
+		opts.TLS = &tls
+	}
+
+	return opts
+}
+
+// isHTTPHealthCheckProtocol reports whether protocol is one that sends an HTTP(S) request,
+// as opposed to a plain tcp check.
+func isHTTPHealthCheckProtocol(protocol hcloud.LoadBalancerServiceProtocol) bool {
+	return protocol == hcloud.LoadBalancerServiceProtocolHTTP || protocol == hcloud.LoadBalancerServiceProtocolHTTPS
+}
+
+// healthCheckDiffers reports whether the load balancer's observed health check differs from
+// desired. Protocol and Port are always compared, falling back to tcp and servicePort when
+// desired leaves them unset. Interval, timeout, retries, domain, path, response and status
+// codes are compared only when desired sets them, since CAPH leaves the rest to Hetzner.
+func healthCheckDiffers(observed hcloud.LoadBalancerServiceHealthCheck, desired *infrav2.LoadBalancerHealthCheckSpec, servicePort int) bool {
+	if desired == nil {
+		return false
+	}
+
+	desiredProtocol := hcloud.LoadBalancerServiceProtocolTCP
+	if desired.Protocol != "" {
+		desiredProtocol = hcloud.LoadBalancerServiceProtocol(desired.Protocol)
+	}
+	if desiredProtocol != observed.Protocol {
+		return true
+	}
+
+	desiredPort := ptr.Deref(desired.Port, servicePort)
+	if desiredPort != observed.Port {
+		return true
+	}
+
+	if desired.IntervalSeconds != nil && time.Duration(*desired.IntervalSeconds)*time.Second != observed.Interval {
+		return true
+	}
+	if desired.TimeoutSeconds != nil && time.Duration(*desired.TimeoutSeconds)*time.Second != observed.Timeout {
+		return true
+	}
+	if desired.Retries != nil && *desired.Retries != observed.Retries {
+		return true
+	}
+
+	if !isHTTPHealthCheckProtocol(desiredProtocol) {
+		return false
+	}
+
+	desiredTLS := desiredProtocol == hcloud.LoadBalancerServiceProtocolHTTPS
+	if observed.HTTP == nil || observed.HTTP.TLS != desiredTLS {
+		return true
+	}
+	if desired.Domain != nil && *desired.Domain != observed.HTTP.Domain {
+		return true
+	}
+	if desired.Path != nil && *desired.Path != observed.HTTP.Path {
+		return true
+	}
+	if desired.Response != nil && *desired.Response != observed.HTTP.Response {
+		return true
+	}
+	// Status codes are a set, so compare them sorted. Otherwise the load balancer reporting them
+	// back in another order would count as a change and this would call the API every reconcile.
+	if len(desired.StatusCodes) > 0 && !slices.Equal(slices.Sorted(slices.Values(observed.HTTP.StatusCodes)), slices.Sorted(slices.Values(desired.StatusCodes))) {
+		return true
+	}
+
+	return false
+}
+
+// healthCheckMigratesToHTTP reports whether applying want to a service that currently has the
+// got check switches it from a non-http check (the default tcp) to an http or https check. That
+// switch can mark a target that does not yet answer the path as unhealthy, so the caller waits
+// for the control-plane rollout via AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck before
+// applying it. It compares the live check every time, so this is true on every such switch, not
+// only the first one. A change that stays within http/https, or a switch back to tcp, returns
+// false, as does a nil want.
+func healthCheckMigratesToHTTP(got hcloud.LoadBalancerServiceHealthCheck, want *infrav2.LoadBalancerHealthCheckSpec) bool {
+	if want == nil {
+		return false
+	}
+	wantProtocol := hcloud.LoadBalancerServiceProtocolTCP
+	if want.Protocol != "" {
+		wantProtocol = hcloud.LoadBalancerServiceProtocol(want.Protocol)
+	}
+	return isHTTPHealthCheckProtocol(wantProtocol) && !isHTTPHealthCheckProtocol(got.Protocol)
+}
+
+func createOptsFromSpec(hc *infrav2.HetznerCluster) hcloud.LoadBalancerCreateOpts {
 	// gather algorithm type
 	algorithmType := hc.Spec.ControlPlaneLoadBalancer.Algorithm.HCloudAlgorithmType()
 
 	// Set name
 	name := utils.GenerateName(nil, fmt.Sprintf("%s-kube-apiserver-", hc.Name))
 
-	proxyprotocol := false
+	proxyprotocol := hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol
 
 	var network *hcloud.Network
 	if hc.Status.Network != nil {
 		network = &hcloud.Network{ID: hc.Status.Network.ID}
 	}
 
-	if hc.Spec.ControlPlaneEndpoint == nil {
-		return hcloud.LoadBalancerCreateOpts{}, ErrControlPlaneEndpointNotSet
-	}
-
+	// The listen port mirrors spec.controlPlaneEndpoint.Port. It can be 0 here on the first reconcile
+	// (the control plane endpoint is only filled in from the load balancer IP afterwards in
+	// processControlPlaneEndpoint); reconcileLBProperties corrects the listen port on the next pass.
 	listenPort := int(hc.Spec.ControlPlaneEndpoint.Port)
 	publicInterface := true
 	return hcloud.LoadBalancerCreateOpts{
@@ -414,7 +743,7 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOp
 		Algorithm:        &hcloud.LoadBalancerAlgorithm{Type: algorithmType},
 		Location:         &hcloud.Location{Name: string(hc.Spec.ControlPlaneLoadBalancer.Region)},
 		Network:          network,
-		Labels:           map[string]string{hc.ClusterTagKey(): string(infrav1.ResourceLifecycleOwned)},
+		Labels:           map[string]string{hc.ClusterTagKey(): string(infrav2.ResourceLifecycleOwned)},
 		PublicInterface:  &publicInterface,
 		Services: []hcloud.LoadBalancerCreateOptsService{
 			{
@@ -422,9 +751,10 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOp
 				ListenPort:      &listenPort,
 				DestinationPort: &hc.Spec.ControlPlaneLoadBalancer.Port,
 				Proxyprotocol:   &proxyprotocol,
+				HealthCheck:     healthCheckCreateOpts(hc.Spec.ControlPlaneLoadBalancer.HealthCheck, hc.Spec.ControlPlaneLoadBalancer.Port),
 			},
 		},
-	}, nil
+	}
 }
 
 // Delete implements the deletion of HCloud load balancers.
@@ -453,19 +783,19 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateLoadBalancer")
 			err = fmt.Errorf("failed to update load balancer to remove the cluster label: %w", err)
 			record.Warnf(s.scope.HetznerCluster, "FailedUpdateLoadBalancer", err.Error())
-			v1beta1conditions.MarkFalse(
+			deprecatedv1beta1conditions.MarkFalse(
 				s.scope.HetznerCluster,
-				infrav1.LoadBalancerReadyCondition,
-				infrav1.LoadBalancerUpdateFailedReason,
-				clusterv1beta1.ConditionSeverityWarning,
+				infrav2.LoadBalancerReadyV1Beta1Condition,
+				infrav2.LoadBalancerUpdateFailedV1Beta1Reason,
+				clusterv1.ConditionSeverityWarning,
 				"%s",
 				err.Error(),
 			)
 
-			v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-				Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+				Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HetznerClusterLoadBalancerUpdateFailedV1Beta2Reason,
+				Reason:  infrav2.HetznerClusterLoadBalancerUpdateFailedReason,
 				Message: err.Error(),
 			})
 
@@ -486,19 +816,19 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 		}
 		err = fmt.Errorf("failed to delete load balancer: %w", err)
 		record.Warnf(s.scope.HetznerCluster, "FailedLoadBalancerDelete", err.Error())
-		v1beta1conditions.MarkFalse(
+		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
-			infrav1.LoadBalancerReadyCondition,
-			infrav1.LoadBalancerDeleteFailedReason,
-			clusterv1beta1.ConditionSeverityWarning,
+			infrav2.LoadBalancerReadyV1Beta1Condition,
+			infrav2.LoadBalancerDeleteFailedV1Beta1Reason,
+			clusterv1.ConditionSeverityWarning,
 			"%s",
 			err.Error(),
 		)
 
-		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+		conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerClusterLoadBalancerDeletionFailedV1Beta2Reason,
+			Reason:  infrav2.HetznerClusterLoadBalancerDeletionFailedReason,
 			Message: err.Error(),
 		})
 
@@ -517,7 +847,7 @@ func (s *Service) findLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, e
 	opts := hcloud.LoadBalancerListOpts{
 		ListOpts: hcloud.ListOpts{
 			LabelSelector: utils.LabelsToLabelSelector(map[string]string{
-				clusterTagKey: string(infrav1.ResourceLifecycleOwned),
+				clusterTagKey: string(infrav2.ResourceLifecycleOwned),
 			}),
 		},
 	}
@@ -549,19 +879,19 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 	}
 
 	if len(loadBalancers) == 0 {
-		v1beta1conditions.MarkFalse(
+		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
-			infrav1.LoadBalancerReadyCondition,
-			infrav1.LoadBalancerFailedToOwnReason,
-			clusterv1beta1.ConditionSeverityError,
+			infrav2.LoadBalancerReadyV1Beta1Condition,
+			infrav2.LoadBalancerFailedToOwnV1Beta1Reason,
+			clusterv1.ConditionSeverityError,
 			"%s",
 			fmt.Sprintf("load balancer %q not found", name),
 		)
 
-		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+		conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason,
+			Reason:  infrav2.HetznerClusterLoadBalancerOwningFailedReason,
 			Message: fmt.Sprintf("load balancer %q not found", name),
 		})
 
@@ -571,20 +901,20 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 	lb := loadBalancers[0]
 
 	for label := range lb.Labels {
-		if strings.HasPrefix(label, infrav1.NameHetznerProviderOwned) {
-			v1beta1conditions.MarkFalse(
+		if strings.HasPrefix(label, infrav2.NameHetznerProviderOwned) {
+			deprecatedv1beta1conditions.MarkFalse(
 				s.scope.HetznerCluster,
-				infrav1.LoadBalancerReadyCondition,
-				infrav1.LoadBalancerFailedToOwnReason,
-				clusterv1beta1.ConditionSeverityError,
+				infrav2.LoadBalancerReadyV1Beta1Condition,
+				infrav2.LoadBalancerFailedToOwnV1Beta1Reason,
+				clusterv1.ConditionSeverityError,
 				"%s",
 				fmt.Sprintf("load balancer %q already owned with label %q", name, label),
 			)
 
-			v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-				Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+			conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+				Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason,
+				Reason:  infrav2.HetznerClusterLoadBalancerOwningFailedReason,
 				Message: fmt.Sprintf("load balancer %q already owned with label %q", name, label),
 			})
 
@@ -597,26 +927,26 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 		newLabels[key] = val
 	}
 
-	newLabels[s.scope.HetznerCluster.ClusterTagKey()] = string(infrav1.ResourceLifecycleOwned)
+	newLabels[s.scope.HetznerCluster.ClusterTagKey()] = string(infrav2.ResourceLifecycleOwned)
 
 	lb, err = s.scope.HCloudClient.UpdateLoadBalancer(ctx, lb, hcloud.LoadBalancerUpdateOpts{Labels: newLabels})
 	if err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateLoadBalancer")
 		err = fmt.Errorf("failed to update load balancer: %w", err)
 		record.Warnf(s.scope.HetznerCluster, "FailedUpdateLoadBalancer", err.Error())
-		v1beta1conditions.MarkFalse(
+		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HetznerCluster,
-			infrav1.LoadBalancerReadyCondition,
-			infrav1.LoadBalancerFailedToOwnReason,
-			clusterv1beta1.ConditionSeverityError,
+			infrav2.LoadBalancerReadyV1Beta1Condition,
+			infrav2.LoadBalancerFailedToOwnV1Beta1Reason,
+			clusterv1.ConditionSeverityError,
 			"%s",
 			err.Error(),
 		)
 
-		v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
-			Type:    infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition,
+		conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+			Type:    infrav2.HetznerClusterLoadBalancerReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerClusterLoadBalancerOwningFailedV1Beta2Reason,
+			Reason:  infrav2.HetznerClusterLoadBalancerOwningFailedReason,
 			Message: err.Error(),
 		})
 
@@ -627,24 +957,24 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 }
 
 // statusFromHCloudLB gets the information of the Hetzner load balancer and returns it in the status object.
-func statusFromHCloudLB(lb *hcloud.LoadBalancer, hasNetwork bool, log logr.Logger) *infrav1.LoadBalancerStatus {
+func statusFromHCloudLB(lb *hcloud.LoadBalancer, hasNetwork bool, kubeAPIServicePort int, log logr.Logger) *infrav2.LoadBalancerStatus {
 	var internalIP string
 	if hasNetwork && len(lb.PrivateNet) > 0 {
 		internalIP = lb.PrivateNet[0].IP.String()
 	}
 
-	targetObjects := make([]infrav1.LoadBalancerTarget, 0, len(lb.Targets))
+	targetObjects := make([]infrav2.LoadBalancerTarget, 0, len(lb.Targets))
 	for _, target := range lb.Targets {
 		switch target.Type {
 		case hcloud.LoadBalancerTargetTypeServer:
-			targetObjects = append(targetObjects, infrav1.LoadBalancerTarget{
-				Type:     infrav1.LoadBalancerTargetTypeServer,
+			targetObjects = append(targetObjects, infrav2.LoadBalancerTarget{
+				Type:     infrav2.LoadBalancerTargetTypeServer,
 				ServerID: target.Server.Server.ID,
 			},
 			)
 		case hcloud.LoadBalancerTargetTypeIP:
-			targetObjects = append(targetObjects, infrav1.LoadBalancerTarget{
-				Type: infrav1.LoadBalancerTargetTypeIP,
+			targetObjects = append(targetObjects, infrav2.LoadBalancerTarget{
+				Type: infrav2.LoadBalancerTargetTypeIP,
 				IP:   target.IP.IP,
 			},
 			)
@@ -653,12 +983,21 @@ func statusFromHCloudLB(lb *hcloud.LoadBalancer, hasNetwork bool, log logr.Logge
 		}
 	}
 
-	return &infrav1.LoadBalancerStatus{
-		ID:         lb.ID,
-		IPv4:       lb.PublicNet.IPv4.IP.String(),
-		IPv6:       lb.PublicNet.IPv6.IP.String(),
-		InternalIP: internalIP,
-		Target:     targetObjects,
-		Protected:  lb.Protection.Delete,
+	var proxyProtocolEnabled bool
+	for _, service := range lb.Services {
+		if service.ListenPort == kubeAPIServicePort {
+			proxyProtocolEnabled = service.Proxyprotocol
+			break
+		}
+	}
+
+	return &infrav2.LoadBalancerStatus{
+		ID:                   lb.ID,
+		IPv4:                 lb.PublicNet.IPv4.IP.String(),
+		IPv6:                 lb.PublicNet.IPv6.IP.String(),
+		InternalIP:           internalIP,
+		Target:               targetObjects,
+		Protected:            lb.Protection.Delete,
+		ProxyProtocolEnabled: proxyProtocolEnabled,
 	}
 }

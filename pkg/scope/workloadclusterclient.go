@@ -27,12 +27,11 @@ import (
 	"sigs.k8s.io/cluster-api/util/secret"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 )
 
 // workloadClientConfigFromKubeconfigSecret creates a kubernetes client config from kubeconfig secret.
-func workloadClientConfigFromKubeconfigSecret(ctx context.Context, logger logr.Logger, cl client.Client, apiReader client.Reader, cluster *clusterv1.Cluster, hetznerCluster *infrav1.HetznerCluster) (clientcmd.ClientConfig, error) {
+func workloadClientConfigFromKubeconfigSecret(ctx context.Context, logger logr.Logger, cl client.Client, apiReader client.Reader, cluster *clusterv1.Cluster, hetznerCluster client.Object) (clientcmd.ClientConfig, error) {
 	secretKey := client.ObjectKey{
 		Name:      fmt.Sprintf("%s-%s", cluster.Name, secret.Kubeconfig),
 		Namespace: cluster.Namespace,
@@ -61,7 +60,7 @@ type realWorkloadClusterClientFactory struct {
 	logger         logr.Logger
 	client         client.Client
 	cluster        *clusterv1.Cluster
-	hetznerCluster *infrav1.HetznerCluster
+	hetznerCluster client.Object
 }
 
 func (f *realWorkloadClusterClientFactory) NewWorkloadClient(ctx context.Context) (client.Client, error) {

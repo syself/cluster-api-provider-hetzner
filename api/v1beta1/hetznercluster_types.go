@@ -28,10 +28,6 @@ const (
 	// apiserver.
 	HetznerClusterFinalizer = "infrastructure.cluster.x-k8s.io/hetznercluster"
 
-	// DeprecatedHetznerClusterFinalizer contains the old string.
-	// The controller will automatically update to the new string.
-	DeprecatedHetznerClusterFinalizer = "hetznercluster.infrastructure.cluster.x-k8s.io"
-
 	// AllowEmptyControlPlaneAddressAnnotation allows HetznerCluster Webhook
 	// to skip some validation steps for externally managed control planes.
 	AllowEmptyControlPlaneAddressAnnotation = "capi.syself.com/allow-empty-control-plane-address"
@@ -83,6 +79,12 @@ type HetznerClusterSpec struct {
 }
 
 // HetznerClusterStatus defines the observed state of HetznerCluster.
+//
+// The v1beta2 HetznerClusterStatus has its final API shape (status.conditions as []metav1.Condition,
+// status.initialization, status.deprecated.v1beta1.conditions), which does not map field-for-field
+// onto this v1beta1 status. conversion-gen cannot express that mapping, so it is skipped here and the
+// conversion is hand written in conversion.go.
+// +k8s:conversion-gen=false
 type HetznerClusterStatus struct {
 	// +kubebuilder:default=false
 	Ready bool `json:"ready"`

@@ -22,11 +22,11 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/klog/v2/textlogger"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/cluster-api/util/patch"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
@@ -34,7 +34,7 @@ import (
 type HCloudMachineTemplateScopeParams struct {
 	Logger                *logr.Logger
 	HCloudClient          hcloudclient.Client
-	HCloudMachineTemplate *infrav1.HCloudMachineTemplate
+	HCloudMachineTemplate *infrav2.HCloudMachineTemplate
 }
 
 // NewHCloudMachineTemplateScope creates a new Scope from the supplied parameters.
@@ -61,7 +61,7 @@ type HCloudMachineTemplateScope struct {
 	*logr.Logger
 	HCloudClient hcloudclient.Client
 
-	HCloudMachineTemplate *infrav1.HCloudMachineTemplate
+	HCloudMachineTemplate *infrav2.HCloudMachineTemplate
 }
 
 // Name returns the HCloudMachineTemplate name.
@@ -74,30 +74,38 @@ func (s *HCloudMachineTemplateScope) Namespace() string {
 	return s.HCloudMachineTemplate.Namespace
 }
 
-// SetHCloudMachineTemplateV1Beta2SummaryCondition computes the HCloudMachineTemplate v1beta2 Ready condition.
-func SetHCloudMachineTemplateV1Beta2SummaryCondition(hcloudMachineTemplate *infrav1.HCloudMachineTemplate) error {
-	return v1beta2conditions.SetSummaryCondition(hcloudMachineTemplate, hcloudMachineTemplate, clusterv1beta1.ReadyV1Beta2Condition,
-		infrav1.HCloudMachineTemplateV1Beta2SummaryOpts()...,
+// SetHCloudMachineTemplateSummaryCondition computes and sets the HCloudMachineTemplate Ready condition.
+func SetHCloudMachineTemplateSummaryCondition(hcloudMachineTemplate *infrav2.HCloudMachineTemplate) error {
+	readyCondition, err := conditions.NewSummaryCondition(
+		hcloudMachineTemplate,
+		clusterv1.ReadyCondition,
+		infrav2.HCloudMachineTemplateSummaryOpts()...,
 	)
+	if err != nil {
+		return err
+	}
+
+	conditions.Set(hcloudMachineTemplate, *readyCondition)
+	return nil
 }
 
 // MachineTemplatePatchOpts returns the list of patch.Option for HCloudMachineTemplate,
-// declaring both the v1beta1 and v1beta2 conditions owned by this controller so the
-// patch helper handles three-way merge correctly across concurrent updates.
-func MachineTemplatePatchOpts() []v1beta1patch.Option {
-	return []v1beta1patch.Option{
-		// owned v1beta1 conditions.
-		v1beta1patch.WithOwnedConditions{Conditions: []clusterv1beta1.ConditionType{
-			clusterv1beta1.ReadyCondition,
-			infrav1.HCloudTokenAvailableCondition,
-			infrav1.HetznerAPIReachableCondition,
+// declaring both the conditions and the deprecated v1beta1 conditions owned by this controller so
+// the patch helper handles three-way merge correctly across concurrent updates.
+func MachineTemplatePatchOpts() []patch.Option {
+	return []patch.Option{
+		// owned deprecated v1beta1 conditions.
+		patch.WithOwnedV1Beta1Conditions{Conditions: []clusterv1.ConditionType{
+			clusterv1.ReadyV1Beta1Condition,
+			infrav2.HCloudTokenAvailableV1Beta1Condition,
+			infrav2.HetznerAPIReachableV1Beta1Condition,
 		}},
-		// owned v1beta2 conditions.
-		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
-			clusterv1beta1.ReadyV1Beta2Condition,
-			infrav1.HCloudMachineTemplateAvailableV1Beta2Condition,
-			infrav1.HCloudTokenAvailableV1Beta2Condition,
-			infrav1.HCloudRateLimitExceededV1Beta2Condition,
+		// owned conditions.
+		patch.WithOwnedConditions{Conditions: []string{
+			clusterv1.ReadyCondition,
+			infrav2.HCloudMachineTemplateAvailableCondition,
+			infrav2.HCloudTokenAvailableCondition,
+			infrav2.HCloudRateLimitExceededCondition,
 		}},
 	}
 }

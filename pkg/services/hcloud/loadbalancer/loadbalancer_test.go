@@ -17,22 +17,22 @@ limitations under the License.
 package loadbalancer
 
 import (
-	"errors"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	"k8s.io/utils/ptr"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 var _ = Describe("Loadbalancer", func() {
 	Context("hcloud cluster has network attached", func() {
-		var sts *infrav1.LoadBalancerStatus
+		var sts *infrav2.LoadBalancerStatus
 		BeforeEach(func() {
-			sts = statusFromHCloudLB(lb, true, logr.Discard())
+			sts = statusFromHCloudLB(lb, true, 443, logr.Discard())
 		})
 
 		It("should have two targets", func() {
@@ -48,11 +48,14 @@ var _ = Describe("Loadbalancer", func() {
 		It("should be unprotected", func() {
 			Expect(sts.Protected).To(Equal(protected))
 		})
+		It("should have proxy protocol disabled", func() {
+			Expect(sts.ProxyProtocolEnabled).To(BeFalse())
+		})
 	})
 	Context("hcloud cluster has no network attached", func() {
-		var sts *infrav1.LoadBalancerStatus
+		var sts *infrav2.LoadBalancerStatus
 		BeforeEach(func() {
-			sts = statusFromHCloudLB(lb, false, logr.Discard())
+			sts = statusFromHCloudLB(lb, false, 443, logr.Discard())
 		})
 
 		It("should have two targets", func() {
@@ -69,10 +72,25 @@ var _ = Describe("Loadbalancer", func() {
 			Expect(sts.Protected).To(Equal(protected))
 		})
 	})
+	Context("proxy protocol detection", func() {
+		It("reports enabled when the kube-API service has proxy protocol on", func() {
+			lbWithProxyProtocol := &hcloud.LoadBalancer{
+				Services: []hcloud.LoadBalancerService{
+					{ListenPort: 6443, Proxyprotocol: true},
+				},
+			}
+			sts := statusFromHCloudLB(lbWithProxyProtocol, false, 6443, logr.Discard())
+			Expect(sts.ProxyProtocolEnabled).To(BeTrue())
+		})
+		It("reports disabled when the kube-API port has no matching service", func() {
+			sts := statusFromHCloudLB(lb, false, 6443, logr.Discard())
+			Expect(sts.ProxyProtocolEnabled).To(BeFalse())
+		})
+	})
 })
 
 var _ = Describe("createOptsFromSpec", func() {
-	var hetznerCluster *infrav1.HetznerCluster
+	var hetznerCluster *infrav2.HetznerCluster
 	var wantCreateOpts hcloud.LoadBalancerCreateOpts
 	BeforeEach(func() {
 		lbType := "lb11"
@@ -81,19 +99,19 @@ var _ = Describe("createOptsFromSpec", func() {
 		lbPort := 6443
 		var networkID int64 = 42
 
-		hetznerCluster = &infrav1.HetznerCluster{
-			Spec: infrav1.HetznerClusterSpec{
-				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+		hetznerCluster = &infrav2.HetznerCluster{
+			Spec: infrav2.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
 					Name:      nil,
-					Algorithm: infrav1.LoadBalancerAlgorithmTypeLeastConnections,
+					Algorithm: infrav2.LoadBalancerAlgorithmTypeLeastConnections,
 					Type:      lbType,
-					Region:    infrav1.Region(lbRegion),
+					Region:    infrav2.Region(lbRegion),
 					Port:      lbPort,
 				},
-				ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{Port: int32(controlPlaneEndpointPort)},
+				ControlPlaneEndpoint: infrav2.APIEndpoint{Port: int32(controlPlaneEndpointPort)},
 			},
-			Status: infrav1.HetznerClusterStatus{
-				Network: &infrav1.NetworkStatus{ID: networkID},
+			Status: infrav2.HetznerClusterStatus{
+				Network: &infrav2.NetworkStatus{ID: networkID},
 			},
 		}
 		hetznerCluster.Name = "hetzner-cluster"
@@ -107,7 +125,7 @@ var _ = Describe("createOptsFromSpec", func() {
 			Algorithm:        &hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeLeastConnections},
 			Location:         &hcloud.Location{Name: lbRegion},
 			Network:          &hcloud.Network{ID: networkID},
-			Labels:           map[string]string{hetznerCluster.ClusterTagKey(): string(infrav1.ResourceLifecycleOwned)},
+			Labels:           map[string]string{hetznerCluster.ClusterTagKey(): string(infrav2.ResourceLifecycleOwned)},
 			PublicInterface:  &publicInterface,
 			Services: []hcloud.LoadBalancerCreateOptsService{
 				{
@@ -124,8 +142,7 @@ var _ = Describe("createOptsFromSpec", func() {
 		hetznerCluster.Status.Network = nil
 		wantCreateOpts.Network = nil
 
-		createOpts, err := createOptsFromSpec(hetznerCluster)
-		Expect(err).To(BeNil())
+		createOpts := createOptsFromSpec(hetznerCluster)
 
 		// ignore random name
 		createOpts.Name = ""
@@ -134,8 +151,7 @@ var _ = Describe("createOptsFromSpec", func() {
 	})
 
 	It("creates specs for cluster with network", func() {
-		createOpts, err := createOptsFromSpec(hetznerCluster)
-		Expect(err).To(BeNil())
+		createOpts := createOptsFromSpec(hetznerCluster)
 
 		// ignore random name
 		createOpts.Name = ""
@@ -146,8 +162,7 @@ var _ = Describe("createOptsFromSpec", func() {
 	It("creates specs for cluster without load balancer name set", func() {
 		hetznerCluster.Spec.ControlPlaneLoadBalancer.Name = nil
 
-		createOpts, err := createOptsFromSpec(hetznerCluster)
-		Expect(err).To(BeNil())
+		createOpts := createOptsFromSpec(hetznerCluster)
 
 		// should generate correct name
 		Expect(createOpts.Name).To(HavePrefix("hetzner-cluster-kube-apiserver-"))
@@ -158,10 +173,252 @@ var _ = Describe("createOptsFromSpec", func() {
 		Expect(createOpts).To(Equal(wantCreateOpts))
 	})
 
-	It("returns ErrControlPlaneEndpointNotSet", func() {
-		hetznerCluster.Spec.ControlPlaneEndpoint = nil
+	It("uses a zero listen port until the control plane endpoint is filled in", func() {
+		hetznerCluster.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{}
 
-		_, err := createOptsFromSpec(hetznerCluster)
-		Expect(errors.Is(err, ErrControlPlaneEndpointNotSet)).To(BeTrue())
+		createOpts := createOptsFromSpec(hetznerCluster)
+
+		Expect(*createOpts.Services[0].ListenPort).To(Equal(0))
+	})
+
+	It("omits the health check when the spec doesn't set one", func() {
+		createOpts := createOptsFromSpec(hetznerCluster)
+
+		Expect(createOpts.Services[0].HealthCheck).To(BeNil())
+	})
+
+	It("carries an http health check into the kube-API service", func() {
+		hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+			Protocol:        "http",
+			IntervalSeconds: ptr.To(5),
+			TimeoutSeconds:  ptr.To(2),
+			Retries:         ptr.To(5),
+			Domain:          ptr.To("example.com"),
+			Path:            ptr.To("/readyz"),
+			Response:        ptr.To("ok"),
+			StatusCodes:     []string{"200"},
+		}
+
+		createOpts := createOptsFromSpec(hetznerCluster)
+
+		port := hetznerCluster.Spec.ControlPlaneLoadBalancer.Port
+		interval := 5 * time.Second
+		timeout := 2 * time.Second
+		retries := 5
+		domain := "example.com"
+		path := "/readyz"
+		response := "ok"
+		tls := false
+		Expect(createOpts.Services[0].HealthCheck).To(Equal(&hcloud.LoadBalancerCreateOptsServiceHealthCheck{
+			Protocol: hcloud.LoadBalancerServiceProtocolHTTP,
+			Port:     &port,
+			Interval: &interval,
+			Timeout:  &timeout,
+			Retries:  &retries,
+			HTTP: &hcloud.LoadBalancerCreateOptsServiceHealthCheckHTTP{
+				Domain:      &domain,
+				Path:        &path,
+				Response:    &response,
+				StatusCodes: []string{"200"},
+				TLS:         &tls,
+			},
+		}))
+	})
+})
+
+var _ = Describe("health check option builders", func() {
+	const servicePort = 6443
+
+	spec := func(protocol string) *infrav2.LoadBalancerHealthCheckSpec {
+		return &infrav2.LoadBalancerHealthCheckSpec{
+			Protocol:        protocol,
+			IntervalSeconds: ptr.To(5),
+			TimeoutSeconds:  ptr.To(2),
+			Retries:         ptr.To(5),
+			Domain:          ptr.To("example.com"),
+			Path:            ptr.To("/readyz"),
+		}
+	}
+
+	Describe("healthCheckCreateOpts", func() {
+		It("returns nil when the spec is nil", func() {
+			Expect(healthCheckCreateOpts(nil, servicePort)).To(BeNil())
+		})
+
+		It("omits the HTTP sub-options for a tcp health check", func() {
+			opts := healthCheckCreateOpts(spec("tcp"), servicePort)
+			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolTCP))
+			Expect(opts.HTTP).To(BeNil())
+		})
+
+		It("sets TLS for an https health check", func() {
+			opts := healthCheckCreateOpts(spec("https"), servicePort)
+			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolHTTPS))
+			Expect(opts.HTTP).NotTo(BeNil())
+			Expect(*opts.HTTP.TLS).To(BeTrue())
+			Expect(*opts.HTTP.Domain).To(Equal("example.com"))
+			Expect(*opts.HTTP.Path).To(Equal("/readyz"))
+		})
+
+		It("defaults Port to the service port when the spec leaves it unset", func() {
+			opts := healthCheckCreateOpts(spec("tcp"), servicePort)
+			Expect(*opts.Port).To(Equal(servicePort))
+		})
+
+		It("uses the spec's Port when set", func() {
+			hc := spec("tcp")
+			hc.Port = ptr.To(8443)
+			opts := healthCheckCreateOpts(hc, servicePort)
+			Expect(*opts.Port).To(Equal(8443))
+		})
+	})
+
+	Describe("healthCheckAddOpts", func() {
+		It("returns nil when the spec is nil", func() {
+			Expect(healthCheckAddOpts(nil, servicePort)).To(BeNil())
+		})
+
+		It("mirrors the spec for an http health check", func() {
+			opts := healthCheckAddOpts(spec("http"), servicePort)
+			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolHTTP))
+			Expect(*opts.Retries).To(Equal(5))
+			Expect(*opts.HTTP.TLS).To(BeFalse())
+		})
+	})
+
+	Describe("healthCheckUpdateOpts", func() {
+		It("returns nil when the spec is nil", func() {
+			Expect(healthCheckUpdateOpts(nil, servicePort)).To(BeNil())
+		})
+
+		It("mirrors the spec for an http health check", func() {
+			opts := healthCheckUpdateOpts(spec("http"), servicePort)
+			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolHTTP))
+			Expect(*opts.Interval).To(Equal(5 * time.Second))
+			Expect(*opts.HTTP.Domain).To(Equal("example.com"))
+		})
+	})
+
+	Describe("healthCheckDiffers", func() {
+		// lb.Services[0] (destination port 80, listen port 443) is an http health check on port
+		// 4711, with domain "example.com", path "/", response, status codes 2??/3??, interval 15s,
+		// timeout 10s, retries 3, TLS false (see loadbalancer_suite_test.go).
+		const destinationPort = 80
+		var got hcloud.LoadBalancerServiceHealthCheck
+		BeforeEach(func() {
+			got = lb.Services[0].HealthCheck
+		})
+
+		It("reports no update needed when the spec matches the live state", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{
+				Protocol:        "http",
+				Port:            ptr.To(4711),
+				IntervalSeconds: ptr.To(15),
+				TimeoutSeconds:  ptr.To(10),
+				Retries:         ptr.To(3),
+				Domain:          ptr.To("example.com"),
+				Path:            ptr.To("/"),
+				Response:        ptr.To(`{"status": "ok"}`),
+				StatusCodes:     []string{"2??", "3??"},
+			}
+			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeFalse())
+		})
+
+		It("ignores fields the spec leaves unset", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "http", Port: ptr.To(4711)}
+			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeFalse())
+		})
+
+		It("treats status codes as a set, ignoring order", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{
+				Protocol:    "http",
+				Port:        ptr.To(4711),
+				StatusCodes: []string{"3??", "2??"},
+			}
+			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeFalse())
+		})
+
+		It("reports an update when the protocol differs", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "tcp"}
+			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeTrue())
+		})
+
+		It("reports an update when the port isn't set and falls back to the destination port", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "http"}
+			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeTrue())
+		})
+
+		It("reports an update when the interval differs", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{
+				Protocol:        "http",
+				Port:            ptr.To(4711),
+				IntervalSeconds: ptr.To(30),
+			}
+			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeTrue())
+		})
+
+		It("reports an update when the path differs", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{
+				Protocol: "http",
+				Port:     ptr.To(4711),
+				Path:     ptr.To("/readyz"),
+			}
+			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeTrue())
+		})
+
+		It("reports an update when statusCodes differ", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{
+				Protocol:    "http",
+				Port:        ptr.To(4711),
+				StatusCodes: []string{"200"},
+			}
+			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeTrue())
+		})
+
+		It("reports an update when switching from http to https", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "https", Port: ptr.To(4711)}
+			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeTrue())
+		})
+
+		It("treats an empty protocol as tcp and reports the mismatch against the http fixture", func() {
+			want := &infrav2.LoadBalancerHealthCheckSpec{}
+			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeTrue())
+		})
+	})
+
+	Describe("healthCheckMigratesToHTTP", func() {
+		It("is false when the spec is nil", func() {
+			Expect(healthCheckMigratesToHTTP(hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP}, nil)).To(BeFalse())
+		})
+
+		It("is true when switching from tcp to http", func() {
+			got := hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP}
+			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "http"}
+			Expect(healthCheckMigratesToHTTP(got, want)).To(BeTrue())
+		})
+
+		It("is true when switching from tcp to https", func() {
+			got := hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP}
+			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "https"}
+			Expect(healthCheckMigratesToHTTP(got, want)).To(BeTrue())
+		})
+
+		It("is false when staying on tcp", func() {
+			got := hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP}
+			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "tcp"}
+			Expect(healthCheckMigratesToHTTP(got, want)).To(BeFalse())
+		})
+
+		It("is false when moving within http/https (path change or http to https)", func() {
+			got := hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolHTTP}
+			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "https"}
+			Expect(healthCheckMigratesToHTTP(got, want)).To(BeFalse())
+		})
+
+		It("is false when switching back to tcp from http", func() {
+			got := hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolHTTP}
+			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "tcp"}
+			Expect(healthCheckMigratesToHTTP(got, want)).To(BeFalse())
+		})
 	})
 })

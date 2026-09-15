@@ -27,10 +27,10 @@ import (
 	"strings"
 )
 
-var imageURLCommandNameRegex = regexp.MustCompile(`^image-url-command-[a-z0-9][a-z0-9._-]*$`)
+var imageURLCommandNameRegex = regexp.MustCompile(`^[a-z][a-z0-9._-]*$`)
 
 // ValidateImageURLCommandName validates the user-provided command name. The name must be a
-// basename, must not contain "..", and must start with image-url-command-.
+// basename, must not contain "..", and must match the pattern ^[a-z][a-z0-9._-]*$.
 func ValidateImageURLCommandName(name string) error {
 	if name != filepath.Base(name) {
 		return fmt.Errorf("must be a basename without slashes")

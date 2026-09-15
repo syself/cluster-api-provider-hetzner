@@ -20,11 +20,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 var _ = Describe("statusFromHCloudPlacementGroups", func() {
-	var sts []infrav1.HCloudPlacementGroupStatus
+	var sts []infrav2.HCloudPlacementGroupStatus
 	BeforeEach(func() {
 		sts = statusFromHCloudPlacementGroups(placementGroups, "cluster-name")
 	})

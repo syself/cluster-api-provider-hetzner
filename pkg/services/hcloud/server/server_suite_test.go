@@ -37,7 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -217,7 +217,7 @@ var _ helpers.Resetter = &Resetter{}
 
 var hcloudImageURLCommandTempDir string
 
-func (r *Resetter) ResetAndInitNamespace(_ string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
+func (r *Resetter) ResetAndInitNamespace(_ string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) func() {
 	rescueSSHClient := &sshmock.Client{}
 	// Register Testify helpers so failed expectations are reported against this test instance.
 
@@ -227,11 +227,12 @@ func (r *Resetter) ResetAndInitNamespace(_ string, testEnv *helpers.TestEnvironm
 	testEnv.HCloudSSHClient = &sshmock.Client{}
 	testEnv.HCloudSSHClient.Test(t)
 	testEnv.HCloudSSHClientFactory = mockedsshclient.NewSSHFactory(testEnv.HCloudSSHClient)
+	return func() {}
 }
 
 var _ = BeforeSuite(func() {
 	utilruntime.Must(corev1.AddToScheme(scheme.Scheme))
-	utilruntime.Must(infrav1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(infrav2.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
 
 	tmpDir, err := os.MkdirTemp("", "caph-hcloud-image-url-command-*")
@@ -277,9 +278,9 @@ func newTestServer() *hcloud.Server {
 	return hcloud.ServerFromSchema(serverSchema)
 }
 
-func newTestService(hcloudMachine *infrav1.HCloudMachine, hcloudClient hcloudclient.Client) *Service {
+func newTestService(hcloudMachine *infrav2.HCloudMachine, hcloudClient hcloudclient.Client) *Service {
 	scheme := runtime.NewScheme()
-	utilruntime.Must(infrav1.AddToScheme(scheme))
+	utilruntime.Must(infrav2.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	client := fakeclient.NewClientBuilder().WithScheme(scheme).Build()
 	machine := &clusterv1.Machine{
@@ -296,12 +297,12 @@ func newTestService(hcloudMachine *infrav1.HCloudMachine, hcloudClient hcloudcli
 	}
 	return &Service{
 		&scope.MachineScope{
-			HCloudMachine: hcloudMachine,
-			ClusterScope: scope.ClusterScope{
-				HCloudClient: hcloudClient,
-				Client:       client,
-			},
-			Machine: machine,
+			HCloudMachine:  hcloudMachine,
+			HCloudClient:   hcloudClient,
+			Client:         client,
+			Cluster:        &clusterv1.Cluster{},
+			HetznerCluster: &infrav2.HetznerCluster{},
+			Machine:        machine,
 		},
 	}
 }

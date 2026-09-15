@@ -1,0 +1,46 @@
+name: Baremetal Check Server (Recovery)
+on:
+  workflow_dispatch:
+    inputs:
+      server_name:
+        description: "HetznerBareMetalHost metadata.name (e.g. bm-e2e-1670788)"
+        required: true
+
+jobs:
+  check-bm-server:
+    name: Check BM Server (${{ inputs.server_name }})
+    concurrency: ci-e2e-baremetal-global
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Use hbmh list from main branch
+        run: |
+          git fetch origin main
+          git checkout FETCH_HEAD -- test/e2e/data/infrastructure-hetzner/v1beta1/bases/hetznerbaremetalhosts.yaml
+
+      - name: Enable maintenanceMode for check
+        run: |
+          sed -i 's/maintenanceMode: false/maintenanceMode: true/g' \
+            test/e2e/data/infrastructure-hetzner/v1beta1/bases/hetznerbaremetalhosts.yaml
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: "go.mod"
+          cache: false
+
+      - name: Run caphcli check-bm-server
+        env:
+          HETZNER_ROBOT_USER: ${{ secrets.HETZNER_ROBOT_USER }}
+          HETZNER_ROBOT_PASSWORD: ${{ secrets.HETZNER_ROBOT_PASSWORD }}
+          HETZNER_SSH_PUB: ${{ secrets.HETZNER_SSH_PUB }}
+          HETZNER_SSH_PRIV: ${{ secrets.HETZNER_SSH_PRIV }}
+          SSH_KEY_NAME: ${{ secrets.SSH_KEY_NAME }}
+        run: |
+          go run github.com/syself/caphcli@latest check-bm-server \
+            test/e2e/data/infrastructure-hetzner/v1beta1/bases/hetznerbaremetalhosts.yaml \
+            --name "${{ inputs.server_name }}" \
+            --force

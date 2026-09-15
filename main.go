@@ -267,6 +267,7 @@ func main() {
 
 	if err = (&controllers.HetznerBareMetalRemediationReconciler{
 		Client:           mgr.GetClient(),
+		APIReader:        mgr.GetAPIReader(),
 		WatchFilterValue: watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalRemediation")

@@ -587,24 +587,22 @@ func (_c *Client_CreatePlacementGroup_Call) RunAndReturn(run func(context.Contex
 }
 
 // CreateServer provides a mock function with given fields: _a0, _a1
-func (_m *Client) CreateServer(_a0 context.Context, _a1 hcloud.ServerCreateOpts) (*hcloud.Server, error) {
+func (_m *Client) CreateServer(_a0 context.Context, _a1 hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateServer")
 	}
 
-	var r0 *hcloud.Server
+	var r0 hcloud.ServerCreateResult
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, hcloud.ServerCreateOpts) (*hcloud.Server, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error)); ok {
 		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, hcloud.ServerCreateOpts) *hcloud.Server); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, hcloud.ServerCreateOpts) hcloud.ServerCreateResult); ok {
 		r0 = rf(_a0, _a1)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*hcloud.Server)
-		}
+		r0 = ret.Get(0).(hcloud.ServerCreateResult)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, hcloud.ServerCreateOpts) error); ok {
@@ -635,12 +633,12 @@ func (_c *Client_CreateServer_Call) Run(run func(_a0 context.Context, _a1 hcloud
 	return _c
 }
 
-func (_c *Client_CreateServer_Call) Return(_a0 *hcloud.Server, _a1 error) *Client_CreateServer_Call {
+func (_c *Client_CreateServer_Call) Return(_a0 hcloud.ServerCreateResult, _a1 error) *Client_CreateServer_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Client_CreateServer_Call) RunAndReturn(run func(context.Context, hcloud.ServerCreateOpts) (*hcloud.Server, error)) *Client_CreateServer_Call {
+func (_c *Client_CreateServer_Call) RunAndReturn(run func(context.Context, hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error)) *Client_CreateServer_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1880,6 +1878,55 @@ func (_c *Client_UpdateLoadBalancer_Call) Return(_a0 *hcloud.LoadBalancer, _a1 e
 }
 
 func (_c *Client_UpdateLoadBalancer_Call) RunAndReturn(run func(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerUpdateOpts) (*hcloud.LoadBalancer, error)) *Client_UpdateLoadBalancer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateServiceOnLoadBalancer provides a mock function with given fields: _a0, _a1, _a2, _a3
+func (_m *Client) UpdateServiceOnLoadBalancer(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 int, _a3 hcloud.LoadBalancerUpdateServiceOpts) error {
+	ret := _m.Called(_a0, _a1, _a2, _a3)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateServiceOnLoadBalancer")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *hcloud.LoadBalancer, int, hcloud.LoadBalancerUpdateServiceOpts) error); ok {
+		r0 = rf(_a0, _a1, _a2, _a3)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Client_UpdateServiceOnLoadBalancer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateServiceOnLoadBalancer'
+type Client_UpdateServiceOnLoadBalancer_Call struct {
+	*mock.Call
+}
+
+// UpdateServiceOnLoadBalancer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.LoadBalancer
+//   - _a2 int
+//   - _a3 hcloud.LoadBalancerUpdateServiceOpts
+func (_e *Client_Expecter) UpdateServiceOnLoadBalancer(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}) *Client_UpdateServiceOnLoadBalancer_Call {
+	return &Client_UpdateServiceOnLoadBalancer_Call{Call: _e.mock.On("UpdateServiceOnLoadBalancer", _a0, _a1, _a2, _a3)}
+}
+
+func (_c *Client_UpdateServiceOnLoadBalancer_Call) Run(run func(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 int, _a3 hcloud.LoadBalancerUpdateServiceOpts)) *Client_UpdateServiceOnLoadBalancer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.LoadBalancer), args[2].(int), args[3].(hcloud.LoadBalancerUpdateServiceOpts))
+	})
+	return _c
+}
+
+func (_c *Client_UpdateServiceOnLoadBalancer_Call) Return(_a0 error) *Client_UpdateServiceOnLoadBalancer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_UpdateServiceOnLoadBalancer_Call) RunAndReturn(run func(context.Context, *hcloud.LoadBalancer, int, hcloud.LoadBalancerUpdateServiceOpts) error) *Client_UpdateServiceOnLoadBalancer_Call {
 	_c.Call.Return(run)
 	return _c
 }

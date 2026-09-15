@@ -105,8 +105,7 @@ func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav2.Hetzn
 	// Check whether controlPlaneEndpoint is specified if allow empty is not set or false
 
 	if !allowEmptyControlPlaneAddress && !r.Spec.ControlPlaneLoadBalancer.Enabled {
-		if r.Spec.ControlPlaneEndpoint == nil ||
-			r.Spec.ControlPlaneEndpoint.Host == "" ||
+		if r.Spec.ControlPlaneEndpoint.Host == "" ||
 			r.Spec.ControlPlaneEndpoint.Port == 0 {
 			allErrs = append(allErrs,
 				field.Invalid(
@@ -119,6 +118,10 @@ func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav2.Hetzn
 	}
 
 	if err := validateHetznerSecretKey(r); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if err := validateLoadBalancerHealthCheck(r.Spec.ControlPlaneLoadBalancer.HealthCheck); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -186,11 +189,60 @@ func (*HetznerClusterWebhook) ValidateUpdate(_ context.Context, oldC, r *infrav2
 		)
 	}
 
+	if oldC.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && !r.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "controlPlaneLoadBalancer", "enableProxyProtocol"),
+				r.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol, "proxy protocol cannot be disabled once enabled"),
+		)
+	}
+
 	if err := validateHetznerSecretKey(r); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
+	if err := validateLoadBalancerHealthCheck(r.Spec.ControlPlaneLoadBalancer.HealthCheck); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+}
+
+// validateLoadBalancerHealthCheck rejects HTTP(S)-only fields set while the health check protocol
+// is tcp. All other combinations, including any change to an already-set health check, are allowed.
+func validateLoadBalancerHealthCheck(hc *infrav2.LoadBalancerHealthCheckSpec) *field.Error {
+	if hc == nil || hc.Protocol == "http" || hc.Protocol == "https" {
+		return nil
+	}
+
+	if hc.Path != nil {
+		return field.Invalid(
+			field.NewPath("spec", "controlPlaneLoadBalancer", "healthCheck", "path"),
+			*hc.Path, "path must not be set when protocol is tcp",
+		)
+	}
+
+	if hc.Domain != nil {
+		return field.Invalid(
+			field.NewPath("spec", "controlPlaneLoadBalancer", "healthCheck", "domain"),
+			*hc.Domain, "domain must not be set when protocol is tcp",
+		)
+	}
+
+	if hc.Response != nil {
+		return field.Invalid(
+			field.NewPath("spec", "controlPlaneLoadBalancer", "healthCheck", "response"),
+			*hc.Response, "response must not be set when protocol is tcp",
+		)
+	}
+
+	if len(hc.StatusCodes) > 0 {
+		return field.Invalid(
+			field.NewPath("spec", "controlPlaneLoadBalancer", "healthCheck", "statusCodes"),
+			hc.StatusCodes, "statusCodes must not be set when protocol is tcp",
+		)
+	}
+
+	return nil
 }
 
 func validateHetznerSecretKey(r *infrav2.HetznerCluster) *field.Error {
