@@ -43,7 +43,20 @@ type Arguments struct {
 	RetryCount               int16
 	RetryForEver             bool
 	Timeout                  time.Duration
-	forbiddenResourcesPrinted bool
+	// WarnDeletionTimestampOlderThan warns about resources whose deletionTimestamp
+	// is older than this duration. Set to 0 to disable.
+	WarnDeletionTimestampOlderThan time.Duration
+	// PodStartGracePeriod suppresses "pod is still starting" noise: a Pod whose
+	// ContainersReady/Initialized condition is False but younger than this
+	// duration, and which has not restarted yet, is treated as healthy. Set to 0
+	// to disable.
+	PodStartGracePeriod time.Duration
+	// ExtraConditionLinesToIgnoreRegexs are additional regexes (from
+	// --ignore-condition-regex) checked in addition to the built-in
+	// conditionLinesToIgnoreRegexs.
+	ExtraConditionLinesToIgnoreRegexs []*regexp.Regexp
+	forbiddenResourcesPrinted         bool
+	connectionInfoPrinted             bool
 }
 
 // matchAnyPattern reports whether name matches any of the given glob patterns.
@@ -161,16 +174,27 @@ func resolveNamespacePatterns(ctx context.Context, clientset *kubernetes.Clients
 	return resolved, nil
 }
 
-var resourcesToSkip = []string{
-	"bindings",
-	"componentstatuses",
-	"endpoints", // Deprecated in 1.33+
-	"localsubjectaccessreviews",
-	"selfsubjectaccessreviews",
-	"selfsubjectreviews",
-	"selfsubjectrulesreviews",
-	"subjectaccessreviews",
-	"tokenreviews",
+var resourcesToSkip = []schema.GroupResource{
+	{Group: "", Resource: "bindings"},
+	{Group: "", Resource: "componentstatuses"},
+	{Group: "", Resource: "configmaps"},              // no status subresource
+	{Group: "", Resource: "endpoints"},               // Deprecated in 1.33+
+	{Group: "", Resource: "events"},                  // no status subresource
+	{Group: "", Resource: "limitranges"},             // no status subresource
+	{Group: "", Resource: "persistentvolumes"},       // PersistentVolumeStatus has phase only, no conditions
+	{Group: "", Resource: "podtemplates"},            // no status subresource
+	{Group: "", Resource: "resourcequotas"},          // ResourceQuotaStatus has hard/used, no conditions
+	{Group: "", Resource: "secrets"},                 // no status subresource
+	{Group: "", Resource: "serviceaccounts"},         // no status subresource
+	{Group: "apps", Resource: "controllerrevisions"}, // no status subresource
+	{Group: "authorization.k8s.io", Resource: "localsubjectaccessreviews"},
+	{Group: "authorization.k8s.io", Resource: "selfsubjectaccessreviews"},
+	{Group: "authorization.k8s.io", Resource: "selfsubjectreviews"},
+	{Group: "authorization.k8s.io", Resource: "selfsubjectrulesreviews"},
+	{Group: "authorization.k8s.io", Resource: "subjectaccessreviews"},
+	{Group: "authentication.k8s.io", Resource: "selfsubjectreviews"},
+	{Group: "authentication.k8s.io", Resource: "tokenreviews"},
+	{Group: "batch", Resource: "cronjobs"}, // CronJobStatus has no conditions field
 }
 
 type Counter struct {
@@ -213,7 +237,53 @@ func RunAllOnce(ctx context.Context, args *Arguments) (bool, error) {
 	// to wait for getting results from an api-server running at localhost
 	config.QPS = 1000
 	config.Burst = 1000
+
+	// Print the connected cluster and where the kubeconfig comes from once per
+	// invocation. The while/forever loops call RunAllOnce repeatedly, so guard
+	// against printing this block on every iteration.
+	if !args.connectionInfoPrinted {
+		printConnectionInfo(kubeconfig, loadingRules, config)
+		args.connectionInfoPrinted = true
+	}
+
 	return RunCheckAllConditions(ctx, config, args)
+}
+
+// printConnectionInfo prints the connected cluster (server URL and kube-context),
+// the current time and where the kubeconfig was loaded from.
+func printConnectionInfo(kubeconfig clientcmd.ClientConfig, loadingRules *clientcmd.ClientConfigLoadingRules, config *restclient.Config) {
+	server := config.Host
+	contextName := ""
+	if rawConfig, err := kubeconfig.RawConfig(); err == nil {
+		contextName = rawConfig.CurrentContext
+		if cluster, ok := rawConfig.Clusters[rawConfig.Contexts[contextName].Cluster]; ok && cluster.Server != "" {
+			server = cluster.Server
+		}
+	}
+	if contextName != "" {
+		fmt.Printf("Cluster:    %s (context %q)\n", server, contextName)
+	} else {
+		fmt.Printf("Cluster:    %s\n", server)
+	}
+	fmt.Printf("Kubeconfig: %s\n", kubeconfigSource(loadingRules))
+	fmt.Printf("Time:       %s\n\n", time.Now().Format("2006-01-02 15:04:05 -0700 MST"))
+}
+
+// kubeconfigSource returns a human readable description of where the kubeconfig
+// was loaded from.
+func kubeconfigSource(loadingRules *clientcmd.ClientConfigLoadingRules) string {
+	if loadingRules.ExplicitPath != "" {
+		return loadingRules.ExplicitPath
+	}
+	files := loadingRules.GetLoadingPrecedence()
+	if len(files) == 0 {
+		return "unknown"
+	}
+	source := strings.Join(files, string(os.PathListSeparator))
+	if os.Getenv(clientcmd.RecommendedConfigPathEnvVar) != "" {
+		source += " (from $" + clientcmd.RecommendedConfigPathEnvVar + ")"
+	}
+	return source
 }
 
 func RunForever(ctx context.Context, args *Arguments) error {
@@ -485,6 +555,21 @@ func printResources(args *Arguments, list *unstructured.UnstructuredList, gvr sc
 			continue
 		}
 		counter.checkedResources++
+		if args.WarnDeletionTimestampOlderThan > 0 {
+			if dt := obj.GetDeletionTimestamp(); dt != nil && !dt.IsZero() {
+				age := time.Since(dt.Time)
+				if age > args.WarnDeletionTimestampOlderThan {
+					line := fmt.Sprintf("  %s %s %s DeletionTimestamp set for %s",
+						obj.GetNamespace(), gvr.Resource, obj.GetName(), age.Round(time.Second))
+					if args.WhileRegex == nil || args.WhileRegex.MatchString(line) {
+						if args.WhileRegex != nil {
+							again = true
+						}
+						lines = append(lines, line)
+					}
+				}
+			}
+		}
 		var conditions []interface{}
 		var err error
 		if gvr.Resource == "hetznerbaremetalhosts" {
@@ -530,7 +615,20 @@ func printConditions(args *Arguments, conditions []interface{}, counter *handleR
 ) (lines []string, again bool) {
 	var rows []conditionRow
 	for _, condition := range conditions {
-		rows = handleCondition(condition, counter, gvr, rows)
+		rows = handleCondition(args, condition, counter, gvr, rows)
+	}
+	// Suppress "pod is still starting" noise: while a pod is starting for the
+	// first time (no restarts), a recent ContainersReady=False / Initialized=False
+	// is expected and not worth reporting.
+	if gvr.Resource == "pods" && args.PodStartGracePeriod > 0 && podHasNoRestarts(obj) {
+		filtered := rows[:0]
+		for _, r := range rows {
+			if podStartingCondition(r, args.PodStartGracePeriod) {
+				continue
+			}
+			filtered = append(filtered, r)
+		}
+		rows = filtered
 	}
 	// remove general ready condition, if it is already contained in a particular condition
 	// https://pkg.go.dev/sigs.k8s.io/cluster-api/util/conditions#SetSummary
@@ -555,23 +653,73 @@ func printConditions(args *Arguments, conditions []interface{}, counter *handleR
 			}
 		}
 	}
+	// Merge rows that share the same (status, reason, message) into one output line.
+	// This avoids duplicate lines when multiple condition types carry identical information
+	// (e.g. Failed and FailureTarget both reporting BackoffLimitExceeded).
+	type mergeKey struct{ status, reason, message string }
+	type mergedEntry struct {
+		row   conditionRow
+		types []string
+	}
+	var order []mergeKey
+	byKey := map[mergeKey]*mergedEntry{}
 	for _, r := range rows {
 		if skipReadyCondition && r.conditionType == readyString {
 			continue
 		}
+		k := mergeKey{r.conditionStatus, r.conditionReason, r.conditionMessage}
+		if e, ok := byKey[k]; ok {
+			e.types = append(e.types, r.conditionType)
+			if !r.conditionLastTransitionTime.IsZero() &&
+				(e.row.conditionLastTransitionTime.IsZero() ||
+					r.conditionLastTransitionTime.Before(e.row.conditionLastTransitionTime)) {
+				e.row.conditionLastTransitionTime = r.conditionLastTransitionTime
+			}
+		} else {
+			byKey[k] = &mergedEntry{row: r, types: []string{r.conditionType}}
+			order = append(order, k)
+		}
+	}
+
+	for _, k := range order {
+		e := byKey[k]
+		slices.Sort(e.types)
+		r := e.row
+		r.conditionType = strings.Join(e.types, "/")
+
 		duration := ""
 		if !r.conditionLastTransitionTime.IsZero() {
 			d := time.Since(r.conditionLastTransitionTime)
 			duration = fmt.Sprint(d.Round(time.Second))
 		}
 
-		outLine := fmt.Sprintf("  %s %s %s Condition %s=%s %s %q (%s)", obj.GetNamespace(), gvr.Resource, obj.GetName(), r.conditionType, r.conditionStatus,
-			r.conditionReason, r.conditionMessage, duration)
+		detail := ""
+		if gvr.Resource == "deployments" && r.conditionReason == "MinimumReplicasUnavailable" {
+			if d := deploymentReplicaDetail(obj); d != "" {
+				detail = " " + d
+			}
+		}
+
+		outLine := fmt.Sprintf("  %s %s %s Condition %s=%s %s %q (%s)%s", obj.GetNamespace(), gvr.Resource, obj.GetName(), r.conditionType, r.conditionStatus,
+			r.conditionReason, r.conditionMessage, duration, detail)
 
 		addLine := true
 		if args.WhileRegex != nil {
 			addLine = false
-			if args.WhileRegex.MatchString(outLine) {
+			// Check each individual type for backward compatibility with --while regexes
+			// that match on a specific condition type name (e.g. "Failed=True").
+			for _, t := range e.types {
+				singleLine := fmt.Sprintf("  %s %s %s Condition %s=%s %s %q (%s)%s",
+					obj.GetNamespace(), gvr.Resource, obj.GetName(),
+					t, r.conditionStatus, r.conditionReason, r.conditionMessage, duration, detail)
+				if args.WhileRegex.MatchString(singleLine) {
+					again = true
+					addLine = true
+					break
+				}
+			}
+			// Also check the merged line (handles regexes that match the combined type string).
+			if !addLine && args.WhileRegex.MatchString(outLine) {
 				again = true
 				addLine = true
 			}
@@ -584,7 +732,66 @@ func printConditions(args *Arguments, conditions []interface{}, counter *handleR
 	return lines, again
 }
 
-func handleCondition(condition interface{}, counter *handleResourceTypeOutput, gvr schema.GroupVersionResource, rows []conditionRow) []conditionRow {
+// podStartingCondition reports whether a condition row is a pod that is still
+// starting for the first time: a ContainersReady/Initialized condition that is
+// False and younger than the grace period. A missing lastTransitionTime is left
+// untouched (reported) so nothing is hidden without evidence it is recent.
+func podStartingCondition(r conditionRow, grace time.Duration) bool {
+	if r.conditionStatus != "False" {
+		return false
+	}
+	if r.conditionType != "ContainersReady" && r.conditionType != "Initialized" {
+		return false
+	}
+	if r.conditionLastTransitionTime.IsZero() {
+		return false
+	}
+	return time.Since(r.conditionLastTransitionTime) < grace
+}
+
+// podHasNoRestarts reports whether none of the pod's containers have restarted
+// yet. A restart means the pod already ran once, so a not-ready condition is no
+// longer a first-start situation and should be reported. Missing restartCount
+// fields count as zero restarts.
+func podHasNoRestarts(obj unstructured.Unstructured) bool {
+	for _, key := range []string{"containerStatuses", "initContainerStatuses"} {
+		statuses, _, err := unstructured.NestedSlice(obj.Object, "status", key)
+		if err != nil {
+			continue
+		}
+		for _, s := range statuses {
+			m, ok := s.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			restarts, found, err := unstructured.NestedInt64(m, "restartCount")
+			if err == nil && found && restarts > 0 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// deploymentReplicaDetail returns a fragment like "available 1/3" describing how many
+// replicas are available versus desired. Desired defaults to 1 when spec.replicas is absent
+// (matching Kubernetes' default), available defaults to 0. Returns "" if the numbers can't be read.
+func deploymentReplicaDetail(obj unstructured.Unstructured) string {
+	desired, found, err := unstructured.NestedInt64(obj.Object, "spec", "replicas")
+	if err != nil {
+		return ""
+	}
+	if !found {
+		desired = 1
+	}
+	available, _, err := unstructured.NestedInt64(obj.Object, "status", "availableReplicas")
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("available %d/%d", available, desired)
+}
+
+func handleCondition(args *Arguments, condition interface{}, counter *handleResourceTypeOutput, gvr schema.GroupVersionResource, rows []conditionRow) []conditionRow {
 	conditionMap, ok := condition.(map[string]interface{})
 	if !ok {
 		fmt.Println("Invalid condition format")
@@ -611,6 +818,11 @@ func handleCondition(condition interface{}, counter *handleResourceTypeOutput, g
 	conditionMessage, _ := conditionMap["message"].(string)
 	conditionLine := fmt.Sprintf("%s %s=%s %s %q", gvr.Resource, conditionType, conditionStatus, conditionReason, conditionMessage)
 	for _, r := range conditionLinesToIgnoreRegexs {
+		if r.MatchString(conditionLine) {
+			return rows
+		}
+	}
+	for _, r := range args.ExtraConditionLinesToIgnoreRegexs {
 		if r.MatchString(conditionLine) {
 			return rows
 		}
@@ -661,6 +873,7 @@ var conditionTypesOfResourceWithPositiveMeaning = map[string][]string{
 		"NodeBootIDRetrieved",
 	},
 	"clusters": {
+		"ConsistentSystemID",    // postgresql.cnpg.io/v1
 		"ContinuousArchiving",   // postgresql.cnpg.io/v1
 		"RemoteConnectionProbe", // capi
 	},
@@ -671,17 +884,27 @@ var conditionTypesOfResourceWithPositiveMeaning = map[string][]string{
 	"engineimages": { // Longhorn
 		"ready",
 	},
+	"gitrepositories": { // source.toolkit.fluxcd.io/v1
+		"ArtifactInStorage",
+	},
+	"pods": {
+		"mysql.oracle.com/configured", // mysql-operator
+	},
 	"nodes": {
 		"Schedulable",         // Longhorn
 		"MountPropagation",    // Longhorn
 		"RequiredPackages",    // Longhorn
 		"KernelModulesLoaded", // Longhorn
+		"EtcdIsVoter",
 	},
 	"machines": {
 		"NodeKubeadmLabelsAndTaintsSet",
 	},
 	"autopilotclusters": {
 		"ClusterRunning",
+	},
+	"applicationsets": {
+		"ParametersGenerated",
 	},
 }
 
@@ -695,6 +918,21 @@ var conditionTypesOfResourceWithNegativeMeaning = map[string][]string{
 		"DisksFailure",
 		"KubeletNeedsRestart",
 		"XfsShutdown",
+		// Custom node health conditions (e.g. cloud-exit nodes): False means healthy.
+		"CertRenewalFailing",
+		"ClockNotSynchronized",
+		"DiskTemperatureHigh",
+		"DiskUsageHigh",
+		"DiskWearHigh",
+		"GpuFallenOffBus",
+		"NodeInfoStale",
+		"NodeServiceDown",
+		"NodeTampered",
+		"ProxyNotServing",
+		"SealedOSTampered",
+		"ServiceNotRecovering",
+		"TunnelDisconnected",
+		"VerityCorruption",
 	},
 	"horizontalpodautoscalers": {
 		"ScalingLimited",
@@ -725,6 +963,9 @@ var conditionTypesOfResourceWithNegativeMeaning = map[string][]string{
 	"machines": {
 		"Updating",
 	},
+	"applicationsets": {
+		"ErrorOccurred",
+	},
 }
 
 // To create new IngoreRegex take the line you see and remove the namespace, the resource name and the time from that line.
@@ -753,6 +994,13 @@ var conditionLinesToIgnoreRegexs = []*regexp.Regexp{
 
 	// perconaxtradbclusters
 	regexp.MustCompile(`perconaxtradbclusters tls=enabled`),
+
+	// liqo
+	regexp.MustCompile(`foreignclusters APIServerStatus=Established`),
+
+	// Tigera / Calico operator
+	regexp.MustCompile(`tigerastatuses Progressing=False AllObjectsAvailable`),
+	regexp.MustCompile(`installations Progressing=False AllObjectsAvailable`),
 }
 
 func conditionTypeHasPositiveMeaning(resource string, ct string) bool {
@@ -768,6 +1016,7 @@ func conditionTypeHasPositiveMeaning(resource string, ct string) bool {
 		"Built",
 		"Complete",
 		"Created",
+		"Deployed",
 		"Downloaded",
 		"Established",
 		"Healthy",
@@ -793,6 +1042,7 @@ func conditionTypeHasPositiveMeaning(resource string, ct string) bool {
 		"RunningDesiredVersion", // elasticsearches
 		"ready",                 // perconaservermongodbs
 		"sharding",              // perconaservermongodbs
+		"Conformant",            // customresourcedefinitions KubernetesAPIApprovalPolicyConformant
 		"NoWarnings",            // rabbitmqclusters
 		"ReconcileSuccess",      // rabbitmqclusters
 	} {
@@ -833,7 +1083,7 @@ func conditionTypeHasNegativeMeaning(resource string, ct string) bool {
 	}
 
 	for _, suffix := range []string{
-		"Unavailable", "Pressure", "Dangling", "Unhealthy", "Paused", "Deleting", "Failed",
+		"Unavailable", "Pressure", "Dangling", "Unhealthy", "Paused", "Deleting", "Failed", "Degraded",
 	} {
 		if strings.HasSuffix(ct, suffix) {
 			return true
@@ -876,7 +1126,7 @@ func handleResourceType(ctx context.Context, input handleResourceTypeInput) hand
 	if containsSlash(name) {
 		return output
 	}
-	if slices.Contains(resourcesToSkip, name) {
+	if slices.Contains(resourcesToSkip, gvr.GroupResource()) {
 		return output
 	}
 
@@ -906,6 +1156,11 @@ func handleResourceType(ctx context.Context, input handleResourceTypeInput) hand
 	if err != nil {
 		if apierrors.IsForbidden(err) {
 			output.forbiddenResource = name
+			return output
+		}
+		if apierrors.IsMethodNotSupported(err) {
+			// Some resources (for example webhook backed ones) cannot be listed.
+			// There is nothing to check, so stay quiet.
 			return output
 		}
 		fmt.Printf("..Error listing %s: %v. group %q version %q resource %q\n", name, err,
