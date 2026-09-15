@@ -43,7 +43,6 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/log"
 	"sigs.k8s.io/cluster-api/util/kubeconfig"
-	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -199,8 +198,6 @@ func NewTestEnvironment() *TestEnvironment {
 	if err != nil {
 		klog.Fatalf("unable to create manager: %s", err)
 	}
-
-	record.InitFromRecorder(mgr.GetEventRecorderFor("hetzner-controller"))
 
 	if err := (&webhookv1beta1.HetznerClusterWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerCluster: %s", err)

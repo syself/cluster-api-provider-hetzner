@@ -21,14 +21,15 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
-	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -44,6 +45,7 @@ type BareMetalMachineScopeParams struct {
 	BareMetalMachine *infrav1.HetznerBareMetalMachine
 	HetznerCluster   *infrav1.HetznerCluster
 	HCloudClient     hcloudclient.Client
+	EventRecorder    record.EventRecorder
 }
 
 // NewBareMetalMachineScope creates a new Scope from the supplied parameters.
@@ -51,6 +53,9 @@ type BareMetalMachineScopeParams struct {
 func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMachineScope, error) {
 	if params.Client == nil {
 		return nil, fmt.Errorf("cannot create baremetal machine scope without client")
+	}
+	if params.EventRecorder == nil {
+		return nil, fmt.Errorf("cannot create baremetal machine scope without EventRecorder")
 	}
 	if params.Cluster == nil {
 		return nil, fmt.Errorf("failed to generate new scope from nil Cluster")
@@ -87,6 +92,7 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 		BareMetalMachine: params.BareMetalMachine,
 		HetznerCluster:   params.HetznerCluster,
 		HCloudClient:     params.HCloudClient,
+		EventRecorder:    params.EventRecorder,
 	}, nil
 }
 
@@ -100,7 +106,8 @@ type BareMetalMachineScope struct {
 	BareMetalMachine *infrav1.HetznerBareMetalMachine
 	HetznerCluster   *infrav1.HetznerCluster
 
-	HCloudClient hcloudclient.Client
+	HCloudClient  hcloudclient.Client
+	EventRecorder record.EventRecorder
 }
 
 // Close closes the current scope persisting the machine configuration and status.
@@ -208,6 +215,12 @@ func (m *BareMetalMachineScope) SetRemediateMachineAnnotationToDeleteMachine(ctx
 		return err
 	}
 
-	record.Warnf(m.BareMetalMachine, "MachineWillBeDeleted", "Machine will be deleted: %s", message)
+	m.EventRecorder.Eventf(
+		m.BareMetalMachine,
+		corev1.EventTypeWarning,
+		"MachineWillBeDeleted",
+		"Machine will be deleted: %s",
+		message,
+	)
 	return nil
 }

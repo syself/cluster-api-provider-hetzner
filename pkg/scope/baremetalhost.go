@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
@@ -52,6 +53,7 @@ type BareMetalHostScopeParams struct {
 	RescueSSHSecret         *corev1.Secret
 	SecretManager           *secretutil.SecretManager
 	PreProvisionCommand     string
+	EventRecorder           record.EventRecorder
 
 	// WorkloadClusterClientFactory overrides the default real factory. Intended for tests only.
 	WorkloadClusterClientFactory WorkloadClusterClientFactory
@@ -81,6 +83,9 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 	if params.SecretManager == nil {
 		return nil, errors.New("cannot create baremetal host scope without secret manager")
 	}
+	if params.EventRecorder == nil {
+		return nil, errors.New("cannot create baremetal host scope without EventRecorder")
+	}
 
 	var emptyLogger logr.Logger
 	if params.Logger == emptyLogger {
@@ -100,6 +105,7 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		RescueSSHSecret:         params.RescueSSHSecret,
 		SecretManager:           params.SecretManager,
 		PreProvisionCommand:     params.PreProvisionCommand,
+		EventRecorder:           params.EventRecorder,
 		WorkloadClusterClientFactory: func() WorkloadClusterClientFactory {
 			if params.WorkloadClusterClientFactory != nil {
 				return params.WorkloadClusterClientFactory
@@ -128,6 +134,7 @@ type BareMetalHostScope struct {
 	OSSSHSecret                  *corev1.Secret
 	RescueSSHSecret              *corev1.Secret
 	PreProvisionCommand          string
+	EventRecorder                record.EventRecorder
 	WorkloadClusterClientFactory WorkloadClusterClientFactory
 }
 

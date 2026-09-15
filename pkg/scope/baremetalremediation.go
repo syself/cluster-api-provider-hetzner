@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -39,6 +40,7 @@ type BareMetalRemediationScopeParams struct {
 	BareMetalMachine     *infrav1.HetznerBareMetalMachine
 	HetznerCluster       *infrav2.HetznerCluster
 	BareMetalRemediation *infrav2.HetznerBareMetalRemediation
+	EventRecorder        record.EventRecorder
 }
 
 // NewBareMetalRemediationScope creates a new Scope from the supplied parameters.
@@ -56,6 +58,9 @@ func NewBareMetalRemediationScope(params BareMetalRemediationScopeParams) (*Bare
 	if params.BareMetalMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil BareMetalMachine")
 	}
+	if params.EventRecorder == nil {
+		return nil, errors.New("cannot create baremetal remediation scope without EventRecorder")
+	}
 
 	patchHelper, err := patch.NewHelper(params.BareMetalRemediation, params.Client)
 	if err != nil {
@@ -69,6 +74,7 @@ func NewBareMetalRemediationScope(params BareMetalRemediationScopeParams) (*Bare
 		Machine:              params.Machine,
 		BareMetalMachine:     params.BareMetalMachine,
 		BareMetalRemediation: params.BareMetalRemediation,
+		EventRecorder:        params.EventRecorder,
 	}, nil
 }
 
@@ -80,6 +86,7 @@ type BareMetalRemediationScope struct {
 	Machine              *clusterv1.Machine
 	BareMetalMachine     *infrav1.HetznerBareMetalMachine
 	BareMetalRemediation *infrav2.HetznerBareMetalRemediation
+	EventRecorder        record.EventRecorder
 }
 
 // Close closes the current scope persisting the cluster configuration and status.

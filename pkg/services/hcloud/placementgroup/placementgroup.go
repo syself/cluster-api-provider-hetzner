@@ -24,11 +24,11 @@ import (
 	"strings"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -111,7 +111,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		}
 
 		if _, err := s.scope.HCloudClient.CreatePlacementGroup(ctx, opts); err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "CreatePlacementGroup")
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, s.scope.EventRecorder, err, "CreatePlacementGroup")
 			multierr = errors.Join(multierr, fmt.Errorf("failed to create placement group %q: %w", pgName, err))
 		}
 	}
@@ -120,7 +120,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	for _, pgName := range toDelete {
 		id := placementGroupExistingMap[pgName].ID
 		if err := s.scope.HCloudClient.DeletePlacementGroup(ctx, id); err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeletePlacementGroup")
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, s.scope.EventRecorder, err, "DeletePlacementGroup")
 			multierr = errors.Join(multierr, fmt.Errorf("failed to delete placement group %v: %w", id, err))
 		}
 	}
@@ -156,7 +156,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 	var multierr error
 	for _, pg := range s.scope.HetznerCluster.Status.HCloudPlacementGroups {
 		if err := s.scope.HCloudClient.DeletePlacementGroup(ctx, pg.ID); err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeletePlacementGroup")
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, s.scope.EventRecorder, err, "DeletePlacementGroup")
 			if !hcloud.IsError(err, hcloud.ErrorCodeNotFound) {
 				multierr = errors.Join(multierr, err)
 			}
@@ -167,7 +167,12 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 		return fmt.Errorf("aggregate error - deleting placement groups: %w", err)
 	}
 
-	record.Eventf(s.scope.HetznerCluster, "PlacementGroupsDeleted", "Deleted placement groups")
+	s.scope.EventRecorder.Event(
+		s.scope.HetznerCluster,
+		corev1.EventTypeNormal,
+		"PlacementGroupsDeleted",
+		"Deleted placement groups",
+	)
 
 	return nil
 }
@@ -180,7 +185,7 @@ func (s *Service) findPlacementGroups(ctx context.Context) ([]*hcloud.PlacementG
 
 	placementGroups, err := s.scope.HCloudClient.ListPlacementGroups(ctx, opts)
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ListPlacementGroups")
+		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, s.scope.EventRecorder, err, "ListPlacementGroups")
 		return nil, fmt.Errorf("failed to list placement groups: %w", err)
 	}
 	return placementGroups, nil

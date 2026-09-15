@@ -26,6 +26,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -56,6 +57,7 @@ type HetznerBareMetalMachineReconciler struct {
 	RateLimitWaitTime   time.Duration
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+	EventRecorder       record.EventRecorder
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -156,6 +158,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		BareMetalMachine: hbmMachine,
 		HetznerCluster:   hetznerCluster,
 		HCloudClient:     hcc,
+		EventRecorder:    r.EventRecorder,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
@@ -277,6 +280,8 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 	if err != nil {
 		return fmt.Errorf("error creating controller: %w", err)
 	}
+
+	r.EventRecorder = mgr.GetEventRecorderFor("hetznerbaremetalmachine-controller")
 
 	return nil
 }

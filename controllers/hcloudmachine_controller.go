@@ -32,6 +32,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -66,6 +67,7 @@ type HCloudMachineReconciler struct {
 	HCloudClientFactory hcloudclient.Factory
 	SSHClientFactory    sshclient.Factory
 	WatchFilterValue    string
+	EventRecorder       record.EventRecorder
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -187,6 +189,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		Machine:          machine,
 		HCloudMachine:    hcloudMachine,
 		SSHClientFactory: r.SSHClientFactory,
+		EventRecorder:    r.EventRecorder,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %+v", err)
@@ -354,6 +357,7 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		return fmt.Errorf("error creating controller: %w", err)
 	}
 
+	r.EventRecorder = mgr.GetEventRecorderFor("hcloudmachine-controller")
 	return nil
 }
 

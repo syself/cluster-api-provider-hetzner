@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -39,7 +40,6 @@ import (
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
-	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -69,6 +69,7 @@ type HetznerBareMetalHostReconciler struct {
 	SSHClientFactory    sshclient.Factory
 	WatchFilterValue    string
 	PreProvisionCommand string
+	EventRecorder       record.EventRecorder
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -215,7 +216,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// Remove permanent error, if the corresponding annotation was removed by the user.
-	removed := removePermanentErrorIfAnnotationIsGone(bmHost)
+	removed := r.removePermanentErrorIfAnnotationIsGone(bmHost)
 	if removed {
 		// The permanent error was removed from Spec.Status.
 		// Save the changes, and then reconcile again.
@@ -288,7 +289,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	robotCreds, err := getAndValidateRobotCredentials(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hetznerSecretErrorResult(err, bmHost)
+		return r.hetznerSecretErrorResult(err, bmHost)
 	}
 
 	// Get secrets. Return when result != nil.
@@ -314,6 +315,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		RescueSSHSecret:              rescueSSHSecret,
 		SecretManager:                secretManager,
 		PreProvisionCommand:          r.PreProvisionCommand,
+		EventRecorder:                r.EventRecorder,
 		WorkloadClusterClientFactory: r.WorkloadClusterClientFactory,
 	})
 	if err != nil {
@@ -398,7 +400,12 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					Reason:  infrav1.HetznerBareMetalHostOSSSHSecretMissingV1Beta2Reason,
 					Message: msg,
 				})
-				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, msg)
+				r.EventRecorder.Event(
+					bmHost,
+					corev1.EventTypeWarning,
+					infrav1.HetznerBareMetalHostOSSSHSecretMissingV1Beta2Reason,
+					msg,
+				)
 				v1beta1conditions.SetSummary(bmHost)
 				scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
@@ -424,7 +431,12 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					Message: infrav1.ErrorMessageMissingRescueSSHSecret,
 				})
 
-				record.Warnf(bmHost, infrav1.RescueSSHSecretMissingReason, infrav1.ErrorMessageMissingRescueSSHSecret)
+				r.EventRecorder.Event(
+					bmHost,
+					corev1.EventTypeWarning,
+					infrav1.HetznerBareMetalHostRescueSSHSecretMissingV1Beta2Reason,
+					infrav1.ErrorMessageMissingRescueSSHSecret,
+				)
 				v1beta1conditions.SetSummary(bmHost)
 				scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
@@ -480,7 +492,7 @@ func getAndValidateRobotCredentials(
 	return creds, nil
 }
 
-func hetznerSecretErrorResult(
+func (r *HetznerBareMetalHostReconciler) hetznerSecretErrorResult(
 	err error,
 	bmHost *infrav1.HetznerBareMetalHost,
 ) (res ctrl.Result, reterr error) {
@@ -503,7 +515,14 @@ func hetznerSecretErrorResult(
 			Message: infrav1.ErrorMessageMissingHetznerSecret,
 		})
 
-		record.Warnf(bmHost, infrav1.HetznerSecretUnreachableReason, fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingHetznerSecret, err.Error()))
+		r.EventRecorder.Eventf(
+			bmHost,
+			corev1.EventTypeWarning,
+			infrav1.HetznerSecretUnreachableReason,
+			"%s: %s",
+			infrav1.ErrorMessageMissingHetznerSecret,
+			err.Error(),
+		)
 		v1beta1conditions.SetSummary(bmHost)
 		scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
 
@@ -526,7 +545,12 @@ func hetznerSecretErrorResult(
 			Reason:  infrav1.HetznerBareMetalHostRobotCredentialsInvalidV1Beta2Reason,
 			Message: infrav1.ErrorMessageMissingOrInvalidSecretData,
 		})
-		record.Warnf(bmHost, infrav1.RobotCredentialsInvalidReason, err.Error())
+		r.EventRecorder.Event(
+			bmHost,
+			corev1.EventTypeWarning,
+			infrav1.RobotCredentialsInvalidReason,
+			err.Error(),
+		)
 		return res, nil
 	}
 	return reconcile.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)
@@ -583,7 +607,8 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 					// We can ignore changes only in status or spec.status. We can ignore this
 					return !reflect.DeepEqual(objectO.Spec, objectN.Spec)
 				},
-			}).
+			},
+		).
 		Owns(&corev1.Secret{}).
 		Watches(
 			&clusterv1.Cluster{},
@@ -595,12 +620,14 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 		return fmt.Errorf("error creating controller: %w", err)
 	}
 
+	r.EventRecorder = mgr.GetEventRecorderFor("hetznerbaremetalhost-controller")
+
 	return nil
 }
 
 // removePermanentErrorIfAnnotationIsGone clears the permanent error status once the user removes
 // the permanent-error annotation.
-func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost,
+func (r *HetznerBareMetalHostReconciler) removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost,
 ) (removed bool) {
 	if bmHost.Spec.Status.ErrorType != infrav1.PermanentError {
 		// PermanentError not set. Do nothing.
@@ -618,7 +645,12 @@ func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost
 	bmHost.Spec.Status.ErrorCount = 0
 	v1beta1conditions.Delete(bmHost, infrav1.ActionCompletedCondition)
 	v1beta2conditions.Delete(bmHost, infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition)
-	record.Eventf(bmHost, "PermanentErrorWasRemoved", "The permanent error was removed, because the annotation %q was removed",
-		infrav1.PermanentErrorAnnotation)
+	r.EventRecorder.Eventf(
+		bmHost,
+		corev1.EventTypeNormal,
+		"PermanentErrorWasRemoved",
+		"The permanent error was removed, because the annotation %q was removed",
+		infrav1.PermanentErrorAnnotation,
+	)
 	return true
 }

@@ -23,15 +23,16 @@ import (
 	"strings"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
-	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
@@ -88,7 +89,7 @@ type conditionsObject interface {
 // HandleRateLimitExceeded sets the rate-limit conditions if err is an HCloud rate-limit error, and
 // reports whether it was. Controllers and services still on v1beta1 use
 // HandleRateLimitExceededV1Beta1.
-func HandleRateLimitExceeded(obj conditionsObject, err error, functionName string) bool {
+func HandleRateLimitExceeded(obj conditionsObject, recorder record.EventRecorder, err error, functionName string) bool {
 	if !hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
 		return false
 	}
@@ -110,7 +111,12 @@ func HandleRateLimitExceeded(obj conditionsObject, err error, functionName strin
 		Message: msg,
 	})
 
-	record.Warnf(obj, "RateLimitExceeded", msg)
+	recorder.Event(
+		obj,
+		corev1.EventTypeWarning,
+		"RateLimitExceeded",
+		msg,
+	)
 	return true
 }
 
@@ -123,7 +129,7 @@ type runtimeObjectWithConditions interface {
 // the resources that have not been switched to v1beta2 yet. It writes the deprecated v1beta1
 // HetznerAPIReachable condition and, when the object supports the staged v1beta2 conditions, the
 // v1beta2 HCloudRateLimitExceeded condition.
-func HandleRateLimitExceededV1Beta1(obj runtimeObjectWithConditions, err error, functionName string) bool {
+func HandleRateLimitExceededV1Beta1(obj runtimeObjectWithConditions, recorder record.EventRecorder, err error, functionName string) bool {
 	if !hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
 		return false
 	}
@@ -147,6 +153,11 @@ func HandleRateLimitExceededV1Beta1(obj runtimeObjectWithConditions, err error, 
 		})
 	}
 
-	record.Warnf(obj, "RateLimitExceeded", msg)
+	recorder.Event(
+		obj,
+		corev1.EventTypeWarning,
+		"RateLimitExceeded",
+		msg,
+	)
 	return true
 }

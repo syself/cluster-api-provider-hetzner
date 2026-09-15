@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
@@ -527,7 +528,13 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err != nil {
 					return err
 				}
-				err = scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, testEnv, capiMachine, hcloudMachine, "test-of-set-error-and-remediate")
+				machineScope := &scope.MachineScope{
+					Client:        testEnv,
+					Machine:       capiMachine,
+					HCloudMachine: hcloudMachine,
+					EventRecorder: record.NewFakeRecorder(10),
+				}
+				err = machineScope.SetRemediateMachineAnnotationToDeleteMachine(ctx, "test-of-set-error-and-remediate")
 				if err != nil {
 					return err
 				}

@@ -1698,7 +1698,7 @@ NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJ
 		for len(testEventRecorder.Events) > 0 {
 			events = append(events, <-testEventRecorder.Events)
 		}
-		Expect(events).To(ContainElement(ContainSubstring("HardwareDetails Changed")))
+		Expect(events).To(ContainElement(ContainSubstring("HardwareDetails changed")))
 	})
 
 	It("invalidates RootDeviceHints in cases where a hardware change leads to different wwns", func() {

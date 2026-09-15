@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
@@ -1021,6 +1022,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 				Cluster:          cluster,
 				HetznerCluster:   hetznerCluster,
 				HCloudClient:     hcloudClient,
+				EventRecorder:    record.NewFakeRecorder(10),
 			},
 		}
 	}
@@ -1537,6 +1539,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 				BareMetalMachine: bareMetalMachine,
 				HetznerCluster:   hetznerCluster,
 				HCloudClient:     hcloudClient,
+				EventRecorder:    record.NewFakeRecorder(10),
 			},
 		}
 
