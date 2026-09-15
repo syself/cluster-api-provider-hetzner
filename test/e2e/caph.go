@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -30,6 +31,29 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/cluster-api/util"
 )
+
+// specCancelMu protects specCancelFn, which is set per-spec so that the
+// logStatusContinuously goroutine can cancel the active spec's context when a
+// permanent error or no-available-host condition is detected.
+var (
+	specCancelMu sync.Mutex
+	specCancelFn context.CancelFunc = func() {}
+)
+
+// setSpecCancel registers cancel as the function to call when a fast-fail
+// condition is detected in the current spec.
+func setSpecCancel(cancel context.CancelFunc) {
+	specCancelMu.Lock()
+	defer specCancelMu.Unlock()
+	specCancelFn = cancel
+}
+
+// clearSpecCancel resets the per-spec cancel to a no-op after the spec exits.
+func clearSpecCancel() {
+	specCancelMu.Lock()
+	defer specCancelMu.Unlock()
+	specCancelFn = func() {}
+}
 
 // CaphClusterDeploymentSpecInput is the input for CaphClusterDeploymentSpec.
 type CaphClusterDeploymentSpecInput struct {
@@ -73,7 +97,15 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 
 	ginkgo.It("Should successfully create a cluster with three control planes", func() {
 		ginkgo.By("Creating a workload cluster")
-		clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
+		// Use a cancellable child so the fail-fast goroutine (logStatusContinuously)
+		// can abort this wait when a permanent bare-metal error is detected.
+		specCtx, cancel := context.WithCancel(ctx)
+		setSpecCancel(cancel)
+		defer func() {
+			clearSpecCancel()
+			cancel()
+		}()
+		clusterctl.ApplyClusterTemplateAndWait(specCtx, clusterctl.ApplyClusterTemplateAndWaitInput{
 			ClusterProxy: input.BootstrapClusterProxy,
 			ConfigCluster: clusterctl.ConfigClusterInput{
 				LogFolder:                filepath.Join(input.ArtifactFolder, "clusters", input.BootstrapClusterProxy.GetName()),
