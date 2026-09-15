@@ -23,9 +23,9 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
@@ -53,12 +53,12 @@ func TestGetCapacity(t *testing.T) {
 }
 
 func TestReconcileServerType(t *testing.T) {
-	newService := func(serverType infrav1.HCloudMachineType) *Service {
-		mt := &infrav1.HCloudMachineTemplate{
+	newService := func(serverType infrav2.HCloudMachineType) *Service {
+		mt := &infrav2.HCloudMachineTemplate{
 			ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-			Spec: infrav1.HCloudMachineTemplateSpec{
-				Template: infrav1.HCloudMachineTemplateResource{
-					Spec: infrav1.HCloudMachineSpec{Type: serverType},
+			Spec: infrav2.HCloudMachineTemplateSpec{
+				Template: infrav2.HCloudMachineTemplateResource{
+					Spec: infrav2.HCloudMachineSpec{Type: serverType},
 				},
 			},
 		}
@@ -76,10 +76,10 @@ func TestReconcileServerType(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotNil(t, s.scope.HCloudMachineTemplate.Status.Capacity.Cpu())
-		cond := v1beta2conditions.Get(s.scope.HCloudMachineTemplate, infrav1.HCloudMachineTemplateAvailableV1Beta2Condition)
+		cond := conditions.Get(s.scope.HCloudMachineTemplate, infrav2.HCloudMachineTemplateAvailableCondition)
 		require.NotNil(t, cond)
 		require.Equal(t, metav1.ConditionTrue, cond.Status)
-		require.Equal(t, infrav1.HCloudMachineTemplateAvailableV1Beta2Reason, cond.Reason)
+		require.Equal(t, infrav2.HCloudMachineTemplateAvailableReason, cond.Reason)
 	})
 
 	t.Run("unknown server type sets Available=False with reason ServerTypeNotFound", func(t *testing.T) {
@@ -88,9 +88,9 @@ func TestReconcileServerType(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Nil(t, s.scope.HCloudMachineTemplate.Status.Capacity)
-		cond := v1beta2conditions.Get(s.scope.HCloudMachineTemplate, infrav1.HCloudMachineTemplateAvailableV1Beta2Condition)
+		cond := conditions.Get(s.scope.HCloudMachineTemplate, infrav2.HCloudMachineTemplateAvailableCondition)
 		require.NotNil(t, cond)
 		require.Equal(t, metav1.ConditionFalse, cond.Status)
-		require.Equal(t, infrav1.HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason, cond.Reason)
+		require.Equal(t, infrav2.HCloudMachineTemplateServerTypeNotFoundReason, cond.Reason)
 	})
 }
