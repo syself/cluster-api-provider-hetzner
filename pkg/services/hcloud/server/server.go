@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -242,8 +243,15 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	// when the key is misconfigured. Other failures could also mean a network failure while
 	// trying to access the api-server, so they get retried.
 	if hm.Spec.ImageURL != "" {
-		_, err := s.getSSHPrivateKey(ctx)
+		privateKey, err := s.getSSHPrivateKey(ctx)
 		if err != nil {
+			s.scope.Error(err, "")
+			if errors.Is(err, errSSHKeyMisconfigured) {
+				return reconcile.Result{}, nil
+			}
+			return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+		}
+		if err := s.checkSSHPrivateKeyMatchesHCloud(ctx, privateKey); err != nil {
 			s.scope.Error(err, "")
 			if errors.Is(err, errSSHKeyMisconfigured) {
 				return reconcile.Result{}, nil
@@ -2455,6 +2463,68 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 	}
 
 	return privateKey, nil
+}
+
+// checkSSHPrivateKeyMatchesHCloud verifies that privateKey matches the public key registered in
+// Hetzner Cloud under the SSH key name that getSSHKeys() adds for the imageURL flow (the name
+// stored in the Hetzner secret). This catches a misconfiguration where the secret holds a
+// different keypair than what is registered in Hetzner Cloud, which would otherwise only surface
+// after server creation as a repeated SSH handshake failure during rescue boot.
+//
+// If no SSH key name is configured in the Hetzner secret, there is nothing to compare against, so
+// the check is skipped; getSSHKeys() enforces its own requirements for that case.
+func (s *Service) checkSSHPrivateKeyMatchesHCloud(ctx context.Context, privateKey string) error {
+	sshKeyName := string(s.scope.HetznerSecret().Data[s.scope.HetznerCluster.Spec.HetznerSecret.Key.SSHKey])
+	if sshKeyName == "" {
+		return nil
+	}
+
+	hcloudSSHKeys, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{Name: sshKeyName})
+	if err != nil {
+		return fmt.Errorf("failed listing ssh keys from hcloud: %w", err)
+	}
+
+	var hcloudSSHKey *hcloud.SSHKey
+	for _, key := range hcloudSSHKeys {
+		if key.Name == sshKeyName {
+			hcloudSSHKey = key
+			break
+		}
+	}
+	if hcloudSSHKey == nil {
+		// Not registered under that name. getSSHKeys() reports this as SSHKeyNotFound later on.
+		return nil
+	}
+
+	signer, err := ssh.ParsePrivateKey([]byte(privateKey))
+	if err != nil {
+		return fmt.Errorf("failed to parse ssh private key: %w", err)
+	}
+	fingerprint := ssh.FingerprintLegacyMD5(signer.PublicKey())
+
+	if fingerprint != hcloudSSHKey.Fingerprint {
+		msg := fmt.Sprintf(
+			"private key in secret does not match the public key registered in Hetzner Cloud under ssh key name %q (private key fingerprint %s, registered fingerprint %s)",
+			sshKeyName, fingerprint, hcloudSSHKey.Fingerprint,
+		)
+		s.scope.Error(nil, msg)
+		deprecatedv1beta1conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav2.SSHPrivateKeyAvailableV1Beta1Condition,
+			infrav2.SSHPrivateKeyMismatchV1Beta1Reason,
+			clusterv1.ConditionSeverityError,
+			"%s", msg,
+		)
+		conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+			Type:    infrav2.HCloudMachineSSHPrivateKeyAvailableCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav2.HCloudMachineSSHPrivateKeyMismatchReason,
+			Message: msg,
+		})
+		return fmt.Errorf("%w: %s", errSSHKeyMisconfigured, msg)
+	}
+
+	return nil
 }
 
 // getSSHClient uses HetznerCluster.Spec.SSHKeys.RescueSecretRef to get the ssh private key.

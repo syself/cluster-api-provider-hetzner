@@ -82,6 +82,9 @@ const (
 	SSHPrivateKeySecretNotFoundV1Beta1Reason = "SSHPrivateKeySecretNotFound" //nolint:gosec
 	// SSHPrivateKeyFieldEmptyV1Beta1Reason indicates that the private key field referenced in the secret is missing or empty.
 	SSHPrivateKeyFieldEmptyV1Beta1Reason = "SSHPrivateKeyFieldEmpty"
+	// SSHPrivateKeyMismatchV1Beta1Reason indicates that the private key does not match the public key
+	// registered in Hetzner Cloud under the SSH key name used for server creation.
+	SSHPrivateKeyMismatchV1Beta1Reason = "SSHPrivateKeyMismatch" //nolint:gosec
 )
 
 const (
@@ -414,6 +417,9 @@ const (
 	HCloudMachineSSHPrivateKeySecretNotFoundReason = "SecretNotFound"
 	// HCloudMachineSSHPrivateKeyFieldEmptyReason indicates the private key field referenced in the secret is missing or empty.
 	HCloudMachineSSHPrivateKeyFieldEmptyReason = "FieldEmpty"
+	// HCloudMachineSSHPrivateKeyMismatchReason indicates the private key does not match the public key
+	// registered in Hetzner Cloud under the SSH key name used for server creation.
+	HCloudMachineSSHPrivateKeyMismatchReason = "KeyMismatch"
 )
 
 const (
