@@ -40,9 +40,9 @@ import (
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -192,7 +192,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 	Context("Tests with host", func() {
 		var (
-			host    *infrav1.HetznerBareMetalHost
+			host    *infrav2.HetznerBareMetalHost
 			hostKey client.ObjectKey
 
 			capiMachine *clusterv1.Machine
@@ -203,7 +203,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				hostName,
 				testNs.Name,
 				helpers.WithRootDeviceHintWWN(),
-				helpers.WithHetznerClusterRef(hetznerClusterName),
 			)
 			Expect(testEnv.Create(ctx, host)).To(Succeed())
 
@@ -386,7 +385,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err := testEnv.Get(ctx, hostKey, host); err != nil {
 						return false
 					}
-					if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
+					if host.Status.ProvisioningState == infrav2.StateProvisioned {
 						return true
 					}
 					return false
@@ -424,10 +423,12 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					return isPresentAndTrueV1Beta1(key, bmMachine, infrav1.HostReadyCondition)
 				}, timeout).Should(BeTrue())
 
-				err := testEnv.Get(ctx, hostKey, host)
-				Expect(err).To(BeNil())
-
-				Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateProvisioned))
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, hostKey, host); err != nil {
+						return false
+					}
+					return host.Status.ProvisioningState == infrav2.StateProvisioned
+				}, timeout).Should(BeTrue())
 
 				By("deleting hbmm")
 				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
@@ -446,7 +447,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err := testEnv.Get(ctx, hostKey, host); err != nil {
 						return false
 					}
-					return host.Spec.Status.ProvisioningState == infrav1.StateNone
+					return host.Status.ProvisioningState == infrav2.StateNone
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -464,9 +465,12 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					Err:    nil,
 				})
 
-				err := testEnv.Get(ctx, hostKey, host)
-				Expect(err).To(BeNil())
-				Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateProvisioned))
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, hostKey, host); err != nil {
+						return false
+					}
+					return host.Status.ProvisioningState == infrav2.StateProvisioned
+				}, timeout).Should(BeTrue())
 
 				By("Setting State to 'ensure-provisioned'")
 
@@ -475,9 +479,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return err
 					}
 
-					host.Spec.Status.ProvisioningState = infrav1.StateEnsureProvisioned
+					host.Status.ProvisioningState = infrav2.StateEnsureProvisioned
 
-					return testEnv.Update(ctx, host)
+					return testEnv.Status().Update(ctx, host)
 				}, timeout, time.Second).Should(Succeed())
 
 				Eventually(func() error {
@@ -485,8 +489,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					if host.Spec.Status.ProvisioningState != infrav1.StateEnsureProvisioned {
-						return fmt.Errorf("ProvisioningState=%s", host.Spec.Status.ProvisioningState)
+					if host.Status.ProvisioningState != infrav2.StateEnsureProvisioned {
+						return fmt.Errorf("ProvisioningState=%s", host.Status.ProvisioningState)
 					}
 					return nil
 				}, timeout, time.Second).Should(Succeed())
@@ -508,7 +512,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err := testEnv.Get(ctx, hostKey, host); err != nil {
 						return false
 					}
-					return host.Spec.Status.ProvisioningState == infrav1.StateNone
+					return host.Status.ProvisioningState == infrav2.StateNone
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -524,13 +528,13 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 				By("setting maintenance mode on host")
 
-				ph, err := v1beta1patch.NewHelper(host, testEnv)
+				ph, err := patch.NewHelper(host, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				maintenanceMode := true
 				host.Spec.MaintenanceMode = &maintenanceMode
 
-				Expect(ph.Patch(ctx, host, v1beta1patch.WithStatusObservedGeneration{})).To(Succeed())
+				Expect(ph.Patch(ctx, host, patch.WithStatusObservedGeneration{})).To(Succeed())
 
 				By("checking that RemediateMachineAnnotation is set on machine")
 
@@ -620,7 +624,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return err
 					}
 					testEnv.GetLogger().Info("status of host and hetznerBareMetalMachine", "hetznerBareMetalMachine phase", bmMachine.Status.Phase,
-						"hostState", host.Spec.Status.ProvisioningState)
+						"hostState", host.Status.ProvisioningState)
 					if bmMachine.Status.Phase != clusterv1beta1.MachinePhaseRunning {
 						return fmt.Errorf("bmMachine.Status.Phase should be MachinePhaseRunning, but is: %q", bmMachine.Status.Phase)
 					}
@@ -712,18 +716,18 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					c := v1beta1conditions.Get(host, clusterv1beta1.ReadyCondition)
-					if c == nil {
+					readyCondition := conditions.Get(host, clusterv1.ReadyCondition)
+					if readyCondition == nil {
 						return fmt.Errorf("ReadyCondition not set on host")
 					}
-					if !strings.Contains(c.Message, magicString) {
-						return fmt.Errorf("CredentialsAvailable substring not set (on host). Conditions: %+v", host.Spec.Status.Conditions)
+					if !strings.Contains(readyCondition.Message, magicString) {
+						return fmt.Errorf("CredentialsAvailable substring not set (on host). Conditions: %+v", host.Status.Conditions)
 					}
 					err = testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine), bmMachine)
 					if err != nil {
 						return err
 					}
-					c = v1beta1conditions.Get(bmMachine, infrav1.HostReadyCondition)
+					c := v1beta1conditions.Get(bmMachine, infrav1.HostReadyCondition)
 					if c == nil {
 						return fmt.Errorf("HostReadyCondition not set on hbmm")
 					}
@@ -810,7 +814,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 	Context("Tests with hosts which get deleted later", func() {
 		var (
-			host        *infrav1.HetznerBareMetalHost
+			host        *infrav2.HetznerBareMetalHost
 			hostKey     client.ObjectKey
 			capiMachine *clusterv1.Machine
 			bmmKey      client.ObjectKey
@@ -821,7 +825,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				hostName,
 				testNs.Name,
 				helpers.WithRootDeviceHintWWN(),
-				helpers.WithHetznerClusterRef(hetznerClusterName),
 			)
 			Expect(testEnv.Create(ctx, host)).To(Succeed())
 
@@ -884,10 +887,12 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				return isPresentAndTrueV1Beta1(bmmKey, bmMachine, infrav1.HostReadyCondition)
 			}, timeout).Should(BeTrue())
 
-			err := testEnv.Get(ctx, hostKey, host)
-			Expect(err).To(BeNil())
-
-			Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateProvisioned))
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, hostKey, host); err != nil {
+					return false
+				}
+				return host.Status.ProvisioningState == infrav2.StateProvisioned
+			}, timeout).Should(BeTrue())
 
 			By("Deleting the host, expect HostReady condition is set to false")
 			Expect(testEnv.Delete(ctx, host)).To(Succeed())
@@ -1255,7 +1260,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				hostName,
 				testNs.Name,
 				helpers.WithRootDeviceHintWWN(),
-				helpers.WithHetznerClusterRef(hetznerClusterName),
 			)
 			Expect(testEnv.Create(ctx, host)).To(Succeed())
 
@@ -1301,7 +1305,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					w = nil
 				}
 
-				return host.Spec.Status.ProvisioningState != infrav1.StateProvisioned
+				return host.Status.ProvisioningState != infrav2.StateProvisioned
 			}, timeout).Should(BeTrue())
 
 			// Ensure the second machine is not ready (waiting for a hbmh)
@@ -1330,7 +1334,8 @@ func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
 	utilruntime.Must(infrav1.AddToScheme(scheme))
-	host := &infrav1.HetznerBareMetalHost{
+	utilruntime.Must(infrav2.AddToScheme(scheme))
+	host := &infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-host",
 			Namespace: "test-ns",
@@ -1354,7 +1359,7 @@ func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
 			Name:      "test-machine-with-host-annotation",
 			Namespace: "test-ns",
 			Annotations: map[string]string{
-				infrav1.HostAnnotation: "test-host",
+				infrav2.HostAnnotation: "test-host",
 			},
 		},
 		Spec: infrav1.HetznerBareMetalMachineSpec{
