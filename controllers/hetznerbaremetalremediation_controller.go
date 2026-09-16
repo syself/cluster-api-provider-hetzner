@@ -20,26 +20,32 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/google/go-cmp/cmp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1" // HetznerBareMetalMachine is still on v1beta1
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/remediation"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // HetznerBareMetalRemediationReconciler reconciles a HetznerBareMetalRemediation object.
 type HetznerBareMetalRemediationReconciler struct {
 	client.Client
+	APIReader        client.Reader
 	WatchFilterValue string
 
 	// Reconcile only this namespace. Only needed for testing
@@ -64,12 +70,12 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		return ctrl.Result{}, err
 	}
 	if skipReconciliation {
-		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav2.SkipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 
 	// Fetch the Hetzner bare metal host instance.
-	bareMetalRemediation := &infrav1.HetznerBareMetalRemediation{}
+	bareMetalRemediation := &infrav2.HetznerBareMetalRemediation{}
 	err = r.Get(ctx, req.NamespacedName, bareMetalRemediation)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -77,6 +83,62 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		}
 		return reconcile.Result{}, err
 	}
+
+	// ----------------------------------------------------------------
+	// Start: avoid conflict errors. Wait until local cache is up-to-date
+	// Won't be needed once this was implemented:
+	// https://github.com/kubernetes-sigs/controller-runtime/issues/3320
+	initialBareMetalRemediation := bareMetalRemediation.DeepCopy()
+	defer func() {
+		// We can potentially optimize this further by ensuring that the cache is up to date only in
+		// the cases where an outdated cache would lead to problems. Currently, we ensure that the
+		// cache is up to date in all cases, i.e. for all possible changes to the
+		// HetznerBareMetalRemediation object.
+		if cmp.Equal(initialBareMetalRemediation, bareMetalRemediation) {
+			// Nothing has changed. No need to wait.
+			return
+		}
+
+		// The object changed. Wait until the new version is in the local cache
+
+		// Get the latest version from the apiserver.
+		apiserverBareMetalRemediation := &infrav2.HetznerBareMetalRemediation{}
+
+		// Use uncached APIReader
+		err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(bareMetalRemediation), apiserverBareMetalRemediation)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// resource was deleted. No need to reconcile again.
+				reterr = nil
+				res = reconcile.Result{}
+				return
+			}
+			reterr = errors.Join(reterr,
+				fmt.Errorf("failed get HetznerBareMetalRemediation via uncached APIReader: %w", err))
+			return
+		}
+
+		apiserverRV := apiserverBareMetalRemediation.ResourceVersion
+
+		err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 3*time.Second, true, func(ctx context.Context) (done bool, err error) {
+			// new resource, read from local cache
+			latestFromLocalCache := &infrav2.HetznerBareMetalRemediation{}
+			getErr := r.Get(ctx, client.ObjectKeyFromObject(apiserverBareMetalRemediation), latestFromLocalCache)
+			if apierrors.IsNotFound(getErr) {
+				// the object was deleted. All is fine.
+				return true, nil
+			}
+			if getErr != nil {
+				return false, getErr
+			}
+			return utils.IsLocalCacheUpToDate(latestFromLocalCache.ResourceVersion, apiserverRV), nil
+		})
+		if err != nil {
+			log.Error(err, "cache sync failed")
+		}
+	}()
+	// End: avoid conflict errors. Wait until local cache is up-to-date
+	// ----------------------------------------------------------------
 
 	log = log.WithValues("HetznerBareMetalRemediation", klog.KObj(bareMetalRemediation))
 
@@ -123,7 +185,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
 
-	hetznerCluster := &infrav1.HetznerCluster{}
+	hetznerCluster := &infrav2.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
 		Namespace: bareMetalMachine.Namespace,
@@ -153,7 +215,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	defer func() {
 		// Always attempt to Patch the Remediation object and status after each reconciliation.
 		// Patch ObservedGeneration only if the reconciliation completed successfully
-		patchOpts := []v1beta1patch.Option{v1beta1patch.WithStatusObservedGeneration{}}
+		patchOpts := []patch.Option{patch.WithStatusObservedGeneration{}}
 
 		if err := remediationScope.Close(ctx, patchOpts...); err != nil {
 			res = reconcile.Result{}
@@ -184,7 +246,7 @@ func (r *HetznerBareMetalRemediationReconciler) reconcileNormal(ctx context.Cont
 // SetupWithManager sets up the controller with the Manager.
 func (r *HetznerBareMetalRemediationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infrav1.HetznerBareMetalRemediation{}).
+		For(&infrav2.HetznerBareMetalRemediation{}).
 		WithOptions(options).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)

@@ -82,6 +82,17 @@ spec:
                             x-kubernetes-validations:
                             - message: cooldown must be non-negative
                               rule: duration(self) >= duration('0s')
+                          onExhaustion:
+                            description: |-
+                              OnExhaustion selects what happens when remediation runs out of retries and
+                              the node is still unhealthy. Reuse deletes the machine and frees the host to be
+                              provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
+                              error on the host, which deletes the machine and keeps the host out of the pool
+                              until a human removes the capi.syself.com/permanent-error annotation.
+                            enum:
+                            - Reuse
+                            - Retire
+                            type: string
                           retryLimit:
                             description: RetryLimit sets the maximum number of remediation
                               retries. Zero retries if not set.
@@ -201,6 +212,17 @@ spec:
                             format: int32
                             minimum: 0
                             type: integer
+                          onExhaustion:
+                            description: |-
+                              OnExhaustion selects what happens when remediation runs out of retries and
+                              the node is still unhealthy. Reuse deletes the machine and frees the host to be
+                              provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
+                              error on the host, which deletes the machine and keeps the host out of the pool
+                              until a human removes the capi.syself.com/permanent-error annotation.
+                            enum:
+                            - Reuse
+                            - Retire
+                            type: string
                           retryLimit:
                             description: RetryLimit sets the maximum number of remediation
                               retries. Zero retries if not set.

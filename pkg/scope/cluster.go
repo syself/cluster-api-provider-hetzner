@@ -180,14 +180,14 @@ func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig
 }
 
 // ListMachines returns HCloudMachines.
-func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, []*infrav1.HCloudMachine, error) {
+func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, []*infrav2.HCloudMachine, error) {
 	// get and index Machines by HCloudMachine name
 	var machineListRaw clusterv1.MachineList
 	machineByHCloudMachineName := make(map[string]*clusterv1.Machine)
 	if err := s.Client.List(ctx, &machineListRaw, client.InNamespace(s.Namespace())); err != nil {
 		return nil, nil, err
 	}
-	expectedGK := infrav1.GroupVersion.WithKind("HCloudMachine").GroupKind()
+	expectedGK := infrav2.GroupVersion.WithKind("HCloudMachine").GroupKind()
 	for pos := range machineListRaw.Items {
 		m := &machineListRaw.Items[pos]
 		actualGK := schema.GroupKind{Group: m.Spec.InfrastructureRef.APIGroup, Kind: m.Spec.InfrastructureRef.Kind}
@@ -199,13 +199,13 @@ func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, 
 	}
 
 	// match HCloudMachines to Machines
-	var hcloudMachineListRaw infrav1.HCloudMachineList
+	var hcloudMachineListRaw infrav2.HCloudMachineList
 	if err := s.Client.List(ctx, &hcloudMachineListRaw, client.InNamespace(s.Namespace())); err != nil {
 		return nil, nil, err
 	}
 
 	machineList := make([]*clusterv1.Machine, 0, len(hcloudMachineListRaw.Items))
-	hcloudMachineList := make([]*infrav1.HCloudMachine, 0, len(hcloudMachineListRaw.Items))
+	hcloudMachineList := make([]*infrav2.HCloudMachine, 0, len(hcloudMachineListRaw.Items))
 
 	for pos := range hcloudMachineListRaw.Items {
 		hm := &hcloudMachineListRaw.Items[pos]
@@ -266,4 +266,76 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 
 	_, err = clientSet.Discovery().RESTClient().Get().AbsPath("/readyz").DoRaw(ctx)
 	return err
+}
+
+// AllControlPlaneInfraMachinesAnnotatedForProxyProtocol returns true when every control-plane
+// infrastructure machine (HCloudMachine and HetznerBareMetalMachine) carries the annotation
+// capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true", which is set on the
+// control-plane infrastructure machine template's spec.template.metadata.
+//
+// Machines from an earlier template do not carry the annotation, so the check stays false
+// until the last of them is replaced. It returns false (no error) while the cluster has no
+// control-plane infrastructure machines yet.
+func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx context.Context) (bool, error) {
+	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation, "proxy protocol")
+}
+
+// AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck returns true when every control-plane
+// infrastructure machine (HCloudMachine and HetznerBareMetalMachine) carries the annotation
+// capi.syself.com/http-health-check-for-controlplane-loadbalancer: "true", which is set on the
+// control-plane infrastructure machine template's spec.template.metadata. It works the same way
+// as AllControlPlaneInfraMachinesAnnotatedForProxyProtocol.
+func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(ctx context.Context) (bool, error) {
+	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav2.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, "http health check")
+}
+
+// allControlPlaneInfraMachinesAnnotated returns true when every control-plane infrastructure
+// machine (HCloudMachine and HetznerBareMetalMachine) carries annotation with value "true".
+// logLabel prefixes the debug logs so they name the feature being gated (e.g. "proxy protocol",
+// "http health check").
+func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context, annotation, logLabel string) (bool, error) {
+	listOptions := []client.ListOption{
+		client.InNamespace(s.Namespace()),
+		client.MatchingLabels{
+			clusterv1.ClusterNameLabel:         s.Cluster.Name,
+			clusterv1.MachineControlPlaneLabel: "",
+		},
+	}
+
+	found := 0
+
+	hcloudMachines := &infrav2.HCloudMachineList{}
+	if err := s.Client.List(ctx, hcloudMachines, listOptions...); err != nil {
+		return false, fmt.Errorf("failed to list control-plane HCloudMachines: %w", err)
+	}
+
+	for i := range hcloudMachines.Items {
+		m := &hcloudMachines.Items[i]
+		if m.GetAnnotations()[annotation] != "true" {
+			s.V(1).Info(logLabel+": control-plane HCloudMachine is missing the annotation", "hcloudMachine", m.GetName())
+			return false, nil
+		}
+		found++
+	}
+
+	bmMachines := &infrav1.HetznerBareMetalMachineList{}
+	if err := s.Client.List(ctx, bmMachines, listOptions...); err != nil {
+		return false, fmt.Errorf("failed to list control-plane HetznerBareMetalMachines: %w", err)
+	}
+
+	for i := range bmMachines.Items {
+		m := &bmMachines.Items[i]
+		if m.GetAnnotations()[annotation] != "true" {
+			s.V(1).Info(logLabel+": control-plane HetznerBareMetalMachine is missing the annotation", "hetznerBareMetalMachine", m.GetName())
+			return false, nil
+		}
+		found++
+	}
+
+	if found == 0 {
+		s.V(1).Info(logLabel + ": no control-plane infrastructure machines found yet")
+		return false, nil
+	}
+
+	return true, nil
 }

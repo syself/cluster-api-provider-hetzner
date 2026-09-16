@@ -33,7 +33,43 @@ const (
 // HetznerBareMetalRemediationSpec defines the desired state of HetznerBareMetalRemediation.
 type HetznerBareMetalRemediationSpec struct {
 	// Strategy field defines the remediation strategy to be applied.
-	Strategy *RemediationStrategy `json:"strategy,omitempty"`
+	Strategy *BareMetalRemediationStrategy `json:"strategy,omitempty"`
+}
+
+// OnExhaustionAction defines what remediation does when the retries run out and
+// the node is still unhealthy.
+type OnExhaustionAction string
+
+const (
+	// OnExhaustionReuse deletes the machine and frees the host back into the
+	// selectable pool, so it can be provisioned again. This is the behavior when
+	// onExhaustion is unset, and the right choice for temporary problems.
+	OnExhaustionReuse OnExhaustionAction = "Reuse"
+
+	// OnExhaustionRetire sets a permanent error on the host, which deletes the
+	// machine and keeps the host out of the pool until a human removes the
+	// capi.syself.com/permanent-error annotation. Use this for real hardware
+	// failures, where a reboot never helps.
+	OnExhaustionRetire OnExhaustionAction = "Retire"
+)
+
+// BareMetalRemediationStrategy describes how to remediate bare metal machines.
+// It reuses the shared RemediationStrategy fields and adds bare-metal-only options.
+// Conversion is hand-written (the type is tagged +k8s:conversion-gen=false) because the
+// embedded RemediationStrategy uses hand-written conversion.
+// +k8s:conversion-gen=false
+type BareMetalRemediationStrategy struct {
+	// The shared remediation fields (type, retryLimit, timeoutSeconds, cooldownSeconds).
+	RemediationStrategy `json:",inline"`
+
+	// OnExhaustion selects what happens when remediation runs out of retries and
+	// the node is still unhealthy. Reuse deletes the machine and frees the host to be
+	// provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
+	// error on the host, which deletes the machine and keeps the host out of the pool
+	// until a human removes the capi.syself.com/permanent-error annotation.
+	// +kubebuilder:validation:Enum=Reuse;Retire
+	// +optional
+	OnExhaustion OnExhaustionAction `json:"onExhaustion,omitempty"`
 }
 
 // HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation.

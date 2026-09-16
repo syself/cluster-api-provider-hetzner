@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -137,13 +138,14 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateRunning, "", nil)
+		sshMock.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
 		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
+		Expect(c.Message).To(Equal(`custom provisioner running`))
 	})
 
 	It("reboots and completes when command finished successfully", func() {
@@ -151,6 +153,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
+		sshMock.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
 		sshMock.On("Reboot", mock.Anything).Return(sshclient.Output{})
 
 		robot := robotmock.Client{}
@@ -168,17 +171,48 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
+	It("retries when ReadOutputJSON fails during FinishedSuccessfully", func() {
+		host := newBaseHost()
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
+		sshMock.On("ReadOutputJSON", mock.Anything).Return("", fmt.Errorf("ssh connection lost")).Once()
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
+	})
+
 	It("returns error when command failed", func() {
 		host := newBaseHost()
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFailed, "some logs", nil)
+		sshMock.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
 		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring("image-url-command failed"))
+		Expect(c.Message).To(ContainSubstring("custom provisioner failed"))
+	})
+
+	It("completes successfully when ImageURLCommandStateFinishedSuccessfully", func() {
+		host := newBaseHost()
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
+		sshMock.On("ReadOutputJSON", mock.Anything).Return(`{"status":"Succeeded"}`, nil).Once()
+		sshMock.On("Reboot", mock.Anything).Return(sshclient.Output{})
+
+		robot := robotmock.Client{}
+		robot.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
+
+		svc := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
 	})
 
 	It("starts the command on NotStarted and continues", func() {
@@ -213,6 +247,60 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(c.Message).To(ContainSubstring(`imageURLCommand started`))
 	})
 
+	It("passes WWN to StartImageURLCommand when DeviceStringType is wwn", func() {
+		host := newBaseHost()
+		host.Spec.Status.UserData = &corev1.SecretReference{
+			Name:      "bootstrap-secret",
+			Namespace: host.Namespace,
+		}
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc.scope.HetznerBareMetalMachine.Spec.InstallImage.DeviceStringType = infrav1.DeviceStringTypeWWN
+		svc.scope.HetznerBareMetalHost.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
+			WWN: "eui.0025388801b4dff2",
+		}
+
+		commandPath := filepath.Join(baremetalImageURLCommandDir, host.Spec.Status.InstallImage.ImageURLCommand)
+		sshMock.On("StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"eui.0025388801b4dff2"}).Return(0, "", nil)
+
+		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: host.Spec.Status.UserData.Name, Namespace: host.Spec.Status.UserData.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
+		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
+		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"eui.0025388801b4dff2"})).To(BeTrue())
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(ContainSubstring(`imageURLCommand started`))
+	})
+
+	It("returns error when DeviceStringType is wwn but no WWN is configured in rootDeviceHints", func() {
+		host := newBaseHost()
+		host.Spec.Status.UserData = &corev1.SecretReference{
+			Name:      "bootstrap-secret",
+			Namespace: host.Namespace,
+		}
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc.scope.HetznerBareMetalMachine.Spec.InstallImage.DeviceStringType = infrav1.DeviceStringTypeWWN
+		// RootDeviceHints has no WWN set — empty list
+		svc.scope.HetznerBareMetalHost.Spec.RootDeviceHints = &infrav1.RootDeviceHints{}
+
+		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: host.Spec.Status.UserData.Name, Namespace: host.Spec.Status.UserData.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
+		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionError{}))
+		Expect(res.(actionError).err.Error()).To(ContainSubstring("no WWN is configured in rootDeviceHints"))
+	})
+
 	It("records failure when StartImageURLCommand returns non-zero exit", func() {
 		host := newBaseHost()
 		host.Spec.Status.UserData = &corev1.SecretReference{Name: "bootstrap-secret", Namespace: host.Namespace}
@@ -238,10 +326,10 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(c.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
 	})
 
-	It("times out after 7 minutes", func() {
+	It("times out after 20 minutes", func() {
 		host := newBaseHost()
-		sevenPlus := metav1.NewTime(time.Now().Add(-8 * time.Minute))
-		host.Spec.Status.RebootTriggeredAt = &sevenPlus
+		timeout := metav1.NewTime(time.Now().Add(-21 * time.Minute))
+		host.Spec.Status.RebootTriggeredAt = &timeout
 
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
@@ -757,6 +845,60 @@ var _ = Describe("handleIncompleteBoot", func() {
 			}),
 		)
 	})
+
+	Context("connection refused", func() {
+		DescribeTable("keeps the reboot method in the host status while the timeout has not passed",
+			func(errorType infrav1.ErrorType) {
+				robotMock := robotmock.Client{}
+				robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
+
+				host := helpers.BareMetalHost("test-host", "default",
+					helpers.WithRebootTypes([]infrav1.RebootType{
+						infrav1.RebootTypeSoftware,
+						infrav1.RebootTypeHardware,
+					}),
+					helpers.WithSSHSpec(),
+					helpers.WithSSHStatus(),
+					helpers.WithError(errorType, "", 1),
+					helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Minute))),
+				)
+				service := newTestService(host, &robotMock, nil, nil, nil)
+
+				failed, err := service.handleIncompleteBoot(context.Background(), true, false, true)
+				Expect(err).To(Succeed())
+				Expect(failed).To(BeFalse())
+				Expect(host.Spec.Status.ErrorType).To(Equal(errorType))
+				Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
+			},
+			Entry("ssh reboot", infrav1.ErrorTypeSSHRebootTriggered),
+			Entry("software reboot", infrav1.ErrorTypeSoftwareRebootTriggered),
+			Entry("hardware reboot", infrav1.ErrorTypeHardwareRebootTriggered),
+		)
+
+		It("clears a stored ErrorTypeConnectionError once ssh answers again", func() {
+			robotMock := robotmock.Client{}
+			robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(nil, nil)
+			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
+			robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
+
+			host := helpers.BareMetalHost("test-host", "default",
+				helpers.WithRebootTypes([]infrav1.RebootType{
+					infrav1.RebootTypeSoftware,
+					infrav1.RebootTypeHardware,
+				}),
+				helpers.WithSSHSpec(),
+				helpers.WithSSHStatus(),
+				helpers.WithError(infrav1.ErrorTypeConnectionError, "", 1),
+				helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Hour))),
+			)
+			service := newTestService(host, &robotMock, nil, nil, nil)
+
+			failed, err := service.handleIncompleteBoot(context.Background(), true, true, false)
+			Expect(err).To(Succeed())
+			Expect(failed).To(BeFalse())
+			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeSSHRebootTriggered))
+		})
+	})
 })
 
 var _ = Describe("ensureSSHKey", func() {
@@ -959,6 +1101,10 @@ var _ = Describe("actionPreparing", func() {
 		Expect(host.Spec.Status.ErrorMessage).To(ContainSubstring("no IPv4"))
 		Expect(host.Spec.Status.IPv4).To(BeEmpty())
 		Expect(host.Annotations).To(HaveKey(infrav1.PermanentErrorAnnotation))
+		actionCompletedCondition := v1beta2conditions.Get(host, infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition)
+		Expect(actionCompletedCondition).NotTo(BeNil())
+		Expect(actionCompletedCondition.Status).To(Equal(metav1.ConditionFalse))
+		Expect(actionCompletedCondition.Reason).To(Equal(infrav1.HetznerBareMetalHostActionCompletedPermanentErrorV1Beta2Reason))
 	})
 })
 
@@ -1480,9 +1626,7 @@ var _ = Describe("actionRegistering", func() {
 
 			actResult := service.actionRegistering(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
-			if tc.expectedErrorType != infrav1.ErrorType("") {
-				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedErrorType))
-			}
+			Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedErrorType))
 		},
 		Entry("timeout", testCaseActionRegisteringIncompleteBoot{
 			getHostNameOutput: sshclient.Output{Err: timeout},
@@ -1490,9 +1634,32 @@ var _ = Describe("actionRegistering", func() {
 		}),
 		Entry("connectionRefused", testCaseActionRegisteringIncompleteBoot{
 			getHostNameOutput: sshclient.Output{Err: syscall.ECONNREFUSED},
-			expectedErrorType: infrav1.ErrorTypeConnectionError,
+			expectedErrorType: infrav1.ErrorType(""),
 		}),
 	)
+
+	It("sets a fatal error when the reboot into rescue times out", func() {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithError(infrav1.ErrorTypeHardwareRebootTriggered, "", 1),
+			helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Hour))),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: timeout})
+
+		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		actResult := service.actionRegistering(ctx)
+
+		Expect(actResult).To(BeAssignableToTypeOf(actionFailed{}))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.FatalError))
+		Expect(host.Spec.Status.ErrorMessage).To(ContainSubstring("hardware reboot (to rescue mode) timed out"))
+	})
 })
 
 func registeringSSHMock(storageStdOut string) *sshmock.Client {
@@ -1547,6 +1714,80 @@ var _ = Describe("actionRegistering check RAID", func() {
 		_, err = actResult.Result()
 		Expect(err).Should(BeNil())
 		Expect(host.Spec.Status.ErrorMessage).Should(Equal("Invalid HetznerBareMetalHost: spec.status.installImage.swraid is not active. Use spec.rootDevideHints.wwn and leave raid.wwn empty."))
+	})
+})
+
+var _ = Describe("actionRegistering emits event on hardwareDetails change", func() {
+	const storageStdOut = `NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
+NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`
+
+	ctx := context.Background()
+
+	It("emits HardwareDetails Changed event when existing details differ", func() {
+		// drain events from previous tests
+		for len(testEventRecorder.Events) > 0 {
+			<-testEventRecorder.Events
+		}
+
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{}
+		host.Spec.Status.HardwareDetails = &infrav1.HardwareDetails{
+			CPU: infrav1.CPU{Model: "old-model"},
+		}
+
+		sshMock := registeringSSHMock(storageStdOut)
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		service.actionRegistering(ctx)
+
+		var events []string
+		for len(testEventRecorder.Events) > 0 {
+			events = append(events, <-testEventRecorder.Events)
+		}
+		Expect(events).To(ContainElement(ContainSubstring("HardwareDetails Changed")))
+	})
+
+	It("invalidates RootDeviceHints in cases where a hardware change leads to different wwns", func() {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{}
+		// The previously read hardware had a disk matching the configured root device hint WWN.
+		host.Spec.Status.HardwareDetails = &infrav1.HardwareDetails{
+			Storage: []infrav1.Storage{
+				{WWN: helpers.DefaultWWN},
+			},
+		}
+
+		// The disk with the WWN referenced by RootDeviceHints is gone, e.g. because it was replaced.
+		const newStorageStdOut = `NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee2" ROTA="0"
+NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`
+
+		sshMock := registeringSSHMock(newStorageStdOut)
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		actResult := service.actionRegistering(ctx)
+
+		Expect(actResult).To(BeAssignableToTypeOf(actionFailed{}))
+		Expect(host.Spec.Status.ErrorMessage).To(ContainSubstring("missing storage device for root device hint"))
+
+		// Even though the action failed, the freshly read hardware details must be persisted,
+		// so that the controller can still update the object (e.g. surface the new storage layout).
+		Expect(host.Spec.Status.HardwareDetails).ToNot(BeNil())
+		Expect(host.Spec.Status.HardwareDetails.Storage).To(ConsistOf(
+			infrav1.Storage{Model: "SAMSUNG MZVL22T0HBLB-00B00", SerialNumber: "S677NF0R402742", SizeBytes: 2048408248320, SizeGB: 2048, WWN: "eui.002538b411b2cee2"},
+			infrav1.Storage{Model: "SAMSUNG MZVLB512HAJQ-00000", SerialNumber: "S3W8NX0N811178", SizeBytes: 512110190592, SizeGB: 512, WWN: "eui.0025388801b4dff2"},
+		))
 	})
 })
 
@@ -1670,9 +1911,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 
 			actResult := service.actionEnsureProvisioned(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(in.expectedActionResult))
-			if in.expectedErrorType != infrav1.ErrorType("") {
-				Expect(host.Spec.Status.ErrorType).To(Equal(in.expectedErrorType))
-			}
+			Expect(host.Spec.Status.ErrorType).To(Equal(in.expectedErrorType))
 			if in.expectsSSHClientCallCloudInitStatus {
 				Expect(sshMock.AssertCalled(GinkgoT(), "CloudInitStatus", mock.Anything)).To(BeTrue())
 			} else {
@@ -1780,7 +2019,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
 				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorType(""),
+				expectedErrorType:                      infrav1.ErrorTypeSSHRebootTriggered,
 				expectsSSHClientCallCloudInitStatus:    true,
 				expectsSSHClientCallCheckSigterm:       false,
 				expectsSSHClientCallReboot:             true,
@@ -1797,7 +2036,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
 				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
+				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    false,
 				expectsSSHClientCallCheckSigterm:       false,
 				expectsSSHClientCallReboot:             false,
@@ -1807,6 +2046,129 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			},
 		),
 	)
+
+	It("records the CloudInitOutput event when the cloud-init status check returned an error", func() {
+		ctx := context.Background()
+
+		// drain events from previous tests
+		for len(testEventRecorder.Events) > 0 {
+			<-testEventRecorder.Events
+		}
+
+		portAfterInstallImage := 24
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(portAfterInstallImage),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"})
+		// an unknown cloud-init status makes checkCloudInitStatus return an error
+		sshMock.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: broken"})
+		sshMock.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+
+		robotMock := robotmock.Client{}
+		robotMock.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
+
+		service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+
+		// the error is still returned, and the cloud-init output is recorded in an event
+		Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionError{}))
+
+		var events []string
+		for len(testEventRecorder.Events) > 0 {
+			events = append(events, <-testEventRecorder.Events)
+		}
+		Expect(events).To(ContainElement(ContainSubstring("dummy content of /var/log/cloud-init-output.log")))
+		Expect(events).NotTo(ContainElement(ContainSubstring("GetCloudInitOutputFailed")))
+	})
+
+	It("sets a fatal error when the reboot into the OS times out", func() {
+		ctx := context.Background()
+		portAfterInstallImage := 24
+
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(portAfterInstallImage),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithError(infrav1.ErrorTypeHardwareRebootTriggered, "", 1),
+			helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Hour))),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: timeout})
+
+		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+
+		actResult := service.actionEnsureProvisioned(ctx)
+
+		Expect(actResult).To(BeAssignableToTypeOf(actionFailed{}))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.FatalError))
+		Expect(host.Spec.Status.ErrorMessage).To(ContainSubstring("hardware reboot (to node) timed out"))
+	})
+
+	It("reports the host as still provisioning while the connection refused timeout has not passed", func() {
+		ctx := context.Background()
+		portAfterInstallImage := 24
+
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(portAfterInstallImage),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithError(infrav1.ErrorTypeSoftwareRebootTriggered, "", 1),
+			helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Minute))),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: syscall.ECONNREFUSED})
+
+		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+
+		Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionContinue{}))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeSoftwareRebootTriggered))
+
+		condition := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(condition).ToNot(BeNil())
+		Expect(condition.Reason).To(Equal(infrav1.StillProvisioningReason))
+	})
+
+	It("keeps failing with the same fatal error when the provisioned server keeps refusing the ssh connection", func() {
+		ctx := context.Background()
+		portAfterInstallImage := 24
+
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(portAfterInstallImage),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithError(infrav1.ErrorTypeSoftwareRebootTriggered, "", 1),
+			helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Hour))),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: syscall.ECONNREFUSED})
+
+		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+
+		for run := 1; run <= 3; run++ {
+			Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionFailed{}), "run %d", run)
+			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.FatalError), "run %d", run)
+			Expect(host.Spec.Status.ErrorCount).To(Equal(run), "run %d", run)
+
+			condition := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
+			Expect(condition).ToNot(BeNil(), "run %d", run)
+			Expect(condition.Reason).To(Equal(infrav1.SSHConnectionRefusedReason), "run %d", run)
+			Expect(condition.Message).To(ContainSubstring("wrong ssh port"), "run %d", run)
+		}
+	})
 })
 
 var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
@@ -2012,5 +2374,59 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		Expect(c.Message).To(Equal(""))
 		Expect(c.Status).To(Equal(corev1.ConditionTrue))
 		Expect(host.GetAnnotations()).To(BeEmpty())
+	})
+})
+
+var _ = Describe("actionProvisioned when the Node is missing in the workload cluster", func() {
+	It("stops reconciling instead of erroring forever", func() {
+		ctx := context.Background()
+
+		// drain events from previous tests
+		for len(testEventRecorder.Events) > 0 {
+			<-testEventRecorder.Events
+		}
+
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(23),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		service := newTestService(host, nil, nil,
+			helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
+			helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		// newTestService seeds a Node named after the host. Remove it so the
+		// workload-cluster Get returns NotFound.
+		Expect(service.scope.Client.Delete(ctx, &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: host.Name},
+		})).To(Succeed())
+
+		actResult := service.actionProvisioned(ctx)
+
+		// actionStop returns no error and schedules no requeue.
+		Expect(actResult).Should(BeAssignableToTypeOf(actionStop{}))
+		res, err := actResult.Result()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res.RequeueAfter).To(BeZero())
+
+		c := v1beta1conditions.Get(host, infrav1.NodeBootIDRetrievedCondition)
+		Expect(c).ToNot(BeNil())
+		Expect(c.Status).To(Equal(corev1.ConditionFalse))
+		Expect(c.Reason).To(Equal(infrav1.NodeNotFoundReason))
+		Expect(c.Message).To(ContainSubstring(host.Name))
+
+		c2 := v1beta2conditions.Get(host, infrav1.HetznerBareMetalHostNodeBootIDRetrievedV1Beta2Condition)
+		Expect(c2).ToNot(BeNil())
+		Expect(c2.Status).To(Equal(metav1.ConditionFalse))
+		Expect(c2.Reason).To(Equal(infrav1.HetznerBareMetalHostNodeNotFoundV1Beta2Reason))
+
+		var events []string
+		for len(testEventRecorder.Events) > 0 {
+			events = append(events, <-testEventRecorder.Events)
+		}
+		Expect(events).To(ContainElement(ContainSubstring(infrav1.HetznerBareMetalHostNodeNotFoundV1Beta2Reason)))
 	})
 })
