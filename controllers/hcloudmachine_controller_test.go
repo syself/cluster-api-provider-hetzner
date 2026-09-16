@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -1137,6 +1138,40 @@ var _ = Describe("Hetzner secret", func() {
 			}
 		}, infrav2.HCloudCredentialsInvalidV1Beta1Reason),
 	)
+
+	It("finishes deleting an HCloudMachine whose owner Machine is already gone", func() {
+		hetznerSecret = getDefaultHetznerSecret(testNs.Name)
+		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+
+		// Keep the HCloudMachine around after it is deleted, the way the controller does.
+		Eventually(func(g Gomega) {
+			g.Expect(testEnv.Get(ctx, key, hcloudMachine)).To(Succeed())
+			hcloudMachine.Finalizers = append(hcloudMachine.Finalizers, infrav2.HCloudMachineFinalizer)
+			g.Expect(testEnv.Update(ctx, hcloudMachine)).To(Succeed())
+		}, timeout, interval).Should(Succeed())
+
+		// Force-delete the owner Machine. This is what leaves the HCloudMachine orphaned:
+		// CAPI on its own waits for the infrastructure to go first.
+		capiMachineKey := client.ObjectKeyFromObject(capiMachine)
+		Eventually(func(g Gomega) {
+			g.Expect(testEnv.Get(ctx, capiMachineKey, capiMachine)).To(Succeed())
+			capiMachine.Finalizers = nil
+			g.Expect(testEnv.Update(ctx, capiMachine)).To(Succeed())
+		}, timeout, interval).Should(Succeed())
+		Expect(client.IgnoreNotFound(testEnv.Delete(ctx, capiMachine))).To(Succeed())
+		Eventually(func() bool {
+			return apierrors.IsNotFound(testEnv.Get(ctx, capiMachineKey, capiMachine))
+		}, timeout, interval).Should(BeTrue())
+
+		// Deleting the HCloudMachine now has no owner Machine to look up.
+		Expect(testEnv.Delete(ctx, hcloudMachine)).To(Succeed())
+
+		// The controller has to release the finalizer anyway, otherwise the object and
+		// the server behind it stay around forever.
+		Eventually(func() bool {
+			return apierrors.IsNotFound(testEnv.Get(ctx, key, hcloudMachine))
+		}, timeout, interval).Should(BeTrue())
+	})
 
 	It("sets InstanceState=Deleting and ServerAvailable=False on delete with missing secret", func() {
 		// Create a wrong secret so token validation fails.

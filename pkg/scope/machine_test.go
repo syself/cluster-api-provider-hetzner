@@ -20,10 +20,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
 
 var _ = Describe("Test ServerIDFromProviderID", func() {
@@ -149,5 +154,78 @@ var _ = Describe("HCloudMachineSummaryOpts", func() {
 
 		// HCloudRateLimitExceeded (priority 2) before ServerAvailable (priority 5).
 		Expect(readyCondition.Message).To(MatchRegexp(`(?s)rate limit exceeded.*machine is deleting`))
+	})
+})
+
+var _ = Describe("NewMachineScope with a missing owner Machine", func() {
+	newParams := func(hcloudMachine *infrav2.HCloudMachine) MachineScopeParams {
+		scheme := runtime.NewScheme()
+		utilruntime.Must(clusterv1.AddToScheme(scheme))
+		utilruntime.Must(infrav2.AddToScheme(scheme))
+		crClient := fakeclient.NewClientBuilder().WithScheme(scheme).Build()
+
+		return MachineScopeParams{
+			Client:         crClient,
+			APIReader:      crClient,
+			Logger:         klog.Background(),
+			HCloudClient:   fakehcloudclient.NewHCloudClientFactory().NewClient(""),
+			Cluster:        &clusterv1.Cluster{},
+			HetznerCluster: &infrav2.HetznerCluster{},
+			HCloudMachine:  hcloudMachine,
+		}
+	}
+
+	It("fails when the HCloudMachine is not being deleted", func() {
+		hcloudMachine := &infrav2.HCloudMachine{}
+
+		_, err := NewMachineScope(newParams(hcloudMachine))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("nil Machine"))
+	})
+
+	It("succeeds when the HCloudMachine is being deleted", func() {
+		now := metav1.Now()
+		hcloudMachine := &infrav2.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "hcloud-machine",
+				Namespace:         "default",
+				DeletionTimestamp: &now,
+				Finalizers:        []string{infrav2.HCloudMachineFinalizer},
+			},
+		}
+
+		machineScope, err := NewMachineScope(newParams(hcloudMachine))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(machineScope.Machine).To(BeNil())
+	})
+})
+
+var _ = Describe("IsControlPlane without an owner Machine", func() {
+	It("reads the label from the HCloudMachine", func() {
+		hcloudMachine := &infrav2.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{clusterv1.MachineControlPlaneLabel: ""},
+			},
+		}
+		machineScope := MachineScope{HCloudMachine: hcloudMachine}
+
+		Expect(machineScope.IsControlPlane()).To(BeTrue())
+	})
+
+	It("is false for a worker", func() {
+		machineScope := MachineScope{HCloudMachine: &infrav2.HCloudMachine{}}
+
+		Expect(machineScope.IsControlPlane()).To(BeFalse())
+	})
+
+	It("still uses the Machine when it is set", func() {
+		machine := &clusterv1.Machine{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{clusterv1.MachineControlPlaneLabel: ""},
+			},
+		}
+		machineScope := MachineScope{Machine: machine, HCloudMachine: &infrav2.HCloudMachine{}}
+
+		Expect(machineScope.IsControlPlane()).To(BeTrue())
 	})
 })

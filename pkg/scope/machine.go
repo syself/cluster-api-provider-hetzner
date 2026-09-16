@@ -46,14 +46,20 @@ import (
 
 // MachineScopeParams defines the input parameters used to create a new Scope.
 type MachineScopeParams struct {
-	Client           client.Client
-	APIReader        client.Reader
-	Logger           logr.Logger
-	HetznerSecret    *corev1.Secret
-	HCloudClient     hcloudclient.Client
-	Cluster          *clusterv1.Cluster
-	HetznerCluster   *infrav2.HetznerCluster
-	Machine          *clusterv1.Machine
+	Client         client.Client
+	APIReader      client.Reader
+	Logger         logr.Logger
+	HetznerSecret  *corev1.Secret
+	HCloudClient   hcloudclient.Client
+	Cluster        *clusterv1.Cluster
+	HetznerCluster *infrav2.HetznerCluster
+
+	// Machine is the CAPI Machine owning the HCloudMachine. It may be nil, but only
+	// while the HCloudMachine is being deleted: an owner Machine that was force-deleted
+	// leaves the HCloudMachine behind, and it still has to be cleaned up. Code that runs
+	// outside the deletion path can rely on Machine being set.
+	Machine *clusterv1.Machine
+
 	HCloudMachine    *infrav2.HCloudMachine
 	SSHClientFactory sshclient.Factory
 }
@@ -74,11 +80,11 @@ var (
 // NewMachineScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
 func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
-	if params.Machine == nil {
-		return nil, errors.New("failed to generate new scope from nil Machine")
-	}
 	if params.HCloudMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudMachine")
+	}
+	if params.Machine == nil && params.HCloudMachine.DeletionTimestamp.IsZero() {
+		return nil, errors.New("failed to generate new scope from nil Machine")
 	}
 	if params.Cluster == nil {
 		return nil, errors.New("failed to generate new scope from nil Cluster")
@@ -133,7 +139,10 @@ type MachineScope struct {
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav2.HetznerCluster
 
-	Machine          *clusterv1.Machine
+	// Machine is nil when the owner Machine is already gone and the HCloudMachine is
+	// only being deleted. See MachineScopeParams.Machine.
+	Machine *clusterv1.Machine
+
 	HCloudMachine    *infrav2.HCloudMachine
 	SSHClientFactory sshclient.Factory
 }
@@ -172,6 +181,12 @@ func (m *MachineScope) Close(ctx context.Context) error {
 
 // IsControlPlane returns true if the machine is a control plane.
 func (m *MachineScope) IsControlPlane() bool {
+	if m.Machine == nil {
+		// The owner Machine is gone. CAPI puts the same label on the infra machine,
+		// so it still answers the question.
+		_, ok := m.HCloudMachine.Labels[clusterv1.MachineControlPlaneLabel]
+		return ok
+	}
 	return util.IsControlPlaneMachine(m.Machine)
 }
 
