@@ -55,8 +55,73 @@ type Arguments struct {
 	// --ignore-condition-regex) checked in addition to the built-in
 	// conditionLinesToIgnoreRegexs.
 	ExtraConditionLinesToIgnoreRegexs []*regexp.Regexp
-	forbiddenResourcesPrinted         bool
-	connectionInfoPrinted             bool
+	// IgnoreConditionYoungerThan ignores conditions whose lastTransitionTime is
+	// more recent than the threshold: for a duration, more recent than (now -
+	// duration); for an absolute timestamp, after that timestamp. Zero value
+	// disables it.
+	IgnoreConditionYoungerThan ConditionTimeThreshold
+	// IgnoreConditionOlderThan ignores conditions whose lastTransitionTime is
+	// older than the threshold: for a duration, older than (now - duration);
+	// for an absolute timestamp, before that timestamp. Zero value disables it.
+	IgnoreConditionOlderThan ConditionTimeThreshold
+	forbiddenResourcesPrinted bool
+	connectionInfoPrinted     bool
+}
+
+// ConditionTimeThreshold is either a duration relative to "now" (evaluated
+// at check time) or a fixed absolute timestamp, set via ParseConditionTimeThreshold.
+// At most one of the two fields is set; the zero value (both fields zero)
+// means "no threshold".
+type ConditionTimeThreshold struct {
+	Duration time.Duration
+	Absolute time.Time
+}
+
+// IsZero reports whether the threshold is unset.
+func (t ConditionTimeThreshold) IsZero() bool {
+	return t.Duration == 0 && t.Absolute.IsZero()
+}
+
+// ParseConditionTimeThreshold parses s as either a duration (e.g. "24h",
+// "5m") or an RFC3339 timestamp (e.g. "2026-09-01T00:00:00Z"). An empty
+// string yields the zero (disabled) threshold.
+func ParseConditionTimeThreshold(s string) (ConditionTimeThreshold, error) {
+	if s == "" {
+		return ConditionTimeThreshold{}, nil
+	}
+	if d, err := time.ParseDuration(s); err == nil {
+		if d <= 0 {
+			return ConditionTimeThreshold{}, fmt.Errorf("duration must be positive, got %q", s)
+		}
+		return ConditionTimeThreshold{Duration: d}, nil
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return ConditionTimeThreshold{Absolute: t}, nil
+	}
+	return ConditionTimeThreshold{}, fmt.Errorf("must be a duration (e.g. 24h) or an RFC3339 timestamp (e.g. 2026-09-01T00:00:00Z), got %q", s)
+}
+
+// conditionOutsideTimeWindow reports whether t is excluded by the active
+// --ignore-condition-younger-than / --ignore-condition-older-than filters.
+func (a *Arguments) conditionOutsideTimeWindow(t time.Time) bool {
+	now := time.Now()
+	if younger := a.IgnoreConditionYoungerThan; !younger.IsZero() {
+		if younger.Duration > 0 && now.Sub(t) < younger.Duration {
+			return true
+		}
+		if !younger.Absolute.IsZero() && t.After(younger.Absolute) {
+			return true
+		}
+	}
+	if older := a.IgnoreConditionOlderThan; !older.IsZero() {
+		if older.Duration > 0 && now.Sub(t) > older.Duration {
+			return true
+		}
+		if !older.Absolute.IsZero() && t.Before(older.Absolute) {
+			return true
+		}
+	}
+	return false
 }
 
 // matchAnyPattern reports whether name matches any of the given glob patterns.
@@ -556,7 +621,8 @@ func printResources(args *Arguments, list *unstructured.UnstructuredList, gvr sc
 		}
 		counter.checkedResources++
 		if args.WarnDeletionTimestampOlderThan > 0 {
-			if dt := obj.GetDeletionTimestamp(); dt != nil && !dt.IsZero() {
+			if dt := obj.GetDeletionTimestamp(); dt != nil && !dt.IsZero() &&
+				!args.conditionOutsideTimeWindow(dt.Time) {
 				age := time.Since(dt.Time)
 				if age > args.WarnDeletionTimestampOlderThan {
 					line := fmt.Sprintf("  %s %s %s DeletionTimestamp set for %s",
@@ -835,6 +901,9 @@ func handleCondition(args *Arguments, condition interface{}, counter *handleReso
 	if s != "" {
 		conditionLastTransitionTime, _ = time.Parse(time.RFC3339, s)
 	}
+	if !conditionLastTransitionTime.IsZero() && args.conditionOutsideTimeWindow(conditionLastTransitionTime) {
+		return rows
+	}
 	rows = append(rows, conditionRow{
 		conditionType, conditionStatus,
 		conditionReason, conditionMessage, conditionLastTransitionTime,
@@ -1021,21 +1090,25 @@ func conditionTypeHasPositiveMeaning(resource string, ct string) bool {
 		"Established",
 		"Healthy",
 		"Initialized",
+		"Install",
 		"Installed",
 		"LoadBalancerAttached",
 		"NamesAccepted",
 		"Passed",
 		"PodScheduled",
 		"Progressing",
+		"Provided",
 		"ProviderUpgraded",
 		"Provisioned",
 		"Reachable",
 		"Ready",
 		"Reconciled",
+		"Reconciler",
 		"RemediationAllowed",
 		"Resized",
 		"Succeeded",
 		"Synced",
+		"Upgrade",
 		"UpToDate",
 		"Valid",
 		"SuccessCriteriaMet",
