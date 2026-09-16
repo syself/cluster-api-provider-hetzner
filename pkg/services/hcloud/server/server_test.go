@@ -48,8 +48,25 @@ import (
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
-	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
+
+// testRescueSSHPrivateKey is a real, parseable ed25519 OpenSSH private key used as the fake
+// rescue SSH secret content in the "Reconcile" tests below. It must stay in sync with
+// testRescueSSHKeyFingerprint (the MD5 fingerprint of its matching public key), since
+// checkSSHPrivateKeyMatchesHCloud parses this key and compares its fingerprint against the
+// fingerprint reported by the (mocked) HCloud API.
+const testRescueSSHPrivateKey = `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACDZbcZmLSWLD8IOYnmNJq5h+hKQWmIcv35f+mG17IjtwAAAAIhE3fQQRN30
+EAAAAAtzc2gtZWQyNTUxOQAAACDZbcZmLSWLD8IOYnmNJq5h+hKQWmIcv35f+mG17IjtwA
+AAAECGzzVZvq9Foo9QZJw5IczPUFMrfvOyqA6Zp6Zih9hSRdltxmYtJYsPwg5ieY0mrmH6
+EpBaYhy/fl/6YbXsiO3AAAAAAAECAwQF
+-----END OPENSSH PRIVATE KEY-----
+`
+
+// testRescueSSHKeyFingerprint is the MD5 fingerprint (ssh.FingerprintLegacyMD5 format) of the
+// public key matching testRescueSSHPrivateKey.
+const testRescueSSHKeyFingerprint = "38:20:bb:ae:6e:f3:95:ec:5b:16:5c:5f:98:95:c2:0e"
 
 func Test_statusAddresses(t *testing.T) {
 	server := newTestServer()
@@ -298,6 +315,103 @@ var _ = Describe("handleBootStateUnset", func() {
 
 		Expect(isPresentAndFalseWithReasonDeprecatedV1Beta1(hcloudMachine, infrav2.SSHPrivateKeyAvailableV1Beta1Condition, infrav2.SSHPrivateKeySecretRefNotConfiguredV1Beta1Reason)).To(BeTrue())
 		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav2.HCloudMachineSSHPrivateKeyAvailableCondition, metav1.ConditionFalse, infrav2.HCloudMachineSSHPrivateKeySecretRefNotConfiguredReason)).To(BeTrue())
+	})
+
+	It("marks SSHPrivateKeyAvailableCondition false and does not create a server when the private key does not match the key registered in Hetzner Cloud", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+
+		Expect(testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "rescue-ssh-secret",
+				Namespace: "default",
+			},
+			Data: map[string][]byte{
+				"private-key": []byte(testRescueSSHPrivateKey),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			},
+		})).To(Succeed())
+
+		machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
+			Client:    testEnv.GetClient(),
+			APIReader: testEnv.GetAPIReader(),
+
+			HCloudClient: hcloudClient,
+			Logger:       GinkgoLogr,
+
+			Cluster: &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "clustername",
+					Namespace: "default",
+				},
+			},
+
+			HetznerCluster: &infrav2.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "clustername",
+					Namespace: "default",
+				},
+				Spec: infrav2.HetznerClusterSpec{
+					HetznerSecret: infrav2.HetznerSecretRef{
+						Name: "secretname",
+						Key: infrav2.HetznerSecretKeyRef{
+							SSHKey: "hcloud-ssh-key-name",
+						},
+					},
+					SSHKeys: infrav2.HetznerSSHKeys{
+						RescueSecretRef: infrav2.SSHSecretRef{
+							Name: "rescue-ssh-secret",
+							Key: infrav2.SSHSecretKeyRef{
+								Name:       "sshkey-name",
+								PublicKey:  "public-key",
+								PrivateKey: "private-key",
+							},
+						},
+					},
+				},
+			},
+
+			HCloudMachine: hcloudMachine,
+
+			HetznerSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "secretname",
+					Namespace: "default",
+				},
+				Data: map[string][]byte{
+					"hcloud-ssh-key-name": []byte("sshKey1"),
+				},
+			},
+			Machine: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-machine",
+					Namespace: "default",
+				},
+			},
+			SSHClientFactory: testEnv.HCloudSSHClientFactory,
+		})
+		Expect(err).To(BeNil())
+
+		service := &Service{scope: machineScope}
+
+		// sshKey1 is registered in Hetzner Cloud, but under a different keypair than the one in
+		// the rescue secret, so its fingerprint does not match testRescueSSHKeyFingerprint.
+		hcloudClient.On("ListSSHKeys", mock.Anything, hcloud.SSHKeyListOpts{Name: "sshKey1"}).Return([]*hcloud.SSHKey{
+			{
+				ID:          1,
+				Name:        "sshKey1",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+			},
+		}, nil)
+
+		res, err := service.handleBootStateUnset(context.Background())
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(isPresentAndFalseWithReasonDeprecatedV1Beta1(hcloudMachine, infrav2.SSHPrivateKeyAvailableV1Beta1Condition, infrav2.SSHPrivateKeyMismatchV1Beta1Reason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav2.HCloudMachineSSHPrivateKeyAvailableCondition, metav1.ConditionFalse, infrav2.HCloudMachineSSHPrivateKeyMismatchReason)).To(BeTrue())
+
+		hcloudClient.AssertNotCalled(GinkgoT(), "CreateServer", mock.Anything, mock.Anything)
 	})
 })
 
@@ -1298,7 +1412,17 @@ var _ = Describe("Reconcile", func() {
 			},
 		}
 
-		err = testEnv.Create(ctx, helpers.GetDefaultSSHSecret("rescue-ssh-secret", testNs.Name))
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "rescue-ssh-secret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"private-key": []byte(testRescueSSHPrivateKey),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			},
+		})
 		Expect(err).To(BeNil())
 
 		hcloudMachine := &infrav2.HCloudMachine{
@@ -1709,7 +1833,7 @@ var _ = Describe("Reconcile", func() {
 			{
 				ID:          1,
 				Name:        "sshKey1",
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+				Fingerprint: testRescueSSHKeyFingerprint,
 			},
 		}, nil)
 
@@ -1796,7 +1920,7 @@ var _ = Describe("Reconcile", func() {
 			{
 				ID:          1,
 				Name:        "sshKey1",
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+				Fingerprint: testRescueSSHKeyFingerprint,
 			},
 		}, nil)
 
@@ -2464,6 +2588,14 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
 		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-nonexistent.sh"
+
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return([]*hcloud.SSHKey{
+			{
+				ID:          1,
+				Name:        "sshKey1",
+				Fingerprint: testRescueSSHKeyFingerprint,
+			},
+		}, nil)
 
 		By("calling reconcile — CreateServer must not be called")
 		res, err := service.Reconcile(ctx)
