@@ -149,11 +149,11 @@ func HCloudRemediationSummaryOpts() []conditions.SummaryOption {
 			HCloudRateLimitExceededCondition,
 			HCloudRemediationSkippedCondition,
 		},
-		// IgnoreTypesIfMissing tells the summary not to treat the absence of a listed condition as
-		// Unknown. Some reconcile paths exit before every condition has been set, and we don't want
-		// those early exits to flip Ready to Unknown.
+		// IgnoreTypesIfMissing lists conditions that may legitimately not be present on the object.
+		// A missing one is left out of the summary input rather than counted as Unknown. At least one
+		// condition in ForConditionTypes has to stay off this list, otherwise an object with none of
+		// them set leaves the summary with an empty input, which CAPI rejects.
 		conditions.IgnoreTypesIfMissing{
-			HCloudTokenAvailableCondition,
 			HCloudRateLimitExceededCondition,
 			HCloudRemediationSkippedCondition,
 		},

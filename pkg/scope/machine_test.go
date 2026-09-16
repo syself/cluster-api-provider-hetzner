@@ -93,6 +93,55 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 })
 
 var _ = Describe("HCloudMachineSummaryOpts", func() {
+	// A freshly created HCloudMachine has none of its sub conditions set yet. Every condition that
+	// is a real step of bringing the server up has to count as Unknown, otherwise the summary has
+	// an empty input and fails with "summary can't be performed ... is empty".
+	It("reports Ready=Unknown when no conditions are set yet", func() {
+		hcloudMachine := &infrav2.HCloudMachine{}
+
+		readyCondition, err := conditions.NewSummaryCondition(hcloudMachine, clusterv1.ReadyCondition, infrav2.HCloudMachineSummaryOpts()...)
+		Expect(err).To(BeNil())
+		Expect(readyCondition).ToNot(BeNil())
+		Expect(readyCondition.Status).To(Equal(metav1.ConditionUnknown))
+		Expect(readyCondition.Reason).To(Equal(clusterv1.ReadyUnknownReason))
+	})
+
+	// HCloudRateLimitExceeded is only set while the hcloud API is rate limiting, and
+	// SSHPrivateKeyAvailable only when Spec.ImageURL is set, so both stay in IgnoreTypesIfMissing.
+	// A machine created from an image name that was never rate limited must still reach Ready=True.
+	It("reports Ready=True when the required conditions are True and the ignorable ones are absent", func() {
+		hcloudMachine := &infrav2.HCloudMachine{}
+
+		hcloudMachine.SetConditions([]metav1.Condition{
+			{
+				Type:   infrav2.HCloudTokenAvailableCondition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav2.HCloudTokenAvailableReason,
+			},
+			{
+				Type:   infrav2.HCloudMachineServerCreatedCondition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav2.HCloudMachineServerCreatedReason,
+			},
+			{
+				Type:   infrav2.HCloudMachineServerProvisionedCondition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav2.HCloudMachineServerProvisionedReason,
+			},
+			{
+				Type:   infrav2.HCloudMachineServerAvailableCondition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav2.HCloudMachineServerAvailableReason,
+			},
+		})
+
+		readyCondition, err := conditions.NewSummaryCondition(hcloudMachine, clusterv1.ReadyCondition, infrav2.HCloudMachineSummaryOpts()...)
+		Expect(err).To(BeNil())
+		Expect(readyCondition).ToNot(BeNil())
+		Expect(readyCondition.Status).To(Equal(metav1.ConditionTrue))
+		Expect(readyCondition.Reason).To(Equal(clusterv1.ReadyReason))
+	})
+
 	It("lists all unhealthy conditions in priority order in the summary message", func() {
 		hcloudMachine := &infrav2.HCloudMachine{}
 
