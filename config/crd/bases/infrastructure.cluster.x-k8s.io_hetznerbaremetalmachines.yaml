@@ -597,6 +597,39 @@ spec:
             description: HetznerBareMetalMachineSpec defines the desired state of
               HetznerBareMetalMachine.
             properties:
+              customProvisioner:
+                description: |-
+                  CustomProvisioner provisions the machine with a custom command instead of installimage.
+                  Exactly one of installImage or customProvisioner must be set.
+                properties:
+                  command:
+                    description: |-
+                      Command is the basename of a command file below /shared on the controller pod. CAPH copies
+                      that command into the rescue system and executes it there to provision the machine from URL.
+
+                      Docs: https://syself.com/docs/caph/developers/image-url-command
+                    minLength: 1
+                    type: string
+                  deviceStringType:
+                    description: |-
+                      DeviceStringType instructs CAPH to either use the short device name, or the WWN when calling
+                      Command. "" and "short" both pass the short device name (e.g. "sda"); "wwn" passes the WWN
+                      (e.g. "eui.00253885910c8cec").
+                    enum:
+                    - ""
+                    - short
+                    - wwn
+                    type: string
+                  url:
+                    description: |-
+                      URL is the location of the image that Command provisions the machine from. CAPH passes it to
+                      Command in the rescue system.
+                    minLength: 1
+                    type: string
+                required:
+                - command
+                - url
+                type: object
               hostSelector:
                 description: |-
                   HostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
@@ -640,8 +673,9 @@ spec:
                     type: object
                 type: object
               installImage:
-                description: InstallImage is the configuration that is used for the
-                  autosetup configuration for installing an OS via InstallImage.
+                description: |-
+                  InstallImage provisions the machine with the Hetzner installimage tool.
+                  Exactly one of installImage or customProvisioner must be set.
                 properties:
                   btrfsDefinitions:
                     description: BTRFSDefinitions define the btrfs subvolume definitions
@@ -666,16 +700,6 @@ spec:
                       type: object
                     type: array
                     x-kubernetes-list-type: atomic
-                  deviceStringType:
-                    description: |-
-                      DeviceStringType instructs CAPH to either use the short device name, or the WWN when calling
-                      ImageURLCommand. It is not used when ImageURLCommand is not set. "" and "short" both pass
-                      the short device name (e.g. "sda"); "wwn" passes the WWN (e.g. "eui.00253885910c8cec").
-                    enum:
-                    - ""
-                    - short
-                    - wwn
-                    type: string
                   image:
                     description: Image is the image to be provisioned. It defines
                       the image for baremetal machine.
@@ -693,17 +717,6 @@ spec:
                           tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
                         type: string
                     type: object
-                  imageURLCommand:
-                    description: |-
-                      ImageURLCommand is the basename of a command file below /shared on the controller pod which
-                      provisions a machine from Image.URL. CAPH copies that command into the rescue system and
-                      executes it there.
-
-                      Docs: https://syself.com/docs/caph/developers/image-url-command
-
-                      ImageURLCommand must be set if the machine should be provisioned from Image.URL without
-                      installimage.
-                    type: string
                   logicalVolumeDefinitions:
                     description: LVMDefinitions defines the logical volume definitions
                       to be created.
@@ -867,8 +880,6 @@ spec:
                 required:
                 - secretRef
                 type: object
-            required:
-            - installImage
             type: object
           status:
             description: HetznerBareMetalMachineStatus defines the observed state

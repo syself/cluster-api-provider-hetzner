@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/csr"
 )
 
@@ -242,7 +243,7 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 	// It could be both: A hcloud machine or a bm-machine without ConstantHostname.
 
 	// Try to find matching HCloudMachine object.
-	var hcloudMachine infrav1.HCloudMachine
+	var hcloudMachine infrav2.HCloudMachine
 
 	hcloudMachineName := types.NamespacedName{
 		Namespace: r.mCluster.Namespace(),
@@ -268,7 +269,15 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 		return bmMachine.Status.Addresses, false, nil
 	}
 	log.Info(fmt.Sprintf("found hcloudmachine for %s", certificateSigningRequest.Spec.Username))
-	return hcloudMachine.Status.Addresses, true, nil
+	// HCloudMachine stores addresses as core v1beta2 MachineAddress, while the bare metal paths and the
+	// CSR validator both use the v1beta1 type, so convert to the v1beta1 type here.
+	// TODO: once the bare metal machines are on v1beta2 and pkg/csr.ValidateKubeletCSR takes v1beta2
+	// addresses, return hcloudMachine.Status.Addresses directly and drop this conversion.
+	addresses := make([]clusterv1beta1.MachineAddress, len(hcloudMachine.Status.Addresses))
+	for i, addr := range hcloudMachine.Status.Addresses {
+		addresses[i] = clusterv1beta1.MachineAddress{Type: clusterv1beta1.MachineAddressType(addr.Type), Address: addr.Address}
+	}
+	return addresses, true, nil
 }
 
 func getx509CSR(certificateSigningRequest *certificatesv1.CertificateSigningRequest) (*x509.CertificateRequest, error) {

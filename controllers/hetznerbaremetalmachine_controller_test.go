@@ -43,12 +43,14 @@ import (
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
@@ -278,14 +280,14 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			It("sets bootstrap condition on true if bootstrap available", func() {
 				By("setting bootstrap information in capi machine")
 
-				ph, err := v1beta1patch.NewHelper(capiMachine, testEnv)
+				ph, err := patch.NewHelper(capiMachine, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				}
 				Eventually(func() error {
-					return ph.Patch(ctx, capiMachine, v1beta1patch.WithStatusObservedGeneration{})
+					return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
 				}, timeout, time.Second).Should(BeNil())
 
 				By("checking that bootstrap condition is set on true")
@@ -556,7 +558,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}, timeout).Should(Succeed())
 
 				By("Do the job of CAPI: Create a HetznerBareMetalRemediation")
-				rem := &infrav1.HetznerBareMetalRemediation{
+				rem := &infrav2.HetznerBareMetalRemediation{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      bmMachine.Name,
 						Namespace: bmMachine.Namespace,

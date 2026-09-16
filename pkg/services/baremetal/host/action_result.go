@@ -71,15 +71,6 @@ func (actionFinished) Result() (reconcile.Result, error) {
 	return reconcile.Result{}, nil
 }
 
-// deleteComplete is a result indicating that the deletion action has
-// completed, and that the resource has now been deleted.
-type deleteComplete struct{}
-
-func (deleteComplete) Result() (result reconcile.Result, err error) {
-	// Don't requeue, since the CR has been successfully deleted
-	return result, nil
-}
-
 // actionError is a result indicating that an error occurred while attempting
 // to advance the current action, and that reconciliation should be retried.
 type actionError struct {

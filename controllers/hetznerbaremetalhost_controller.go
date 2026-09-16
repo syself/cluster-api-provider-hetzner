@@ -199,11 +199,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			log.Info("Provisioning state changed", "from", initialProvisioningState, "to", bmHost.Spec.Status.ProvisioningState)
 		}
 
-		// remove deprecated conditions.
-		v1beta1conditions.Delete(bmHost, infrav1.DeprecatedHetznerBareMetalHostReadyCondition)
-		v1beta1conditions.Delete(bmHost, infrav1.DeprecatedHostProvisionSucceededCondition)
-		v1beta1conditions.Delete(bmHost, infrav1.DeprecatedRateLimitExceededCondition)
-
 		v1beta1conditions.SetSummary(bmHost)
 		scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
 
@@ -215,9 +210,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}()
 
 	// Add a finalizer to newly created objects.
-	if bmHost.DeletionTimestamp.IsZero() &&
-		(controllerutil.AddFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
-			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer)) {
+	if bmHost.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -366,9 +359,8 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(bmHost *infrav1
 			Status: metav1.ConditionTrue,
 			Reason: infrav1.HetznerBareMetalHostDeletingV1Beta2Reason,
 		})
-		// remove finalizers.
+		// remove finalizer.
 		controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer)
-		controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer)
 		return reconcile.Result{Requeue: true}
 	}
 	return ctrl.Result{}

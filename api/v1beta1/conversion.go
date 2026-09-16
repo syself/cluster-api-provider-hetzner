@@ -717,10 +717,114 @@ func Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerB
 	return Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&in.Spec, &out.Spec, s)
 }
 
-// Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus converts
-// the v1beta1 HCloudMachineTemplateStatus to v1beta2, dropping the V1Beta2 field.
-func Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus(in *HCloudMachineTemplateStatus, out *infrav2.HCloudMachineTemplateStatus, s apiconversion.Scope) error {
-	return autoConvert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus(in, out, s)
+// Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec converts the v1beta1 spec
+// to v1beta2. The v1beta1 installImage field carries both provisioning flows; v1beta2 splits them, so an
+// installImage that sets imageURLCommand becomes a customProvisioner.
+func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in *HetznerBareMetalMachineSpec, out *infrav2.HetznerBareMetalMachineSpec, s apiconversion.Scope) error {
+	// The generated converter handles every field except installImage, which it cannot map.
+	if err := autoConvert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in, out, s); err != nil {
+		return err
+	}
+
+	if in.InstallImage.UsesImageURLCommand() {
+		// The custom provisioner flow uses only the image URL, command and device string.
+		// The v1beta1 webhook forbids image name and path when imageURLCommand is
+		// set, so those are always empty here. The remaining installImage fields (partitions, RAID,
+		// post-install script) have no equivalent on customProvisioner.
+		out.CustomProvisioner = &infrav2.CustomProvisioner{
+			URL:              in.InstallImage.Image.URL,
+			Command:          in.InstallImage.ImageURLCommand,
+			DeviceStringType: infrav2.DeviceStringType(in.InstallImage.DeviceStringType),
+		}
+		return nil
+	}
+
+	out.InstallImage = &infrav2.InstallImage{}
+	return Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(&in.InstallImage, out.InstallImage, s)
+}
+
+// Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec converts the v1beta2 spec
+// back to v1beta1. It is the inverse of the split above: a customProvisioner maps back to the imageURLCommand
+// fields of the single v1beta1 installImage.
+func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in *infrav2.HetznerBareMetalMachineSpec, out *HetznerBareMetalMachineSpec, s apiconversion.Scope) error {
+	// The generated converter handles every field except installImage and customProvisioner, which it cannot map.
+	if err := autoConvert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in, out, s); err != nil {
+		return err
+	}
+
+	// The machine webhook rejects both being set. If both are somehow set here, customProvisioner wins.
+	if in.CustomProvisioner != nil {
+		out.InstallImage = InstallImage{
+			Image:            Image{URL: in.CustomProvisioner.URL},
+			ImageURLCommand:  in.CustomProvisioner.Command,
+			DeviceStringType: DeviceStringType(in.CustomProvisioner.DeviceStringType),
+		}
+		return nil
+	}
+
+	if in.InstallImage != nil {
+		return Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(in.InstallImage, &out.InstallImage, s)
+	}
+	return nil
+}
+
+// Convert_v1beta1_InstallImage_To_v1beta2_InstallImage converts a v1beta1 InstallImage to v1beta2. The
+// v1beta1-only imageURLCommand and deviceStringType fields belong to the custom provisioner flow, which the
+// spec converter maps to customProvisioner instead, so they are dropped here.
+func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out *infrav2.InstallImage, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in, out, s)
+}
+
+// Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus converts the
+// v1beta1 HCloudMachineTemplateStatus to v1beta2. The v1beta1 status.conditions (old
+// clusterv1beta1.Conditions) and the v1beta2 status.conditions ([]metav1.Condition) share a field
+// name but not a type and do not correspond, so HCloudMachineTemplateStatus is excluded from
+// conversion-gen (+k8s:conversion-gen=false) and converted fully by hand here:
+//   - status.v1beta2.conditions is promoted to status.conditions.
+//   - status.conditions is demoted to status.deprecated.v1beta1.conditions (the old core/v1beta1
+//     conditions are converted to the structurally identical core/v1beta2 deprecated conditions).
+func Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus(in *HCloudMachineTemplateStatus, out *infrav2.HCloudMachineTemplateStatus, _ apiconversion.Scope) error {
+	// Promote the staged v1beta2 conditions to the v1beta2 status.conditions.
+	if in.V1Beta2 != nil {
+		out.Conditions = in.V1Beta2.Conditions
+	}
+
+	// Demote the old v1beta1 conditions to status.deprecated.v1beta1.conditions.
+	if len(in.Conditions) > 0 {
+		out.Deprecated = &infrav2.HCloudMachineTemplateDeprecatedStatus{
+			V1Beta1: &infrav2.HCloudMachineTemplateV1Beta1DeprecatedStatus{
+				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
+			},
+		}
+	}
+
+	out.Capacity = in.Capacity
+	out.OwnerType = in.OwnerType
+
+	return nil
+}
+
+// Convert_v1beta2_HCloudMachineTemplateStatus_To_v1beta1_HCloudMachineTemplateStatus converts the
+// v1beta2 HCloudMachineTemplateStatus back to v1beta1. It is the inverse of the function above:
+//   - status.conditions is demoted to the staged status.v1beta2.conditions.
+//   - status.deprecated.v1beta1.conditions is promoted back to status.conditions.
+func Convert_v1beta2_HCloudMachineTemplateStatus_To_v1beta1_HCloudMachineTemplateStatus(in *infrav2.HCloudMachineTemplateStatus, out *HCloudMachineTemplateStatus, _ apiconversion.Scope) error {
+	// Demote the v1beta2 conditions back to the staged v1beta1 status.v1beta2.conditions.
+	if len(in.Conditions) > 0 {
+		out.V1Beta2 = &HCloudMachineTemplateV1Beta2Status{
+			Conditions: in.Conditions,
+		}
+	}
+
+	// Promote the deprecated v1beta1 conditions back to the old status.conditions.
+	if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil {
+		out.Conditions = convertDeprecatedConditionsToV1Beta1(in.Deprecated.V1Beta1.Conditions)
+	}
+
+	out.Capacity = in.Capacity
+	out.OwnerType = in.OwnerType
+
+	return nil
 }
 
 // remediationRetryToPointer maps a v1beta1 int counter to the v1beta2 *int32 form. v1beta1 stores an
