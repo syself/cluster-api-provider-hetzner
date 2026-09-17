@@ -19,7 +19,6 @@ package sshclient
 import (
 	corev1 "k8s.io/api/core/v1"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client"
 )
 
@@ -45,11 +44,13 @@ func (creds Credentials) Validate() error {
 	return nil
 }
 
-// CredentialsFromSecret generates the credentials object from a secret and a secretRef.
-func CredentialsFromSecret(secret *corev1.Secret, secretRef infrav1.SSHSecretRef) Credentials {
+// CredentialsFromSecret generates the credentials object from a secret. nameKey, publicKey and
+// privateKey are the keys in the secret's data. The key names are passed as strings here
+// so this does not depend on a specific API version.
+func CredentialsFromSecret(secret *corev1.Secret, nameKey, publicKey, privateKey string) Credentials {
 	return Credentials{
-		Name:       string(secret.Data[secretRef.Key.Name]),
-		PublicKey:  string(secret.Data[secretRef.Key.PublicKey]),
-		PrivateKey: string(secret.Data[secretRef.Key.PrivateKey]),
+		Name:       string(secret.Data[nameKey]),
+		PublicKey:  string(secret.Data[publicKey]),
+		PrivateKey: string(secret.Data[privateKey]),
 	}
 }

@@ -27,14 +27,14 @@ import (
 	"github.com/syself/hrobot-go/models"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // Client collects all methods used by the controller in the robot API.
 type Client interface {
 	ValidateCredentials() error
 
-	RebootBMServer(int, infrav1.RebootType) (*models.ResetPost, error)
+	RebootBMServer(int, infrav2.RebootType) (*models.ResetPost, error)
 	ListBMServers() ([]models.Server, error)
 	SetBMServerName(int, string) (*models.Server, error)
 	GetBMServer(int) (*models.Server, error)
@@ -114,7 +114,7 @@ func (c *realHetznerRobotClient) ValidateCredentials() error {
 	return c.client.ValidateCredentials()
 }
 
-func (c *realHetznerRobotClient) RebootBMServer(id int, rebootType infrav1.RebootType) (*models.ResetPost, error) {
+func (c *realHetznerRobotClient) RebootBMServer(id int, rebootType infrav2.RebootType) (*models.ResetPost, error) {
 	return c.client.ResetSet(id, &models.ResetSetInput{Type: string(rebootType)})
 }
 

@@ -45,7 +45,6 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
@@ -924,7 +923,7 @@ func logCaphDeployment(ctx context.Context, c client.Client) error {
 }
 
 func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
-	hbmhList := &infrav1.HetznerBareMetalHostList{}
+	hbmhList := &infrav2.HetznerBareMetalHostList{}
 	err := c.List(ctx, hbmhList)
 	if err != nil {
 		return err
@@ -951,7 +950,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 	var allErrors []error
 	for i := range hbmhList.Items {
 		hbmh := &hbmhList.Items[i]
-		if hbmh.Spec.Status.ProvisioningState == "" {
+		if hbmh.Status.ProvisioningState == "" {
 			continue
 		}
 
@@ -961,23 +960,28 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 			hbmmName = hbmh.Spec.ConsumerRef.Name
 		}
 		logMsg := "BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID) +
-			" | IPv4: " + hbmh.Spec.Status.IPv4
+			" | IPv4: " + hbmh.Status.IPv4
 		if hbmmName != "" {
 			logMsg += " | HBMM: " + hbmmName
 		}
 		log(logMsg)
 
-		// Show an Error, if set.
-		eMsg := string(hbmh.Spec.Status.ErrorType) + " " + hbmh.Spec.Status.ErrorMessage
+		// Show an Error, if set. The message for the current error is on the ActionCompleted
+		// condition.
+		errMessage := ""
+		if ac := conditions.Get(hbmh, infrav2.HetznerBareMetalHostActionCompletedCondition); ac != nil {
+			errMessage = ac.Message
+		}
+		eMsg := string(hbmh.Status.ErrorType) + " " + errMessage
 		eMsg = strings.TrimSpace(eMsg)
 		if eMsg != "" {
 			log("  Error: " + eMsg)
-			if hbmh.Spec.Status.ErrorType == infrav1.PermanentError {
+			if hbmh.Status.ErrorType == infrav2.PermanentError {
 				allErrors = append(allErrors, fmt.Errorf("%w on HetznerBareMetalHost (stopping e2e test now) %q: %s", errPermanentHBMH, hbmh.Name, eMsg))
 			}
 		}
 
-		readyC := v1beta1conditions.Get(hbmh, clusterv1beta1.ReadyCondition)
+		readyC := conditions.Get(hbmh, clusterv1.ReadyCondition)
 		msg := ""
 		reason := ""
 		state := "?"
@@ -986,7 +990,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 			reason = readyC.Reason
 			state = string(readyC.Status)
 		}
-		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState) + " | Ready Condition: " + state + " " + reason + " " + msg)
+		log("  ProvisioningState: " + string(hbmh.Status.ProvisioningState) + " | Ready Condition: " + state + " " + reason + " " + msg)
 	}
 	return errors.Join(allErrors...)
 }
