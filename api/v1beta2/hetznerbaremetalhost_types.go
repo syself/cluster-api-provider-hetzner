@@ -676,31 +676,38 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 	return false
 }
 
-// SetError sets the error type on the status and records it on the ActionCompleted condition, which
-// has the error text. The reboot state machine reads the error type back to pick the next reboot
-// method.
+// SetError sets the error type on the status and puts errorMessage on the ActionCompleted condition.
+// For a permanent error the message also names the annotation that an operator has to remove.
+// handleIncompleteBoot reads the error type back to pick the next reboot method.
 func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) {
 	host.Status.ErrorType = errorType
+
+	message := errorMessage
+	if errorType == PermanentError {
+		// A permanent error stays on the host until someone removes the annotation. The condition has
+		// to name the annotation.
+		message = fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
+			errorMessage, PermanentErrorAnnotation)
+	}
 
 	reason, v1beta1Reason := actionCompletedFor(errorType)
 	conditions.Set(host, metav1.Condition{
 		Type:    HetznerBareMetalHostActionCompletedCondition,
 		Status:  metav1.ConditionFalse,
 		Reason:  reason,
-		Message: errorMessage,
+		Message: message,
 	})
 
 	// Clients that read the host through the v1beta1 API see the same condition in status.conditions.
 	deprecatedv1beta1conditions.MarkFalse(host, ActionCompletedV1Beta1Condition,
-		v1beta1Reason, clusterv1.ConditionSeverityError, "%s", errorMessage)
+		v1beta1Reason, clusterv1.ConditionSeverityError, "%s", message)
 
 	if errorType == PermanentError {
 		if host.Annotations == nil {
 			host.Annotations = make(map[string]string, 1)
 		}
 		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
-		record.Warnf(host, "PermanentErrorSet", "%s. Remove annotation %q, if you want the controller to use the hbmh again.",
-			errorMessage, PermanentErrorAnnotation)
+		record.Warn(host, "PermanentErrorSet", message)
 	}
 }
 

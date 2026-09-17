@@ -881,7 +881,7 @@ func (s *Service) setReferencesOnHost(host *infrav2.HetznerBareMetalHost) {
 		host.Spec.ConsumerRef = &infrav2.HetznerBareMetalHostConsumerReference{
 			Kind:     "HetznerBareMetalMachine",
 			Name:     s.scope.BareMetalMachine.Name,
-			APIGroup: infrav1.GroupVersion.Group,
+			APIGroup: infrav2.GroupVersion.Group,
 		}
 	}
 	// set owner ref

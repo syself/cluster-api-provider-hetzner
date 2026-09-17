@@ -1535,7 +1535,6 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				Message: msg,
 			})
 			s.scope.HetznerBareMetalHost.SetError(infrav2.ProvisioningError, msg)
-			// Mid-install error. Retry in a minute.
 			return actionContinue{delay: time.Minute}
 		}
 
@@ -1848,7 +1847,6 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 		})
 		record.Warn(s.scope.HetznerBareMetalHost, infrav2.HetznerBareMetalHostImageSpecInvalidReason, errorMessage)
 		s.scope.HetznerBareMetalHost.SetError(infrav2.ProvisioningError, errorMessage)
-		// Mid-install error. Retry in a minute.
 		return autoSetupInput{}, actionContinue{delay: time.Minute}
 	}
 	if needsDownload {
@@ -1906,7 +1904,6 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 		})
 		record.Warn(s.scope.HetznerBareMetalHost, infrav2.HetznerBareMetalHostNoStorageDeviceFoundReason, msg)
 		s.scope.HetznerBareMetalHost.SetError(infrav2.ProvisioningError, msg)
-		// Mid-install error. Retry in a minute.
 		return autoSetupInput{}, actionContinue{delay: time.Minute}
 	}
 

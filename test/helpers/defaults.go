@@ -22,7 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -166,24 +165,13 @@ func BareMetalMachineSSHSpec(portAfterInstallImage int) infrav2.SSHSpec {
 	}
 }
 
-// GetDefaultHetznerClusterSpecV2 returns the default Hetzner cluster spec for consumers that read
-// the cluster as v1beta2.
-func GetDefaultHetznerClusterSpecV2() infrav2.HetznerClusterSpec {
-	v1 := GetDefaultHetznerClusterSpec()
-	var v2 infrav2.HetznerClusterSpec
-	if err := infrav1.Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(&v1, &v2, nil); err != nil {
-		panic(err)
-	}
-	return v2
-}
-
 // GetDefaultHetznerClusterSpec returns the default Hetzner cluster spec.
-func GetDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
-	return infrav1.HetznerClusterSpec{
-		ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+func GetDefaultHetznerClusterSpec() infrav2.HetznerClusterSpec {
+	return infrav2.HetznerClusterSpec{
+		ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
 			Enabled:   true,
 			Algorithm: "round_robin",
-			ExtraServices: []infrav1.LoadBalancerServiceSpec{
+			ExtraServices: []infrav2.LoadBalancerServiceSpec{
 				{
 					DestinationPort: 8132,
 					ListenPort:      8132,
@@ -199,15 +187,14 @@ func GetDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 			Region: "fsn1",
 			Type:   "lb11",
 		},
-		ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{},
-		ControlPlaneRegions:  []infrav1.Region{"fsn1"},
-		HCloudNetwork: infrav1.HCloudNetworkSpec{
+		ControlPlaneRegions: []infrav2.Region{"fsn1"},
+		HCloudNetwork: infrav2.HCloudNetworkSpec{
 			CIDRBlock:       "10.0.0.0/16",
 			Enabled:         true,
 			NetworkZone:     "eu-central",
 			SubnetCIDRBlock: "10.0.0.0/24",
 		},
-		HCloudPlacementGroups: []infrav1.HCloudPlacementGroupSpec{
+		HCloudPlacementGroups: []infrav2.HCloudPlacementGroupSpec{
 			{
 				Name: defaultPlacementGroupName,
 				Type: "spread",
@@ -217,23 +204,23 @@ func GetDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 				Type: "spread",
 			},
 		},
-		HetznerSecret: infrav1.HetznerSecretRef{
-			Key: infrav1.HetznerSecretKeyRef{
+		HetznerSecret: infrav2.HetznerSecretRef{
+			Key: infrav2.HetznerSecretKeyRef{
 				HCloudToken:          "hcloud",
 				HetznerRobotUser:     "robot-user",
 				HetznerRobotPassword: "robot-password",
 			},
 			Name: "hetzner-secret",
 		},
-		SSHKeys: infrav1.HetznerSSHKeys{
-			HCloud: []infrav1.SSHKey{
+		SSHKeys: infrav2.HetznerSSHKeys{
+			HCloud: []infrav2.SSHKey{
 				{
 					Name: "testsshkey",
 				},
 			},
-			RobotRescueSecretRef: infrav1.SSHSecretRef{
+			RescueSecretRef: infrav2.SSHSecretRef{
 				Name: "rescue-ssh-secret",
-				Key: infrav1.SSHSecretKeyRef{
+				Key: infrav2.SSHSecretKeyRef{
 					Name:       "sshkey-name",
 					PublicKey:  "public-key",
 					PrivateKey: "private-key",
@@ -241,6 +228,18 @@ func GetDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 			},
 		},
 	}
+}
+
+// GetDefaultHetznerClusterSpecV1Beta1 returns the default Hetzner cluster spec as v1beta1, for the
+// tests that still build the v1beta1 type. It converts the v1beta2 spec so that there is one literal
+// to change when the default changes.
+func GetDefaultHetznerClusterSpecV1Beta1() infrav1.HetznerClusterSpec {
+	v2 := GetDefaultHetznerClusterSpec()
+	var v1 infrav1.HetznerClusterSpec
+	if err := infrav1.Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(&v2, &v1, nil); err != nil {
+		panic(err)
+	}
+	return v1
 }
 
 // GetDefaultSSHSecret returns the default ssh secret given name and namespace.

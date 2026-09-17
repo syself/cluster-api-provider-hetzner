@@ -174,7 +174,7 @@ func newTestService(
 			HetznerBareMetalMachine: hbmm,
 			Machine:                 capiMachine,
 			HetznerCluster: &infrav2.HetznerCluster{
-				Spec: helpers.GetDefaultHetznerClusterSpecV2(),
+				Spec: helpers.GetDefaultHetznerClusterSpec(),
 			},
 			// Attention: this doesn't make sense if we test with constant node names
 			Cluster:         &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}},

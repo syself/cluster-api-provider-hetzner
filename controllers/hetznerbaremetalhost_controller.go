@@ -239,8 +239,8 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			if !apierrors.IsNotFound(err) {
 				return reconcile.Result{}, err
 			}
-			// The HetznerBareMetalMachine is only gone here if it was force deleted..  The host scope gets a nil
-			// HetznerBareMetalMachine and the host deprovisions.
+			// The HetznerBareMetalMachine named by the consumerRef is already gone. The host scope
+			// gets a nil HetznerBareMetalMachine and the host deprovisions.
 		} else {
 			hetznerBareMetalMachine = hbmm
 
@@ -448,8 +448,6 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					Message: msg,
 				})
 				record.Warnf(bmHost, infrav2.OSSSHSecretMissingV1Beta1Reason, msg)
-				deprecatedv1beta1conditions.SetSummary(bmHost)
-				scope.SetHetznerBareMetalHostReadySummary(bmHost)
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
@@ -474,8 +472,6 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 				})
 
 				record.Warnf(bmHost, infrav2.RescueSSHSecretMissingV1Beta1Reason, infrav2.ErrorMessageMissingRescueSSHSecret)
-				deprecatedv1beta1conditions.SetSummary(bmHost)
-				scope.SetHetznerBareMetalHostReadySummary(bmHost)
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
@@ -627,6 +623,7 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 		Watches(
 			&infrav2.HetznerBareMetalMachine{},
 			handler.EnqueueRequestsFromMapFunc(hetznerBareMetalMachineToHetznerBareMetalHost),
+			builder.WithPredicates(hetznerBareMetalMachinePredicate()),
 		).
 		Watches(
 			&clusterv1.Cluster{},
@@ -639,6 +636,33 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 	}
 
 	return nil
+}
+
+// hetznerBareMetalMachinePredicate filters the HetznerBareMetalMachine updates that reach the host.
+// The host reads sshSpec, installImage and customProvisioner from the HetznerBareMetalMachine, and
+// it deprovisions once that object is being deleted.
+func hetznerBareMetalMachinePredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldMachine, oldOK := e.ObjectOld.(*infrav2.HetznerBareMetalMachine)
+			newMachine, newOK := e.ObjectNew.(*infrav2.HetznerBareMetalMachine)
+			if !oldOK || !newOK {
+				return true
+			}
+
+			if oldMachine.DeletionTimestamp.IsZero() != newMachine.DeletionTimestamp.IsZero() {
+				return true
+			}
+
+			// The host annotation says which host this HetznerBareMetalMachine claimed. A change
+			// to it means a different host has to reconcile.
+			if oldMachine.Annotations[infrav2.HostAnnotation] != newMachine.Annotations[infrav2.HostAnnotation] {
+				return true
+			}
+
+			return !reflect.DeepEqual(oldMachine.Spec, newMachine.Spec)
+		},
+	}
 }
 
 // hetznerBareMetalMachineToHetznerBareMetalHost enqueues the host that is bound to the changed

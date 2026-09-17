@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -103,7 +104,7 @@ func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T
 				clusterv1.ClusterNameLabel: clusterName,
 			},
 		},
-		Spec: helpers.GetDefaultHetznerClusterSpecV2(),
+		Spec: helpers.GetDefaultHetznerClusterSpec(),
 	}
 	host := helpers.BareMetalHost("paused-cluster-host", namespace, helpers.WithClusterNameLabel(clusterName))
 	host.Finalizers = []string{infrav2.HetznerBareMetalHostFinalizer}
@@ -208,7 +209,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				},
 				Labels: map[string]string{clusterv1.ClusterNameLabel: capiCluster.Name},
 			},
-			Spec: helpers.GetDefaultHetznerClusterSpecV2(),
+			Spec: helpers.GetDefaultHetznerClusterSpec(),
 		}
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
@@ -735,7 +736,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				},
 				Labels: map[string]string{clusterv1.ClusterNameLabel: capiCluster.Name},
 			},
-			Spec: helpers.GetDefaultHetznerClusterSpecV2(),
+			Spec: helpers.GetDefaultHetznerClusterSpec(),
 		}
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
@@ -1165,6 +1166,51 @@ func Test_needsProvisioning(t *testing.T) {
 	require.False(t, needsProvisioning(hbmm, machine))
 }
 
+// Test_hetznerBareMetalMachinePredicate covers the filter of the watch on HetznerBareMetalMachine.
+// Only the deletion timestamp, the host annotation and the spec change what the host does, and an
+// update that touches none of them must not reach the host.
+func Test_hetznerBareMetalMachinePredicate(t *testing.T) {
+	newMachine := func() *infrav2.HetznerBareMetalMachine {
+		return &infrav2.HetznerBareMetalMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "bm-machine",
+				Namespace:   "default",
+				Annotations: map[string]string{infrav2.HostAnnotation: "default/host"},
+			},
+			Spec: infrav2.HetznerBareMetalMachineSpec{
+				SSHSpec: infrav2.SSHSpec{PortAfterInstallImage: 22},
+			},
+		}
+	}
+	update := func(oldObj, newObj client.Object) bool {
+		return hetznerBareMetalMachinePredicate().Update(event.UpdateEvent{ObjectOld: oldObj, ObjectNew: newObj})
+	}
+
+	// status only change --> do not reconcile the host
+	oldMachine, newMachine2 := newMachine(), newMachine()
+	newMachine2.Status.Phase = "Running"
+	require.False(t, update(oldMachine, newMachine2))
+
+	// the HetznerBareMetalMachine is being deleted --> deprovision the host
+	oldMachine, newMachine2 = newMachine(), newMachine()
+	now := metav1.Now()
+	newMachine2.DeletionTimestamp = &now
+	require.True(t, update(oldMachine, newMachine2))
+
+	// the host annotation changed --> a different host has to reconcile
+	oldMachine, newMachine2 = newMachine(), newMachine()
+	newMachine2.Annotations[infrav2.HostAnnotation] = "default/other-host"
+	require.True(t, update(oldMachine, newMachine2))
+
+	// the spec changed --> the host reads the spec
+	oldMachine, newMachine2 = newMachine(), newMachine()
+	newMachine2.Spec.SSHSpec.PortAfterInstallImage = 2222
+	require.True(t, update(oldMachine, newMachine2))
+
+	// not a HetznerBareMetalMachine --> reconcile, because we cannot tell what changed
+	require.True(t, update(&infrav2.HetznerBareMetalHost{}, &infrav2.HetznerBareMetalHost{}))
+}
+
 // Test_hetznerBareMetalMachineToHetznerBareMetalHost covers the mapper of the watch on
 // HetznerBareMetalMachine. The host both starts provisioning and deprovisions based on its
 // machine, so machine events must enqueue the bound host.
@@ -1208,6 +1254,8 @@ var _ = Describe("reconcileRobotRateLimit", func() {
 	})
 
 	It("returns wait==true if the robot rate limit is exceeded and the wait time is not over", func() {
+		deprecatedv1beta1conditions.MarkFalse(host, infrav2.HetznerAPIReachableV1Beta1Condition,
+			infrav2.RateLimitExceededV1Beta1Reason, clusterv1.ConditionSeverityWarning, "")
 		conditions.Set(host, metav1.Condition{
 			Type:               infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition,
 			Status:             metav1.ConditionTrue,
@@ -1216,6 +1264,9 @@ var _ = Describe("reconcileRobotRateLimit", func() {
 		})
 		Expect(reconcileRobotRateLimit(host, testEnv.RateLimitWaitTime)).To(BeTrue())
 		Expect(conditions.Has(host, infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition)).To(BeTrue())
+		reachable := deprecatedv1beta1conditions.Get(host, infrav2.HetznerAPIReachableV1Beta1Condition)
+		Expect(reachable).ToNot(BeNil())
+		Expect(reachable.Status).To(Equal(corev1.ConditionFalse))
 	})
 
 	It("returns wait==false and clears both conditions when the wait time is over", func() {
@@ -1246,9 +1297,11 @@ var _ = Describe("reconcileRobotRateLimit", func() {
 			LastTransitionTime: metav1.Now(),
 		})
 		Expect(reconcileRobotRateLimit(host, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(deprecatedv1beta1conditions.Get(host, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeNil())
 	})
 
 	It("returns wait==false if the robot rate limit condition is not set", func() {
 		Expect(reconcileRobotRateLimit(host, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(deprecatedv1beta1conditions.Get(host, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeNil())
 	})
 })

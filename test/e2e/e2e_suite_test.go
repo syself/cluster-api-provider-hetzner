@@ -966,7 +966,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		}
 		log(logMsg)
 
-		// Show an Error, if set. The message for the current error lives on the ActionCompleted
+		// Show an Error, if set. The message for the current error is on the ActionCompleted
 		// condition.
 		errMessage := ""
 		if ac := conditions.Get(hbmh, infrav2.HetznerBareMetalHostActionCompletedCondition); ac != nil {

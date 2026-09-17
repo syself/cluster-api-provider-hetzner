@@ -72,8 +72,7 @@ func reconcileRateLimit(obj conditionsObject, rateLimitWaitTime time.Duration) b
 
 // reconcileRobotRateLimit checks whether the Robot API rate limit has been reached and returns
 // whether the controller should wait a bit more. When the wait is over it clears the rate-limit
-// conditions (HetznerAPIReachable marked reachable again, RobotRateLimitExceeded deleted, since we
-// cannot know the limit is gone until the next API call).
+// conditions (HetznerAPIReachable marked reachable again, RobotRateLimitExceeded deleted).
 func reconcileRobotRateLimit(bmHost *infrav2.HetznerBareMetalHost, rateLimitWaitTime time.Duration) bool {
 	condition := conditions.Get(bmHost, infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition)
 	if condition != nil && condition.Status == metav1.ConditionTrue {

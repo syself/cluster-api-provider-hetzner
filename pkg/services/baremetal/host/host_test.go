@@ -133,6 +133,10 @@ var _ = Describe("SetError and ClearError", func() {
 		actionCompleted := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
 		Expect(actionCompleted).ToNot(BeNil())
 		Expect(actionCompleted.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedUnknownErrorReason))
+
+		actionCompletedV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
+		Expect(actionCompletedV1Beta1).ToNot(BeNil())
+		Expect(actionCompletedV1Beta1.Reason).To(Equal(infrav2.ActionCompletedUnknownErrorV1Beta1Reason))
 	})
 
 	It("updates the error type when moving from a failure to a reboot state", func() {
@@ -159,7 +163,7 @@ var _ = Describe("SetError and ClearError", func() {
 		Expect(host.Status.ErrorType).To(Equal(infrav2.RegistrationError))
 	})
 
-	It("sets the permanent error annotation and both ActionCompleted conditions for permanent errors", func() {
+	It("sets the permanent error annotation and names it in both ActionCompleted conditions", func() {
 		host := helpers.BareMetalHost("test-host", "default")
 
 		host.SetError(infrav2.PermanentError, "permanent failure")
@@ -167,15 +171,19 @@ var _ = Describe("SetError and ClearError", func() {
 		Expect(host.Status.ErrorType).To(Equal(infrav2.PermanentError))
 		Expect(host.Annotations).To(HaveKey(infrav2.PermanentErrorAnnotation))
 
+		wantMessage := fmt.Sprintf("permanent failure. Remove annotation %q, if you want the controller to use the hbmh again.",
+			infrav2.PermanentErrorAnnotation)
+
 		actionCompleted := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
 		Expect(actionCompleted).ToNot(BeNil())
 		Expect(actionCompleted.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedPermanentErrorReason))
+		Expect(actionCompleted.Message).To(Equal(wantMessage))
 
-		deprecatedActionCompleted := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
-		Expect(deprecatedActionCompleted).ToNot(BeNil())
-		Expect(deprecatedActionCompleted.Status).To(Equal(corev1.ConditionFalse))
-		Expect(deprecatedActionCompleted.Reason).To(Equal(infrav2.ActionCompletedPermanentErrorV1Beta1Reason))
-		Expect(deprecatedActionCompleted.Message).To(Equal("permanent failure"))
+		actionCompletedV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
+		Expect(actionCompletedV1Beta1).ToNot(BeNil())
+		Expect(actionCompletedV1Beta1.Status).To(Equal(corev1.ConditionFalse))
+		Expect(actionCompletedV1Beta1.Reason).To(Equal(infrav2.ActionCompletedPermanentErrorV1Beta1Reason))
+		Expect(actionCompletedV1Beta1.Message).To(Equal(wantMessage))
 	})
 
 	It("names the error and the annotation in the PermanentErrorSet event", func() {
@@ -278,8 +286,8 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		// TODO(#2017): Remove the duplicated checks of deprecated v1beta1 conditions once all resources are native v1beta2.
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c.Message).To(Equal(`custom provisioner running`))
-		deprecatedC := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
-		Expect(deprecatedC.Message).To(Equal(`custom provisioner running`))
+		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
+		Expect(cV1Beta1.Message).To(Equal(`custom provisioner running`))
 	})
 
 	It("reboots and completes when command finished successfully", func() {
@@ -304,8 +312,8 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(host.Status.ErrorType).To(BeEmpty())
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
-		deprecatedC := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
-		Expect(deprecatedC.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
+		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
+		Expect(cV1Beta1.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
 	It("retries when ReadOutputJSON fails during FinishedSuccessfully", func() {
@@ -336,8 +344,8 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("custom provisioner failed"))
-		deprecatedC := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
-		Expect(deprecatedC.Message).To(ContainSubstring("custom provisioner failed"))
+		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
+		Expect(cV1Beta1.Message).To(ContainSubstring("custom provisioner failed"))
 	})
 
 	It("completes successfully when ImageURLCommandStateFinishedSuccessfully", func() {
@@ -384,8 +392,8 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring(`imageURLCommand started`))
-		deprecatedC := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
-		Expect(deprecatedC.Message).To(ContainSubstring(`imageURLCommand started`))
+		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
+		Expect(cV1Beta1.Message).To(ContainSubstring(`imageURLCommand started`))
 	})
 
 	It("passes WWN to StartImageURLCommand when DeviceStringType is wwn", func() {
@@ -413,8 +421,8 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"eui.0025388801b4dff2"})).To(BeTrue())
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring(`imageURLCommand started`))
-		deprecatedC := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
-		Expect(deprecatedC.Message).To(ContainSubstring(`imageURLCommand started`))
+		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
+		Expect(cV1Beta1.Message).To(ContainSubstring(`imageURLCommand started`))
 	})
 
 	It("returns error when DeviceStringType is wwn but no WWN is configured in rootDeviceHints", func() {
@@ -465,8 +473,8 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(host.Status.ErrorType).To(Equal(infrav2.ProvisioningError))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
-		deprecatedC := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
-		Expect(deprecatedC.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
+		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
+		Expect(cV1Beta1.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
 	})
 
 	It("times out after 20 minutes", func() {
@@ -485,8 +493,8 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("ImageURLCommand timed out"))
-		deprecatedC := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
-		Expect(deprecatedC.Message).To(ContainSubstring("ImageURLCommand timed out"))
+		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
+		Expect(cV1Beta1.Message).To(ContainSubstring("ImageURLCommand timed out"))
 	})
 })
 
@@ -1801,6 +1809,10 @@ var _ = Describe("actionRegistering", func() {
 		ac := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
 		Expect(ac).NotTo(BeNil())
 		Expect(ac.Message).To(ContainSubstring("hardware reboot (to rescue mode) timed out"))
+
+		acV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
+		Expect(acV1Beta1).NotTo(BeNil())
+		Expect(acV1Beta1.Message).To(ContainSubstring("hardware reboot (to rescue mode) timed out"))
 	})
 })
 
@@ -1920,6 +1932,10 @@ NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJ
 		Expect(actResult).To(BeAssignableToTypeOf(actionContinue{}))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition)
 		Expect(c.Message).To(ContainSubstring("missing storage device for root device hint"))
+
+		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.RootDeviceHintsValidatedV1Beta1Condition)
+		Expect(cV1Beta1).ToNot(BeNil())
+		Expect(cV1Beta1.Message).To(ContainSubstring("missing storage device for root device hint"))
 
 		// Even though the action did not complete, the freshly read hardware details must be
 		// persisted, so the object still reports the new storage layout.
@@ -2252,6 +2268,10 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		ac := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
 		Expect(ac).NotTo(BeNil())
 		Expect(ac.Message).To(ContainSubstring("hardware reboot (to node) timed out"))
+
+		acV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
+		Expect(acV1Beta1).NotTo(BeNil())
+		Expect(acV1Beta1.Message).To(ContainSubstring("hardware reboot (to node) timed out"))
 	})
 
 	It("reports the host as still provisioning while the connection refused timeout has not passed", func() {
@@ -2276,9 +2296,13 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionContinue{}))
 		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeSoftwareRebootTriggered))
 
-		condition := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
+		conditionV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
+		Expect(conditionV1Beta1).ToNot(BeNil())
+		Expect(conditionV1Beta1.Reason).To(Equal(infrav2.StillProvisioningV1Beta1Reason))
+
+		condition := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(condition).ToNot(BeNil())
-		Expect(condition.Reason).To(Equal(infrav2.StillProvisioningV1Beta1Reason))
+		Expect(condition.Reason).To(Equal(infrav2.HetznerBareMetalHostProvisioningReason))
 	})
 
 	It("keeps failing with the same fatal error when the provisioned server keeps refusing the ssh connection", func() {
@@ -2304,9 +2328,14 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionStop{}), "run %d", run)
 			Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError), "run %d", run)
 
-			condition := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
+			conditionV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
+			Expect(conditionV1Beta1).ToNot(BeNil(), "run %d", run)
+			Expect(conditionV1Beta1.Reason).To(Equal(infrav2.SSHConnectionRefusedV1Beta1Reason), "run %d", run)
+			Expect(conditionV1Beta1.Message).To(ContainSubstring("wrong ssh port"), "run %d", run)
+
+			condition := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 			Expect(condition).ToNot(BeNil(), "run %d", run)
-			Expect(condition.Reason).To(Equal(infrav2.SSHConnectionRefusedV1Beta1Reason), "run %d", run)
+			Expect(condition.Reason).To(Equal(infrav2.HetznerBareMetalHostSSHConnectionRefusedReason), "run %d", run)
 			Expect(condition.Message).To(ContainSubstring("wrong ssh port"), "run %d", run)
 		}
 	})
@@ -2449,8 +2478,8 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		Expect(robotMock.AssertNumberOfCalls(GinkgoT(), "RebootBMServer", 1)).To(BeTrue())
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostRebootSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("Rebooting because annotation was set"))
-		deprecatedC := deprecatedv1beta1conditions.Get(host, infrav2.RebootSucceededV1Beta1Condition)
-		Expect(deprecatedC.Message).To(ContainSubstring("Rebooting because annotation was set"))
+		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.RebootSucceededV1Beta1Condition)
+		Expect(cV1Beta1.Message).To(ContainSubstring("Rebooting because annotation was set"))
 	})
 
 	It("test reboot annotation for NoSSHAfterInstallImage=true, reach: Waiting for BootID of Node", func() {
@@ -2473,8 +2502,8 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostRebootSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("Waiting for the node to be rebooted"))
-		deprecatedC := deprecatedv1beta1conditions.Get(host, infrav2.RebootSucceededV1Beta1Condition)
-		Expect(deprecatedC.Message).To(ContainSubstring("Waiting for the node to be rebooted"))
+		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.RebootSucceededV1Beta1Condition)
+		Expect(cV1Beta1.Message).To(ContainSubstring("Waiting for the node to be rebooted"))
 	})
 
 	It("test reboot annotation for NoSSHAfterInstallImage=true, finished with healthy Condition", func() {
@@ -2515,9 +2544,9 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostRebootSucceededCondition)
 		Expect(c.Message).To(Equal(""))
 		Expect(c.Status).To(Equal(metav1.ConditionTrue))
-		deprecatedC := deprecatedv1beta1conditions.Get(host, infrav2.RebootSucceededV1Beta1Condition)
-		Expect(deprecatedC.Message).To(Equal(""))
-		Expect(deprecatedC.Status).To(Equal(corev1.ConditionTrue))
+		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.RebootSucceededV1Beta1Condition)
+		Expect(cV1Beta1.Message).To(Equal(""))
+		Expect(cV1Beta1.Status).To(Equal(corev1.ConditionTrue))
 		Expect(host.GetAnnotations()).To(BeEmpty())
 	})
 })
@@ -2535,9 +2564,16 @@ var _ = Describe("SetError and ClearError", func() {
 		Expect(ac.Message).To(Equal("hardware reboot timed out"))
 		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
 
+		acV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
+		Expect(acV1Beta1).NotTo(BeNil())
+		Expect(acV1Beta1.Status).To(Equal(corev1.ConditionFalse))
+		Expect(acV1Beta1.Reason).To(Equal(infrav2.ActionCompletedFatalErrorV1Beta1Reason))
+		Expect(acV1Beta1.Message).To(Equal("hardware reboot timed out"))
+
 		host.ClearError()
 
 		Expect(conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
+		Expect(deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)).To(BeNil())
 		Expect(host.Status.ErrorType).To(BeEmpty())
 	})
 })

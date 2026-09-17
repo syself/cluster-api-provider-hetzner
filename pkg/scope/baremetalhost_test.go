@@ -76,7 +76,7 @@ var _ = Describe("SetHetznerBareMetalHostReadySummary", func() {
 		Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 		Expect(ready.Reason).To(Equal(clusterv1.NotReadyReason))
 		// The summary lists all failing conditions in priority order. RobotCredentialsAvailable
-		// (priority 1) must appear before ProvisionSucceeded (priority 5).
+		// (priority 1) must appear before ProvisionSucceeded (priority 6).
 		Expect(ready.Message).To(ContainSubstring("invalid credentials"))
 		Expect(ready.Message).To(ContainSubstring("server not found"))
 		Expect(strings.Index(ready.Message, "invalid credentials")).
