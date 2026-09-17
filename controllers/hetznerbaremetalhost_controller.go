@@ -222,14 +222,14 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Fetch the consuming HetznerBareMetalMachine and its CAPI Machine. The host both starts
-	// provisioning and deprovisions based on the machine, and reads its provisioning inputs
-	// (installImage, sshSpec, bootstrap data) from it.
+	// Fetch the consuming HetznerBareMetalMachine and the CAPI Machine that owns it. The host starts
+	// provisioning and deprovisions based on the HetznerBareMetalMachine, and reads installImage,
+	// customProvisioner and sshSpec from it. The bootstrap data comes from the CAPI Machine.
 	var hetznerBareMetalMachine *infrav2.HetznerBareMetalMachine
 	var machine *clusterv1.Machine
 
 	if bmHost.Spec.ConsumerRef != nil {
-		// The consuming machine always lives in the namespace of the host.
+		// The consuming HetznerBareMetalMachine always lives in the namespace of the host.
 		hbmm := &infrav2.HetznerBareMetalMachine{}
 		name := client.ObjectKey{
 			Namespace: bmHost.Namespace,
@@ -239,14 +239,14 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			if !apierrors.IsNotFound(err) {
 				return reconcile.Result{}, err
 			}
-			// The HetznerBareMetalMachine was force deleted. The host scope gets a nil
-			// HetznerBareMetalMachine and the host deprovisions with the robot-side cleanup only.
+			// The HetznerBareMetalMachine is only gone here if it was force deleted..  The host scope gets a nil
+			// HetznerBareMetalMachine and the host deprovisions.
 		} else {
 			hetznerBareMetalMachine = hbmm
 
-			// If the owner Machine was force deleted while the hbmm lingers, keep reconciling with a
-			// nil machine so the host can still deprovision. A nil machine is handled downstream
-			// (needsProvisioning is false, provisioningCancelled treats it as cancellation).
+			// The Machine is nil until CAPI sets the ownerRef on the HetznerBareMetalMachine, and
+			// if the Machine is force deleted. The host still has to deprovision and
+			// deprovisioning does not read the Machine, so it keeps reconciling with a nil Machine.
 			machine, err = util.GetOwnerMachine(ctx, r, hbmm.ObjectMeta)
 			if apierrors.IsNotFound(err) {
 				machine = nil
@@ -274,10 +274,11 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	// Fetch the Cluster through the cluster-name label. The machine side sets the label when a
-	// machine takes the host.
+	// Fetch the Cluster through the cluster-name label. The HetznerBareMetalMachine controller
+	// sets that label when a machine claims a host.
 	cluster, err := util.GetClusterFromMetadata(ctx, r, bmHost.ObjectMeta)
 	if err != nil {
+		// The host cannot do anything without the Cluster, so we return here
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 

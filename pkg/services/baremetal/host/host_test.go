@@ -49,7 +49,6 @@ var _ = Describe("SetError and ClearError", func() {
 	type testCaseSetError struct {
 		errorType             infrav2.ErrorType
 		errorMessage          string
-		expectedStatus        metav1.ConditionStatus
 		expectedReason        string
 		expectedV1Beta1Reason string
 	}
@@ -64,70 +63,61 @@ var _ = Describe("SetError and ClearError", func() {
 
 			actionCompleted := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
 			Expect(actionCompleted).ToNot(BeNil())
-			Expect(actionCompleted.Status).To(Equal(tc.expectedStatus))
+			Expect(actionCompleted.Status).To(Equal(metav1.ConditionFalse))
 			Expect(actionCompleted.Reason).To(Equal(tc.expectedReason))
 			Expect(actionCompleted.Message).To(Equal(tc.errorMessage))
 
 			deprecated := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
 			Expect(deprecated).ToNot(BeNil())
-			if tc.expectedStatus == metav1.ConditionTrue {
-				Expect(deprecated.Status).To(Equal(corev1.ConditionTrue))
-			} else {
-				Expect(deprecated.Status).To(Equal(corev1.ConditionFalse))
-				Expect(deprecated.Reason).To(Equal(tc.expectedV1Beta1Reason))
-				Expect(deprecated.Message).To(Equal(tc.errorMessage))
-			}
+			Expect(deprecated.Status).To(Equal(corev1.ConditionFalse))
+			Expect(deprecated.Reason).To(Equal(tc.expectedV1Beta1Reason))
+			Expect(deprecated.Message).To(Equal(tc.errorMessage))
 		},
 		Entry("registration error", testCaseSetError{
 			errorType:             infrav2.RegistrationError,
 			errorMessage:          "registration failed",
-			expectedStatus:        metav1.ConditionFalse,
 			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedRegistrationErrorReason,
 			expectedV1Beta1Reason: infrav2.ActionCompletedRegistrationErrorV1Beta1Reason,
 		}),
 		Entry("preparation error", testCaseSetError{
 			errorType:             infrav2.PreparationError,
 			errorMessage:          "preparation failed",
-			expectedStatus:        metav1.ConditionFalse,
 			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedPreparationErrorReason,
 			expectedV1Beta1Reason: infrav2.ActionCompletedPreparationErrorV1Beta1Reason,
 		}),
 		Entry("provisioning error", testCaseSetError{
 			errorType:             infrav2.ProvisioningError,
 			errorMessage:          "provisioning failed",
-			expectedStatus:        metav1.ConditionFalse,
 			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedProvisioningErrorReason,
 			expectedV1Beta1Reason: infrav2.ActionCompletedProvisioningErrorV1Beta1Reason,
 		}),
 		Entry("fatal error", testCaseSetError{
 			errorType:             infrav2.FatalError,
 			errorMessage:          "fatal failure",
-			expectedStatus:        metav1.ConditionFalse,
 			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedFatalErrorReason,
 			expectedV1Beta1Reason: infrav2.ActionCompletedFatalErrorV1Beta1Reason,
 		}),
 		Entry("ssh reboot triggered", testCaseSetError{
-			errorType:      infrav2.ErrorTypeSSHRebootTriggered,
-			errorMessage:   "ssh reboot triggered",
-			expectedStatus: metav1.ConditionTrue,
-			expectedReason: infrav2.HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason,
+			errorType:             infrav2.ErrorTypeSSHRebootTriggered,
+			errorMessage:          "ssh reboot triggered",
+			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason,
+			expectedV1Beta1Reason: infrav2.ActionCompletedSSHRebootTriggeredV1Beta1Reason,
 		}),
 		Entry("software reboot triggered", testCaseSetError{
-			errorType:      infrav2.ErrorTypeSoftwareRebootTriggered,
-			errorMessage:   "software reboot triggered",
-			expectedStatus: metav1.ConditionTrue,
-			expectedReason: infrav2.HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason,
+			errorType:             infrav2.ErrorTypeSoftwareRebootTriggered,
+			errorMessage:          "software reboot triggered",
+			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason,
+			expectedV1Beta1Reason: infrav2.ActionCompletedSoftwareRebootTriggeredV1Beta1Reason,
 		}),
 		Entry("hardware reboot triggered", testCaseSetError{
-			errorType:      infrav2.ErrorTypeHardwareRebootTriggered,
-			errorMessage:   "hardware reboot triggered",
-			expectedStatus: metav1.ConditionTrue,
-			expectedReason: infrav2.HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason,
+			errorType:             infrav2.ErrorTypeHardwareRebootTriggered,
+			errorMessage:          "hardware reboot triggered",
+			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason,
+			expectedV1Beta1Reason: infrav2.ActionCompletedHardwareRebootTriggeredV1Beta1Reason,
 		}),
 		Entry("connection error", testCaseSetError{
 			errorType:             infrav2.ErrorTypeConnectionError,
 			errorMessage:          "connection error",
-			expectedStatus:        metav1.ConditionFalse,
 			expectedReason:        infrav2.HetznerBareMetalHostSSHConnectionRefusedReason,
 			expectedV1Beta1Reason: infrav2.SSHConnectionRefusedV1Beta1Reason,
 		}),

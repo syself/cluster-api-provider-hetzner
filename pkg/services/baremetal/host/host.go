@@ -1268,8 +1268,8 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 		return actionStop{}
 	}
 
-	// A machine sets exactly one of customProvisioner or installImage. When customProvisioner is
-	// set, provision with the custom command instead of installimage.
+	// A HetznerBareMetalMachine sets exactly one of customProvisioner or installImage. When
+	// customProvisioner is set, provision with the custom command instead of installimage.
 	if s.scope.HetznerBareMetalMachine.Spec.CustomProvisioner != nil {
 		return s.actionImageInstallingImageURLCommand(ctx, sshClient)
 	}
@@ -2732,9 +2732,8 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 // Imagine the controller triggers a reboot, and reconciles immediately. This would
 // mean the controller would do the same reboot immediately again.
 func (s *Service) hasJustRebooted() bool {
-	// Safe guard: RebootTriggeredAt should not be zero when hasJustRebooted() gets called. If it
-	// is zero, we cannot know when the reboot happened, so we treat it as not just rebooted. Without
-	// this guard, hasTimedOut(zero, ...) returns false, making this function return true indefinitely.
+	// RebootTriggeredAt should not be zero here. If it is, we cannot tell when the reboot happened,
+	// so return false.
 	if s.scope.HetznerBareMetalHost.Status.RebootTriggeredAt.IsZero() {
 		s.scope.Info("hasJustRebooted: RebootTriggeredAt is zero. That is not expected")
 		return false

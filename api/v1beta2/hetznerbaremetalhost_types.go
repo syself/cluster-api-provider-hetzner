@@ -394,7 +394,7 @@ func (host *HetznerBareMetalHost) SetV1Beta1Conditions(conditions clusterv1.Cond
 // order (highest-priority first). Credentials and provisioning problems must outrank
 // Deleting, since deletion may itself need credentials to succeed.
 //  1. RobotCredentialsAvailable - invalid Robot credentials block every Robot API call.
-//  2. ActionCompleted           - the last action on the host failed.
+//  2. ActionCompleted           - the action the host is running did not complete.
 //  3. RobotRateLimitExceeded    - rate-limit issues (negative polarity).
 //  4. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
 //  5. RootDeviceHintsValidated  - device hints must validate before provisioning.
@@ -676,27 +676,23 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 	return false
 }
 
-// SetError sets the error type on the status and records it on the ActionCompleted condition. The
-// reboot state machine reads the error type back to pick the next reboot method.
+// SetError sets the error type on the status and records it on the ActionCompleted condition, which
+// has the error text. The reboot state machine reads the error type back to pick the next reboot
+// method.
 func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) {
 	host.Status.ErrorType = errorType
 
-	status, reason, v1beta1Reason := actionCompletedFor(errorType)
+	reason, v1beta1Reason := actionCompletedFor(errorType)
 	conditions.Set(host, metav1.Condition{
 		Type:    HetznerBareMetalHostActionCompletedCondition,
-		Status:  status,
+		Status:  metav1.ConditionFalse,
 		Reason:  reason,
 		Message: errorMessage,
 	})
 
 	// Clients that read the host through the v1beta1 API see the same condition in status.conditions.
-	// A v1beta1 condition carries a reason and a message only when it is False.
-	if status == metav1.ConditionTrue {
-		deprecatedv1beta1conditions.MarkTrue(host, ActionCompletedV1Beta1Condition)
-	} else {
-		deprecatedv1beta1conditions.MarkFalse(host, ActionCompletedV1Beta1Condition,
-			v1beta1Reason, clusterv1.ConditionSeverityError, "%s", errorMessage)
-	}
+	deprecatedv1beta1conditions.MarkFalse(host, ActionCompletedV1Beta1Condition,
+		v1beta1Reason, clusterv1.ConditionSeverityError, "%s", errorMessage)
 
 	if errorType == PermanentError {
 		if host.Annotations == nil {
@@ -725,32 +721,30 @@ func (host *HetznerBareMetalHost) ErrorMessage() string {
 	return actionCompleted.Message
 }
 
-// actionCompletedFor maps an ErrorType to the status and to the reason on each surface of the
-// ActionCompleted condition. A triggered reboot is not a failure. The host is waiting for the
-// server to come back, and those types report True. Every other type reports False, an unknown one
-// with the UnknownError reason.
-func actionCompletedFor(errorType ErrorType) (status metav1.ConditionStatus, reason, v1beta1Reason string) {
+// actionCompletedFor maps an ErrorType to the reason on each surface of the ActionCompleted
+// condition. An unrecognized type falls back to the UnknownError reason.
+func actionCompletedFor(errorType ErrorType) (reason, v1beta1Reason string) {
 	switch errorType {
 	case ErrorTypeSSHRebootTriggered:
-		return metav1.ConditionTrue, HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason, ""
+		return HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason, ActionCompletedSSHRebootTriggeredV1Beta1Reason
 	case ErrorTypeSoftwareRebootTriggered:
-		return metav1.ConditionTrue, HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason, ""
+		return HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason, ActionCompletedSoftwareRebootTriggeredV1Beta1Reason
 	case ErrorTypeHardwareRebootTriggered:
-		return metav1.ConditionTrue, HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason, ""
+		return HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason, ActionCompletedHardwareRebootTriggeredV1Beta1Reason
 	case ErrorTypeConnectionError:
-		return metav1.ConditionFalse, HetznerBareMetalHostSSHConnectionRefusedReason, SSHConnectionRefusedV1Beta1Reason
+		return HetznerBareMetalHostSSHConnectionRefusedReason, SSHConnectionRefusedV1Beta1Reason
 	case RegistrationError:
-		return metav1.ConditionFalse, HetznerBareMetalHostActionCompletedRegistrationErrorReason, ActionCompletedRegistrationErrorV1Beta1Reason
+		return HetznerBareMetalHostActionCompletedRegistrationErrorReason, ActionCompletedRegistrationErrorV1Beta1Reason
 	case PreparationError:
-		return metav1.ConditionFalse, HetznerBareMetalHostActionCompletedPreparationErrorReason, ActionCompletedPreparationErrorV1Beta1Reason
+		return HetznerBareMetalHostActionCompletedPreparationErrorReason, ActionCompletedPreparationErrorV1Beta1Reason
 	case ProvisioningError:
-		return metav1.ConditionFalse, HetznerBareMetalHostActionCompletedProvisioningErrorReason, ActionCompletedProvisioningErrorV1Beta1Reason
+		return HetznerBareMetalHostActionCompletedProvisioningErrorReason, ActionCompletedProvisioningErrorV1Beta1Reason
 	case FatalError:
-		return metav1.ConditionFalse, HetznerBareMetalHostActionCompletedFatalErrorReason, ActionCompletedFatalErrorV1Beta1Reason
+		return HetznerBareMetalHostActionCompletedFatalErrorReason, ActionCompletedFatalErrorV1Beta1Reason
 	case PermanentError:
-		return metav1.ConditionFalse, HetznerBareMetalHostActionCompletedPermanentErrorReason, ActionCompletedPermanentErrorV1Beta1Reason
+		return HetznerBareMetalHostActionCompletedPermanentErrorReason, ActionCompletedPermanentErrorV1Beta1Reason
 	}
-	return metav1.ConditionFalse, HetznerBareMetalHostActionCompletedUnknownErrorReason, ActionCompletedUnknownErrorV1Beta1Reason
+	return HetznerBareMetalHostActionCompletedUnknownErrorReason, ActionCompletedUnknownErrorV1Beta1Reason
 }
 
 // HasRebootAnnotation checks for the existence of reboot annotations and returns true if at least one exists.

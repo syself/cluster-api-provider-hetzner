@@ -264,8 +264,8 @@ var _ = Describe("hasJustRebooted", func() {
 			helpers.WithError(infrav2.ErrorTypeSSHRebootTriggered, ""),
 		)
 		// RebootTriggeredAt is intentionally left at its zero value here.
-		// Without the zero guard, hasTimedOut(zero, ...) returns false, so hasJustRebooted()
-		// would return true indefinitely.
+		// Without the zero check in hasJustRebooted, hasTimedOut(zero, ...) returns false and
+		// hasJustRebooted would return true indefinitely.
 		svc := newTestService(host, nil, nil, nil, nil)
 		Expect(svc.hasJustRebooted()).To(BeFalse())
 	})

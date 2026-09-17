@@ -45,8 +45,8 @@ func (creds Credentials) Validate() error {
 }
 
 // CredentialsFromSecret generates the credentials object from a secret. nameKey, publicKey and
-// privateKey are the keys in the secret's data that hold the SSH key's name, public key and private
-// key. The key names are passed as strings so this does not depend on a specific API version.
+// privateKey are the keys in the secret's data. The key names are passed as strings here
+// so this does not depend on a specific API version.
 func CredentialsFromSecret(secret *corev1.Secret, nameKey, publicKey, privateKey string) Credentials {
 	return Credentials{
 		Name:       string(secret.Data[nameKey]),

@@ -272,9 +272,16 @@ const (
 )
 
 const (
-	// ActionCompletedV1Beta1Condition reports whether the last action on the host completed without an
-	// error. The message carries the error text if an error occurs.
+	// ActionCompletedV1Beta1Condition surfaces the host's current provisioning or operational action.
+	// It is present only while an action is in progress or the host is stuck (carrying the reason and
+	// message for that state) and is removed once the action clears.
 	ActionCompletedV1Beta1Condition clusterv1.ConditionType = "ActionCompleted"
+	// ActionCompletedSSHRebootTriggeredV1Beta1Reason indicates a reboot via SSH was triggered.
+	ActionCompletedSSHRebootTriggeredV1Beta1Reason = "SSHRebootTriggered"
+	// ActionCompletedSoftwareRebootTriggeredV1Beta1Reason indicates a software reboot via the Robot API was triggered.
+	ActionCompletedSoftwareRebootTriggeredV1Beta1Reason = "SoftwareRebootTriggered"
+	// ActionCompletedHardwareRebootTriggeredV1Beta1Reason indicates a hardware reboot was triggered.
+	ActionCompletedHardwareRebootTriggeredV1Beta1Reason = "HardwareRebootTriggered"
 	// ActionCompletedRegistrationErrorV1Beta1Reason indicates the server info could not be read or the spec is incomplete.
 	ActionCompletedRegistrationErrorV1Beta1Reason = "RegistrationError"
 	// ActionCompletedPreparationErrorV1Beta1Reason indicates a step before provisioning failed.
@@ -682,9 +689,9 @@ const (
 )
 
 const (
-	// HetznerBareMetalHostActionCompletedCondition reports whether the last action on the host completed
-	// without an error. It is absent when the host has nothing to report. The message carries the error
-	// text if an error occurs.
+	// HetznerBareMetalHostActionCompletedCondition surfaces the host's current provisioning or operational
+	// action. It is present only while an action is in progress or the host is stuck (carrying the reason and
+	// message for that state) and is removed once the action clears; it has no steady-state True.
 	HetznerBareMetalHostActionCompletedCondition = "ActionCompleted"
 
 	// HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason indicates a reboot via SSH was triggered.
