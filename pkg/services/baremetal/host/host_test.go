@@ -140,7 +140,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateRunning, "", nil)
 		sshMock.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
 
-		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
@@ -159,7 +159,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		robot := robotmock.Client{}
 		robot.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
 
-		svc := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
@@ -178,7 +178,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
 		sshMock.On("ReadOutputJSON", mock.Anything).Return("", fmt.Errorf("ssh connection lost")).Once()
 
-		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
@@ -191,7 +191,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFailed, "some logs", nil)
 		sshMock.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
 
-		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
 		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
@@ -209,7 +209,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		robot := robotmock.Client{}
 		robot.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
 
-		svc := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
@@ -228,7 +228,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
 
-		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		commandPath := filepath.Join(baremetalImageURLCommandDir, host.Spec.Status.InstallImage.ImageURLCommand)
 		sshMock.On("StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(0, "", nil)
 		// Create bootstrap secret in fake client with key 'value'
@@ -258,7 +258,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
 
-		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		svc.scope.HetznerBareMetalMachine.Spec.InstallImage.DeviceStringType = infrav1.DeviceStringTypeWWN
 		svc.scope.HetznerBareMetalHost.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
 			WWN: "eui.0025388801b4dff2",
@@ -288,7 +288,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
 
-		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		svc.scope.HetznerBareMetalMachine.Spec.InstallImage.DeviceStringType = infrav1.DeviceStringTypeWWN
 		// RootDeviceHints has no WWN set — empty list
 		svc.scope.HetznerBareMetalHost.Spec.RootDeviceHints = &infrav1.RootDeviceHints{}
@@ -309,7 +309,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
 
-		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		commandPath := filepath.Join(baremetalImageURLCommandDir, host.Spec.Status.InstallImage.ImageURLCommand)
 		sshMock.On("StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(7, "boom", nil)
 
@@ -335,7 +335,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateRunning, "", nil)
 
-		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
@@ -1057,7 +1057,7 @@ var _ = Describe("actionPreparing", func() {
 		service := newTestService(
 			host,
 			&robotMock,
-			bmmock.NewSSHFactory(sshMock, sshMock, sshMock),
+			bmmock.NewSSHFactory(sshMock, sshMock),
 			helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
 			helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"),
 		)
@@ -1546,7 +1546,7 @@ var _ = Describe("actionRegistering", func() {
 				host.Spec.Status.InstallImage.Swraid = 1
 			}
 			sshMock := registeringSSHMock(tc.storageStdOut)
-			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 			actResult := service.actionRegistering(ctx)
 			Expect(host.Spec.Status.HardwareDetails).ToNot(BeNil())
@@ -1622,7 +1622,7 @@ var _ = Describe("actionRegistering", func() {
 			robotMock := robotmock.Client{}
 			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
 
-			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 			actResult := service.actionRegistering(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
@@ -1652,7 +1652,7 @@ var _ = Describe("actionRegistering", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: timeout})
 
-		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 		actResult := service.actionRegistering(ctx)
 
@@ -1698,8 +1698,7 @@ var _ = Describe("actionRegistering check RAID", func() {
 		host.Spec.Status.InstallImage = &infrav1.InstallImage{
 			Swraid: 1,
 		}
-		service := newTestService(host, nil, bmmock.NewSSHFactory(
-			sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		actResult := service.actionRegistering(ctx)
 
 		_, err := actResult.Result()
@@ -1742,7 +1741,7 @@ NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJ
 		}
 
 		sshMock := registeringSSHMock(storageStdOut)
-		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 		service.actionRegistering(ctx)
 
@@ -1774,7 +1773,7 @@ NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJ
 NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`
 
 		sshMock := registeringSSHMock(newStorageStdOut)
-		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 		actResult := service.actionRegistering(ctx)
 
@@ -1907,7 +1906,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			robotMock := robotmock.Client{}
 			robotMock.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
 
-			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, oldSSHMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
 
 			actResult := service.actionEnsureProvisioned(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(in.expectedActionResult))
@@ -2073,7 +2072,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		robotMock := robotmock.Client{}
 		robotMock.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
 
-		service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+		service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
 
 		// the error is still returned, and the cloud-init output is recorded in an event
 		Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionError{}))
@@ -2103,7 +2102,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: timeout})
 
-		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
 
 		actResult := service.actionEnsureProvisioned(ctx)
 
@@ -2220,7 +2219,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			sshMock.On("GetHostName", mock.Anything).Return(hostNameOutput)
 			sshMock.On("Reboot", mock.Anything).Return(sshclient.Output{})
 
-			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 			actResult := service.actionProvisioned(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))

@@ -138,9 +138,6 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	osSSHClientAfterInstallImage := &sshmock.Client{}
 	osSSHClientAfterInstallImage.Test(t)
 
-	osSSHClientAfterCloudInit := &sshmock.Client{}
-	osSSHClientAfterCloudInit.Test(t)
-
 	robotClient := &robotmock.Client{}
 	robotClient.Test(t)
 
@@ -156,7 +153,6 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	testEnv.HCloudSSHClientFactory = mockedsshclient.NewSSHFactory(hcloudSSHClient)
 	testEnv.RescueSSHClient = rescueSSHClient
 	testEnv.OSSSHClientAfterInstallImage = osSSHClientAfterInstallImage
-	testEnv.OSSSHClientAfterCloudInit = osSSHClientAfterCloudInit
 	testEnv.RobotClientFactory = robotClientFactory
 	testEnv.RobotClient = robotClient
 	testEnv.HCloudClientFactory = hcloudClientFactory
@@ -188,7 +184,7 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	}
 
 	return func() {
-		r.baremetalSSHClientFactory.SetClients(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
+		r.baremetalSSHClientFactory.SetClients(rescueSSHClient, osSSHClientAfterInstallImage)
 		r.reconcileGate.Unlock()
 	}
 }

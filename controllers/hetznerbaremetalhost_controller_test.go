@@ -169,7 +169,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		robotClient                  *robotmock.Client
 		rescueSSHClient              *sshmock.Client
 		osSSHClientAfterInstallImage *sshmock.Client
-		osSSHClientAfterCloudInit    *sshmock.Client
 	)
 
 	BeforeEach(func() {
@@ -232,7 +231,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		robotClient = testEnv.RobotClient
 		rescueSSHClient = testEnv.RescueSSHClient
 		osSSHClientAfterInstallImage = testEnv.OSSSHClientAfterInstallImage
-		osSSHClientAfterCloudInit = testEnv.OSSSHClientAfterCloudInit
 
 		robotClient.On("GetBMServer", mock.Anything).Return(&models.Server{
 			ServerNumber: 1,
@@ -266,16 +264,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		})
 		osSSHClientAfterInstallImage.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 
-		osSSHClientAfterCloudInit.On("Reboot", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterCloudInit.On("GetHostName", mock.Anything).Return(sshclient.Output{
-			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
-			StdErr: "",
-			Err:    nil,
-		})
-		osSSHClientAfterCloudInit.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
-		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterCloudInit.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterCloudInit.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 	})
 
 	AfterEach(func() {
