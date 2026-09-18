@@ -65,7 +65,9 @@ type Client struct {
 	closeHandler ICloseHandler
 }
 
-// Connect connects to the remote SSH server, returns error if it couldn't establish a session to the SSH server.
+// Connect connects to the remote SSH server, returns an error if it couldn't establish a session to the SSH server.
+// This method is NOT meant to be called when the client was created through `NewClientBySSH` as an SSH 
+// connection will already exist.
 func (a *Client) Connect() error {
 	client, err := ssh.Dial("tcp", a.Host, a.ClientConfig)
 	if err != nil {
