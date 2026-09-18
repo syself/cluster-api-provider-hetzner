@@ -1549,6 +1549,13 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 				in.DeviceStringType = ""
 			}
 		},
+		// HetznerBareMetalMachine v1beta1 spec: portAfterCloudInit is dropped in v1beta2, so zero it: it
+		// does not round-trip. Scoped to the machine spec rather than to SSHSpec, because the host carries
+		// its own sshSpec through the data annotation, where the field does survive.
+		func(in *HetznerBareMetalMachineSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.SSHSpec.PortAfterCloudInit = 0
+		},
 		// HetznerBareMetalMachine v1beta2 spec (hub side): installImage and customProvisioner are mutually
 		// exclusive, so keep exactly one set. customProvisioner needs a command because that is what selects
 		// the flow when converting back to the single flat v1beta1 installImage.

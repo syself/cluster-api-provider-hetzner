@@ -149,12 +149,6 @@ type SSHSpec struct {
 	// +kubebuilder:default=22
 	// +optional
 	PortAfterInstallImage int `json:"portAfterInstallImage"`
-
-	// PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
-	//
-	// Deprecated: This field is not used anymore.
-	// +optional
-	PortAfterCloudInit int `json:"portAfterCloudInit"`
 }
 
 // SSHSecretRef defines the secret containing all information of the SSH key used for the Hetzner robot.

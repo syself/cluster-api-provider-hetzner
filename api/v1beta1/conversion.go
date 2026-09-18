@@ -775,6 +775,13 @@ func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out 
 	return autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in, out, s)
 }
 
+// Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec converts a v1beta1 SSHSpec to v1beta2. Nothing has read
+// portAfterCloudInit since the connection after cloud init was dropped, and v1beta2 has no equivalent,
+// so the value does not survive the conversion.
+func Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in *SSHSpec, out *infrav2.SSHSpec, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in, out, s)
+}
+
 // Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus converts the
 // v1beta1 HCloudMachineTemplateStatus to v1beta2. The v1beta1 status.conditions (old
 // clusterv1beta1.Conditions) and the v1beta2 status.conditions ([]metav1.Condition) share a field
