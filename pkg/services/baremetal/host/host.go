@@ -722,7 +722,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav2.HetznerBareMetalHostValidationFailedReason,
 			Message: infrav2.ErrorMessageMissingRootDeviceHints,
 		})
-		record.Warn(s.scope.HetznerBareMetalHost, infrav2.HetznerBareMetalHostValidationFailedReason, infrav2.ErrorMessageMissingRootDeviceHints)
+		record.Warn(s.scope.HetznerBareMetalHost, "RootDeviceHintsInvalid", infrav2.ErrorMessageMissingRootDeviceHints)
 		// The user has to set spec.rootDeviceHints. We reconcile again when the spec changes.
 		s.scope.SetHostError(infrav2.RegistrationError, infrav2.ErrorMessageMissingRootDeviceHints)
 		return actionStop{}
@@ -743,7 +743,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav2.HetznerBareMetalHostValidationFailedReason,
 			Message: errMsg,
 		})
-		record.Warn(s.scope.HetznerBareMetalHost, infrav2.HetznerBareMetalHostValidationFailedReason, errMsg)
+		record.Warn(s.scope.HetznerBareMetalHost, "RootDeviceHintsInvalid", errMsg)
 		// The user has to correct spec.rootDeviceHints. We reconcile again when the spec changes.
 		s.scope.SetHostError(infrav2.RegistrationError, errMsg)
 		return actionStop{}
@@ -765,7 +765,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav2.HetznerBareMetalHostValidationFailedReason,
 			Message: err.Error(),
 		})
-		record.Warn(s.scope.HetznerBareMetalHost, infrav2.HetznerBareMetalHostValidationFailedReason, err.Error())
+		record.Warn(s.scope.HetznerBareMetalHost, "RootDeviceHintsInvalid", err.Error())
 		// The user has to point spec.rootDeviceHints at a wwn the server reports. We reconcile
 		// again when the spec changes.
 		s.scope.SetHostError(infrav2.RegistrationError, err.Error())
@@ -807,7 +807,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			Reason:  infrav2.HetznerBareMetalHostValidationFailedReason,
 			Message: msg,
 		})
-		record.Warn(s.scope.HetznerBareMetalHost, infrav2.HetznerBareMetalHostValidationFailedReason, msg)
+		record.Warn(s.scope.HetznerBareMetalHost, "RootDeviceHintsInvalid", msg)
 		s.scope.SetHostError(infrav2.FatalError, msg)
 		return actionStop{}
 	}
@@ -1828,7 +1828,7 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 			Reason:  infrav2.HetznerBareMetalHostImageSpecInvalidReason,
 			Message: errorMessage,
 		})
-		record.Warn(s.scope.HetznerBareMetalHost, infrav2.HetznerBareMetalHostImageSpecInvalidReason, errorMessage)
+		record.Warn(s.scope.HetznerBareMetalHost, "ImageSpecInvalid", errorMessage)
 		s.scope.SetHostError(infrav2.ProvisioningError, errorMessage)
 		return autoSetupInput{}, actionContinue{delay: time.Minute}
 	}
@@ -1885,7 +1885,7 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 			Reason:  infrav2.HetznerBareMetalHostNoStorageDeviceFoundReason,
 			Message: msg,
 		})
-		record.Warn(s.scope.HetznerBareMetalHost, infrav2.HetznerBareMetalHostNoStorageDeviceFoundReason, msg)
+		record.Warn(s.scope.HetznerBareMetalHost, "NoStorageDeviceFound", msg)
 		s.scope.SetHostError(infrav2.ProvisioningError, msg)
 		return autoSetupInput{}, actionContinue{delay: time.Minute}
 	}
@@ -2326,7 +2326,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 				Reason:  infrav2.HetznerBareMetalHostNodeNotFoundReason,
 				Message: msg,
 			})
-			record.Warn(host, infrav2.HetznerBareMetalHostNodeNotFoundReason, msg)
+			record.Warn(host, "NodeNotFound", msg)
 
 			return actionStop{}
 		}
@@ -2372,7 +2372,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// When no reboot is requested the boot ID is non-critical; requeue and wait for kubelet to populate it.
 		if rebootDesired {
 			s.scope.HetznerBareMetalHost.SetError(infrav2.FatalError, msg)
-			record.Warn(s.scope.HetznerBareMetalHost, infrav2.HetznerBareMetalHostBootIDEmptyReason, msg)
+			record.Warn(s.scope.HetznerBareMetalHost, "BootIDEmpty", msg)
 			return actionStop{}
 		}
 
@@ -2413,7 +2413,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		if rebootDuration > 5*time.Minute {
 			msg := fmt.Sprintf("Rebooting timed out after: %s", rebootDuration.Round(time.Second))
 			s.scope.Info(msg)
-			record.Warn(s.scope.HetznerBareMetalHost, infrav2.HetznerBareMetalHostRebootSucceededTimeoutReachedOutReason, msg)
+			record.Warn(s.scope.HetznerBareMetalHost, "RebootTimedOut", msg)
 			deprecatedv1beta1conditions.MarkFalse(
 				s.scope.HetznerBareMetalHost,
 				infrav2.RebootSucceededV1Beta1Condition,
