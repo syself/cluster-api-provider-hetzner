@@ -231,8 +231,9 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 			return reconcile.Result{}, nil
 		}
 
-		// The host deprovisions on its own when its machine is being deleted. It watches the
-		// HetznerBareMetalMachine, so there is nothing to trigger here. Wait until it is done.
+		// The host deprovisions on its own when its HetznerBareMetalMachine is being deleted. It
+		// watches the HetznerBareMetalMachine, so there is nothing to trigger here. Wait until it
+		// is done.
 		if host.Status.ProvisioningState != infrav2.StateNone {
 			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
 				Type:    infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
@@ -1055,7 +1056,7 @@ func machineAddressType(address string) clusterv1beta1.MachineAddressType {
 }
 
 // consumerRefMatches returns a boolean based on whether the consumer reference and bare metal machine metadata match.
-// The consumer ref has no namespace, as the host and the consuming machine always live in the same namespace.
+// The consumer ref has no namespace, as the host and the consuming HetznerBareMetalMachine always live in the same namespace.
 func consumerRefMatches(consumer *infrav2.HetznerBareMetalHostConsumerReference, bmMachine *infrav1.HetznerBareMetalMachine) bool {
 	if consumer.Name != bmMachine.Name {
 		return false

@@ -244,19 +244,17 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		} else {
 			hetznerBareMetalMachine = hbmm
 
-			// The Machine is nil until CAPI sets the ownerRef on the HetznerBareMetalMachine, and
-			// if the Machine is force deleted. The host still has to deprovision and
-			// deprovisioning does not read the Machine, so it keeps reconciling with a nil Machine.
+			// The CAPI Machine is nil until CAPI sets the ownerRef on the HetznerBareMetalMachine,
+			// and again once the CAPI Machine is force deleted. The host still has to deprovision
+			// and deprovisioning does not read the CAPI Machine, so it keeps reconciling without it.
 			machine, err = util.GetOwnerMachine(ctx, r, hbmm.ObjectMeta)
-			if apierrors.IsNotFound(err) {
-				machine = nil
-			} else if err != nil {
+			if err != nil && !apierrors.IsNotFound(err) {
 				return reconcile.Result{}, err
 			}
 		}
 	}
 
-	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
+	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine), "Machine", klog.KObj(machine))
 
 	// Certain cases need to be handled here and not later in the host state machine.
 	// If res != nil, then we should return, otherwise not.
@@ -275,7 +273,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// Fetch the Cluster through the cluster-name label. The HetznerBareMetalMachine controller
-	// sets that label when a machine claims a host.
+	// sets that label when a HetznerBareMetalMachine claims a host.
 	cluster, err := util.GetClusterFromMetadata(ctx, r, bmHost.ObjectMeta)
 	if err != nil {
 		// The host cannot do anything without the Cluster, so we return here
@@ -402,8 +400,9 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(
 	return ctrl.Result{}
 }
 
-// needsProvisioning returns true when the host has a consuming machine that is not being deleted,
-// whose owner CAPI Machine exists and is not being deleted, and whose bootstrap data is available.
+// needsProvisioning returns true when the host can start provisioning. It needs the
+// HetznerBareMetalMachine that claimed the host and the CAPI Machine that owns it.
+// The CAPI Machine has to carry the name of its bootstrap secret as well.
 func needsProvisioning(hbmm *infrav2.HetznerBareMetalMachine, machine *clusterv1.Machine) bool {
 	if hbmm == nil || !hbmm.DeletionTimestamp.IsZero() {
 		return false
@@ -447,7 +446,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					Reason:  infrav2.HetznerBareMetalHostOSSSHSecretMissingReason,
 					Message: msg,
 				})
-				record.Warnf(bmHost, infrav2.OSSSHSecretMissingV1Beta1Reason, msg)
+				record.Warnf(bmHost, "OSSSHSecretMissing", msg)
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
@@ -471,7 +470,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					Message: infrav2.ErrorMessageMissingRescueSSHSecret,
 				})
 
-				record.Warnf(bmHost, infrav2.RescueSSHSecretMissingV1Beta1Reason, infrav2.ErrorMessageMissingRescueSSHSecret)
+				record.Warnf(bmHost, "RescueSSHSecretMissing", infrav2.ErrorMessageMissingRescueSSHSecret)
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
@@ -548,7 +547,7 @@ func hetznerSecretErrorResult(
 			Message: infrav2.ErrorMessageMissingHetznerSecret,
 		})
 
-		record.Warnf(bmHost, infrav2.HetznerSecretUnreachableV1Beta1Reason, fmt.Sprintf("%s: %s", infrav2.ErrorMessageMissingHetznerSecret, err.Error()))
+		record.Warnf(bmHost, "HetznerSecretUnreachable", fmt.Sprintf("%s: %s", infrav2.ErrorMessageMissingHetznerSecret, err.Error()))
 		deprecatedv1beta1conditions.SetSummary(bmHost)
 		scope.SetHetznerBareMetalHostReadySummary(bmHost)
 
@@ -571,7 +570,7 @@ func hetznerSecretErrorResult(
 			Reason:  infrav2.HetznerBareMetalHostRobotCredentialsInvalidReason,
 			Message: infrav2.ErrorMessageMissingOrInvalidSecretData,
 		})
-		record.Warnf(bmHost, infrav2.RobotCredentialsInvalidV1Beta1Reason, err.Error())
+		record.Warnf(bmHost, "RobotCredentialsInvalid", err.Error())
 		return res, nil
 	}
 	return reconcile.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)
@@ -654,20 +653,14 @@ func hetznerBareMetalMachinePredicate() predicate.Funcs {
 				return true
 			}
 
-			// The host annotation says which host this HetznerBareMetalMachine claimed. A change
-			// to it means a different host has to reconcile.
-			if oldMachine.Annotations[infrav2.HostAnnotation] != newMachine.Annotations[infrav2.HostAnnotation] {
-				return true
-			}
-
 			return !reflect.DeepEqual(oldMachine.Spec, newMachine.Spec)
 		},
 	}
 }
 
 // hetznerBareMetalMachineToHetznerBareMetalHost enqueues the host that is bound to the changed
-// machine. The host starts provisioning and deprovisions based on its machine, so it must see
-// machine events.
+// HetznerBareMetalMachine. The host starts provisioning and deprovisions based on its
+// HetznerBareMetalMachine, so it must see those events.
 func hetznerBareMetalMachineToHetznerBareMetalHost(_ context.Context, obj client.Object) []reconcile.Request {
 	hbmm, ok := obj.(*infrav2.HetznerBareMetalMachine)
 	if !ok {

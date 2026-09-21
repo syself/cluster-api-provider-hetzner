@@ -1113,9 +1113,7 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 	require.NotEmpty(t, bmHost.Status.ErrorType)
 }
 
-// Test_needsProvisioning covers the provision trigger: the host starts provisioning when its
-// machine exists, is not being deleted, and the bootstrap data of the owning CAPI Machine is
-// available.
+// Test_needsProvisioning checks every input that decides whether the host starts provisioning.
 func Test_needsProvisioning(t *testing.T) {
 	newMachines := func() (*infrav2.HetznerBareMetalMachine, *clusterv1.Machine) {
 		hbmm := &infrav2.HetznerBareMetalMachine{
@@ -1138,24 +1136,24 @@ func Test_needsProvisioning(t *testing.T) {
 		return hbmm, machine
 	}
 
-	// machine with bootstrap data --> provision
+	// HetznerBareMetalMachine with bootstrap data --> provision
 	hbmm, machine := newMachines()
 	require.True(t, needsProvisioning(hbmm, machine))
 
-	// no consuming machine --> do not provision
+	// no consuming HetznerBareMetalMachine --> do not provision
 	require.False(t, needsProvisioning(nil, machine))
 
-	// machine is being deleted --> do not provision
+	// HetznerBareMetalMachine is being deleted --> do not provision
 	hbmm, machine = newMachines()
 	now := metav1.Now()
 	hbmm.DeletionTimestamp = &now
 	require.False(t, needsProvisioning(hbmm, machine))
 
-	// no owning CAPI machine (e.g. force deleted) --> do not provision
+	// no owning CAPI Machine (e.g. force deleted) --> do not provision
 	hbmm, _ = newMachines()
 	require.False(t, needsProvisioning(hbmm, nil))
 
-	// owning CAPI machine is being deleted --> do not provision
+	// owning CAPI Machine is being deleted --> do not provision
 	hbmm, machine = newMachines()
 	machine.DeletionTimestamp = &now
 	require.False(t, needsProvisioning(hbmm, machine))
@@ -1167,8 +1165,8 @@ func Test_needsProvisioning(t *testing.T) {
 }
 
 // Test_hetznerBareMetalMachinePredicate covers the filter of the watch on HetznerBareMetalMachine.
-// Only the deletion timestamp, the host annotation and the spec change what the host does, and an
-// update that touches none of them must not reach the host.
+// Only the deletion timestamp and the spec change what the host does, and an update that touches
+// neither must not reach the host.
 func Test_hetznerBareMetalMachinePredicate(t *testing.T) {
 	newMachine := func() *infrav2.HetznerBareMetalMachine {
 		return &infrav2.HetznerBareMetalMachine{
@@ -1197,11 +1195,6 @@ func Test_hetznerBareMetalMachinePredicate(t *testing.T) {
 	newMachine2.DeletionTimestamp = &now
 	require.True(t, update(oldMachine, newMachine2))
 
-	// the host annotation changed --> a different host has to reconcile
-	oldMachine, newMachine2 = newMachine(), newMachine()
-	newMachine2.Annotations[infrav2.HostAnnotation] = "default/other-host"
-	require.True(t, update(oldMachine, newMachine2))
-
 	// the spec changed --> the host reads the spec
 	oldMachine, newMachine2 = newMachine(), newMachine()
 	newMachine2.Spec.SSHSpec.PortAfterInstallImage = 2222
@@ -1213,11 +1206,11 @@ func Test_hetznerBareMetalMachinePredicate(t *testing.T) {
 
 // Test_hetznerBareMetalMachineToHetznerBareMetalHost covers the mapper of the watch on
 // HetznerBareMetalMachine. The host both starts provisioning and deprovisions based on its
-// machine, so machine events must enqueue the bound host.
+// HetznerBareMetalMachine, so those events must enqueue the bound host.
 func Test_hetznerBareMetalMachineToHetznerBareMetalHost(t *testing.T) {
 	ctx := context.Background()
 
-	// machine without host annotation --> no request
+	// HetznerBareMetalMachine without host annotation --> no request
 	hbmm := &infrav2.HetznerBareMetalMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "bm-machine",
@@ -1226,7 +1219,7 @@ func Test_hetznerBareMetalMachineToHetznerBareMetalHost(t *testing.T) {
 	}
 	require.Nil(t, hetznerBareMetalMachineToHetznerBareMetalHost(ctx, hbmm))
 
-	// machine with host annotation --> request for the bound host
+	// HetznerBareMetalMachine with host annotation --> request for the bound host
 	hbmm.Annotations = map[string]string{
 		infrav2.HostAnnotation: "test-ns/test-host",
 	}

@@ -226,8 +226,9 @@ var _ = Describe("SetError and ClearError", func() {
 var _ = Describe("actionImageInstalling (image-url-command)", func() {
 	ctx := context.Background()
 
-	// newBaseHost returns the host and the custom provisioner of the consuming machine. The custom
-	// provisioner has to be set on the HetznerBareMetalMachine of the scope after newTestService.
+	// newBaseHost returns the host and the custom provisioner of the consuming
+	// HetznerBareMetalMachine. The custom provisioner has to be set on the
+	// HetznerBareMetalMachine of the scope after newTestService.
 	newBaseHost := func() (*infrav2.HetznerBareMetalHost, *infrav2.CustomProvisioner) {
 		commandDir := GinkgoT().TempDir()
 		commandPath := filepath.Join(commandDir, "image-url-command-test.sh")
@@ -1653,7 +1654,6 @@ var _ = Describe("actionRegistering", func() {
 		includeRootDeviceHintRaid bool
 		expectedActionResult      actionResult
 		expectedErrorMessage      *string
-		expectedDelay             time.Duration
 		swRaid                    bool
 	}
 	ctx := context.Background()
@@ -1699,11 +1699,6 @@ var _ = Describe("actionRegistering", func() {
 				Expect(host.Status.ErrorType).To(BeEmpty())
 			}
 			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
-			if tc.expectedDelay != 0 {
-				result, err := actResult.Result()
-				Expect(err).To(BeNil())
-				Expect(result.RequeueAfter).To(Equal(tc.expectedDelay))
-			}
 		},
 		Entry("working example", testCaseActionRegistering{
 			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
@@ -1730,10 +1725,10 @@ var _ = Describe("actionRegistering", func() {
 			NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
 			includeRootDeviceHintWWN:  true,
 			includeRootDeviceHintRaid: false,
-			expectedActionResult:      actionContinue{},
-			expectedErrorMessage:      ptr.To(`missing storage device for root device hint "eui.002538b411b2cee8". Known WWNs: [eui.002538b411b2cee2 eui.0025388801b4dff2]`),
-			// Registration errors require the user to fix the spec, so they requeue on the 5 minute tier.
-			expectedDelay: 5 * time.Minute,
+			// The user has to correct spec.rootDeviceHints. We reconcile again when the spec
+			// changes, so there is no requeue.
+			expectedActionResult: actionStop{},
+			expectedErrorMessage: ptr.To(`missing storage device for root device hint "eui.002538b411b2cee8". Known WWNs: [eui.002538b411b2cee2 eui.0025388801b4dff2]`),
 		}),
 		Entry("no root device hints", testCaseActionRegistering{
 			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
@@ -1741,10 +1736,10 @@ var _ = Describe("actionRegistering", func() {
 			NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
 			includeRootDeviceHintWWN:  false,
 			includeRootDeviceHintRaid: false,
-			expectedActionResult:      actionContinue{},
-			expectedErrorMessage:      ptr.To(infrav2.ErrorMessageMissingRootDeviceHints),
-			// Registration errors require the user to fix the spec, so they requeue on the 5 minute tier.
-			expectedDelay: 5 * time.Minute,
+			// The user has to set spec.rootDeviceHints. We reconcile again when the spec changes,
+			// so there is no requeue.
+			expectedActionResult: actionStop{},
+			expectedErrorMessage: ptr.To(infrav2.ErrorMessageMissingRootDeviceHints),
 		}),
 	)
 
@@ -1929,7 +1924,9 @@ NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJ
 
 		actResult := service.actionRegistering(ctx)
 
-		Expect(actResult).To(BeAssignableToTypeOf(actionContinue{}))
+		// The user has to point spec.rootDeviceHints at one of the new wwns. We reconcile again
+		// when the spec changes, so there is no requeue.
+		Expect(actResult).To(BeAssignableToTypeOf(actionStop{}))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition)
 		Expect(c.Message).To(ContainSubstring("missing storage device for root device hint"))
 

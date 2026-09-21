@@ -582,8 +582,8 @@ var _ = Describe("Test consumerRefMatches", func() {
 		},
 	}
 
-	// The consumer ref has no namespace. The host and the consuming machine always live in the
-	// same namespace, so there is no entry for a namespace mismatch.
+	// The consumer ref has no namespace. The host and the consuming HetznerBareMetalMachine always
+	// live in the same namespace, so there is no entry for a namespace mismatch.
 	DescribeTable("Test consumerRefMatches",
 		func(tc testCaseConsumerRefMatches) {
 			Expect(consumerRefMatches(tc.Consumer, bmMachine)).To(Equal(tc.ExpectedResult))

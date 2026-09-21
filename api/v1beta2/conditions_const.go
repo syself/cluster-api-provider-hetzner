@@ -288,7 +288,7 @@ const (
 	ActionCompletedPreparationErrorV1Beta1Reason = "PreparationError"
 	// ActionCompletedProvisioningErrorV1Beta1Reason indicates provisioning or deprovisioning failed.
 	ActionCompletedProvisioningErrorV1Beta1Reason = "ProvisioningError"
-	// ActionCompletedFatalErrorV1Beta1Reason indicates an unrecoverable error that deletes the machine.
+	// ActionCompletedFatalErrorV1Beta1Reason indicates an unrecoverable error that deletes the CAPI Machine.
 	ActionCompletedFatalErrorV1Beta1Reason = "FatalError"
 	// ActionCompletedPermanentErrorV1Beta1Reason indicates an error that stays on the host until an operator clears it.
 	ActionCompletedPermanentErrorV1Beta1Reason = "PermanentError"
@@ -706,7 +706,7 @@ const (
 	HetznerBareMetalHostActionCompletedPreparationErrorReason = "PreparationError"
 	// HetznerBareMetalHostActionCompletedProvisioningErrorReason indicates provisioning or deprovisioning failed.
 	HetznerBareMetalHostActionCompletedProvisioningErrorReason = "ProvisioningError"
-	// HetznerBareMetalHostActionCompletedFatalErrorReason indicates an unrecoverable error that deletes the machine.
+	// HetznerBareMetalHostActionCompletedFatalErrorReason indicates an unrecoverable error that deletes the CAPI Machine.
 	HetznerBareMetalHostActionCompletedFatalErrorReason = "FatalError"
 	// HetznerBareMetalHostActionCompletedPermanentErrorReason indicates an error that stays on the host until an operator clears it.
 	HetznerBareMetalHostActionCompletedPermanentErrorReason = "PermanentError"

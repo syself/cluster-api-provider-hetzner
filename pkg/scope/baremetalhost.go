@@ -123,11 +123,12 @@ type BareMetalHostScope struct {
 	RobotClient          robotclient.Client
 	SSHClientFactory     sshclient.Factory
 	HetznerBareMetalHost *infrav2.HetznerBareMetalHost
-	// HetznerBareMetalMachine is the machine that consumes the host. It is nil when the host has no
-	// consumer or the machine no longer exists.
+	// HetznerBareMetalMachine consumes the host. It is nil when the host has no consumer or when
+	// the HetznerBareMetalMachine no longer exists.
 	HetznerBareMetalMachine *infrav2.HetznerBareMetalMachine
-	// Machine is the CAPI machine that owns the HetznerBareMetalMachine. It is nil when there is no
-	// consuming machine or the owner machine is not set yet.
+	// Machine is the CAPI Machine that owns the HetznerBareMetalMachine. It is nil when there is no
+	// consuming HetznerBareMetalMachine, when the ownerRef is not set yet, and when the CAPI
+	// Machine was force deleted.
 	Machine                      *clusterv1.Machine
 	HetznerCluster               *infrav2.HetznerCluster
 	Cluster                      *clusterv1.Cluster
@@ -184,13 +185,22 @@ func (s *BareMetalHostScope) hasConstantHostname() bool {
 }
 
 // SSHAfterInstallImageEnabled returns the effective SSH-after-installimage setting for the host.
-// When the consuming machine no longer exists, there is no SSH spec to connect with, so SSH access
-// is treated as disabled.
+// When the consuming HetznerBareMetalMachine no longer exists, there is no SSH spec to connect
+// with, so SSH access is treated as disabled.
 func (s *BareMetalHostScope) SSHAfterInstallImageEnabled() bool {
 	if s.HetznerBareMetalMachine == nil {
 		return false
 	}
 	return !s.HetznerBareMetalMachine.Spec.SSHSpec.NoSSHAfterInstallImage
+}
+
+// errActionFailure is the error the log entry of SetHostError is keyed on.
+var errActionFailure = errors.New("action failure")
+
+// SetHostError stores the error on the host and writes it to the log.
+func (s *BareMetalHostScope) SetHostError(errorType infrav2.ErrorType, message string) {
+	s.HetznerBareMetalHost.SetError(errorType, message)
+	s.Error(errActionFailure, message, "errorType", errorType)
 }
 
 // SetHetznerBareMetalHostReadySummary computes and sets the Ready summary condition on the

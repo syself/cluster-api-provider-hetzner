@@ -150,7 +150,7 @@ func WithConsumerRef() HostOpts {
 
 // BareMetalMachineSSHSpec returns the SSH spec for a HetznerBareMetalMachine that consumes a test
 // host. The key names match the data of GetDefaultSSHSecret. The host reads the SSH spec live from
-// the machine.
+// the HetznerBareMetalMachine.
 func BareMetalMachineSSHSpec(portAfterInstallImage int) infrav2.SSHSpec {
 	return infrav2.SSHSpec{
 		SecretRef: infrav2.SSHSecretRef{

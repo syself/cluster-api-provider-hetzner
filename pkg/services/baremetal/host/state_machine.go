@@ -177,8 +177,8 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 		case infrav2.StateProvisioned:
 			errMessage := "secret has been modified although a provisioned machine uses it"
 			record.Event(hsm.host, "SSHSecretUnexpectedlyModified", errMessage)
-			hsm.host.SetError(infrav2.RegistrationError, errMessage)
 			// The user has to fix the secret. Check again in five minutes.
+			hsm.reconciler.scope.SetHostError(infrav2.RegistrationError, errMessage)
 			return actionContinue{delay: 5 * time.Minute}
 		}
 		if err := hsm.host.UpdateOSSSHStatus(*osSSHSecret); err != nil {
@@ -202,9 +202,9 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 			Message: msg,
 		})
 
-		record.Warnf(hsm.host, infrav2.SSHKeyAlreadyExistsV1Beta1Reason, msg)
-		hsm.host.SetError(infrav2.PreparationError, infrav2.ErrorMessageMissingOrInvalidSecretData)
+		record.Warnf(hsm.host, "SSHKeyInvalid", msg)
 		// The user has to fix the secret. Check again in five minutes.
+		hsm.reconciler.scope.SetHostError(infrav2.PreparationError, infrav2.ErrorMessageMissingOrInvalidSecretData)
 		return actionContinue{delay: 5 * time.Minute}
 	}
 	return nil
@@ -247,8 +247,8 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 			Reason:  infrav2.HetznerBareMetalHostSSHKeysInvalidReason,
 			Message: msg,
 		})
-		hsm.host.SetError(infrav2.PreparationError, infrav2.ErrorMessageMissingOrInvalidSecretData)
 		// The user has to fix the secret. Check again in five minutes.
+		hsm.reconciler.scope.SetHostError(infrav2.PreparationError, infrav2.ErrorMessageMissingOrInvalidSecretData)
 		return actionContinue{delay: 5 * time.Minute}
 	}
 	return nil

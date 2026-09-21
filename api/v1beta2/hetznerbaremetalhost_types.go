@@ -394,10 +394,10 @@ func (host *HetznerBareMetalHost) SetV1Beta1Conditions(conditions clusterv1.Cond
 // order (highest-priority first). Credentials and provisioning problems must outrank
 // Deleting, since deletion may itself need credentials to succeed.
 //  1. RobotCredentialsAvailable - invalid Robot credentials block every Robot API call.
-//  2. ActionCompleted           - the action the host is running did not complete.
-//  3. RobotRateLimitExceeded    - rate-limit issues (negative polarity).
-//  4. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
-//  5. RootDeviceHintsValidated  - device hints must validate before provisioning.
+//  2. RobotRateLimitExceeded    - a rate limit blocks every Robot API call (negative polarity).
+//  3. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
+//  4. RootDeviceHintsValidated  - device hints must validate before provisioning.
+//  5. ActionCompleted           - the action the host is running did not complete.
 //  6. ProvisionSucceeded        - provisioning state (rescue -> image -> OS).
 //  7. RebootSucceeded           - post-provision reboot via annotation.
 //  8. NodeBootIDRetrieved       - workload-cluster Node check after provisioning.
@@ -409,10 +409,10 @@ func HetznerBareMetalHostSummaryOpts() []conditions.SummaryOption {
 		// surfaces them in this order, so the most important issue is listed first.
 		conditions.ForConditionTypes{
 			HetznerBareMetalHostRobotCredentialsAvailableCondition,
-			HetznerBareMetalHostActionCompletedCondition,
 			HetznerBareMetalHostRobotRateLimitExceededCondition,
 			HetznerBareMetalHostSSHKeysAvailableCondition,
 			HetznerBareMetalHostRootDeviceHintsValidatedCondition,
+			HetznerBareMetalHostActionCompletedCondition,
 			HetznerBareMetalHostProvisionSucceededCondition,
 			HetznerBareMetalHostRebootSucceededCondition,
 			HetznerBareMetalHostNodeBootIDRetrievedCondition,
@@ -424,14 +424,14 @@ func HetznerBareMetalHostSummaryOpts() []conditions.SummaryOption {
 		// checked or before the host has been provisioned), and we don't want
 		// those early exits to flip Ready to Unknown.
 		conditions.IgnoreTypesIfMissing{
-			HetznerBareMetalHostActionCompletedCondition,
+			HetznerBareMetalHostRobotRateLimitExceededCondition,
 			HetznerBareMetalHostSSHKeysAvailableCondition,
 			HetznerBareMetalHostRootDeviceHintsValidatedCondition,
+			HetznerBareMetalHostActionCompletedCondition,
 			HetznerBareMetalHostProvisionSucceededCondition,
 			HetznerBareMetalHostRebootSucceededCondition,
 			HetznerBareMetalHostNodeBootIDRetrievedCondition,
 			HetznerBareMetalHostDeletingCondition,
-			HetznerBareMetalHostRobotRateLimitExceededCondition,
 		},
 		// CustomMergeStrategy is used only to override the merge reasons, so
 		// the Ready summary uses CAPI's standard Ready reasons (Ready /
@@ -678,7 +678,6 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 
 // SetError sets the error type on the status and puts errorMessage on the ActionCompleted condition.
 // For a permanent error the message also names the annotation that an operator has to remove.
-// handleIncompleteBoot reads the error type back to pick the next reboot method.
 func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) {
 	host.Status.ErrorType = errorType
 
@@ -691,6 +690,7 @@ func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage str
 	}
 
 	reason, v1beta1Reason := actionCompletedFor(errorType)
+
 	conditions.Set(host, metav1.Condition{
 		Type:    HetznerBareMetalHostActionCompletedCondition,
 		Status:  metav1.ConditionFalse,
