@@ -184,10 +184,11 @@ func (s *BareMetalHostScope) hasConstantHostname() bool {
 		s.HetznerBareMetalMachine != nil && s.HetznerBareMetalMachine.GetAnnotations()[infrav2.ConstantBareMetalHostnameAnnotation] == "true"
 }
 
-// SSHAfterInstallImageEnabled returns the effective SSH-after-installimage setting for the host.
-// When the consuming HetznerBareMetalMachine no longer exists, there is no SSH spec to connect
-// with, so SSH access is treated as disabled.
+// SSHAfterInstallImageEnabled reports whether the host may be reached over ssh after installimage.
 func (s *BareMetalHostScope) SSHAfterInstallImageEnabled() bool {
+	// Only actionDeprovisioning gets here without a HetznerBareMetalMachine, because that is what
+	// the host does once the HetznerBareMetalMachine is gone. There is no sshSpec to read then, and
+	// getSecrets leaves OSSSHSecret nil, so there is nothing to connect with.
 	if s.HetznerBareMetalMachine == nil {
 		return false
 	}
