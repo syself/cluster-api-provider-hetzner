@@ -137,7 +137,7 @@ func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T
 	require.Zero(t, robotFactory.calls)
 }
 
-func verifyError(host *infrav2.HetznerBareMetalHost, errorType infrav2.ErrorType, _ string) bool {
+func verifyError(host *infrav2.HetznerBareMetalHost, errorType infrav2.ErrorType) bool {
 	return host.Status.ErrorType == errorType
 }
 
@@ -404,7 +404,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					if err := testEnv.Get(ctx, key, host); err != nil {
 						return false
 					}
-					return verifyError(host, infrav2.RegistrationError, infrav2.ErrorMessageMissingRootDeviceHints)
+					return verifyError(host, infrav2.RegistrationError)
 				}, timeout).Should(BeTrue())
 			})
 

@@ -1709,9 +1709,7 @@ var _ = Describe("reconcileRateLimit", func() {
 		})
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 		Expect(conditions.Has(hetznerCluster, infrav2.HCloudRateLimitExceededCondition)).To(BeFalse())
-		reachable := deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)
-		Expect(reachable).ToNot(BeNil())
-		Expect(reachable.Status).To(Equal(corev1.ConditionTrue))
+		Expect(deprecatedv1beta1conditions.IsTrue(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeTrue())
 	})
 
 	It("returns wait==true if HCloudRateLimitExceeded condition is True and time is not over (v1beta2)", func() {
@@ -1792,9 +1790,7 @@ var _ = Describe("reconcileRateLimit", func() {
 		Expect(rateLimitCond).NotTo(BeNil())
 		Expect(rateLimitCond.Status).To(Equal(metav1.ConditionTrue))
 		Expect(rateLimitCond.Reason).To(Equal(infrav2.HCloudRateLimitExceededReason))
-		reachable := deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)
-		Expect(reachable).ToNot(BeNil())
-		Expect(reachable.Status).To(Equal(corev1.ConditionFalse))
+		Expect(deprecatedv1beta1conditions.IsFalse(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeTrue())
 	})
 
 	It("removes HCloudRateLimitExceeded condition and returns wait==false when wait time is over (v1beta2)", func() {
@@ -1809,9 +1805,7 @@ var _ = Describe("reconcileRateLimit", func() {
 		// Condition must be deleted (not just set to False) so the next API call
 		// determines the real rate-limit status instead of assuming it is gone.
 		Expect(conditions.Has(hetznerCluster, infrav2.HCloudRateLimitExceededCondition)).To(BeFalse())
-		reachable := deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)
-		Expect(reachable).ToNot(BeNil())
-		Expect(reachable.Status).To(Equal(corev1.ConditionTrue))
+		Expect(deprecatedv1beta1conditions.IsTrue(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeTrue())
 	})
 })
 

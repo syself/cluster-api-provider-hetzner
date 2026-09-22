@@ -708,3 +708,19 @@ func removePermanentErrorIfAnnotationIsGone(bmHost *infrav2.HetznerBareMetalHost
 		infrav2.PermanentErrorAnnotation)
 	return true
 }
+
+// reconcileRobotRateLimit checks whether the Robot API rate limit has been reached and returns
+// whether the controller should wait a bit more. When the wait is over it clears the rate-limit
+// conditions (HetznerAPIReachable marked reachable again, RobotRateLimitExceeded deleted).
+func reconcileRobotRateLimit(bmHost *infrav2.HetznerBareMetalHost, rateLimitWaitTime time.Duration) bool {
+	condition := conditions.Get(bmHost, infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition)
+	if condition != nil && condition.Status == metav1.ConditionTrue {
+		if time.Now().Before(condition.LastTransitionTime.Add(rateLimitWaitTime)) {
+			return true
+		}
+		deprecatedv1beta1conditions.MarkTrue(bmHost, infrav2.HetznerAPIReachableV1Beta1Condition)
+		conditions.Delete(bmHost, infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition)
+	}
+
+	return false
+}
