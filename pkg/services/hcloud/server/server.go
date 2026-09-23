@@ -2427,6 +2427,9 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 				Reason:  infrav2.HCloudMachineSSHPrivateKeySecretNotFoundReason,
 				Message: fmt.Sprintf("secret %s/%s not found", s.scope.Namespace(), robotSecretName),
 			})
+
+			// Stop retrying, a watch picks it up once the secret exists.
+			return "", fmt.Errorf("%w: secret %q not found", errSSHKeyMisconfigured, robotSecretName)
 		}
 
 		return "", fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
