@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/annotations"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	capilabels "sigs.k8s.io/cluster-api/util/labels"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,6 +58,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
@@ -856,6 +858,15 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		WithEventFilter(predicates.ResourceIsNotExternallyManaged(mgr.GetScheme(), log)).
 		WithEventFilter(IgnoreInsignificantHetznerClusterStatusUpdates(log)).
 		Owns(&corev1.Secret{}).
+		// Using WatchesRawSource here because Watches applies predicates
+		// configured through WithEventFilter above, which would reject
+		// Secrets without the CAPI watch label.
+		WatchesRawSource(source.Kind[client.Object](
+			mgr.GetCache(),
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.hetznerSecretToHetznerClusters),
+			IgnoreInsignificantSecretUpdates(log),
+		)).
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(r.clusterToHetznerCluster),
@@ -877,6 +888,42 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 	}
 
 	return nil
+}
+
+func (r *HetznerClusterReconciler) hetznerSecretToHetznerClusters(ctx context.Context, o client.Object) []reconcile.Request {
+	log := log.FromContext(ctx)
+
+	secret, ok := o.(*corev1.Secret)
+	if !ok {
+		log.Error(fmt.Errorf("expected a Secret but got a %T", o), "failed to get HetznerCluster for Secret")
+		return nil
+	}
+
+	log = log.WithValues("objectMapper", "hetznerSecretToHetznerCluster", "namespace", secret.Namespace, "secret", secret.Name)
+
+	hetznerClusterList := &infrav2.HetznerClusterList{}
+	if err := r.List(ctx, hetznerClusterList, client.InNamespace(secret.Namespace)); err != nil {
+		log.Error(err, "failed to list HetznerClusters, skipping mapping")
+		return nil
+	}
+
+	result := []reconcile.Request{}
+	for i := range hetznerClusterList.Items {
+		hetznerCluster := &hetznerClusterList.Items[i]
+		if hetznerCluster.Spec.HetznerSecret.Name != secret.Name {
+			continue
+		}
+		if annotations.IsExternallyManaged(hetznerCluster) {
+			continue
+		}
+		// WatchesRawSource ignores WithEventFilter predicates,
+		// therefore the watch filter is needed here.
+		if r.WatchFilterValue != "" && !capilabels.HasWatchLabel(hetznerCluster, r.WatchFilterValue) {
+			continue
+		}
+		result = append(result, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(hetznerCluster)})
+	}
+	return result
 }
 
 func (r *HetznerClusterReconciler) clusterToHetznerCluster(ctx context.Context, o client.Object) []reconcile.Request {
