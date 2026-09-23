@@ -57,7 +57,7 @@ const (
 	softwareResetTimeout     time.Duration = 10 * time.Minute
 	hardwareResetTimeout     time.Duration = 10 * time.Minute
 	connectionRefusedTimeout time.Duration = 10 * time.Minute
-	// retry delay for wrong-ssh-key errors while registering
+	// retry delay for wrong-ssh-key errors while registering.
 	registeringSSHErrorRetryDelay time.Duration = 5 * time.Minute
 	rescue                        string        = "rescue"
 	rescuePort                    int           = 22
