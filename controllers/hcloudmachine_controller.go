@@ -438,8 +438,8 @@ func controlPlaneLoadBalancerTargetsChanged(oldCluster, newCluster *infrav2.Hetz
 	return !slices.Equal(oldTargets, newTargets)
 }
 
-// HetznerSecretToHCloudMachines is a handler.ToRequestsFunc to be used to enqueue requests for reconciliation
-// of HCloudMachines when the referenced HetznerSecret changes (e.g. after a token rotation).
+// HetznerSecretToHCloudMachines enqueues HCloudMachines when the HetznerSecret or the
+// SSHKeys.RescueSecretRef secret changes, e.g. token rotation or a missing secret getting created.
 func (r *HCloudMachineReconciler) HetznerSecretToHCloudMachines(_ context.Context) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		log := log.FromContext(ctx)
@@ -462,7 +462,7 @@ func (r *HCloudMachineReconciler) HetznerSecretToHCloudMachines(_ context.Contex
 		toRequests := r.HetznerClusterToHCloudMachines(ctx)
 		for i := range hetznerClusterList.Items {
 			hc := &hetznerClusterList.Items[i]
-			if hc.Spec.HetznerSecret.Name != secret.Name {
+			if hc.Spec.HetznerSecret.Name != secret.Name && hc.Spec.SSHKeys.RescueSecretRef.Name != secret.Name {
 				continue
 			}
 			result = append(result, toRequests(ctx, hc)...)
