@@ -33,6 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
@@ -360,7 +361,7 @@ var _ = Describe("Test handleRateLimit", func() {
 
 	DescribeTable("Test handleRateLimit",
 		func(tc testCaseHandleRateLimit) {
-			err := handleRateLimit(tc.hm, tc.err, tc.functionName, tc.errMsg)
+			err := handleRateLimit(tc.hm, record.NewFakeRecorder(10), tc.err, tc.functionName, tc.errMsg)
 			if tc.expectError != nil {
 				Expect(err).To(MatchError(tc.expectError))
 			} else {
@@ -907,6 +908,7 @@ var _ = Describe("handleBootStateInitializing", func() {
 				},
 			},
 			SSHClientFactory: testEnv.HCloudSSHClientFactory,
+			EventRecorder:    record.NewFakeRecorder(10),
 		})
 		Expect(err).To(BeNil())
 
@@ -1021,6 +1023,7 @@ var _ = Describe("getSSHKeys", func() {
 				},
 			},
 			SSHClientFactory: testEnv.HCloudSSHClientFactory,
+			EventRecorder:    record.NewFakeRecorder(10),
 		})
 		Expect(err).To(BeNil())
 
@@ -1361,6 +1364,7 @@ var _ = Describe("Reconcile", func() {
 			Machine:          capiMachine,
 			HCloudMachine:    hcloudMachine,
 			SSHClientFactory: testEnv.HCloudSSHClientFactory,
+			EventRecorder:    record.NewFakeRecorder(10),
 		})
 		Expect(err).To(BeNil())
 

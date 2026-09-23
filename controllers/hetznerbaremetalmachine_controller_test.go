@@ -1426,7 +1426,8 @@ func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
 		},
 	}
 	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(
-		host, hbmm, hbmmOtherNS, hbmmWithoutLabel, hbmmWithHostAnnotation).Build()
+		host, hbmm, hbmmOtherNS, hbmmWithoutLabel, hbmmWithHostAnnotation,
+	).Build()
 
 	// host does not have a label.
 	f := BareMetalHostToBareMetalMachines(c, logr.Logger{})

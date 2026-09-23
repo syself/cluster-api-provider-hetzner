@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
@@ -236,7 +237,8 @@ var _ = Describe("chooseHost", func() {
 		ExpectedHostName string
 		RootDeviceHints  infrav2.RootDeviceHints
 	}
-	DescribeTable("chooseHost",
+	DescribeTable(
+		"chooseHost",
 		func(tc testCaseChooseHost) {
 			scheme := runtime.NewScheme()
 			utilruntime.Must(infrav2.AddToScheme(scheme))
@@ -317,7 +319,8 @@ var _ = Describe("chooseHost", func() {
 		swraid           int
 	}
 
-	DescribeTable("chooseHost(): Test with reason, because RAID config does not match.",
+	DescribeTable(
+		"chooseHost(): Test with reason, because RAID config does not match.",
 		func(tc testCaseChooseHostWithReason) {
 			scheme := runtime.NewScheme()
 			utilruntime.Must(infrav2.AddToScheme(scheme))
@@ -411,7 +414,8 @@ var _ = Describe("Test NodeAddresses", func() {
 		ExpectedNodeAddresses []clusterv1beta1.MachineAddress
 	}
 
-	DescribeTable("Test NodeAddress",
+	DescribeTable(
+		"Test NodeAddress",
 		func(tc testCaseNodeAddress) {
 			nodeAddresses := nodeAddresses(tc.Host, "bm-machine", tc.HasOldStyle)
 			for i, address := range tc.ExpectedNodeAddresses {
@@ -477,7 +481,8 @@ var _ = Describe("Test NodeAddresses", func() {
 })
 
 var _ = Describe("Test hasOldStyleIPAddress", func() {
-	DescribeTable("hasOldStyleIPAddress",
+	DescribeTable(
+		"hasOldStyleIPAddress",
 		func(addrs []clusterv1beta1.MachineAddress, expected bool) {
 			Expect(hasOldStyleIPAddress(addrs)).To(Equal(expected))
 		},
@@ -584,7 +589,8 @@ var _ = Describe("Test consumerRefMatches", func() {
 
 	// The consumer ref has no namespace. The host and the consuming HetznerBareMetalMachine always
 	// live in the same namespace, so there is no entry for a namespace mismatch.
-	DescribeTable("Test consumerRefMatches",
+	DescribeTable(
+		"Test consumerRefMatches",
 		func(tc testCaseConsumerRefMatches) {
 			Expect(consumerRefMatches(tc.Consumer, bmMachine)).To(Equal(tc.ExpectedResult))
 		},
@@ -638,7 +644,8 @@ var _ = Describe("Test setOwnerRefInList", func() {
 		APIVersion: "v1beta1",
 	}
 
-	DescribeTable("Test setOwnerRefInList",
+	DescribeTable(
+		"Test setOwnerRefInList",
 		func(tc testCaseSetOwnerRefInList) {
 			refList := setOwnerRefInList(tc.RefList, objectType, objectMeta)
 			Expect(refList).To(Equal(tc.ExpectedRefList))
@@ -723,7 +730,8 @@ var _ = Describe("Test ensureMachineAnnotation", func() {
 		ExpectedAnnotations map[string]string
 	}
 
-	DescribeTable("Test ensureMachineAnnotation",
+	DescribeTable(
+		"Test ensureMachineAnnotation",
 		func(tc testCaseEnsureMachineyyAnnotation) {
 			bmMachine := &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
@@ -771,7 +779,8 @@ var _ = Describe("Test updateHostAnnotation", func() {
 
 	const hostKey = "default/hostName"
 
-	DescribeTable("Test updateHostAnnotation",
+	DescribeTable(
+		"Test updateHostAnnotation",
 		func(tc testCaseUpdateHostAnnotation) {
 			updatedAnnotations := updateHostAnnotation(tc.Annotations, hostKey, logr.Discard())
 			Expect(updatedAnnotations).Should(Equal(tc.ExpectedAnnotations))
@@ -803,7 +812,8 @@ var _ = Describe("Test ensureClusterLabel", func() {
 
 	const clusterName = "clusterName"
 
-	DescribeTable("Test ensureClusterLabel",
+	DescribeTable(
+		"Test ensureClusterLabel",
 		func(tc testCaseEnsureClusterLabel) {
 			host := &infrav2.HetznerBareMetalHost{}
 			host.Labels = tc.labels
@@ -842,7 +852,8 @@ var _ = Describe("Test checkForRequeueError", func() {
 		expectedErrMsg string
 	}
 
-	DescribeTable("Test ensureClusterLabel",
+	DescribeTable(
+		"Test ensureClusterLabel",
 		func(tc testCaseCheckForRequeueError) {
 			errMsg := "test message"
 			res, err := checkForRequeueError(tc.err, errMsg)
@@ -883,7 +894,8 @@ var _ = Describe("Test analyzePatchError", func() {
 
 	groupResource := schema.GroupResource{Group: "testgroup", Resource: "testresource"}
 
-	DescribeTable("Test analyzePatchError",
+	DescribeTable(
+		"Test analyzePatchError",
 		func(tc testCaseAnalyzePatchError) {
 			err := analyzePatchError(tc.err, tc.ignoreNotFound)
 
@@ -938,7 +950,8 @@ var _ = Describe("Test GenerateProviderID", func() {
 		}
 	}
 
-	DescribeTable("GenerateProviderID",
+	DescribeTable(
+		"GenerateProviderID",
 		func(tc testCaseGenerateProviderID) {
 			providerID := generateProviderID(tc.hetznerCluster, tc.serverNumber)
 			Expect(providerID).To(Equal(tc.expectedProviderID))
@@ -989,6 +1002,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 				Cluster:          cluster,
 				HetznerCluster:   hetznerCluster,
 				HCloudClient:     hcloudClient,
+				EventRecorder:    record.NewFakeRecorder(100),
 			},
 		}
 	}
@@ -1506,6 +1520,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 				BareMetalMachine: bareMetalMachine,
 				HetznerCluster:   hetznerCluster,
 				HCloudClient:     hcloudClient,
+				EventRecorder:    record.NewFakeRecorder(100),
 			},
 		}
 

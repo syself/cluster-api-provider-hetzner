@@ -46,7 +46,6 @@ import (
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
-	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -262,8 +261,9 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 		}
 	}
 
-	record.Eventf(
+	s.scope.EventRecorder.Eventf(
 		s.scope.BareMetalMachine,
+		corev1.EventTypeNormal,
 		"BareMetalMachineDeleted",
 		"HetznerBareMetalMachine with name %s deleted",
 		s.scope.Name(),
@@ -634,7 +634,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 
 		loadBalancers, err := s.scope.HCloudClient.ListLoadBalancers(ctx, opts)
 		if err != nil {
-			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, err, "ListLoadBalancers")
+			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, s.scope.EventRecorder, err, "ListLoadBalancers")
 			return fmt.Errorf("failed to list load balancers: %w", err)
 		}
 
@@ -702,7 +702,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 
 	for _, ip := range addressesToDetach {
 		if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(ip)); err != nil {
-			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
+			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, s.scope.EventRecorder, err, "DeleteIPTargetOfLoadBalancer")
 			// The address is no longer a target, which is the state we want, so carry on
 			// with the next address instead of giving up on it.
 			if strings.Contains(err.Error(), "load_balancer_target_not_found") {
@@ -710,8 +710,9 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 			}
 			return fmt.Errorf("failed to remove IP %q as target of load balancer: %w", ip, err)
 		}
-		record.Eventf(
+		s.scope.EventRecorder.Eventf(
 			s.scope.HetznerCluster,
+			corev1.EventTypeNormal,
 			"DeletedIPTargetOfLoadBalancer",
 			"Deleted IP %q of server %d as target of the loadbalancer %v, it is not part of the configured address family %q",
 			ip, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID, s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.TargetAddressFamilyOrDefault(),
@@ -752,7 +753,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		}
 
 		if err := s.scope.HCloudClient.AddIPTargetToLoadBalancer(ctx, opts, lb); err != nil {
-			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, err, "AddIPTargetToLoadBalancer")
+			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, s.scope.EventRecorder, err, "AddIPTargetToLoadBalancer")
 			// The address is already a target, which is the state we want, so carry on
 			// with the next address instead of giving up on it.
 			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
@@ -760,8 +761,9 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 			}
 			return fmt.Errorf("failed to add IP %q as target to load balancer: %w", ip, err)
 		}
-		record.Eventf(
+		s.scope.EventRecorder.Eventf(
 			s.scope.HetznerCluster,
+			corev1.EventTypeNormal,
 			"AddedIPAsTargetToLoadBalancer",
 			"Added IP %q of server %d as targets to the loadbalancer %v",
 			ip, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
@@ -788,14 +790,15 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 	// remove host IPv4 as target
 	if host.Status.IPv4 != "" {
 		if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(host.Status.IPv4)); err != nil {
-			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
+			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, s.scope.EventRecorder, err, "DeleteIPTargetOfLoadBalancer")
 			// ignore not found errors
 			if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
 				return fmt.Errorf("failed to remove IPv4 %v as target of load balancer: %w", host.Status.IPv4, err)
 			}
 		}
-		record.Eventf(
+		s.scope.EventRecorder.Eventf(
 			s.scope.HetznerCluster,
+			corev1.EventTypeNormal,
 			"DeletedIPTargetOfLoadBalancer",
 			"Deleted IPv4 %q of server %d as targets of the loadbalancer %v",
 			host.Status.IPv4, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
@@ -805,14 +808,15 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 	// remove host IPv6 as target
 	if host.Status.IPv6 != "" {
 		if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(host.Status.IPv6)); err != nil {
-			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
+			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, s.scope.EventRecorder, err, "DeleteIPTargetOfLoadBalancer")
 			// ignore not found errors
 			if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
 				return fmt.Errorf("failed to remove IPv6 %v as target of load balancer: %w", host.Status.IPv6, err)
 			}
 		}
-		record.Eventf(
+		s.scope.EventRecorder.Eventf(
 			s.scope.HetznerCluster,
+			corev1.EventTypeNormal,
 			"DeletedTargetOfLoadBalancer",
 			"Deleted IPv6 %q of server %d as targets of the loadbalancer %v",
 			host.Status.IPv6, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,

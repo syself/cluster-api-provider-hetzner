@@ -23,6 +23,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
@@ -65,6 +66,7 @@ func TestReconcileServerType(t *testing.T) {
 		s, err := scope.NewHCloudMachineTemplateScope(scope.HCloudMachineTemplateScopeParams{
 			HCloudMachineTemplate: mt,
 			HCloudClient:          fake.NewHCloudClientFactory().NewClient(""),
+			EventRecorder:         record.NewFakeRecorder(10),
 		})
 		require.NoError(t, err)
 		return NewService(s)

@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -52,6 +53,7 @@ type BareMetalHostScopeParams struct {
 	RescueSSHSecret         *corev1.Secret
 	SecretManager           *secretutil.SecretManager
 	PreProvisionCommand     string
+	EventRecorder           record.EventRecorder
 
 	// WorkloadClusterClientFactory overrides the default real factory. Intended for tests only.
 	WorkloadClusterClientFactory WorkloadClusterClientFactory
@@ -81,6 +83,9 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 	if params.SecretManager == nil {
 		return nil, errors.New("cannot create baremetal host scope without secret manager")
 	}
+	if params.EventRecorder == nil {
+		return nil, errors.New("cannot create baremetal host scope without EventRecorder")
+	}
 
 	var emptyLogger logr.Logger
 	if params.Logger == emptyLogger {
@@ -101,6 +106,7 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		RescueSSHSecret:         params.RescueSSHSecret,
 		SecretManager:           params.SecretManager,
 		PreProvisionCommand:     params.PreProvisionCommand,
+		EventRecorder:           params.EventRecorder,
 		WorkloadClusterClientFactory: func() WorkloadClusterClientFactory {
 			if params.WorkloadClusterClientFactory != nil {
 				return params.WorkloadClusterClientFactory
@@ -135,6 +141,7 @@ type BareMetalHostScope struct {
 	OSSSHSecret                  *corev1.Secret
 	RescueSSHSecret              *corev1.Secret
 	PreProvisionCommand          string
+	EventRecorder                record.EventRecorder
 	WorkloadClusterClientFactory WorkloadClusterClientFactory
 }
 
@@ -198,9 +205,17 @@ func (s *BareMetalHostScope) SSHAfterInstallImageEnabled() bool {
 // errActionFailure is the error the log entry of SetHostError is keyed on.
 var errActionFailure = errors.New("action failure")
 
-// SetHostError stores the error on the host and writes it to the log.
+// SetHostError stores the error on the host, writes it to the log, and, if the error is
+// permanent, emits the corresponding warning event.
 func (s *BareMetalHostScope) SetHostError(errorType infrav2.ErrorType, message string) {
-	s.HetznerBareMetalHost.SetError(errorType, message)
+	if permanentErrorSet, permanentMessage := s.HetznerBareMetalHost.SetError(errorType, message); permanentErrorSet {
+		s.EventRecorder.Event(
+			s.HetznerBareMetalHost,
+			corev1.EventTypeWarning,
+			"PermanentErrorSet",
+			permanentMessage,
+		)
+	}
 	s.Error(errActionFailure, message, "errorType", errorType)
 }
 
