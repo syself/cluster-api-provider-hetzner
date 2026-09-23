@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,13 +32,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,7 +50,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	bmclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client"
@@ -104,7 +104,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, err
 	}
 	if skipReconciliation {
-		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav2.SkipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 
@@ -118,7 +118,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}()
 
 	// Fetch the Hetzner bare metal host instance.
-	bmHost := &infrav1.HetznerBareMetalHost{}
+	bmHost := &infrav2.HetznerBareMetalHost{}
 	err = r.Get(ctx, req.NamespacedName, bmHost)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -146,7 +146,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		// The object changed. Wait until the new version is in the local cache
 
 		// Get the latest version from the apiserver.
-		apiserverHost := &infrav1.HetznerBareMetalHost{}
+		apiserverHost := &infrav2.HetznerBareMetalHost{}
 
 		// Use uncached APIReader
 		err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(bmHost), apiserverHost)
@@ -166,7 +166,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 		err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 3*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			// new resource, read from local cache
-			latestFromLocalCache := &infrav1.HetznerBareMetalHost{}
+			latestFromLocalCache := &infrav2.HetznerBareMetalHost{}
 			getErr := r.Get(ctx, client.ObjectKeyFromObject(apiserverHost), latestFromLocalCache)
 			if apierrors.IsNotFound(getErr) {
 				// the object was deleted. All is fine.
@@ -187,20 +187,20 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// End: avoid conflict errors. Wait until local cache is up-to-date
 	// ----------------------------------------------------------------
 
-	patchHelper, err := v1beta1patch.NewHelper(bmHost, r)
+	patchHelper, err := patch.NewHelper(bmHost, r)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
-	initialProvisioningState := bmHost.Spec.Status.ProvisioningState
+	initialProvisioningState := bmHost.Status.ProvisioningState
 
 	defer func() {
-		if initialProvisioningState != bmHost.Spec.Status.ProvisioningState {
-			log.Info("Provisioning state changed", "from", initialProvisioningState, "to", bmHost.Spec.Status.ProvisioningState)
+		if initialProvisioningState != bmHost.Status.ProvisioningState {
+			log.Info("Provisioning state changed", "from", initialProvisioningState, "to", bmHost.Status.ProvisioningState)
 		}
 
-		v1beta1conditions.SetSummary(bmHost)
-		scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
+		deprecatedv1beta1conditions.SetSummary(bmHost)
+		scope.SetHetznerBareMetalHostReadySummary(bmHost)
 
 		if err := patchHelper.Patch(ctx, bmHost, scope.BareMetalHostPatchOpts()...); err != nil {
 			res = reconcile.Result{}
@@ -210,21 +210,55 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}()
 
 	// Add a finalizer to newly created objects.
-	if bmHost.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) {
+	if bmHost.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(bmHost, infrav2.HetznerBareMetalHostFinalizer) {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Remove permanent error, if the corresponding annotation was removed by the user.
 	removed := removePermanentErrorIfAnnotationIsGone(bmHost)
 	if removed {
-		// The permanent error was removed from Spec.Status.
+		// The permanent error was removed from the status.
 		// Save the changes, and then reconcile again.
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// Fetch the consuming HetznerBareMetalMachine and the CAPI Machine that owns it. The host starts
+	// provisioning and deprovisions based on the HetznerBareMetalMachine, and reads installImage,
+	// customProvisioner and sshSpec from it. The bootstrap data comes from the CAPI Machine.
+	var hetznerBareMetalMachine *infrav2.HetznerBareMetalMachine
+	var machine *clusterv1.Machine
+
+	if bmHost.Spec.ConsumerRef != nil {
+		// The consuming HetznerBareMetalMachine always lives in the namespace of the host.
+		hbmm := &infrav2.HetznerBareMetalMachine{}
+		name := client.ObjectKey{
+			Namespace: bmHost.Namespace,
+			Name:      bmHost.Spec.ConsumerRef.Name,
+		}
+		if err := r.Get(ctx, name, hbmm); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return reconcile.Result{}, err
+			}
+			// The HetznerBareMetalMachine named by the consumerRef is already gone. The host scope
+			// gets a nil HetznerBareMetalMachine and the host deprovisions.
+		} else {
+			hetznerBareMetalMachine = hbmm
+
+			// The CAPI Machine is nil until CAPI sets the ownerRef on the HetznerBareMetalMachine,
+			// and again once the CAPI Machine is force deleted. The host still has to deprovision
+			// and deprovisioning does not read the CAPI Machine, so it keeps reconciling without it.
+			machine, err = util.GetOwnerMachine(ctx, r, hbmm.ObjectMeta)
+			if err != nil && !apierrors.IsNotFound(err) {
+				return reconcile.Result{}, err
+			}
+		}
+	}
+
+	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine), "Machine", klog.KObj(machine))
+
 	// Certain cases need to be handled here and not later in the host state machine.
 	// If res != nil, then we should return, otherwise not.
-	res = r.reconcileSelectedStates(bmHost)
+	res = r.reconcileSelectedStates(bmHost, hetznerBareMetalMachine, machine)
 	emptyResult := reconcile.Result{}
 	if res != emptyResult {
 		return res, nil
@@ -233,16 +267,33 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has no
 	// DeletionTimestamp set. But the hbmm could be in Deprovisioning.
 
-	if bmHost.Spec.Status.HetznerClusterRef == "" {
-		log.Info("bmHost.Spec.Status.HetznerClusterRef is empty. Looks like a stale cache read")
+	if bmHost.Labels[clusterv1.ClusterNameLabel] == "" {
+		log.Info("HetznerBareMetalHost has no cluster-name label. Looks like a stale cache read")
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	hetznerCluster := &infrav1.HetznerCluster{}
+	// Fetch the Cluster through the cluster-name label. The HetznerBareMetalMachine controller
+	// sets that label when a HetznerBareMetalMachine claims a host.
+	cluster, err := util.GetClusterFromMetadata(ctx, r, bmHost.ObjectMeta)
+	if err != nil {
+		// The host cannot do anything without the Cluster, so we return here
+		return reconcile.Result{}, client.IgnoreNotFound(err)
+	}
+
+	log = log.WithValues("Cluster", klog.KObj(cluster))
+
+	// Fetch the HetznerCluster through the Cluster infrastructure ref.
+	infraRef := cluster.Spec.InfrastructureRef
+	if !infraRef.IsDefined() || infraRef.Kind != "HetznerCluster" || infraRef.APIGroup != infrav2.GroupVersion.Group {
+		log.Info("Cluster has no HetznerCluster infrastructure ref. Won't reconcile", "infrastructureRef", infraRef)
+		return reconcile.Result{}, nil
+	}
+
+	hetznerCluster := &infrav2.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
 		Namespace: bmHost.Namespace,
-		Name:      bmHost.Spec.Status.HetznerClusterRef,
+		Name:      infraRef.Name,
 	}
 	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
@@ -250,37 +301,15 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
 
-	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r, hetznerCluster.ObjectMeta)
-	if err != nil {
-		return reconcile.Result{}, client.IgnoreNotFound(err)
-	}
-
-	log = log.WithValues("Cluster", klog.KObj(cluster))
-
 	if annotations.IsPaused(cluster, bmHost) {
 		log.Info("HetznerBareMetalHost or linked Cluster is marked as paused. Won't reconcile")
 		return reconcile.Result{}, nil
 	}
 
-	hetznerBareMetalMachine := &infrav1.HetznerBareMetalMachine{}
-
-	if bmHost.Spec.ConsumerRef != nil {
-		name := client.ObjectKey{
-			Namespace: bmHost.Spec.ConsumerRef.Namespace,
-			Name:      bmHost.Spec.ConsumerRef.Name,
-		}
-
-		if err := r.Get(ctx, name, hetznerBareMetalMachine); err != nil {
-			return reconcile.Result{}, client.IgnoreNotFound(err)
-		}
-	}
-
-	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimitV1Beta1(bmHost, r.RateLimitWaitTime); wait {
+	if wait := reconcileRobotRateLimit(bmHost, r.RateLimitWaitTime); wait {
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -292,7 +321,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// Get secrets. Return when result != nil.
-	osSSHSecret, rescueSSHSecret, res, err := r.getSecrets(ctx, *secretManager, bmHost, hetznerCluster)
+	osSSHSecret, rescueSSHSecret, res, err := r.getSecrets(ctx, *secretManager, bmHost, hetznerBareMetalMachine, hetznerCluster)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -308,6 +337,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		Cluster:                      cluster,
 		HetznerBareMetalHost:         bmHost,
 		HetznerBareMetalMachine:      hetznerBareMetalMachine,
+		Machine:                      machine,
 		RobotClient:                  r.RobotClientFactory.NewClient(robotCreds),
 		SSHClientFactory:             r.SSHClientFactory,
 		OSSSHSecret:                  osSSHSecret,
@@ -335,98 +365,112 @@ func (r *HetznerBareMetalHostReconciler) reconcile(
 	return result, nil
 }
 
-func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(bmHost *infrav1.HetznerBareMetalHost) ctrl.Result {
-	switch bmHost.Spec.Status.ProvisioningState {
+func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(
+	bmHost *infrav2.HetznerBareMetalHost,
+	hbmm *infrav2.HetznerBareMetalMachine,
+	machine *clusterv1.Machine,
+) ctrl.Result {
+	switch bmHost.Status.ProvisioningState {
 	// Handle StateNone: check whether needs to be provisioned or deleted.
-	case infrav1.StateNone:
+	case infrav2.StateNone:
 		if !bmHost.DeletionTimestamp.IsZero() && bmHost.Spec.ConsumerRef == nil {
-			bmHost.Spec.Status.ProvisioningState = infrav1.StateDeleting
-			v1beta2conditions.Set(bmHost, metav1.Condition{
-				Type:   infrav1.HetznerBareMetalHostDeletingV1Beta2Condition,
+			bmHost.Status.ProvisioningState = infrav2.StateDeleting
+			conditions.Set(bmHost, metav1.Condition{
+				Type:   infrav2.HetznerBareMetalHostDeletingCondition,
 				Status: metav1.ConditionTrue,
-				Reason: infrav1.HetznerBareMetalHostDeletingV1Beta2Reason,
+				Reason: infrav2.HetznerBareMetalHostDeletingReason,
 			})
-		} else if bmHost.NeedsProvisioning() {
-			bmHost.Spec.Status.ProvisioningState = infrav1.StatePreparing
+		} else if needsProvisioning(hbmm, machine) {
+			bmHost.Status.ProvisioningState = infrav2.StatePreparing
 		}
 
 		return ctrl.Result{RequeueAfter: 10 * time.Second}
 
 	// Handle StateDeleting
-	case infrav1.StateDeleting:
-		v1beta2conditions.Set(bmHost, metav1.Condition{
-			Type:   infrav1.HetznerBareMetalHostDeletingV1Beta2Condition,
+	case infrav2.StateDeleting:
+		conditions.Set(bmHost, metav1.Condition{
+			Type:   infrav2.HetznerBareMetalHostDeletingCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav1.HetznerBareMetalHostDeletingV1Beta2Reason,
+			Reason: infrav2.HetznerBareMetalHostDeletingReason,
 		})
 		// remove finalizer.
-		controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer)
+		controllerutil.RemoveFinalizer(bmHost, infrav2.HetznerBareMetalHostFinalizer)
 		return reconcile.Result{Requeue: true}
 	}
 	return ctrl.Result{}
 }
 
+// needsProvisioning returns true when the host can start provisioning. It needs the
+// HetznerBareMetalMachine that claimed the host and the CAPI Machine that owns it.
+// The CAPI Machine has to carry the name of its bootstrap secret as well.
+func needsProvisioning(hbmm *infrav2.HetznerBareMetalMachine, machine *clusterv1.Machine) bool {
+	if hbmm == nil || !hbmm.DeletionTimestamp.IsZero() {
+		return false
+	}
+	if machine == nil || !machine.DeletionTimestamp.IsZero() {
+		return false
+	}
+	return machine.Spec.Bootstrap.DataSecretName != nil
+}
+
 func (r *HetznerBareMetalHostReconciler) getSecrets(
 	ctx context.Context,
 	secretManager secretutil.SecretManager,
-	bmHost *infrav1.HetznerBareMetalHost,
-	hetznerCluster *infrav1.HetznerCluster,
+	bmHost *infrav2.HetznerBareMetalHost,
+	hbmm *infrav2.HetznerBareMetalMachine,
+	hetznerCluster *infrav2.HetznerCluster,
 ) (
 	osSSHSecret *corev1.Secret,
 	rescueSSHSecret *corev1.Secret,
 	res ctrl.Result,
 	reterr error,
 ) {
-	if bmHost.Spec.Status.SSHSpec != nil {
+	if hbmm != nil {
 		var err error
-		osSSHSecretNamespacedName := types.NamespacedName{Namespace: bmHost.Namespace, Name: bmHost.Spec.Status.SSHSpec.SecretRef.Name}
+		osSSHSecretNamespacedName := types.NamespacedName{Namespace: bmHost.Namespace, Name: hbmm.Spec.SSHSpec.SecretRef.Name}
 		osSSHSecret, err = secretManager.ObtainSecret(ctx, osSSHSecretNamespacedName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				msg := fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingOSSSHSecret, err.Error())
-				v1beta1conditions.MarkFalse(
+				msg := fmt.Sprintf("%s: %s", infrav2.ErrorMessageMissingOSSSHSecret, err.Error())
+				deprecatedv1beta1conditions.MarkFalse(
 					bmHost,
-					infrav1.CredentialsAvailableCondition,
-					infrav1.OSSSHSecretMissingReason,
-					clusterv1beta1.ConditionSeverityError,
+					infrav2.CredentialsAvailableV1Beta1Condition,
+					infrav2.OSSSHSecretMissingV1Beta1Reason,
+					clusterv1.ConditionSeverityError,
 					"%s",
 					msg,
 				)
-				v1beta2conditions.Set(bmHost, metav1.Condition{
-					Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+				conditions.Set(bmHost, metav1.Condition{
+					Type:    infrav2.HetznerBareMetalHostSSHKeysAvailableCondition,
 					Status:  metav1.ConditionFalse,
-					Reason:  infrav1.HetznerBareMetalHostOSSSHSecretMissingV1Beta2Reason,
+					Reason:  infrav2.HetznerBareMetalHostOSSSHSecretMissingReason,
 					Message: msg,
 				})
-				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, msg)
-				v1beta1conditions.SetSummary(bmHost)
-				scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
+				record.Warnf(bmHost, "OSSSHSecretMissing", msg)
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
 		}
 
-		rescueSSHSecretNamespacedName := types.NamespacedName{Namespace: bmHost.Namespace, Name: hetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name}
+		rescueSSHSecretNamespacedName := types.NamespacedName{Namespace: bmHost.Namespace, Name: hetznerCluster.Spec.SSHKeys.RescueSecretRef.Name}
 		rescueSSHSecret, err = secretManager.AcquireSecret(ctx, rescueSSHSecretNamespacedName, hetznerCluster, false, hetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				v1beta1conditions.MarkFalse(
+				deprecatedv1beta1conditions.MarkFalse(
 					bmHost,
-					infrav1.CredentialsAvailableCondition,
-					infrav1.RescueSSHSecretMissingReason,
-					clusterv1beta1.ConditionSeverityError,
-					infrav1.ErrorMessageMissingRescueSSHSecret,
+					infrav2.CredentialsAvailableV1Beta1Condition,
+					infrav2.RescueSSHSecretMissingV1Beta1Reason,
+					clusterv1.ConditionSeverityError,
+					infrav2.ErrorMessageMissingRescueSSHSecret,
 				)
-				v1beta2conditions.Set(bmHost, metav1.Condition{
-					Type:    infrav1.HetznerBareMetalHostSSHKeysAvailableV1Beta2Condition,
+				conditions.Set(bmHost, metav1.Condition{
+					Type:    infrav2.HetznerBareMetalHostSSHKeysAvailableCondition,
 					Status:  metav1.ConditionFalse,
-					Reason:  infrav1.HetznerBareMetalHostRescueSSHSecretMissingV1Beta2Reason,
-					Message: infrav1.ErrorMessageMissingRescueSSHSecret,
+					Reason:  infrav2.HetznerBareMetalHostRescueSSHSecretMissingReason,
+					Message: infrav2.ErrorMessageMissingRescueSSHSecret,
 				})
 
-				record.Warnf(bmHost, infrav1.RescueSSHSecretMissingReason, infrav1.ErrorMessageMissingRescueSSHSecret)
-				v1beta1conditions.SetSummary(bmHost)
-				scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
+				record.Warnf(bmHost, "RescueSSHSecretMissing", infrav2.ErrorMessageMissingRescueSSHSecret)
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
@@ -438,7 +482,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 func getAndValidateRobotCredentials(
 	ctx context.Context,
 	namespace string,
-	hetznerCluster *infrav1.HetznerCluster,
+	hetznerCluster *infrav2.HetznerCluster,
 	secretManager *secretutil.SecretManager,
 ) (robotclient.Credentials, error) {
 	secretNamspacedName := types.NamespacedName{Namespace: namespace, Name: hetznerCluster.Spec.HetznerSecret.Name}
@@ -482,30 +526,30 @@ func getAndValidateRobotCredentials(
 
 func hetznerSecretErrorResult(
 	err error,
-	bmHost *infrav1.HetznerBareMetalHost,
+	bmHost *infrav2.HetznerBareMetalHost,
 ) (res ctrl.Result, reterr error) {
 	resolveErr := &secretutil.ResolveSecretRefError{}
 	if errors.As(err, &resolveErr) {
 		// In the event that the reference to the secret is defined, but we cannot find it
 		// we requeue the host as we will not know if they create the secret
 		// at some point in the future.
-		v1beta1conditions.MarkFalse(
+		deprecatedv1beta1conditions.MarkFalse(
 			bmHost,
-			infrav1.RobotCredentialsAvailableCondition,
-			infrav1.HetznerSecretUnreachableReason,
-			clusterv1beta1.ConditionSeverityError,
-			infrav1.ErrorMessageMissingHetznerSecret,
+			infrav2.RobotCredentialsAvailableV1Beta1Condition,
+			infrav2.HetznerSecretUnreachableV1Beta1Reason,
+			clusterv1.ConditionSeverityError,
+			infrav2.ErrorMessageMissingHetznerSecret,
 		)
-		v1beta2conditions.Set(bmHost, metav1.Condition{
-			Type:    infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+		conditions.Set(bmHost, metav1.Condition{
+			Type:    infrav2.HetznerBareMetalHostRobotCredentialsAvailableCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerBareMetalHostSecretUnreachableV1Beta2Reason,
-			Message: infrav1.ErrorMessageMissingHetznerSecret,
+			Reason:  infrav2.HetznerBareMetalHostSecretUnreachableReason,
+			Message: infrav2.ErrorMessageMissingHetznerSecret,
 		})
 
-		record.Warnf(bmHost, infrav1.HetznerSecretUnreachableReason, fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingHetznerSecret, err.Error()))
-		v1beta1conditions.SetSummary(bmHost)
-		scope.SetHetznerBareMetalHostV1Beta2ReadySummary(bmHost)
+		record.Warnf(bmHost, "HetznerSecretUnreachable", fmt.Sprintf("%s: %s", infrav2.ErrorMessageMissingHetznerSecret, err.Error()))
+		deprecatedv1beta1conditions.SetSummary(bmHost)
+		scope.SetHetznerBareMetalHostReadySummary(bmHost)
 
 		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 		return res, nil
@@ -513,20 +557,20 @@ func hetznerSecretErrorResult(
 
 	credValidationErr := &bmclient.CredentialsValidationError{}
 	if errors.As(err, &credValidationErr) {
-		v1beta1conditions.MarkFalse(
+		deprecatedv1beta1conditions.MarkFalse(
 			bmHost,
-			infrav1.RobotCredentialsAvailableCondition,
-			infrav1.RobotCredentialsInvalidReason,
-			clusterv1beta1.ConditionSeverityError,
-			infrav1.ErrorMessageMissingOrInvalidSecretData,
+			infrav2.RobotCredentialsAvailableV1Beta1Condition,
+			infrav2.RobotCredentialsInvalidV1Beta1Reason,
+			clusterv1.ConditionSeverityError,
+			infrav2.ErrorMessageMissingOrInvalidSecretData,
 		)
-		v1beta2conditions.Set(bmHost, metav1.Condition{
-			Type:    infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Condition,
+		conditions.Set(bmHost, metav1.Condition{
+			Type:    infrav2.HetznerBareMetalHostRobotCredentialsAvailableCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerBareMetalHostRobotCredentialsInvalidV1Beta2Reason,
-			Message: infrav1.ErrorMessageMissingOrInvalidSecretData,
+			Reason:  infrav2.HetznerBareMetalHostRobotCredentialsInvalidReason,
+			Message: infrav2.ErrorMessageMissingOrInvalidSecretData,
 		})
-		record.Warnf(bmHost, infrav1.RobotCredentialsInvalidReason, err.Error())
+		record.Warnf(bmHost, "RobotCredentialsInvalid", err.Error())
 		return res, nil
 	}
 	return reconcile.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)
@@ -536,20 +580,20 @@ func hetznerSecretErrorResult(
 func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r, &infrav1.HetznerBareMetalHostList{}, mgr.GetScheme())
+	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r, &infrav2.HetznerBareMetalHostList{}, mgr.GetScheme())
 	if err != nil {
 		return fmt.Errorf("failed to create mapper for Cluster to HetznerBareMetalHosts: %w", err)
 	}
 
 	err = ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
-		For(&infrav1.HetznerBareMetalHost{}).
+		For(&infrav2.HetznerBareMetalHost{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
 		WithEventFilter(
 			predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					objectOld, oldOK := e.ObjectOld.(*infrav1.HetznerBareMetalHost)
-					objectNew, newOK := e.ObjectNew.(*infrav1.HetznerBareMetalHost)
+					objectOld, oldOK := e.ObjectOld.(*infrav2.HetznerBareMetalHost)
+					objectNew, newOK := e.ObjectNew.(*infrav2.HetznerBareMetalHost)
 
 					if !oldOK || !newOK {
 						// The thing that changed wasn't a host, so we
@@ -560,12 +604,7 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 					}
 
 					// If provisioning state changes, then we want to reconcile
-					if objectOld.Spec.Status.ProvisioningState != objectNew.Spec.Status.ProvisioningState {
-						return true
-					}
-
-					// If install image changes, then we want to reconcile, as this is important when working with bm machines
-					if !reflect.DeepEqual(objectOld.Spec.Status.InstallImage, objectNew.Spec.Status.InstallImage) {
+					if objectOld.Status.ProvisioningState != objectNew.Status.ProvisioningState {
 						return true
 					}
 
@@ -575,16 +614,16 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 						return true
 					}
 
-					objectO := objectOld.DeepCopy()
-					objectN := objectNew.DeepCopy()
-					objectO.Spec.Status = infrav1.ControllerGeneratedStatus{}
-					objectN.Spec.Status = infrav1.ControllerGeneratedStatus{}
-
-					// We can ignore changes only in status or spec.status. We can ignore this
-					return !reflect.DeepEqual(objectO.Spec, objectN.Spec)
+					// We can ignore changes that only touch the rest of the status.
+					return !reflect.DeepEqual(objectOld.Spec, objectNew.Spec)
 				},
 			}).
 		Owns(&corev1.Secret{}).
+		Watches(
+			&infrav2.HetznerBareMetalMachine{},
+			handler.EnqueueRequestsFromMapFunc(hetznerBareMetalMachineToHetznerBareMetalHost),
+			builder.WithPredicates(hetznerBareMetalMachinePredicate()),
+		).
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
@@ -598,27 +637,90 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 	return nil
 }
 
+// hetznerBareMetalMachinePredicate filters the HetznerBareMetalMachine updates that reach the host.
+// The host reads sshSpec, installImage and customProvisioner from the HetznerBareMetalMachine, and
+// it deprovisions once that object is being deleted.
+func hetznerBareMetalMachinePredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldMachine, oldOK := e.ObjectOld.(*infrav2.HetznerBareMetalMachine)
+			newMachine, newOK := e.ObjectNew.(*infrav2.HetznerBareMetalMachine)
+			if !oldOK || !newOK {
+				return true
+			}
+
+			if oldMachine.DeletionTimestamp.IsZero() != newMachine.DeletionTimestamp.IsZero() {
+				return true
+			}
+
+			return !reflect.DeepEqual(oldMachine.Spec, newMachine.Spec)
+		},
+	}
+}
+
+// hetznerBareMetalMachineToHetznerBareMetalHost enqueues the host that is bound to the changed
+// HetznerBareMetalMachine. The host starts provisioning and deprovisions based on its
+// HetznerBareMetalMachine, so it must see those events.
+func hetznerBareMetalMachineToHetznerBareMetalHost(_ context.Context, obj client.Object) []reconcile.Request {
+	hbmm, ok := obj.(*infrav2.HetznerBareMetalMachine)
+	if !ok {
+		return nil
+	}
+
+	hostKey, ok := hbmm.GetAnnotations()[infrav2.HostAnnotation]
+	if !ok {
+		return nil
+	}
+
+	// The annotation has the format "namespace/hbmh-name". The namespace gets ignored, as
+	// cross-namespace references are not allowed.
+	parts := strings.Split(hostKey, "/")
+	if len(parts) != 2 {
+		return nil
+	}
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Namespace: hbmm.Namespace,
+				Name:      parts[1],
+			},
+		},
+	}
+}
+
 // removePermanentErrorIfAnnotationIsGone clears the permanent error status once the user removes
 // the permanent-error annotation.
-func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost,
+func removePermanentErrorIfAnnotationIsGone(bmHost *infrav2.HetznerBareMetalHost,
 ) (removed bool) {
-	if bmHost.Spec.Status.ErrorType != infrav1.PermanentError {
+	if bmHost.Status.ErrorType != infrav2.PermanentError {
 		// PermanentError not set. Do nothing.
 		return false
 	}
 	for k := range bmHost.GetAnnotations() {
-		if k == infrav1.PermanentErrorAnnotation {
+		if k == infrav2.PermanentErrorAnnotation {
 			// Annotation was not removed by user. Do nothing.
 			return false
 		}
 	}
-
-	bmHost.Spec.Status.ErrorType = ""
-	bmHost.Spec.Status.ErrorMessage = ""
-	bmHost.Spec.Status.ErrorCount = 0
-	v1beta1conditions.Delete(bmHost, infrav1.ActionCompletedCondition)
-	v1beta2conditions.Delete(bmHost, infrav1.HetznerBareMetalHostActionCompletedV1Beta2Condition)
+	bmHost.ClearError()
 	record.Eventf(bmHost, "PermanentErrorWasRemoved", "The permanent error was removed, because the annotation %q was removed",
-		infrav1.PermanentErrorAnnotation)
+		infrav2.PermanentErrorAnnotation)
 	return true
+}
+
+// reconcileRobotRateLimit checks whether the Robot API rate limit has been reached and returns
+// whether the controller should wait a bit more. When the wait is over it clears the rate-limit
+// conditions (HetznerAPIReachable marked reachable again, RobotRateLimitExceeded deleted).
+func reconcileRobotRateLimit(bmHost *infrav2.HetznerBareMetalHost, rateLimitWaitTime time.Duration) bool {
+	condition := conditions.Get(bmHost, infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition)
+	if condition != nil && condition.Status == metav1.ConditionTrue {
+		if time.Now().Before(condition.LastTransitionTime.Add(rateLimitWaitTime)) {
+			return true
+		}
+		deprecatedv1beta1conditions.MarkTrue(bmHost, infrav2.HetznerAPIReachableV1Beta1Condition)
+		conditions.Delete(bmHost, infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition)
+	}
+
+	return false
 }

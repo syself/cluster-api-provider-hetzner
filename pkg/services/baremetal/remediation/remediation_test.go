@@ -19,6 +19,7 @@ package remediation
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -31,10 +32,11 @@ import (
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1" // HetznerBareMetalHost and HetznerBareMetalMachine are still on v1beta1
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 )
@@ -92,7 +94,7 @@ var _ = Describe("Test AddRebootAnnotation", func() {
 		expectAnnotations map[string]string
 	}
 
-	rebootAnnotationArguments := infrav1.RebootAnnotationArguments{Type: infrav1.RebootTypeHardware}
+	rebootAnnotationArguments := infrav2.RebootAnnotationArguments{Type: infrav2.RebootTypeHardware}
 
 	b, err := json.Marshal(rebootAnnotationArguments)
 	Expect(err).To(BeNil())
@@ -108,15 +110,15 @@ var _ = Describe("Test AddRebootAnnotation", func() {
 		},
 		Entry("nil annotations", testCaseAddRebootAnnotation{
 			annotations:       nil,
-			expectAnnotations: map[string]string{infrav1.RebootAnnotation: rebootAnnotationString},
+			expectAnnotations: map[string]string{infrav2.RebootAnnotation: rebootAnnotationString},
 		}),
 		Entry("existing annotations", testCaseAddRebootAnnotation{
 			annotations:       map[string]string{"key": "value"},
-			expectAnnotations: map[string]string{"key": "value", infrav1.RebootAnnotation: rebootAnnotationString},
+			expectAnnotations: map[string]string{"key": "value", infrav2.RebootAnnotation: rebootAnnotationString},
 		}),
 		Entry("reboot annotation already present", testCaseAddRebootAnnotation{
-			annotations:       map[string]string{"key": "value", infrav1.RebootAnnotation: rebootAnnotationString},
-			expectAnnotations: map[string]string{"key": "value", infrav1.RebootAnnotation: rebootAnnotationString},
+			annotations:       map[string]string{"key": "value", infrav2.RebootAnnotation: rebootAnnotationString},
+			expectAnnotations: map[string]string{"key": "value", infrav2.RebootAnnotation: rebootAnnotationString},
 		}),
 	)
 })
@@ -147,10 +149,10 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			machine := &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-machine", Namespace: "default", UID: "machine-uid"},
 			}
-			host := &infrav1.HetznerBareMetalHost{
+			host := &infrav2.HetznerBareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-host", Namespace: "default"},
-				Spec: infrav1.HetznerBareMetalHostSpec{
-					Status: infrav1.ControllerGeneratedStatus{ProvisioningState: infrav1.StateProvisioned},
+				Status: infrav2.HetznerBareMetalHostStatus{
+					ProvisioningState: infrav2.StateProvisioned,
 				},
 			}
 			remediation := &infrav2.HetznerBareMetalRemediation{
@@ -195,7 +197,7 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			c := fakeclient.NewClientBuilder().
 				WithScheme(scheme).
 				WithObjects(host, machine, remediation).
-				WithStatusSubresource(machine).
+				WithStatusSubresource(machine, host).
 				Build()
 
 			service := &Service{scope: &scope.BareMetalRemediationScope{
@@ -215,17 +217,41 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			// Either way, remediation stops.
 			Expect(remediation.Status.Phase).To(Equal(infrav2.PhaseDeleting))
 
-			updatedHost := &infrav1.HetznerBareMetalHost{}
+			updatedHost := &infrav2.HetznerBareMetalHost{}
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost)).To(Succeed())
 			if tc.expectHostPermanentError {
-				Expect(updatedHost.Spec.Status.ErrorType).To(Equal(infrav1.PermanentError))
-				// We check the errorMessage against the expected one because its wording differs
-				// for 0 reboots (retryLimit 0) versus one or more failed reboots.
-				Expect(updatedHost.Spec.Status.ErrorMessage).To(Equal(tc.expectErrorMessage))
-				Expect(updatedHost.Annotations).To(HaveKey(infrav1.PermanentErrorAnnotation))
+				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.PermanentError))
+				// The retire reason is recorded on the ActionCompleted condition. Its wording
+				// differs for 0 reboots (retryLimit 0) versus one or more failed reboots, and
+				// SetError appends the annotation an operator has to remove.
+				wantMessage := fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
+					tc.expectErrorMessage, infrav2.PermanentErrorAnnotation)
+				ac := conditions.Get(updatedHost, infrav2.HetznerBareMetalHostActionCompletedCondition)
+				Expect(ac).NotTo(BeNil())
+				Expect(ac.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedPermanentErrorReason))
+				Expect(ac.Message).To(Equal(wantMessage))
+
+				acV1Beta1 := deprecatedv1beta1conditions.Get(updatedHost, infrav2.ActionCompletedV1Beta1Condition)
+				Expect(acV1Beta1).NotTo(BeNil())
+				Expect(acV1Beta1.Reason).To(Equal(infrav2.ActionCompletedPermanentErrorV1Beta1Reason))
+				Expect(acV1Beta1.Message).To(Equal(wantMessage))
+				Expect(updatedHost.Annotations).To(HaveKey(infrav2.PermanentErrorAnnotation))
 			} else {
-				Expect(updatedHost.Spec.Status.ErrorType).To(BeEmpty())
-				Expect(updatedHost.Annotations).NotTo(HaveKey(infrav1.PermanentErrorAnnotation))
+				Expect(updatedHost.Status.ErrorType).To(BeEmpty())
+				Expect(updatedHost.Annotations).NotTo(HaveKey(infrav2.PermanentErrorAnnotation))
+
+				updatedMachine := &clusterv1.Machine{}
+				Expect(c.Get(ctx, client.ObjectKeyFromObject(machine), updatedMachine)).To(Succeed())
+
+				remediated := conditions.Get(updatedMachine, clusterv1.MachineOwnerRemediatedCondition)
+				Expect(remediated).NotTo(BeNil())
+				Expect(remediated.Status).To(Equal(metav1.ConditionFalse))
+				Expect(remediated.Reason).To(Equal(clusterv1.MachineOwnerRemediatedWaitingForRemediationReason))
+
+				remediatedV1Beta1 := deprecatedv1beta1conditions.Get(updatedMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition)
+				Expect(remediatedV1Beta1).NotTo(BeNil())
+				Expect(remediatedV1Beta1.Status).To(Equal(corev1.ConditionFalse))
+				Expect(remediatedV1Beta1.Reason).To(Equal(clusterv1.WaitingForRemediationV1Beta1Reason))
 			}
 		},
 		Entry("Retire after failed reboots", testCaseOnExhaustion{
@@ -289,10 +315,10 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 				Message: "Node has been deleted",
 			})
 
-			host := &infrav1.HetznerBareMetalHost{
+			host := &infrav2.HetznerBareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-host", Namespace: "default"},
-				Spec: infrav1.HetznerBareMetalHostSpec{
-					Status: infrav1.ControllerGeneratedStatus{ProvisioningState: infrav1.StateProvisioned},
+				Status: infrav2.HetznerBareMetalHostStatus{
+					ProvisioningState: infrav2.StateProvisioned,
 				},
 			}
 
@@ -301,7 +327,7 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 					Name:      "test-bm-machine",
 					Namespace: "default",
 					Annotations: map[string]string{
-						infrav1.HostAnnotation: "default/test-host",
+						infrav2.HostAnnotation: "default/test-host",
 					},
 				},
 			}
@@ -332,7 +358,7 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 			c := fakeclient.NewClientBuilder().
 				WithScheme(scheme).
 				WithObjects(host, machine, remediation).
-				WithStatusSubresource(machine).
+				WithStatusSubresource(machine, host).
 				Build()
 
 			service := &Service{scope: &scope.BareMetalRemediationScope{
@@ -347,17 +373,44 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 			Expect(res.RequeueAfter).To(BeZero())
 
 			// Either way, no reboot annotation was added and remediation stops.
-			Expect(host.Annotations).NotTo(HaveKey(infrav1.RebootAnnotation))
+			Expect(host.Annotations).NotTo(HaveKey(infrav2.RebootAnnotation))
 			Expect(remediation.Status.Phase).To(Equal(infrav2.PhaseDeleting))
 
-			updatedHost := &infrav1.HetznerBareMetalHost{}
+			updatedHost := &infrav2.HetznerBareMetalHost{}
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost)).To(Succeed())
 			if tc.expectHostPermanentError {
-				Expect(updatedHost.Spec.Status.ErrorType).To(Equal(infrav1.PermanentError))
-				Expect(updatedHost.Annotations).To(HaveKey(infrav1.PermanentErrorAnnotation))
+				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.PermanentError))
+				Expect(updatedHost.Annotations).To(HaveKey(infrav2.PermanentErrorAnnotation))
+
+				// retireHost passes the MachineHealthCheck message on, and SetError appends the
+				// annotation an operator has to remove.
+				wantMessage := fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
+					"Node has been deleted", infrav2.PermanentErrorAnnotation)
+				ac := conditions.Get(updatedHost, infrav2.HetznerBareMetalHostActionCompletedCondition)
+				Expect(ac).NotTo(BeNil())
+				Expect(ac.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedPermanentErrorReason))
+				Expect(ac.Message).To(Equal(wantMessage))
+
+				acV1Beta1 := deprecatedv1beta1conditions.Get(updatedHost, infrav2.ActionCompletedV1Beta1Condition)
+				Expect(acV1Beta1).NotTo(BeNil())
+				Expect(acV1Beta1.Reason).To(Equal(infrav2.ActionCompletedPermanentErrorV1Beta1Reason))
+				Expect(acV1Beta1.Message).To(Equal(wantMessage))
 			} else {
-				Expect(updatedHost.Spec.Status.ErrorType).To(BeEmpty())
-				Expect(updatedHost.Annotations).NotTo(HaveKey(infrav1.PermanentErrorAnnotation))
+				Expect(updatedHost.Status.ErrorType).To(BeEmpty())
+				Expect(updatedHost.Annotations).NotTo(HaveKey(infrav2.PermanentErrorAnnotation))
+
+				updatedMachine := &clusterv1.Machine{}
+				Expect(c.Get(ctx, client.ObjectKeyFromObject(machine), updatedMachine)).To(Succeed())
+
+				remediated := conditions.Get(updatedMachine, clusterv1.MachineOwnerRemediatedCondition)
+				Expect(remediated).NotTo(BeNil())
+				Expect(remediated.Status).To(Equal(metav1.ConditionFalse))
+				Expect(remediated.Reason).To(Equal(clusterv1.MachineOwnerRemediatedWaitingForRemediationReason))
+
+				remediatedV1Beta1 := deprecatedv1beta1conditions.Get(updatedMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition)
+				Expect(remediatedV1Beta1).NotTo(BeNil())
+				Expect(remediatedV1Beta1.Status).To(Equal(corev1.ConditionFalse))
+				Expect(remediatedV1Beta1.Reason).To(Equal(clusterv1.WaitingForRemediationV1Beta1Reason))
 			}
 		},
 		Entry("Retire retires the host without a reboot", testCaseNodeDeleted{

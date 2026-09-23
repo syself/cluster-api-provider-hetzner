@@ -30,12 +30,10 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch" // patches the still-v1beta1 HetznerBareMetalHost
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1" // HetznerBareMetalHost is still on v1beta1
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
@@ -83,18 +81,16 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			"exit remediation because Node is missing (no reboot performed)")
 	}
 
-	if host.Spec.Status.HasFatalError() {
+	if host.Status.HasFatalError() {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
-			fmt.Sprintf("exit remediation because host has error: %s: %s",
-				host.Spec.Status.ErrorType,
-				host.Spec.Status.ErrorMessage))
+			fmt.Sprintf("exit remediation because host has error: %s: %s", host.Status.ErrorType, host.ErrorMessage()))
 	}
 
 	// if host is not provisioned, do not try to reboot server
-	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
+	if host.Status.ProvisioningState != infrav2.StateProvisioned {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
 			fmt.Sprintf("exit remediation because host is not provisioned. Provisioning state: %s.",
-				host.Spec.Status.ProvisioningState))
+				host.Status.ProvisioningState))
 	}
 
 	// host is in maintenance mode, do not try to reboot server
@@ -144,7 +140,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	}
 }
 
-func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
+func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav2.HetznerBareMetalHost) (res reconcile.Result, err error) {
 	// retryLimit 0 disables reboots (see RemediationStrategy.RetryLimit), so there
 	// is no remediation to perform. Mark the machine for deletion by CAPI.
 	if !s.scope.HasRetriesLeft() && s.scope.BareMetalRemediation.Status.LastRemediated.IsZero() {
@@ -183,10 +179,10 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerB
 	return res, nil
 }
 
-func (s *Service) remediate(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
+func (s *Service) remediate(ctx context.Context, host *infrav2.HetznerBareMetalHost) error {
 	var err error
 
-	patchHelper, err := v1beta1patch.NewHelper(host, s.scope.Client)
+	patchHelper, err := patch.NewHelper(host, s.scope.Client)
 	if err != nil {
 		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
@@ -212,7 +208,7 @@ func (s *Service) remediate(ctx context.Context, host *infrav1.HetznerBareMetalH
 	return nil
 }
 
-func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
+func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav2.HetznerBareMetalHost) (res reconcile.Result, err error) {
 	nextCheck := s.timeUntilNextRemediation(time.Now())
 
 	if nextCheck > 0 {
@@ -244,8 +240,8 @@ func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerB
 // being reused. The permanent error deletes the machine through the HasFatalError path,
 // and skipHost keeps the host out of selection (the error is not cleared on deprovision)
 // until a human removes the permanent-error annotation.
-func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetalHost, capiMachine *clusterv1.Machine) error {
-	patchHelper, err := v1beta1patch.NewHelper(host, s.scope.Client)
+func (s *Service) retireHost(ctx context.Context, host *infrav2.HetznerBareMetalHost, capiMachine *clusterv1.Machine) error {
+	patchHelper, err := patch.NewHelper(host, s.scope.Client)
 	if err != nil {
 		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
@@ -265,7 +261,7 @@ func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetal
 			reason = fmt.Sprintf("node still unhealthy after %d failed reboot(s)", retryCount)
 		}
 	}
-	host.SetError(infrav1.PermanentError, reason)
+	host.SetError(infrav2.PermanentError, reason)
 
 	if err := patchHelper.Patch(ctx, host); err != nil {
 		return fmt.Errorf("failed to patch: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
@@ -436,7 +432,7 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 
 // addRebootAnnotation sets reboot annotation on unhealthy host.
 func addRebootAnnotation(annotations map[string]string) (map[string]string, error) {
-	rebootAnnotationArguments := infrav1.RebootAnnotationArguments{Type: infrav1.RebootTypeHardware}
+	rebootAnnotationArguments := infrav2.RebootAnnotationArguments{Type: infrav2.RebootTypeHardware}
 
 	b, err := json.Marshal(rebootAnnotationArguments)
 	if err != nil {
@@ -447,6 +443,6 @@ func addRebootAnnotation(annotations map[string]string) (map[string]string, erro
 		annotations = make(map[string]string)
 	}
 
-	annotations[infrav1.RebootAnnotation] = string(b)
+	annotations[infrav2.RebootAnnotation] = string(b)
 	return annotations, nil
 }
