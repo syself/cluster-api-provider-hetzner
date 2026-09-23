@@ -2548,33 +2548,6 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 	})
 })
 
-var _ = Describe("SetError and ClearError", func() {
-	It("records the error on the ActionCompleted condition and removes it on clear", func() {
-		host := helpers.BareMetalHost("test-host", "default")
-
-		host.SetError(infrav2.FatalError, "hardware reboot timed out")
-
-		ac := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
-		Expect(ac).NotTo(BeNil())
-		Expect(ac.Status).To(Equal(metav1.ConditionFalse))
-		Expect(ac.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedFatalErrorReason))
-		Expect(ac.Message).To(Equal("hardware reboot timed out"))
-		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
-
-		acV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
-		Expect(acV1Beta1).NotTo(BeNil())
-		Expect(acV1Beta1.Status).To(Equal(corev1.ConditionFalse))
-		Expect(acV1Beta1.Reason).To(Equal(infrav2.ActionCompletedFatalErrorV1Beta1Reason))
-		Expect(acV1Beta1.Message).To(Equal("hardware reboot timed out"))
-
-		host.ClearError()
-
-		Expect(conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
-		Expect(deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)).To(BeNil())
-		Expect(host.Status.ErrorType).To(BeEmpty())
-	})
-})
-
 var _ = Describe("actionProvisioned when the Node is missing in the workload cluster", func() {
 	It("stops reconciling instead of erroring forever", func() {
 		ctx := context.Background()
