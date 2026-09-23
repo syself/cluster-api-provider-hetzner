@@ -186,14 +186,34 @@ var _ = Describe("SetError and ClearError", func() {
 		Expect(actionCompletedV1Beta1.Message).To(Equal(wantMessage))
 	})
 
-	It("names the error and the annotation in the PermanentErrorSet event", func() {
+	It("returns permanentErrorSet with a message naming the error and the annotation", func() {
+		host := helpers.BareMetalHost("test-host", "default")
+
+		permanentErrorSet, message := host.SetError(infrav2.PermanentError, "pre-provision command exited 1")
+
+		Expect(permanentErrorSet).To(BeTrue())
+		Expect(message).To(ContainSubstring("pre-provision command exited 1"))
+		Expect(message).To(ContainSubstring(infrav2.PermanentErrorAnnotation))
+	})
+
+	It("returns permanentErrorSet false and an empty message for a non-permanent error", func() {
+		host := helpers.BareMetalHost("test-host", "default")
+
+		permanentErrorSet, message := host.SetError(infrav2.ProvisioningError, "some error")
+
+		Expect(permanentErrorSet).To(BeFalse())
+		Expect(message).To(BeEmpty())
+	})
+
+	It("emits the PermanentErrorSet event when the Service sets a permanent error", func() {
 		for len(testEventRecorder.Events) > 0 {
 			<-testEventRecorder.Events
 		}
 
 		host := helpers.BareMetalHost("test-host", "default")
+		svc := newTestService(host, nil, nil, nil, nil)
 
-		host.SetError(infrav2.PermanentError, "pre-provision command exited 1")
+		svc.setHostError(infrav2.PermanentError, "pre-provision command exited 1")
 
 		Expect(testEventRecorder.Events).To(HaveLen(1))
 		event := <-testEventRecorder.Events
