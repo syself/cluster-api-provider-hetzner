@@ -20,7 +20,7 @@ RetryLimit sets the maximum number of remediation retries. Zero retries if not s
 Timeout sets the timeout between remediation retries. It should be of the form "10m", or "40s".
 </PropField>
 
-<PropField name="template.spec.strategy.types" type="string" required={false}>
+<PropField name="template.spec.strategy.type" type="string" required={false}>
 Type represents the type of the remediation strategy. At the moment, only "Reboot" is supported.
 </PropField>
 
