@@ -51,6 +51,12 @@ type Arguments struct {
 	// duration, and which has not restarted yet, is treated as healthy. Set to 0
 	// to disable.
 	PodStartGracePeriod time.Duration
+	// PodRestartWarnCount warns about a Pod container (regular, init or
+	// ephemeral) that has restarted at least this many times and is still
+	// unhealthy (waiting/CrashLoopBackOff or not ready): a container that
+	// starts again and again is a problem status.conditions do not surface.
+	// Set to 0 to disable.
+	PodRestartWarnCount int64
 	// ExtraConditionLinesToIgnoreRegexs are additional regexes (from
 	// --ignore-condition-regex) checked in addition to the built-in
 	// conditionLinesToIgnoreRegexs.
@@ -63,7 +69,7 @@ type Arguments struct {
 	// IgnoreConditionOlderThan ignores conditions whose lastTransitionTime is
 	// older than the threshold: for a duration, older than (now - duration);
 	// for an absolute timestamp, before that timestamp. Zero value disables it.
-	IgnoreConditionOlderThan ConditionTimeThreshold
+	IgnoreConditionOlderThan  ConditionTimeThreshold
 	forbiddenResourcesPrinted bool
 	connectionInfoPrinted     bool
 }
@@ -636,6 +642,16 @@ func printResources(args *Arguments, list *unstructured.UnstructuredList, gvr sc
 				}
 			}
 		}
+		if gvr.Resource == "pods" && args.PodRestartWarnCount > 0 {
+			for _, line := range podRestartWarningLines(obj, gvr.Resource, args.PodRestartWarnCount) {
+				if args.WhileRegex == nil || args.WhileRegex.MatchString(line) {
+					if args.WhileRegex != nil {
+						again = true
+					}
+					lines = append(lines, line)
+				}
+			}
+		}
 		var conditions []interface{}
 		var err error
 		if gvr.Resource == "hetznerbaremetalhosts" {
@@ -813,6 +829,55 @@ func podStartingCondition(r conditionRow, grace time.Duration) bool {
 		return false
 	}
 	return time.Since(r.conditionLastTransitionTime) < grace
+}
+
+// podRestartWarningLines returns one warning line per Pod container (regular,
+// init or ephemeral) that has restarted at least warnCount times AND is still
+// unhealthy right now. A container that keeps restarting is not visible in
+// status.conditions, so it is surfaced here. "Unhealthy right now" means the
+// container is currently waiting (e.g. CrashLoopBackOff) or not ready; once it
+// recovers and becomes ready the warning clears, matching the tool's rule that
+// a warning disappears as soon as the desired state is reached. restartCount is
+// cumulative, so without this gate a long-recovered pod would warn forever.
+func podRestartWarningLines(obj unstructured.Unstructured, resource string, warnCount int64) []string {
+	var lines []string
+	for _, key := range []string{"containerStatuses", "initContainerStatuses", "ephemeralContainerStatuses"} {
+		statuses, _, err := unstructured.NestedSlice(obj.Object, "status", key)
+		if err != nil {
+			continue
+		}
+		for _, s := range statuses {
+			m, ok := s.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			restarts, found, err := unstructured.NestedInt64(m, "restartCount")
+			if err != nil || !found || restarts < warnCount {
+				continue
+			}
+			reason, _, _ := unstructured.NestedString(m, "state", "waiting", "reason")
+			_, waiting, _ := unstructured.NestedMap(m, "state", "waiting")
+			ready, readyFound, _ := unstructured.NestedBool(m, "ready")
+			// Only warn while the container is still in trouble: currently
+			// waiting (backing off) or explicitly not ready. A container that
+			// has recovered to ready is left alone so the warning clears.
+			currentlyUnhealthy := waiting || (readyFound && !ready)
+			if !currentlyUnhealthy {
+				continue
+			}
+			state := reason
+			if state == "" {
+				state = "not ready"
+			}
+			name, _, _ := unstructured.NestedString(m, "name")
+			if name == "" {
+				name = "<unknown>"
+			}
+			lines = append(lines, fmt.Sprintf("  %s %s %s container %s restarted %d times, currently %s",
+				obj.GetNamespace(), resource, obj.GetName(), name, restarts, state))
+		}
+	}
+	return lines
 }
 
 // podHasNoRestarts reports whether none of the pod's containers have restarted
