@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// TestScope runs the scope test suite.
 func TestScope(t *testing.T) {
 	RegisterFailHandler(Fail)
 
