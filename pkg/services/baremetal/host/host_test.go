@@ -1829,6 +1829,84 @@ var _ = Describe("actionRegistering", func() {
 		Expect(acV1Beta1).NotTo(BeNil())
 		Expect(acV1Beta1.Message).To(ContainSubstring("hardware reboot (to rescue mode) timed out"))
 	})
+
+	It("escalates when the rescue session is stale (uptime predates our reboot request)", func() {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithRebootTypes([]infrav2.RebootType{infrav2.RebootTypeHardware}),
+			// Reboot was triggered 5 minutes ago; a session with 10 minutes of uptime
+			// must have existed before that request, i.e. it is stale.
+			helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-5*time.Minute))),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("GetUptime", mock.Anything).Return(10*time.Minute, nil)
+
+		robotMock := robotmock.Client{}
+		// Active: true, so ensureRescueMode's escalation path skips SetBootRescue.
+		robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
+		robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
+
+		service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		actResult := service.actionRegistering(ctx)
+
+		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
+		// hostName == "rescue" but stale => escalated exactly like the "wrong hostname" path,
+		// which (with no prior ErrorType set and isTimeout=false) triggers an API reboot via
+		// handleErrorTypeSSHRebootFailed.
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeHardwareRebootTriggered))
+		sshMock.AssertCalled(GinkgoT(), "GetUptime", mock.Anything)
+	})
+
+	It("proceeds normally when the rescue session is fresh", func() {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-5*time.Minute))),
+		)
+
+		sshMock := registeringSSHMock(`NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG" VENDOR="" SERIAL="S1" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"`)
+		// Uptime (1 minute) is less than time since RebootTriggeredAt (5 minutes): fresh session.
+		sshMock.On("GetUptime", mock.Anything).Return(1*time.Minute, nil)
+
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		actResult := service.actionRegistering(ctx)
+
+		Expect(actResult).To(BeAssignableToTypeOf(actionComplete{}))
+		Expect(host.Status.ErrorType).To(BeEmpty())
+		Expect(host.Status.RebootTriggeredAt.IsZero()).To(BeTrue())
+	})
+
+	It("returns actionError when GetUptime fails for an otherwise-rescue hostname", func() {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-5*time.Minute))),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("GetUptime", mock.Anything).Return(time.Duration(0), errTest)
+
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		actResult := service.actionRegistering(ctx)
+
+		Expect(actResult).To(BeAssignableToTypeOf(actionError{}))
+	})
 })
 
 func registeringSSHMock(storageStdOut string) *sshmock.Client {

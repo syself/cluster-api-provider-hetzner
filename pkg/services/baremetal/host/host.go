@@ -687,7 +687,23 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	out := sshClient.GetHostName(ctx)
 	hostName := trimLineBreak(out.StdOut)
 
-	if hostName != rescue {
+	// A hostname of "rescue" alone only proves the server is currently in the rescue system -
+	// not that the reboot we just requested caused it (it could already have been there before).
+	// Compare the server's uptime against the time since we triggered the reboot: a session
+	// older than our request is stale and must be treated as an incomplete boot so the existing
+	// reset escalation logic below (ssh -> software -> hardware) kicks in, instead of being
+	// mistaken for a successful reboot.
+	staleRescueSession := false
+	if hostName == rescue && !s.scope.HetznerBareMetalHost.Status.RebootTriggeredAt.IsZero() {
+		uptime, err := sshClient.GetUptime(ctx)
+		if err != nil {
+			return actionError{err: fmt.Errorf("failed to get uptime: %w", err)}
+		}
+		timeSinceReboot := time.Since(s.scope.HetznerBareMetalHost.Status.RebootTriggeredAt.Time)
+		staleRescueSession = uptime >= timeSinceReboot
+	}
+
+	if hostName != rescue || staleRescueSession {
 		// give the reboot some time until it takes effect
 		if s.hasJustRebooted() {
 			return actionContinue{delay: 2 * time.Second}
