@@ -651,6 +651,13 @@ func hasTimedOut(lastUpdated metav1.Time, timeout time.Duration) bool {
 	return false
 }
 
+// isStaleRescueSession reports whether a rescue-system session is older than our reboot
+// request: uptime >= timeSinceReboot means the session was already running before we asked
+// for the reboot, so it cannot be evidence that the reboot succeeded.
+func isStaleRescueSession(uptime, timeSinceReboot time.Duration) bool {
+	return uptime >= timeSinceReboot
+}
+
 func (s *Service) ensureRescueMode() error {
 	rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
 	if err != nil {
@@ -687,7 +694,23 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	out := sshClient.GetHostName(ctx)
 	hostName := trimLineBreak(out.StdOut)
 
-	if hostName != rescue {
+	// A hostname of "rescue" alone only proves the server is currently in the rescue system -
+	// not that the reboot we just requested caused it (it could already have been there before).
+	// Compare the server's uptime against the time since we triggered the reboot: a session
+	// older than our request is stale and must be treated as an incomplete boot so the existing
+	// reset escalation logic below (ssh -> software -> hardware) kicks in, instead of being
+	// mistaken for a successful reboot.
+	staleRescueSession := false
+	if hostName == rescue && !s.scope.HetznerBareMetalHost.Status.RebootTriggeredAt.IsZero() {
+		uptime, err := sshClient.GetUptime(ctx)
+		if err != nil {
+			return actionError{err: fmt.Errorf("failed to get uptime: %w", err)}
+		}
+		timeSinceReboot := time.Since(s.scope.HetznerBareMetalHost.Status.RebootTriggeredAt.Time)
+		staleRescueSession = isStaleRescueSession(uptime, timeSinceReboot)
+	}
+
+	if hostName != rescue || staleRescueSession {
 		// give the reboot some time until it takes effect
 		if s.hasJustRebooted() {
 			return actionContinue{delay: 2 * time.Second}
@@ -714,7 +737,11 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Status.RebootTriggeredAt.Time).Round(time.Second).String()
 		}
 
-		s.scope.Info("Could not reach rescue system. Will retry some seconds later.", "out", out.String(), "hostName", hostName,
+		msg := "Could not reach rescue system. Will retry some seconds later."
+		if staleRescueSession {
+			msg = "Rescue session is stale (uptime predates our reboot request). Will retry some seconds later."
+		}
+		s.scope.Info(msg, "out", out.String(), "hostName", hostName, "staleRescueSession", staleRescueSession,
 			"isSSHTimeoutError", isSSHTimeoutError, "isSSHConnectionRefusedError", isSSHConnectionRefusedError, "timeSinceReboot", timeSinceReboot)
 		return actionContinue{delay: 10 * time.Second}
 	}

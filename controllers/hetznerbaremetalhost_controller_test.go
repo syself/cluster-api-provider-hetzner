@@ -1017,6 +1017,9 @@ func configureRescueSSHClient(sshClient *sshmock.Client) {
 		StdErr: "",
 		Err:    nil,
 	})
+	// Uptime 0 is always less than the time elapsed since RebootTriggeredAt, so the
+	// rescue session always reads as fresh here.
+	sshClient.On("GetUptime", mock.Anything).Return(time.Duration(0), nil)
 	sshClient.On("GetHardwareDetailsRAM", mock.Anything).Return(sshclient.Output{
 		StdOut: "100000",
 		StdErr: "",

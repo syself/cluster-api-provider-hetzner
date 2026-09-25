@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -104,6 +105,47 @@ func TestOutput_String(t *testing.T) {
 		StdErr: "mystderr",
 		Err:    fmt.Errorf("some err"),
 	}, "mystdout. Stderr: mystderr. Err: some err")
+}
+
+func Test_parseUptime(t *testing.T) {
+	tests := []struct {
+		name    string
+		stdout  string
+		want    time.Duration
+		wantErr bool
+	}{
+		{
+			name:   "typical /proc/uptime output",
+			stdout: "4070.24 57160.58\n",
+			want:   4070*time.Second + 240*time.Millisecond,
+		},
+		{
+			name:   "no trailing newline",
+			stdout: "12.50 3.20",
+			want:   12*time.Second + 500*time.Millisecond,
+		},
+		{
+			name:    "empty output",
+			stdout:  "",
+			wantErr: true,
+		},
+		{
+			name:    "non-numeric first field",
+			stdout:  "not-a-number 3.20",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseUptime(tt.stdout)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func Test_ExecutePreProvisionCommand_withRealServer(t *testing.T) {

@@ -163,6 +163,10 @@ func (o Output) ExitStatus() (int, error) {
 // Client is the interface defining all functions necessary to talk to a bare metal server via SSH.
 type Client interface {
 	GetHostName(ctx context.Context) Output
+	// GetUptime returns how long the remote system has been up, read from /proc/uptime.
+	// Used to tell a freshly booted rescue session apart from a stale one that predates
+	// a reboot CAPH requested.
+	GetUptime(ctx context.Context) (time.Duration, error)
 	GetHardwareDetailsRAM(ctx context.Context) Output
 	GetHardwareDetailsNics(ctx context.Context) Output
 	GetHardwareDetailsStorage(ctx context.Context) Output
@@ -260,6 +264,32 @@ var _ = Client(&sshClient{})
 // GetHostName implements the GetHostName method of the SSHClient interface.
 func (c *sshClient) GetHostName(ctx context.Context) Output {
 	return c.runSSH(ctx, "hostname")
+}
+
+// GetUptime implements the GetUptime method of the SSHClient interface.
+// It reads /proc/uptime, whose first field is the number of seconds since boot
+// (e.g. "4070.24 57160.58" - the second field, idle time, is ignored).
+func (c *sshClient) GetUptime(ctx context.Context) (time.Duration, error) {
+	out := c.runSSH(ctx, "cat /proc/uptime")
+	if out.Err != nil {
+		return 0, fmt.Errorf("failed to run `cat /proc/uptime`: %w", out.Err)
+	}
+	if out.StdErr != "" {
+		return 0, fmt.Errorf("failed to read /proc/uptime: %s", out.StdErr)
+	}
+	return parseUptime(out.StdOut)
+}
+
+func parseUptime(stdout string) (time.Duration, error) {
+	fields := strings.Fields(stdout)
+	if len(fields) == 0 {
+		return 0, fmt.Errorf("unexpected empty output reading /proc/uptime")
+	}
+	seconds, err := strconv.ParseFloat(fields[0], 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse uptime seconds %q: %w", fields[0], err)
+	}
+	return time.Duration(seconds * float64(time.Second)), nil
 }
 
 // GetHardwareDetailsRAM implements the GetHardwareDetailsRAM method of the SSHClient interface.
