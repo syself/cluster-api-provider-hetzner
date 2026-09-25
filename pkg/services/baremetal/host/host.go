@@ -651,6 +651,13 @@ func hasTimedOut(lastUpdated metav1.Time, timeout time.Duration) bool {
 	return false
 }
 
+// isStaleRescueSession reports whether a rescue-system session is older than our reboot
+// request: uptime >= timeSinceReboot means the session was already running before we asked
+// for the reboot, so it cannot be evidence that the reboot succeeded.
+func isStaleRescueSession(uptime, timeSinceReboot time.Duration) bool {
+	return uptime >= timeSinceReboot
+}
+
 func (s *Service) ensureRescueMode() error {
 	rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
 	if err != nil {
@@ -700,7 +707,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			return actionError{err: fmt.Errorf("failed to get uptime: %w", err)}
 		}
 		timeSinceReboot := time.Since(s.scope.HetznerBareMetalHost.Status.RebootTriggeredAt.Time)
-		staleRescueSession = uptime >= timeSinceReboot
+		staleRescueSession = isStaleRescueSession(uptime, timeSinceReboot)
 	}
 
 	if hostName != rescue || staleRescueSession {
@@ -730,7 +737,11 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Status.RebootTriggeredAt.Time).Round(time.Second).String()
 		}
 
-		s.scope.Info("Could not reach rescue system. Will retry some seconds later.", "out", out.String(), "hostName", hostName,
+		msg := "Could not reach rescue system. Will retry some seconds later."
+		if staleRescueSession {
+			msg = "Rescue session is stale (uptime predates our reboot request). Will retry some seconds later."
+		}
+		s.scope.Info(msg, "out", out.String(), "hostName", hostName, "staleRescueSession", staleRescueSession,
 			"isSSHTimeoutError", isSSHTimeoutError, "isSSHConnectionRefusedError", isSSHConnectionRefusedError, "timeSinceReboot", timeSinceReboot)
 		return actionContinue{delay: 10 * time.Second}
 	}

@@ -1909,6 +1909,17 @@ var _ = Describe("actionRegistering", func() {
 	})
 })
 
+var _ = Describe("isStaleRescueSession", func() {
+	DescribeTable("isStaleRescueSession",
+		func(uptime, timeSinceReboot time.Duration, want bool) {
+			Expect(isStaleRescueSession(uptime, timeSinceReboot)).To(Equal(want))
+		},
+		Entry("uptime less than time since reboot: fresh", 1*time.Minute, 5*time.Minute, false),
+		Entry("uptime greater than time since reboot: stale", 10*time.Minute, 5*time.Minute, true),
+		Entry("uptime exactly equal to time since reboot: stale (inclusive boundary)", 5*time.Minute, 5*time.Minute, true),
+	)
+})
+
 func registeringSSHMock(storageStdOut string) *sshmock.Client {
 	sshMock := &sshmock.Client{}
 	sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
