@@ -136,7 +136,7 @@ Optionally `output.json` can be created by the process. The content of `output.j
 the final result (succeeded or failed).
 
 Implemented in `handleBootStateRunningImageCommand` (hcloud) and
-`actionImageInstallingImageURLCommand` (baremetal).
+`actionImageInstallingCustomProvisioner` (baremetal).
 
 Minimal example:
 
