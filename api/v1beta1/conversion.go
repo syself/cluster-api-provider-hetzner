@@ -729,6 +729,40 @@ func Convert_v1beta2_HCloudMachineTemplateResource_To_v1beta1_HCloudMachineTempl
 	return Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(&in.Spec, &out.Spec, s)
 }
 
+// Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec converts the v1beta1 spec to v1beta2.
+// The flat v1beta1 imageURL and imageURLCommand become the v1beta2 customProvisioner. It is set when
+// either field is set, so a half-filled v1beta1 spec keeps its value through the round trip.
+func Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(in *HCloudMachineSpec, out *infrav2.HCloudMachineSpec, s apiconversion.Scope) error {
+	// The generated converter handles every field except imageURL and imageURLCommand, which it cannot map.
+	if err := autoConvert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(in, out, s); err != nil {
+		return err
+	}
+
+	if in.ImageURL != "" || in.ImageURLCommand != "" {
+		out.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+			URL:     in.ImageURL,
+			Command: in.ImageURLCommand,
+		}
+	}
+	return nil
+}
+
+// Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec converts the v1beta2 spec back to
+// v1beta1. It is the inverse of the mapping above: customProvisioner is flattened into imageURL and
+// imageURLCommand.
+func Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in *infrav2.HCloudMachineSpec, out *HCloudMachineSpec, s apiconversion.Scope) error {
+	// The generated converter handles every field except customProvisioner, which it cannot map.
+	if err := autoConvert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in, out, s); err != nil {
+		return err
+	}
+
+	if in.CustomProvisioner != nil {
+		out.ImageURL = in.CustomProvisioner.URL
+		out.ImageURLCommand = in.CustomProvisioner.Command
+	}
+	return nil
+}
+
 // Convert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerBareMetalMachineTemplateResource converts the
 // v1beta1 HetznerBareMetalMachineTemplateResource to v1beta2. The template metadata changes type from the deprecated
 // clusterv1beta1.ObjectMeta to clusterv1.ObjectMeta, which carry the same labels and annotations, so those are copied by

@@ -56,40 +56,10 @@ type HCloudMachineSpec struct {
 	// +optional
 	ImageName string `json:"imageName,omitempty"`
 
-	// ImageURL gets used for installing custom node images. If that field is set, the controller
-	// boots a new HCloud machine into rescue mode. Then the command referenced by
-	// ImageURLCommand will be copied into the rescue system and executed.
-	//
-	// The controller uses url.ParseRequestURI (Go function) to validate the URL.
-	//
-	// It is up to the script to provision the disk of the hcloud machine accordingly. The process
-	// is considered successful if the last line in the output contains
-	// IMAGE_URL_DONE. If the script terminates with a different last line, then
-	// the process is considered to have failed.
-	//
-	// A Kubernetes event will be created in both (success, failure) cases containing the output
-	// (stdout and stderr) of the script. If the script takes longer than 20 minutes, the
-	// controller cancels the provisioning.
-	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
-	//
-	// ImageURL is mutually exclusive to "ImageName".
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:Optional
+	// CustomProvisioner provisions the machine with a custom command instead of an HCloud image.
+	// Exactly one of imageName or customProvisioner must be set.
 	// +optional
-	ImageURL string `json:"imageURL,omitempty"`
-
-	// ImageURLCommand is the basename of a command file below /shared on the controller pod which
-	// provisions a machine from ImageURL. CAPH copies that command into the rescue system and
-	// executes it there.
-	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
-	//
-	// ImageURLCommand must be set if ImageURL is set. ImageURLCommand must be empty if ImageURL is
-	// empty.
-	// +kubebuilder:validation:Optional
-	// +optional
-	ImageURLCommand string `json:"imageURLCommand,omitempty"`
+	CustomProvisioner *HCloudCustomProvisioner `json:"customProvisioner,omitempty"`
 
 	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
@@ -105,6 +75,37 @@ type HCloudMachineSpec struct {
 	// the primary IP address of the server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled.
 	// +optional
 	PublicNetwork *PublicNetworkSpec `json:"publicNetwork,omitempty"`
+}
+
+// HCloudCustomProvisioner defines the configuration for provisioning an HCloud machine with a
+// custom command in the rescue system instead of creating it from an HCloud image.
+type HCloudCustomProvisioner struct {
+	// URL gets used for installing custom node images. If customProvisioner is set, the controller
+	// boots a new HCloud machine into rescue mode. Then the command referenced by
+	// Command will be copied into the rescue system and executed.
+	//
+	// The controller uses url.ParseRequestURI (Go function) to validate the URL.
+	//
+	// It is up to the script to provision the disk of the hcloud machine accordingly. The process
+	// is considered successful if the last line in the output contains
+	// IMAGE_URL_DONE. If the script terminates with a different last line, then
+	// the process is considered to have failed.
+	//
+	// A Kubernetes event will be created in both (success, failure) cases containing the output
+	// (stdout and stderr) of the script. If the script takes longer than 20 minutes, the
+	// controller cancels the provisioning.
+	//
+	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url"`
+
+	// Command is the basename of a command file below /shared on the controller pod which
+	// provisions a machine from URL. CAPH copies that command into the rescue system and
+	// executes it there.
+	//
+	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	// +kubebuilder:validation:MinLength=1
+	Command string `json:"command"`
 }
 
 // HCloudMachineStatus defines the observed state of HCloudMachine.
@@ -147,7 +148,7 @@ type HCloudMachineStatus struct {
 	//   1. BootingToRealOS
 	//   2. OperatingSystemRunning
 	//
-	// If Spec.ImageURL is set the states will be:
+	// If Spec.CustomProvisioner is set the states will be:
 	//   1. Initializing
 	//   2. EnablingRescue
 	//   3. BootingToRescue
@@ -299,7 +300,7 @@ func (r *HCloudMachine) SetV1Beta1Conditions(conditions clusterv1.Conditions) {
 // operational importance:
 //  1. HCloudTokenAvailable    - invalid credentials block everything.
 //  2. HCloudRateLimitExceeded - rate-limit issues (negative polarity).
-//  3. SSHPrivateKeyAvailable  - the rescue SSH key (imageURL flow) is a precondition for creating and provisioning the server.
+//  3. SSHPrivateKeyAvailable  - the rescue SSH key (customProvisioner flow) is a precondition for creating and provisioning the server.
 //  4. ServerCreated           - server existence precedes later lifecycle stages; bootstrap readiness is folded in as a reason.
 //  5. ServerProvisioned       - provisioning precedes availability.
 //  6. ServerAvailable
