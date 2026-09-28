@@ -19,6 +19,7 @@ package v1beta2
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 )
 
 // HCloudRemediationSpec defines the desired state of HCloudRemediation.
@@ -127,6 +128,58 @@ func (r *HCloudRemediation) SetV1Beta1Conditions(conditions clusterv1.Conditions
 		r.Status.Deprecated.V1Beta1 = &HCloudRemediationV1Beta1DeprecatedStatus{}
 	}
 	r.Status.Deprecated.V1Beta1.Conditions = conditions
+}
+
+// HCloudRemediationSummaryOpts returns the summary options for the HCloudRemediation Ready condition.
+// It is the single source of truth for which conditions contribute to the Ready summary, used both
+// by HCloudRemediationScope.Close() and by early-exit error paths that bypass the scope.
+//
+// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
+// when multiple conditions are unhealthy, the summary lists all of them in priority order
+// (highest-priority first). The ordering reflects operational importance:
+//  1. HCloudTokenAvailable    - invalid credentials block everything.
+//  2. HCloudRateLimitExceeded - rate-limit issues (negative polarity).
+//  3. RemediationSkipped      - remediation was skipped due to an irrecoverable
+//     machine state; surfaced for visibility (negative polarity).
+func HCloudRemediationSummaryOpts() []conditions.SummaryOption {
+	return []conditions.SummaryOption{
+		// ForConditionTypes lists every condition that contributes to Ready, in priority order.
+		conditions.ForConditionTypes{
+			HCloudTokenAvailableCondition,
+			HCloudRateLimitExceededCondition,
+			HCloudRemediationSkippedCondition,
+		},
+		// IgnoreTypesIfMissing tells the summary not to treat the absence of a listed condition as
+		// Unknown. Some reconcile paths exit before every condition has been set, and we don't want
+		// those early exits to flip Ready to Unknown.
+		conditions.IgnoreTypesIfMissing{
+			HCloudTokenAvailableCondition,
+			HCloudRateLimitExceededCondition,
+			HCloudRemediationSkippedCondition,
+		},
+		// CustomMergeStrategy is used only to override the merge reasons, so the Ready summary uses
+		// CAPI's standard Ready reasons (Ready / NotReady / ReadyUnknown) instead of the generic
+		// merge defaults (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc here. When a
+		// CustomMergeStrategy is provided, NewSummaryCondition skips the path that wires up the
+		// NegativePolarityConditionTypes option into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
+		conditions.CustomMergeStrategy{
+			MergeStrategy: conditions.DefaultMergeStrategy(
+				conditions.GetPriorityFunc(conditions.GetDefaultMergePriorityFunc(
+					// conditions with negative polarity
+					HCloudRateLimitExceededCondition,
+					HCloudRemediationSkippedCondition,
+				)),
+				conditions.ComputeReasonFunc(conditions.GetDefaultComputeMergeReasonFunc(
+					clusterv1.NotReadyReason,
+					clusterv1.ReadyUnknownReason,
+					clusterv1.ReadyReason,
+				)),
+			),
+		},
+	}
 }
 
 //+kubebuilder:object:root=true

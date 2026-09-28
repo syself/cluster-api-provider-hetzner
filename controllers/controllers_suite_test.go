@@ -271,7 +271,8 @@ var _ = BeforeSuite(func() {
 	Expect(hcloudRemediationReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
 	hetznerBareMetalRemediationReconciler := &HetznerBareMetalRemediationReconciler{
-		Client: testEnv.GetClient(),
+		Client:    testEnv.GetClient(),
+		APIReader: testEnv.GetAPIReader(),
 	}
 	Expect(hetznerBareMetalRemediationReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
@@ -350,71 +351,6 @@ var _ = AfterSuite(func() {
 		wg.Wait() // Wait for target cluster manager
 	}
 })
-
-func getDefaultHetznerClusterV1Beta1Spec() infrav1.HetznerClusterSpec {
-	return infrav1.HetznerClusterSpec{
-		ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-			Enabled:   true,
-			Algorithm: "round_robin",
-			ExtraServices: []infrav1.LoadBalancerServiceSpec{
-				{
-					DestinationPort: 8132,
-					ListenPort:      8132,
-					Protocol:        "tcp",
-				},
-				{
-					DestinationPort: 8133,
-					ListenPort:      8133,
-					Protocol:        "tcp",
-				},
-			},
-			Port:   6443,
-			Region: "fsn1",
-			Type:   "lb11",
-		},
-		ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{},
-		ControlPlaneRegions:  []infrav1.Region{"fsn1"},
-		HCloudNetwork: infrav1.HCloudNetworkSpec{
-			CIDRBlock:       "10.0.0.0/16",
-			Enabled:         true,
-			NetworkZone:     "eu-central",
-			SubnetCIDRBlock: "10.0.0.0/24",
-		},
-		HCloudPlacementGroups: []infrav1.HCloudPlacementGroupSpec{
-			{
-				Name: defaultPlacementGroupName,
-				Type: "spread",
-			},
-			{
-				Name: "md-0",
-				Type: "spread",
-			},
-		},
-		HetznerSecret: infrav1.HetznerSecretRef{
-			Key: infrav1.HetznerSecretKeyRef{
-				HCloudToken:          "hcloud",
-				HetznerRobotUser:     "robot-user",
-				HetznerRobotPassword: "robot-password",
-			},
-			Name: "hetzner-secret",
-		},
-		SSHKeys: infrav1.HetznerSSHKeys{
-			HCloud: []infrav1.SSHKey{
-				{
-					Name: "testsshkey",
-				},
-			},
-			RobotRescueSecretRef: infrav1.SSHSecretRef{
-				Name: "rescue-ssh-secret",
-				Key: infrav1.SSHSecretKeyRef{
-					Name:       "sshkey-name",
-					PublicKey:  "public-key",
-					PrivateKey: "private-key",
-				},
-			},
-		},
-	}
-}
 
 func getDefaultHetznerSecret(namespace string) *corev1.Secret {
 	return &corev1.Secret{

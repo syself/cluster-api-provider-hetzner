@@ -39,10 +39,10 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		want *field.Error
 	}{
 		{
-			name: "Valid Image",
+			name: "Valid installImage",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
@@ -53,10 +53,10 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "Valid Image Path",
+			name: "Valid installImage with path",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{
 							Path: "path/to/image.tar.gz",
 						},
@@ -66,54 +66,60 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "Valid Image URL Command",
+			name: "Valid customProvisioner",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
-						ImageURLCommand: "image-url-command-bm-test.sh",
-						Image: infrav2.Image{
-							URL: "oci://ghcr.io/example/ubuntu:v1",
-						},
+					CustomProvisioner: &infrav2.CustomProvisioner{
+						URL:     "oci://ghcr.io/example/ubuntu:v1",
+						Command: "image-url-command-bm-test.sh",
 					},
 				},
 			},
 			want: nil,
 		},
 		{
-			name: "Valid Image URL Command with DeviceStringType wwn",
+			name: "Valid customProvisioner with DeviceStringType wwn",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
-						ImageURLCommand:  "image-url-command-bm-test.sh",
+					CustomProvisioner: &infrav2.CustomProvisioner{
+						URL:              "oci://ghcr.io/example/ubuntu:v1",
+						Command:          "image-url-command-bm-test.sh",
 						DeviceStringType: infrav2.DeviceStringTypeWWN,
-						Image: infrav2.Image{
-							URL: "oci://ghcr.io/example/ubuntu:v1",
-						},
 					},
 				},
 			},
 			want: nil,
 		},
 		{
-			name: "Invalid DeviceStringType wwn without imageURLCommand",
+			name: "Neither installImage nor customProvisioner",
+			args: args{
+				spec: infrav2.HetznerBareMetalMachineSpec{},
+			},
+			want: field.Required(field.NewPath("spec"), "either installImage or customProvisioner must be set"),
+		},
+		{
+			name: "Both installImage and customProvisioner",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
-						DeviceStringType: infrav2.DeviceStringTypeWWN,
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
+					CustomProvisioner: &infrav2.CustomProvisioner{
+						URL:     "oci://ghcr.io/example/ubuntu:v1",
+						Command: "image-url-command-bm-test.sh",
+					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "installImage", "deviceStringType"), infrav2.DeviceStringTypeWWN, "deviceStringType is only valid when imageURLCommand is set"),
+			want: field.Forbidden(field.NewPath("spec", "customProvisioner"), "installImage and customProvisioner are mutually exclusive"),
 		},
 		{
-			name: "Invalid Image",
+			name: "Invalid installImage image",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{},
 					},
 				},
@@ -121,10 +127,10 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			want: field.Invalid(field.NewPath("spec", "installImage", "image"), infrav2.Image{}, "have to specify either image name and url or path"),
 		},
 		{
-			name: "Invalid Image URL",
+			name: "Invalid installImage image url",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.invalid",
@@ -135,79 +141,58 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			want: field.Invalid(field.NewPath("spec", "installImage", "image", "url"), "https://example.com/ubuntu-24.04.invalid", "unknown image type in URL"),
 		},
 		{
-			name: "Invalid Image URL Command Without URL",
+			name: "customProvisioner with malformed url",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
-						ImageURLCommand: "image-url-command-bm-test.sh",
-						Image:           infrav2.Image{},
+					CustomProvisioner: &infrav2.CustomProvisioner{
+						URL:     "not-a-url",
+						Command: "image-url-command-bm-test.sh",
 					},
 				},
 			},
-			want: field.Required(field.NewPath("spec", "installImage", "image", "url"), "url is required when imageURLCommand is set"),
+			want: field.Invalid(field.NewPath("spec", "customProvisioner", "url"), "not-a-url", `parse "not-a-url": invalid URI for request`),
 		},
 		{
-			name: "Invalid Image URL Command With Image Name",
+			name: "customProvisioner command with slash",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
-						ImageURLCommand: "image-url-command-bm-test.sh",
-						Image: infrav2.Image{
-							Name: "ubuntu-24.04",
-							URL:  "oci://ghcr.io/example/ubuntu:v1",
-						},
+					CustomProvisioner: &infrav2.CustomProvisioner{
+						URL:     "oci://ghcr.io/example/ubuntu:v1",
+						Command: "/shared/image-url-command-bm-test.sh",
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "installImage", "image", "name"), "ubuntu-24.04", "name must be empty when imageURLCommand is set"),
+			want: field.Invalid(field.NewPath("spec", "customProvisioner", "command"), "/shared/image-url-command-bm-test.sh", "must be a basename without slashes"),
 		},
 		{
-			name: "Invalid Image URL Command With Slash",
+			name: "customProvisioner command without prefix",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
-						ImageURLCommand: "/shared/image-url-command-bm-test.sh",
-						Image: infrav2.Image{
-							URL: "oci://ghcr.io/example/ubuntu:v1",
-						},
+					CustomProvisioner: &infrav2.CustomProvisioner{
+						URL:     "oci://ghcr.io/example/ubuntu:v1",
+						Command: "1bad-command",
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), "/shared/image-url-command-bm-test.sh", "must be a basename without slashes"),
+			want: field.Invalid(field.NewPath("spec", "customProvisioner", "command"), "1bad-command", "must match the regex ^[a-z][a-z0-9._-]*$"),
 		},
 		{
-			name: "Invalid Image URL Command Without Prefix",
+			name: "customProvisioner command with dot dot",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
-						ImageURLCommand: "1bad-command",
-						Image: infrav2.Image{
-							URL: "oci://ghcr.io/example/ubuntu:v1",
-						},
+					CustomProvisioner: &infrav2.CustomProvisioner{
+						URL:     "oci://ghcr.io/example/ubuntu:v1",
+						Command: "image-url-command-bm..test.sh",
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), "1bad-command", "must match the regex ^[a-z][a-z0-9._-]*$"),
-		},
-		{
-			name: "Invalid Image URL Command With Dot Dot",
-			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
-						ImageURLCommand: "image-url-command-bm..test.sh",
-						Image: infrav2.Image{
-							URL: "oci://ghcr.io/example/ubuntu:v1",
-						},
-					},
-				},
-			},
-			want: field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), "image-url-command-bm..test.sh", "must not contain '..'"),
+			want: field.Invalid(field.NewPath("spec", "customProvisioner", "command"), "image-url-command-bm..test.sh", "must not contain '..'"),
 		},
 		{
 			name: "Valid HostSelector MatchLabels",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
@@ -226,7 +211,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			name: "Valid HostSelector MatchExpressions",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
@@ -249,7 +234,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			name: "Invalid HostSelector MatchExpressions - Invalid Operator",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
@@ -282,7 +267,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			name: "Invalid HostSelector MatchExpressions - Empty Key",
 			args: args{
 				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
@@ -341,10 +326,10 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 		want *field.Error
 	}{
 		{
-			name: "Immutable InstallImage",
+			name: "Immutable installImage",
 			args: args{
 				oldSpec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
@@ -352,7 +337,7 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 					},
 				},
 				newSpec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{
 							Name: "centos-7",
 							URL:  "https://example.com/centos-7.tar.gz",
@@ -361,6 +346,24 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 				},
 			},
 			want: field.Forbidden(field.NewPath("spec", "installImage"), "installImage is immutable"),
+		},
+		{
+			name: "Immutable customProvisioner",
+			args: args{
+				oldSpec: infrav2.HetznerBareMetalMachineSpec{
+					CustomProvisioner: &infrav2.CustomProvisioner{
+						URL:     "oci://ghcr.io/example/ubuntu:v1",
+						Command: "image-url-command-bm-test.sh",
+					},
+				},
+				newSpec: infrav2.HetznerBareMetalMachineSpec{
+					CustomProvisioner: &infrav2.CustomProvisioner{
+						URL:     "oci://ghcr.io/example/ubuntu:v2",
+						Command: "image-url-command-bm-test.sh",
+					},
+				},
+			},
+			want: field.Forbidden(field.NewPath("spec", "customProvisioner"), "customProvisioner is immutable"),
 		},
 		{
 			name: "Immutable SSHSpec",
@@ -432,7 +435,7 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 			name: "No Errors",
 			args: args{
 				oldSpec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
@@ -463,7 +466,7 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 					},
 				},
 				newSpec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: infrav2.InstallImage{
+					InstallImage: &infrav2.InstallImage{
 						Image: infrav2.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
@@ -556,4 +559,24 @@ func TestValidateHetznerBareMetalMachineSpecUpdate_ProviderID(t *testing.T) {
 			ProviderID: ptr.To("provider://bar"),
 		})
 	require.Equal(t, `[]`, fmt.Sprintf("%+v", got))
+}
+
+// TestValidateHetznerBareMetalMachineSpecUpdate_FlowSwitch checks that switching from installImage to
+// customProvisioner on update is rejected. Both fields change, so both immutability errors are returned.
+func TestValidateHetznerBareMetalMachineSpecUpdate_FlowSwitch(t *testing.T) {
+	got := validateHetznerBareMetalMachineSpecUpdate(
+		infrav2.HetznerBareMetalMachineSpec{
+			InstallImage: &infrav2.InstallImage{
+				Image: infrav2.Image{Name: "ubuntu-24.04", URL: "https://example.com/ubuntu-24.04.tar.gz"},
+			},
+		},
+		infrav2.HetznerBareMetalMachineSpec{
+			CustomProvisioner: &infrav2.CustomProvisioner{
+				URL:     "oci://ghcr.io/example/ubuntu:v1",
+				Command: "image-url-command-bm-test.sh",
+			},
+		})
+	require.Equal(t,
+		`[spec.installImage: Forbidden: installImage is immutable spec.customProvisioner: Forbidden: customProvisioner is immutable]`,
+		fmt.Sprintf("%+v", got))
 }

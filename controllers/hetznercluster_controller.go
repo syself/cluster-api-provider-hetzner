@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -44,7 +45,6 @@ import (
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/predicates"
-	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -81,6 +81,7 @@ type HetznerClusterReconciler struct {
 	TargetClusterManagersWaitGroup *sync.WaitGroup
 	WatchFilterValue               string
 	DisableCSRApproval             bool
+	EventRecorder                  record.EventRecorder
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -155,6 +156,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		HetznerCluster: hetznerCluster,
 		HCloudClient:   hcloudClient,
 		HetznerSecret:  hetznerSecret,
+		EventRecorder:  r.EventRecorder,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
@@ -217,7 +219,6 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 
 	// If the HetznerCluster doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(hetznerCluster, infrav2.HetznerClusterFinalizer)
-	controllerutil.RemoveFinalizer(hetznerCluster, infrav2.DeprecatedHetznerClusterFinalizer)
 
 	if err := clusterScope.PatchObject(ctx); err != nil {
 		return reconcile.Result{}, err
@@ -381,8 +382,9 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 		for i, m := range machines {
 			names[i] = fmt.Sprintf("machine/%s", m.Name)
 		}
-		record.Eventf(
+		r.EventRecorder.Eventf(
 			hetznerCluster,
+			corev1.EventTypeNormal,
 			"WaitingForMachineDeletion",
 			"Machines %s still running, waiting with deletion of HetznerCluster",
 			strings.Join(names, ", "),
@@ -461,7 +463,6 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 
 	// Cluster is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(clusterScope.HetznerCluster, infrav2.HetznerClusterFinalizer)
-	controllerutil.RemoveFinalizer(clusterScope.HetznerCluster, infrav2.DeprecatedHetznerClusterFinalizer)
 
 	return reconcile.Result{}, nil
 }
@@ -878,6 +879,8 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		return fmt.Errorf("error creating controller: %w", err)
 	}
 
+	r.EventRecorder = mgr.GetEventRecorderFor("hetznercluster-controller")
+
 	return nil
 }
 
@@ -1060,10 +1063,8 @@ func (r *HetznerClusterReconciler) machineToHetznerCluster(ctx context.Context, 
 // watched object without an extra Get of the owning Machine — the same way clusterv1.ClusterNameLabel is
 // already read directly off these objects elsewhere in this file.
 //
-// The condition type is read via the v1beta1 constants (infrav1) rather than a v1beta2 (infrav2) one:
-// server.go and baremetal.go still set the condition through the v1beta1-typed scope, so infrav1 is the
-// actual source of truth today. Reading the same constant that's written keeps the two in sync by
-// construction, instead of relying on a separate v1beta2 constant that happens to hold the same string.
+// The condition is matched by string. Use the same constant that server.go and baremetal.go write,
+// so a change to its value on one side cannot silently stop the predicate from firing.
 func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 	isControlPlaneMachine := func(o client.Object) bool {
 		_, ok := o.GetLabels()[clusterv1.MachineControlPlaneLabel]
@@ -1085,7 +1086,7 @@ func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 				return false
 			}
 
-			conditionType := string(infrav1.HCloudMachineServerAvailableV1Beta2Condition)
+			conditionType := string(infrav2.HCloudMachineServerAvailableCondition)
 			if _, ok := e.ObjectNew.(*infrav2.HetznerBareMetalMachine); ok {
 				conditionType = string(infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition)
 			}

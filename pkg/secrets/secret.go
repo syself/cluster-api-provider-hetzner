@@ -32,17 +32,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 const (
 	// SecretFinalizer is the finalizer for secrets.
 	SecretFinalizer = "infrastructure.cluster.x-k8s.io/caph-secret"
-
-	// DeprecatedSecretFinalizer contains the old string.
-	// The controller will automatically update to the new string.
-	DeprecatedSecretFinalizer = infrav1.DeprecatedHetznerClusterFinalizer + "/secret"
 )
 
 // SecretManager is a type for fetching Secrets whether or not they are in the
@@ -115,8 +110,7 @@ func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret,
 			}
 		}
 
-		if addFinalizer && (controllerutil.AddFinalizer(secret, SecretFinalizer) ||
-			controllerutil.RemoveFinalizer(secret, DeprecatedSecretFinalizer)) {
+		if addFinalizer && controllerutil.AddFinalizer(secret, SecretFinalizer) {
 			needsUpdate = true
 		}
 
@@ -211,7 +205,6 @@ func (sm *SecretManager) ReleaseSecret(ctx context.Context, secret *corev1.Secre
 	// remove finalizer from secret to allow deletion if no other owner exists
 	if !foundOtherHetznerClusterOwner {
 		controllerutil.RemoveFinalizer(secret, SecretFinalizer)
-		controllerutil.RemoveFinalizer(secret, DeprecatedSecretFinalizer)
 	}
 
 	secret.OwnerReferences = newOwnerRefs

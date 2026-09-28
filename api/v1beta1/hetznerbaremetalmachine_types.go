@@ -33,10 +33,6 @@ const (
 	// removing it from the apiserver.
 	HetznerBareMetalMachineFinalizer = "infrastructure.cluster.x-k8s.io/hetznerbaremetalmachine"
 
-	// DeprecatedBareMetalMachineFinalizer contains the old string.
-	// The controller will automatically update to the new string.
-	DeprecatedBareMetalMachineFinalizer = "hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io"
-
 	// BareMetalHostNamePrefix is a prefix for all hostNames of bare metal servers.
 	BareMetalHostNamePrefix = "bm-"
 )

@@ -33,6 +33,8 @@ const (
 	LoadBalancerFailedToOwnV1Beta1Reason = "LoadBalancerFailedToOwn"
 	// LoadBalancerWaitingToActivateProxyProtocolV1Beta1Reason used while proxy protocol activation waits for all control-plane machines to be annotated.
 	LoadBalancerWaitingToActivateProxyProtocolV1Beta1Reason = "LoadBalancerWaitingToActivateProxyProtocol"
+	// LoadBalancerWaitingToActivateHTTPHealthCheckV1Beta1Reason used while the switch to an http health check waits for all control-plane machines to be annotated.
+	LoadBalancerWaitingToActivateHTTPHealthCheckV1Beta1Reason = "LoadBalancerWaitingToActivateHTTPHealthCheck"
 )
 
 const (
@@ -237,31 +239,6 @@ const (
 	DeletionInProgressV1Beta1Reason = "DeletionInProgress"
 )
 
-// deprecated conditions.
-
-const (
-	// DeprecatedHostProvisionSucceededV1Beta1Condition indicates that a host has been provisioned.
-	DeprecatedHostProvisionSucceededV1Beta1Condition clusterv1.ConditionType = "HostProvisionSucceeded"
-
-	// DeprecatedInstanceReadyV1Beta1Condition reports on current status of the instance. Ready indicates the instance is in a Running state.
-	DeprecatedInstanceReadyV1Beta1Condition clusterv1.ConditionType = "InstanceReady"
-
-	// DeprecatedInstanceBootstrapReadyV1Beta1Condition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
-	DeprecatedInstanceBootstrapReadyV1Beta1Condition clusterv1.ConditionType = "InstanceBootstrapReady"
-
-	// DeprecatedNetworkAttachedV1Beta1Condition reports on whether there is a network attached to the cluster.
-	DeprecatedNetworkAttachedV1Beta1Condition clusterv1.ConditionType = "NetworkAttached"
-
-	// DeprecatedLoadBalancerAttachedToNetworkV1Beta1Condition reports on whether the load balancer is attached to a network.
-	DeprecatedLoadBalancerAttachedToNetworkV1Beta1Condition clusterv1.ConditionType = "LoadBalancerAttachedToNetwork"
-
-	// DeprecatedHetznerBareMetalHostReadyV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedHetznerBareMetalHostReadyV1Beta1Condition clusterv1.ConditionType = "HetznerBareMetalHostReady"
-
-	// DeprecatedAssociateBMHV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
-	DeprecatedAssociateBMHV1Beta1Condition clusterv1.ConditionType = "AssociateBMHCondition"
-)
-
 const (
 	// RebootSucceededV1Beta1Condition indicates that the machine got rebooted successfully.
 	RebootSucceededV1Beta1Condition clusterv1.ConditionType = "RebootSucceeded"
@@ -288,8 +265,35 @@ const (
 	GetWorkloadClusterClientFailedV1Beta1Reason = "GetWorkloadClusterClientFailed"
 	// GetNodeInWorkloadClusterFailedV1Beta1Reason indicates failure in fetching the node object from the workload cluster.
 	GetNodeInWorkloadClusterFailedV1Beta1Reason = "GetNodeInWorkloadClusterFailed"
+	// NodeNotFoundV1Beta1Reason indicates the node object does not exist in the workload cluster.
+	NodeNotFoundV1Beta1Reason = "NodeNotFound"
 	// BootIDEmptyV1Beta1Reason indicates that an empty boot ID is present on the node object.
 	BootIDEmptyV1Beta1Reason = "BootIDEmpty"
+)
+
+const (
+	// ActionCompletedV1Beta1Condition surfaces the host's current provisioning or operational action.
+	// It is present only while an action is in progress or the host is stuck (carrying the reason and
+	// message for that state) and is removed once the action clears.
+	ActionCompletedV1Beta1Condition clusterv1.ConditionType = "ActionCompleted"
+	// ActionCompletedSSHRebootTriggeredV1Beta1Reason indicates a reboot via SSH was triggered.
+	ActionCompletedSSHRebootTriggeredV1Beta1Reason = "SSHRebootTriggered"
+	// ActionCompletedSoftwareRebootTriggeredV1Beta1Reason indicates a software reboot via the Robot API was triggered.
+	ActionCompletedSoftwareRebootTriggeredV1Beta1Reason = "SoftwareRebootTriggered"
+	// ActionCompletedHardwareRebootTriggeredV1Beta1Reason indicates a hardware reboot was triggered.
+	ActionCompletedHardwareRebootTriggeredV1Beta1Reason = "HardwareRebootTriggered"
+	// ActionCompletedRegistrationErrorV1Beta1Reason indicates the server info could not be read or the spec is incomplete.
+	ActionCompletedRegistrationErrorV1Beta1Reason = "RegistrationError"
+	// ActionCompletedPreparationErrorV1Beta1Reason indicates a step before provisioning failed.
+	ActionCompletedPreparationErrorV1Beta1Reason = "PreparationError"
+	// ActionCompletedProvisioningErrorV1Beta1Reason indicates provisioning or deprovisioning failed.
+	ActionCompletedProvisioningErrorV1Beta1Reason = "ProvisioningError"
+	// ActionCompletedFatalErrorV1Beta1Reason indicates an unrecoverable error that deletes the CAPI Machine.
+	ActionCompletedFatalErrorV1Beta1Reason = "FatalError"
+	// ActionCompletedPermanentErrorV1Beta1Reason indicates an error that stays on the host until an operator clears it.
+	ActionCompletedPermanentErrorV1Beta1Reason = "PermanentError"
+	// ActionCompletedUnknownErrorV1Beta1Reason is the fallback for an unrecognized error type.
+	ActionCompletedUnknownErrorV1Beta1Reason = "UnknownError"
 )
 
 // v1beta2 conditions.
@@ -347,6 +351,9 @@ const (
 	// HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason indicates that proxy protocol activation is
 	// waiting for all control-plane machines to be annotated.
 	HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason = "WaitingToActivateProxyProtocol"
+	// HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason indicates that the switch to an http
+	// health check is waiting for all control-plane machines to be annotated.
+	HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason = "WaitingToActivateHTTPHealthCheck"
 )
 
 const (
@@ -419,6 +426,19 @@ const (
 	// HCloudMachineServerCreationFailedReason surfaces when creating the hcloud server fails,
 	// either because the CreateServer call fails or because the create action fails afterwards.
 	HCloudMachineServerCreationFailedReason = "CreationFailed"
+
+	// HCloudMachineSSHPrivateKeyAvailableCondition reports whether the SSH private key used to connect to
+	// the rescue system is available. It is only evaluated for the imageURL flow, which installs the image
+	// over SSH in the rescue system, both before creating the server and while provisioning it.
+	HCloudMachineSSHPrivateKeyAvailableCondition = "SSHPrivateKeyAvailable"
+	// HCloudMachineSSHPrivateKeyAvailableReason indicates the SSH private key is available.
+	HCloudMachineSSHPrivateKeyAvailableReason = clusterv1.AvailableReason
+	// HCloudMachineSSHPrivateKeySecretRefNotConfiguredReason indicates HetznerCluster.Spec.SSHKeys.RescueSecretRef.Name is empty.
+	HCloudMachineSSHPrivateKeySecretRefNotConfiguredReason = "SecretRefNotConfigured"
+	// HCloudMachineSSHPrivateKeySecretNotFoundReason indicates the referenced secret does not exist.
+	HCloudMachineSSHPrivateKeySecretNotFoundReason = "SecretNotFound"
+	// HCloudMachineSSHPrivateKeyFieldEmptyReason indicates the private key field referenced in the secret is missing or empty.
+	HCloudMachineSSHPrivateKeyFieldEmptyReason = "FieldEmpty"
 )
 
 const (
@@ -427,6 +447,10 @@ const (
 	HCloudMachineServerProvisionedCondition = "ServerProvisioned"
 	// HCloudMachineServerProvisionedReason surfaces when the boot state machine has completed.
 	HCloudMachineServerProvisionedReason = clusterv1.ProvisionedReason
+	// HCloudMachineCustomProvisionerRunningReason indicates the custom provisioner is running.
+	HCloudMachineCustomProvisionerRunningReason = "CustomProvisionerRunning"
+	// HCloudMachineCustomProvisionerFailedReason indicates the custom provisioner failed.
+	HCloudMachineCustomProvisionerFailedReason = "CustomProvisionerFailed"
 	// HCloudMachineBootStateUnsetTimedOutReason indicates the boot state unset timed out.
 	HCloudMachineBootStateUnsetTimedOutReason = "BootStateUnsetTimedOut"
 	// HCloudMachineBootStateInitializingReason indicates the boot state is being initialized.
@@ -461,8 +485,6 @@ const (
 	// HCloudMachineEnablingRescueActionDoneReason indicates the rescue enable action is done.
 	HCloudMachineEnablingRescueActionDoneReason = "EnablingRescueActionDone"
 
-	// HCloudMachineGettingSSHPrivateKeyFailedReason indicates getting the SSH private key failed.
-	HCloudMachineGettingSSHPrivateKeyFailedReason = "GettingSSHPrivateKeyFailed"
 	// HCloudMachineRetryingSSHConnectionReason indicates the SSH connection is being retried.
 	HCloudMachineRetryingSSHConnectionReason = "RetryingSSHConnection"
 	// HCloudMachineGettingHostnameFailedReason indicates getting the hostname failed.
@@ -505,6 +527,8 @@ const (
 )
 
 const (
+	// HCloudMachineServerAvailableCondition reports on whether the HCloud server is available.
+	HCloudMachineServerAvailableCondition = "ServerAvailable"
 	// HCloudMachineServerAvailableReason surfaces when the HCloud server is available.
 	HCloudMachineServerAvailableReason = clusterv1.AvailableReason
 	// HCloudMachineServerNotFoundReason surfaces when the HCloud server cannot be found.
@@ -517,6 +541,39 @@ const (
 	HCloudMachineAttachingToLoadBalancerFailedReason = "AttachingToLoadBalancerFailed"
 	// HCloudMachineDeletingReason surfaces when the HCloudMachine is being deleted.
 	HCloudMachineDeletingReason = clusterv1.DeletingReason
+)
+
+// HCloudMachineTemplate's v1beta2 conditions.
+
+const (
+	// HCloudMachineTemplateAvailableCondition reports whether the HCloudMachineTemplate is available.
+	HCloudMachineTemplateAvailableCondition = clusterv1.AvailableCondition
+	// HCloudMachineTemplateAvailableReason surfaces when the HCloudMachineTemplate is available.
+	HCloudMachineTemplateAvailableReason = clusterv1.AvailableReason
+	// HCloudMachineTemplateOwnedByClusterClassReason surfaces when the HCloudMachineTemplate is owned by a ClusterClass.
+	HCloudMachineTemplateOwnedByClusterClassReason = "OwnedByClusterClass"
+	// HCloudMachineTemplateWaitingForOwnerClusterReason surfaces when the HCloudMachineTemplate is waiting for its owner Cluster.
+	HCloudMachineTemplateWaitingForOwnerClusterReason = "WaitingForOwnerCluster"
+	// HCloudMachineTemplateMissingInfrastructureRefReason surfaces when the owner Cluster has no infrastructure reference.
+	HCloudMachineTemplateMissingInfrastructureRefReason = "MissingInfrastructureRef"
+	// HCloudMachineTemplateServerTypeNotFoundReason surfaces when spec.template.spec.type is not a known HCloud server type.
+	HCloudMachineTemplateServerTypeNotFoundReason = "ServerTypeNotFound"
+)
+
+// HCloudRemediation's v1beta2 conditions.
+
+const (
+	// HCloudRemediationSkippedCondition reports that remediation was skipped because
+	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
+	HCloudRemediationSkippedCondition = "RemediationSkipped"
+	// HCloudRemediationIrrecoverableServerCreateFailureReason indicates remediation was skipped because
+	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
+	HCloudRemediationIrrecoverableServerCreateFailureReason = "IrrecoverableServerCreateFailure"
+	// RemediationCooldownTriggeredReason indicates that the machine became unhealthy
+	// again within the cooldown window following a prior remediation. Rather than
+	// rebooting again, the controller sets MachineOwnerRemediated to False so CAPI
+	// escalates by deleting the machine.
+	RemediationCooldownTriggeredReason = "RemediationCooldownTriggered"
 )
 
 // HetznerBareMetalHost's v1beta2 conditions.
@@ -603,6 +660,8 @@ const (
 	HetznerBareMetalHostGettingWorkloadClusterClientFailedReason = "GettingWorkloadClusterClientFailed"
 	// HetznerBareMetalHostGettingNodeInWorkloadClusterFailedReason indicates fetching the node object from the workload cluster failed.
 	HetznerBareMetalHostGettingNodeInWorkloadClusterFailedReason = "GettingNodeInWorkloadClusterFailed"
+	// HetznerBareMetalHostNodeNotFoundReason indicates the node object does not exist in the workload cluster.
+	HetznerBareMetalHostNodeNotFoundReason = "NodeNotFound"
 	// HetznerBareMetalHostBootIDEmptyReason indicates the boot ID on the node object is empty.
 	HetznerBareMetalHostBootIDEmptyReason = "BootIDEmpty"
 )
@@ -634,6 +693,25 @@ const (
 	// action. It is present only while an action is in progress or the host is stuck (carrying the reason and
 	// message for that state) and is removed once the action clears; it has no steady-state True.
 	HetznerBareMetalHostActionCompletedCondition = "ActionCompleted"
+
+	// HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason indicates a reboot via SSH was triggered.
+	HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason = "SSHRebootTriggered"
+	// HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason indicates a software reboot via the Robot API was triggered.
+	HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason = "SoftwareRebootTriggered"
+	// HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason indicates a hardware reboot was triggered.
+	HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason = "HardwareRebootTriggered"
+	// HetznerBareMetalHostActionCompletedRegistrationErrorReason indicates the server info could not be read or the spec is incomplete.
+	HetznerBareMetalHostActionCompletedRegistrationErrorReason = "RegistrationError"
+	// HetznerBareMetalHostActionCompletedPreparationErrorReason indicates a step before provisioning failed.
+	HetznerBareMetalHostActionCompletedPreparationErrorReason = "PreparationError"
+	// HetznerBareMetalHostActionCompletedProvisioningErrorReason indicates provisioning or deprovisioning failed.
+	HetznerBareMetalHostActionCompletedProvisioningErrorReason = "ProvisioningError"
+	// HetznerBareMetalHostActionCompletedFatalErrorReason indicates an unrecoverable error that deletes the CAPI Machine.
+	HetznerBareMetalHostActionCompletedFatalErrorReason = "FatalError"
+	// HetznerBareMetalHostActionCompletedPermanentErrorReason indicates an error that stays on the host until an operator clears it.
+	HetznerBareMetalHostActionCompletedPermanentErrorReason = "PermanentError"
+	// HetznerBareMetalHostActionCompletedUnknownErrorReason is the fallback for an unrecognized error type.
+	HetznerBareMetalHostActionCompletedUnknownErrorReason = "UnknownError"
 )
 
 // HetznerBareMetalMachine's v1beta2 conditions.

@@ -27,17 +27,18 @@ import (
 	"time"
 
 	certificatesv1 "k8s.io/api/certificates/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/predicates"
-	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -46,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/csr"
 )
 
@@ -62,6 +64,7 @@ type GuestCSRReconciler struct {
 	clientSet        *kubernetes.Clientset
 	mCluster         ManagementCluster
 	clusterName      string
+	EventRecorder    record.EventRecorder
 }
 
 const nodePrefix = "system:node:"
@@ -134,8 +137,9 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 
 		csrRequest, err := getx509CSR(certificateSigningRequest)
 		if err != nil {
-			record.Warnf(
+			r.EventRecorder.Eventf(
 				certificateSigningRequest,
+				corev1.EventTypeWarning,
 				"CSRParsingError",
 				"Error parsing CertificateSigningRequest %s: %s",
 				req.Name,
@@ -151,7 +155,13 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			condition.Reason = "CSRValidationFailed"
 			condition.Status = "True"
 			condition.Message = fmt.Sprintf("Validation by cluster-api-provider-hetzner failed: %s", err)
-			record.Warnf(certificateSigningRequest, condition.Reason, "failed to validate kubelet csr: %s", err.Error())
+			r.EventRecorder.Eventf(
+				certificateSigningRequest,
+				corev1.EventTypeWarning,
+				condition.Reason,
+				"failed to validate kubelet csr: %s",
+				err.Error(),
+			)
 		} else {
 			condition.Type = certificatesv1.CertificateApproved
 			condition.Reason = "CSRValidationSucceed"
@@ -171,12 +181,24 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		certificateSigningRequest,
 		metav1.UpdateOptions{},
 	); err != nil {
-		record.Warnf(certificateSigningRequest, "ApprovalFailed", "approval of csr failed: %s", err.Error())
+		r.EventRecorder.Eventf(
+			certificateSigningRequest,
+			corev1.EventTypeWarning,
+			"ApprovalFailed",
+			"approval of csr failed: %s",
+			err.Error(),
+		)
 		return reconcile.Result{}, fmt.Errorf("updating approval of csr failed. userName %q: %w",
 			certificateSigningRequest.Spec.Username, err)
 	}
 
-	record.Eventf(certificateSigningRequest, "CSRApproved", "approved csr for %q", certificateSigningRequest.Spec.Username)
+	r.EventRecorder.Eventf(
+		certificateSigningRequest,
+		corev1.EventTypeNormal,
+		"CSRApproved",
+		"approved csr for %q",
+		certificateSigningRequest.Spec.Username,
+	)
 	return reconcile.Result{}, nil
 }
 
@@ -242,7 +264,7 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 	// It could be both: A hcloud machine or a bm-machine without ConstantHostname.
 
 	// Try to find matching HCloudMachine object.
-	var hcloudMachine infrav1.HCloudMachine
+	var hcloudMachine infrav2.HCloudMachine
 
 	hcloudMachineName := types.NamespacedName{
 		Namespace: r.mCluster.Namespace(),
@@ -268,7 +290,15 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 		return bmMachine.Status.Addresses, false, nil
 	}
 	log.Info(fmt.Sprintf("found hcloudmachine for %s", certificateSigningRequest.Spec.Username))
-	return hcloudMachine.Status.Addresses, true, nil
+	// HCloudMachine stores addresses as core v1beta2 MachineAddress, while the bare metal paths and the
+	// CSR validator both use the v1beta1 type, so convert to the v1beta1 type here.
+	// TODO: once the bare metal machines are on v1beta2 and pkg/csr.ValidateKubeletCSR takes v1beta2
+	// addresses, return hcloudMachine.Status.Addresses directly and drop this conversion.
+	addresses := make([]clusterv1beta1.MachineAddress, len(hcloudMachine.Status.Addresses))
+	for i, addr := range hcloudMachine.Status.Addresses {
+		addresses[i] = clusterv1beta1.MachineAddress{Type: clusterv1beta1.MachineAddressType(addr.Type), Address: addr.Address}
+	}
+	return addresses, true, nil
 }
 
 func getx509CSR(certificateSigningRequest *certificatesv1.CertificateSigningRequest) (*x509.CertificateRequest, error) {
@@ -285,7 +315,7 @@ func getx509CSR(certificateSigningRequest *certificatesv1.CertificateSigningRequ
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *GuestCSRReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&certificatesv1.CertificateSigningRequest{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
@@ -304,6 +334,13 @@ func (r *GuestCSRReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Mana
 			},
 		}).
 		Complete(r)
+	if err != nil {
+		return fmt.Errorf("error creating controller: %w", err)
+	}
+
+	r.EventRecorder = mgr.GetEventRecorderFor("csr-controller")
+
+	return nil
 }
 
 func getServerIDFromConstantHostname(ctx context.Context, csrUsername string, clusterName string) (clusterFromCSR string, serverID string) {

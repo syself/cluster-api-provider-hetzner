@@ -40,12 +40,21 @@ import (
 // counterparts for the controllers that have not been migrated yet, and can be deleted once they
 // are.
 
+// conditionsObject is an API object that owns both the conditions and the deprecated v1beta1
+// conditions and can be status-patched. reconcileRateLimit and hcloudTokenErrorResult accept it so
+// every controller that reconciles such an object shares them.
+type conditionsObject interface {
+	client.Object
+	conditions.Setter
+	deprecatedv1beta1conditions.Setter
+}
+
 // reconcileRateLimit checks whether the rate limit has been reached and returns whether the
 // controller should wait a bit more. When the wait is over it clears the rate-limit conditions
 // (HetznerAPIReachable marked reachable again, HCloudRateLimitExceeded deleted, since we cannot know
 // the limit is gone until the next API call).
-func reconcileRateLimit(cluster *infrav2.HetznerCluster, rateLimitWaitTime time.Duration) bool {
-	condition := conditions.Get(cluster, infrav2.HCloudRateLimitExceededCondition)
+func reconcileRateLimit(obj conditionsObject, rateLimitWaitTime time.Duration) bool {
+	condition := conditions.Get(obj, infrav2.HCloudRateLimitExceededCondition)
 	if condition != nil && condition.Status == metav1.ConditionTrue {
 		if time.Now().Before(condition.LastTransitionTime.Add(rateLimitWaitTime)) {
 			// Rate limit wait has not elapsed yet, so signal the caller to requeue.
@@ -54,8 +63,8 @@ func reconcileRateLimit(cluster *infrav2.HetznerCluster, rateLimitWaitTime time.
 			return true
 		}
 		// Wait time is over, we continue.
-		deprecatedv1beta1conditions.MarkTrue(cluster, infrav2.HetznerAPIReachableV1Beta1Condition)
-		conditions.Delete(cluster, infrav2.HCloudRateLimitExceededCondition)
+		deprecatedv1beta1conditions.MarkTrue(obj, infrav2.HetznerAPIReachableV1Beta1Condition)
+		conditions.Delete(obj, infrav2.HCloudRateLimitExceededCondition)
 	}
 
 	return false
@@ -98,7 +107,7 @@ func getAndValidateHCloudToken(ctx context.Context, namespace string, hetznerClu
 func hcloudTokenErrorResult(
 	ctx context.Context,
 	inerr error,
-	cluster *infrav2.HetznerCluster,
+	obj conditionsObject,
 	crClient client.Client,
 	summaryOpts []conditions.SummaryOption,
 ) (ctrl.Result, error) {
@@ -109,13 +118,13 @@ func hcloudTokenErrorResult(
 	// we requeue the host as we will not know if they create the secret
 	// at some point in the future.
 	case *secretutil.ResolveSecretRefError:
-		deprecatedv1beta1conditions.MarkFalse(cluster,
+		deprecatedv1beta1conditions.MarkFalse(obj,
 			infrav2.HCloudTokenAvailableV1Beta1Condition,
 			infrav2.HetznerSecretUnreachableV1Beta1Reason,
 			clusterv1.ConditionSeverityError,
 			"could not find HetznerSecret",
 		)
-		conditions.Set(cluster, metav1.Condition{
+		conditions.Set(obj, metav1.Condition{
 			Type:    infrav2.HCloudTokenAvailableCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  infrav2.HCloudTokenSecretUnreachableReason,
@@ -126,13 +135,13 @@ func hcloudTokenErrorResult(
 
 	// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 	case *secretutil.HCloudTokenValidationError:
-		deprecatedv1beta1conditions.MarkFalse(cluster,
+		deprecatedv1beta1conditions.MarkFalse(obj,
 			infrav2.HCloudTokenAvailableV1Beta1Condition,
 			infrav2.HCloudCredentialsInvalidV1Beta1Reason,
 			clusterv1.ConditionSeverityError,
 			"invalid or not specified hcloud token in Hetzner secret",
 		)
-		conditions.Set(cluster, metav1.Condition{
+		conditions.Set(obj, metav1.Condition{
 			Type:    infrav2.HCloudTokenAvailableCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  infrav2.HCloudTokenInvalidReason,
@@ -140,14 +149,14 @@ func hcloudTokenErrorResult(
 		})
 
 	default:
-		deprecatedv1beta1conditions.MarkFalse(cluster,
+		deprecatedv1beta1conditions.MarkFalse(obj,
 			infrav2.HCloudTokenAvailableV1Beta1Condition,
 			infrav2.HCloudCredentialsInvalidV1Beta1Reason,
 			clusterv1.ConditionSeverityError,
 			"%s",
 			inerr.Error(),
 		)
-		conditions.Set(cluster, metav1.Condition{
+		conditions.Set(obj, metav1.Condition{
 			Type:    infrav2.HCloudTokenAvailableCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  infrav2.HCloudTokenInvalidReason,
@@ -156,19 +165,19 @@ func hcloudTokenErrorResult(
 		return reconcile.Result{}, fmt.Errorf("an unhandled failure occurred with the Hetzner secret: %w", inerr)
 	}
 
-	deprecatedv1beta1conditions.SetSummary(cluster)
+	deprecatedv1beta1conditions.SetSummary(obj)
 
 	if len(summaryOpts) > 0 {
 		if readyCondition, err := conditions.NewSummaryCondition(
-			cluster,
+			obj,
 			clusterv1.ReadyCondition,
 			summaryOpts...,
 		); err == nil {
-			conditions.Set(cluster, *readyCondition)
+			conditions.Set(obj, *readyCondition)
 		}
 	}
 
-	if err := crClient.Status().Update(ctx, cluster); err != nil {
+	if err := crClient.Status().Update(ctx, obj); err != nil {
 		return reconcile.Result{}, fmt.Errorf("hcloudTokenErrorResult: failed to update: %w", err)
 	}
 	if inerr != nil {

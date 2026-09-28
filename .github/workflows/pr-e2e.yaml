@@ -27,7 +27,7 @@ jobs:
           exit 1
 
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -40,13 +40,13 @@ jobs:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/syself/caph-builder:1.0.30
+      image: ghcr.io/syself/caph-builder:1.0.31
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
     steps:
       - name: checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Fix broken env var HOME
         uses: ./.github/actions/fixes
@@ -68,7 +68,7 @@ jobs:
       - test-release
     steps:
       - name: checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Run e2e Test
         id: e2e
         uses: ./.github/actions/e2e
@@ -93,7 +93,7 @@ jobs:
       - test-release
     steps:
       - name: checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Use hbmh list from main branch
         run: |
           git fetch origin main
