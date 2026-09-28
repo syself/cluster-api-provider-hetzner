@@ -269,14 +269,6 @@ type connKey struct {
 	keyHash [sha256.Size]byte
 }
 
-func newConnKey(ip string, port int, privateKey string) connKey {
-	return connKey{
-		ip:      ip,
-		port:    port,
-		keyHash: sha256.Sum256([]byte(privateKey)),
-	}
-}
-
 // pooledConn wraps a shared *ssh.Client. Its mutex serializes get-or-create
 // and evict operations for this one entry, so concurrent callers for the same
 // connKey neither dial twice nor race on lastUsed or client. See getSSHClient
@@ -286,6 +278,8 @@ type pooledConn struct {
 	mu       sync.Mutex
 	client   *ssh.Client
 	lastUsed time.Time
+	// inUse is the number of commands that currently use client.
+	inUse int
 }
 
 type sshFactory struct {
@@ -350,6 +344,14 @@ func (f *sshFactory) entry(key connKey) *pooledConn {
 	pc = &pooledConn{}
 	f.conns[key] = pc
 	return pc
+}
+
+// release decreases inUse and sets lastUsed.
+func (pc *pooledConn) release() {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	pc.inUse--
+	pc.lastUsed = time.Now()
 }
 
 // closeAndClear closes pc's pooled client, if any, and clears it so the entry
@@ -439,7 +441,7 @@ func (f *sshFactory) evictIdle() {
 		pc.mu.Lock()
 		// An entry whose dial failed has no client, but it still needs to be
 		// removed, so do not check client here.
-		idle := now.Sub(pc.lastUsed) > f.idleTimeout
+		idle := pc.inUse == 0 && now.Sub(pc.lastUsed) > f.idleTimeout
 		pc.mu.Unlock()
 		if idle {
 			toClose = append(toClose, pc)
@@ -472,7 +474,11 @@ type sshClient struct {
 }
 
 func (c *sshClient) connKey() connKey {
-	return newConnKey(c.ip, c.port, c.privateSSHKey)
+	return connKey{
+		ip:      c.ip,
+		port:    c.port,
+		keyHash: sha256.Sum256([]byte(c.privateSSHKey)),
+	}
 }
 
 // isTransportError reports whether err indicates a problem with the
@@ -502,8 +508,8 @@ func isTransportError(err error) bool {
 // ctx was canceled. The scp-based methods below evict on any copy failure,
 // since go-scp does not expose a way to distinguish a genuine transport
 // failure from a remote-side protocol error (e.g. "no such file"). But a
-// canceled ctx says nothing about the connection's health -- it only means
-// the caller stopped waiting -- so it must never trigger an eviction.
+// canceled ctx only means that the caller stopped waiting. It does not tell
+// us anything about the connection, so it must not trigger an eviction.
 func (c *sshClient) evictUnlessCanceled(ctx context.Context) {
 	if ctx.Err() == nil {
 		c.factory.evict(c.connKey())
@@ -874,8 +880,8 @@ func IsTimeoutError(err error) bool {
 // reused by a later call for the same machine.
 //
 // pc.mu is held for the entire call, including the liveness probe and, on a
-// miss, the full dial (TCP connect + SSH handshake) -- worst case around
-// 2*sshTimeOut. That serializes concurrent callers targeting the same
+// miss, the full dial (TCP connect + SSH handshake), which takes around
+// 2*sshTimeOut at worst. That serializes concurrent callers targeting the same
 // (ip, port, keyHash), which is deliberate: it guarantees at most one dial in
 // flight per pooled entry, so two callers racing to establish the same
 // connection can't both pay for a handshake or clobber each other's pc.client
@@ -884,7 +890,7 @@ func IsTimeoutError(err error) bool {
 // reconciler goroutine at a time; if that ever changes for a given (ip, port,
 // key), calls to it will queue up behind this lock rather than run
 // concurrently.
-func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, error) {
+func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, func(), error) {
 	pc := c.factory.entry(c.connKey())
 
 	pc.mu.Lock()
@@ -895,20 +901,21 @@ func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, error) {
 	// instead of it sitting in the map forever.
 	pc.lastUsed = time.Now()
 
-	if pc.client != nil {
-		if isConnAlive(pc.client) {
-			return pc.client, nil
-		}
+	if pc.client != nil && !isConnAlive(pc.client) {
 		_ = pc.client.Close()
 		pc.client = nil
 	}
 
-	client, err := c.dial(ctx)
-	if err != nil {
-		return nil, err
+	if pc.client == nil {
+		client, err := c.dial(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		pc.client = client
 	}
-	pc.client = client
-	return client, nil
+
+	pc.inUse++
+	return pc.client, pc.release, nil
 }
 
 // isConnAlive does a cheap liveness probe on an existing connection so a
@@ -918,7 +925,7 @@ func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, error) {
 // The probe works because the SSH protocol (RFC 4254 4) requires a peer that
 // gets a global request it doesn't understand to still reply, with failure,
 // if a reply was requested. So client.SendRequest is expected to come back
-// with ok=false here -- that's ignored. Only err is checked: err == nil means
+// with ok=false here. Only err is checked: err == nil means
 // some reply arrived at all, i.e. the transport is still processing
 // messages; err != nil (or the timeout below firing first) means it isn't.
 func isConnAlive(client *ssh.Client) bool {
@@ -992,10 +999,11 @@ func (c *sshClient) dial(ctx context.Context) (*ssh.Client, error) {
 func (c *sshClient) runSSH(ctx context.Context, command string) Output {
 	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
 
-	client, err := c.getSSHClient(ctx)
+	client, release, err := c.getSSHClient(ctx)
 	if err != nil {
 		return Output{Err: err}
 	}
+	defer release()
 
 	sess, err := client.NewSession()
 	if err != nil {
@@ -1098,10 +1106,11 @@ func removeUselessLinesFromCloudInitOutput(s string) string {
 }
 
 func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command string) (int, string, error) {
-	client, err := c.getSSHClient(ctx)
+	client, release, err := c.getSSHClient(ctx)
 	if err != nil {
 		return 0, "", err
 	}
+	defer release()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
@@ -1166,10 +1175,11 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 		}
 	}()
 
-	client, err := c.getSSHClient(ctx)
+	client, release, err := c.getSSHClient(ctx)
 	if err != nil {
 		return 0, "", err
 	}
+	defer release()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
@@ -1266,10 +1276,11 @@ func (c *sshClient) getImageURLCommandOutput(ctx context.Context) (string, error
 }
 
 func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
-	client, err := c.getSSHClient(ctx)
+	client, release, err := c.getSSHClient(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get ssh client: %w", err)
 	}
+	defer release()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {

@@ -338,6 +338,39 @@ func Test_ConnectionPool_EvictsIdleConnection(t *testing.T) {
 	require.Equal(t, 2, server.handshakes(), "a call after the idle eviction should dial a fresh connection")
 }
 
+func Test_ConnectionPool_DoesNotEvictConnectionInUse(t *testing.T) {
+	server := newFakeSSHServer(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	factory := newTestFactory(ctx)
+	host, portStr, err := net.SplitHostPort(server.addr)
+	require.NoError(t, err)
+	var port int
+	_, err = fmt.Sscanf(portStr, "%d", &port)
+	require.NoError(t, err)
+
+	client := factory.NewClient(Input{IP: host, Port: port, PrivateKey: generateTestClientKeyPEM(t)}).(*sshClient)
+
+	// Keep the client in use for longer than the idle timeout of the test
+	// factory, like a long command does.
+	_, release, err := client.getSSHClient(ctx)
+	require.NoError(t, err)
+	time.Sleep(300 * time.Millisecond)
+
+	factory.mu.RLock()
+	require.Len(t, factory.conns, 1, "idle sweep must not evict a connection that is in use")
+	factory.mu.RUnlock()
+
+	release()
+	require.Eventually(t, func() bool {
+		factory.mu.RLock()
+		defer factory.mu.RUnlock()
+		return len(factory.conns) == 0
+	}, time.Second, 10*time.Millisecond, "idle sweep should evict the connection after it is released")
+	require.Equal(t, 1, server.handshakes())
+}
+
 func Test_ConnectionPool_DifferentPrivateKeysDoNotShareConnection(t *testing.T) {
 	server := newFakeSSHServer(t)
 	ctx, cancel := context.WithCancel(context.Background())
