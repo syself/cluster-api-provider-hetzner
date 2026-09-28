@@ -39,17 +39,13 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/utils/ptr"
 	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
@@ -92,24 +88,24 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// Make sure bootstrap data is available and populated. If not, return, we
 	// will get an event from the machine update when the flag is set to true.
 	if !s.scope.IsBootstrapReady() {
-		s.scope.BareMetalMachine.Status.Phase = clusterv1beta1.MachinePhasePending
-		v1beta1conditions.MarkFalse(
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhasePending
+		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.BareMetalMachine,
-			infrav1.BootstrapReadyCondition,
-			infrav1.BootstrapNotReadyReason,
-			clusterv1beta1.ConditionSeverityInfo,
+			infrav2.BootstrapReadyV1Beta1Condition,
+			infrav2.BootstrapNotReadyV1Beta1Reason,
+			clusterv1.ConditionSeverityInfo,
 			"bootstrap not ready yet",
 		)
-		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-			Type:    infrav1.HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+		conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+			Type:    infrav2.HetznerBareMetalMachineHostAssociatedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerBareMetalMachineWaitingForBootstrapDataV1Beta2Reason,
+			Reason:  infrav2.HetznerBareMetalMachineWaitingForBootstrapDataReason,
 			Message: "bootstrap not ready yet",
 		})
 		return res, nil
 	}
 
-	v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.BootstrapReadyCondition)
+	deprecatedv1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav2.BootstrapReadyV1Beta1Condition)
 
 	// Check if the bareMetalmachine is associated with a host already. If not, associate a new host.
 	if !s.scope.BareMetalMachine.HasHostAnnotation() {
@@ -119,11 +115,11 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		}
 	}
 
-	v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostAssociateSucceededCondition)
-	v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-		Type:   infrav1.HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+	deprecatedv1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav2.HostAssociateSucceededV1Beta1Condition)
+	conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+		Type:   infrav2.HetznerBareMetalMachineHostAssociatedCondition,
 		Status: metav1.ConditionTrue,
-		Reason: infrav1.HetznerBareMetalMachineHostAssociatedV1Beta2Reason,
+		Reason: infrav2.HetznerBareMetalMachineHostAssociatedReason,
 	})
 
 	// update the machine
@@ -132,17 +128,17 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		if apierrors.IsNotFound(err) {
 			// if host doesn't exist, set HostNotFound condition on HetznerBaremetalMachine
 			// and mark the machine object for remediation and stop reconciling.
-			v1beta1conditions.MarkFalse(
+			deprecatedv1beta1conditions.MarkFalse(
 				s.scope.BareMetalMachine,
-				infrav1.HostReadyCondition,
-				infrav1.HostNotFoundReason,
-				clusterv1beta1.ConditionSeverityError,
+				infrav2.HostReadyV1Beta1Condition,
+				infrav2.HostNotFoundV1Beta1Reason,
+				clusterv1.ConditionSeverityError,
 				"associated host not found",
 			)
-			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-				Type:    infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
+			conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+				Type:    infrav2.HetznerBareMetalMachineHostReadyCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HetznerBareMetalMachineNotFoundV1Beta2Reason,
+				Reason:  infrav2.HetznerBareMetalMachineNotFoundReason,
 				Message: "associated host not found",
 			})
 
@@ -154,8 +150,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	if host.Status.HasFatalError() {
 		// hbmm will be deleted soon.
-		s.scope.BareMetalMachine.Status.Phase = clusterv1beta1.MachinePhaseDeleting
-		s.scope.BareMetalMachine.Status.Ready = false
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseDeleting
 		return reconcile.Result{}, nil
 	}
 
@@ -164,20 +159,20 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return reconcile.Result{}, fmt.Errorf("failed to set providerID: %w", err)
 	}
 
-	// Ready=true must be set before the load-balancer attachment below, so that
-	// even when reconcileLoadBalancerAttachment requeues with WaitingForAPIServer,
-	// CAPI still copies ProviderID onto Machine.Spec.ProviderID. Otherwise the
-	// Node is never linked, MachineAPIServerPodHealthy never flips true on the
-	// core Machine, and the attachment would requeue forever.
-	s.scope.BareMetalMachine.Status.Ready = true
+	// Set initialization.provisioned before the load balancer attachment below. CAPI copies the
+	// ProviderID to the CAPI Machine only after provisioned is true. Without the ProviderID the CAPI
+	// Machine never gets its Node, KCP never sets MachineAPIServerPodHealthy, and
+	// reconcileLoadBalancerAttachment waits forever. Provisioned is a one-time signal in the CAPI
+	// contract and is never set back to false.
+	s.scope.BareMetalMachine.Status.Initialization.Provisioned = ptr.To(true)
 
 	// Worker nodes have no further blocking step, so mark the condition true here.
 	if !s.scope.IsControlPlane() {
-		v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
-		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-			Type:   infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+		deprecatedv1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)
+		conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+			Type:   infrav2.HetznerBareMetalMachineServerAvailableCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Reason,
+			Reason: infrav2.HetznerBareMetalMachineServerAvailableReason,
 		})
 		return res, nil
 	}
@@ -190,11 +185,11 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return checkForRequeueError(err, "failed to reconcile load balancer attachment")
 	}
 
-	v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
-	v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-		Type:   infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+	deprecatedv1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)
+	conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+		Type:   infrav2.HetznerBareMetalMachineServerAvailableCondition,
 		Status: metav1.ConditionTrue,
-		Reason: infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Reason,
+		Reason: infrav2.HetznerBareMetalMachineServerAvailableReason,
 	})
 	return res, nil
 }
@@ -207,14 +202,14 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, fmt.Errorf("failed to get associated host: %w", err)
 	}
 	if host != nil && host.Spec.ConsumerRef != nil {
-		s.scope.BareMetalMachine.Status.Phase = clusterv1beta1.MachinePhaseDeleting
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseDeleting
 
 		// remove control plane as load balancer target
 		if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
-			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-				Type:    infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
+			conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+				Type:    infrav2.HetznerBareMetalMachineDeletingCondition,
 				Status:  metav1.ConditionTrue,
-				Reason:  infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
+				Reason:  infrav2.HetznerBareMetalMachineDeletingReason,
 				Message: "Removing server from load balancer",
 			})
 			if err := s.removeAttachedServerOfLoadBalancer(ctx, host); err != nil {
@@ -234,10 +229,10 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 		// watches the HetznerBareMetalMachine, so there is nothing to trigger here. Wait until it
 		// is done.
 		if host.Status.ProvisioningState != infrav2.StateNone {
-			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-				Type:    infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
+			conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+				Type:    infrav2.HetznerBareMetalMachineDeletingCondition,
 				Status:  metav1.ConditionTrue,
-				Reason:  infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
+				Reason:  infrav2.HetznerBareMetalMachineDeletingReason,
 				Message: fmt.Sprintf("Waiting for host to deprovision (state: %s)", host.Status.ProvisioningState),
 			})
 			s.scope.Info("hbmm is deleting, but host is not deprovisioned yet. Requeueing",
@@ -268,7 +263,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 		"HetznerBareMetalMachine with name %s deleted",
 		s.scope.Name(),
 	)
-	s.scope.BareMetalMachine.Status.Phase = clusterv1beta1.MachinePhaseDeleted
+	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseDeleted
 
 	return reconcile.Result{}, nil
 }
@@ -285,29 +280,37 @@ func (s *Service) update(ctx context.Context) (*infrav2.HetznerBareMetalHost, er
 		return nil, fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
-	readyCondition := deprecatedv1beta1conditions.Get(host, clusterv1.ReadyV1Beta1Condition)
+	readyV1Beta1Condition := deprecatedv1beta1conditions.Get(host, clusterv1.ReadyV1Beta1Condition)
+	if readyV1Beta1Condition != nil {
+		switch readyV1Beta1Condition.Status {
+		case corev1.ConditionTrue:
+			deprecatedv1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav2.HostReadyV1Beta1Condition)
+		case corev1.ConditionFalse:
+			deprecatedv1beta1conditions.MarkFalse(
+				s.scope.BareMetalMachine,
+				infrav2.HostReadyV1Beta1Condition,
+				readyV1Beta1Condition.Reason,
+				readyV1Beta1Condition.Severity,
+				"%s",
+				readyV1Beta1Condition.Message,
+			)
+		}
+	}
+
+	readyCondition := conditions.Get(host, clusterv1.ReadyCondition)
 	if readyCondition != nil {
 		switch readyCondition.Status {
-		case corev1.ConditionTrue:
-			v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostReadyCondition)
-			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-				Type:   infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
+		case metav1.ConditionTrue:
+			conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+				Type:   infrav2.HetznerBareMetalMachineHostReadyCondition,
 				Status: metav1.ConditionTrue,
-				Reason: infrav1.HetznerBareMetalMachineHostReadyV1Beta2Reason,
+				Reason: infrav2.HetznerBareMetalMachineHostReadyReason,
 			})
-		case corev1.ConditionFalse:
-			v1beta1conditions.MarkFalse(
-				s.scope.BareMetalMachine,
-				infrav1.HostReadyCondition,
-				readyCondition.Reason,
-				clusterv1beta1.ConditionSeverity(readyCondition.Severity),
-				"%s",
-				readyCondition.Message,
-			)
-			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-				Type:    infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
+		case metav1.ConditionFalse:
+			conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+				Type:    infrav2.HetznerBareMetalMachineHostReadyCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HetznerBareMetalMachineHostNotReadyV1Beta2Reason,
+				Reason:  infrav2.HetznerBareMetalMachineHostNotReadyReason,
 				Message: readyCondition.Message,
 			})
 		}
@@ -375,20 +378,20 @@ func (s *Service) associate(ctx context.Context) error {
 		return fmt.Errorf("failed to choose host: %w", err)
 	}
 	if host == nil {
-		s.scope.BareMetalMachine.Status.Phase = clusterv1beta1.MachinePhasePending
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhasePending
 		s.scope.Info("No available host found. Requeuing.", "reason", reason)
-		v1beta1conditions.MarkFalse(
+		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.BareMetalMachine,
-			infrav1.HostAssociateSucceededCondition,
-			infrav1.NoAvailableHostReason,
-			clusterv1beta1.ConditionSeverityWarning,
+			infrav2.HostAssociateSucceededV1Beta1Condition,
+			infrav2.NoAvailableHostV1Beta1Reason,
+			clusterv1.ConditionSeverityWarning,
 			"%s",
 			fmt.Sprintf("no available host (%s)", reason),
 		)
-		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-			Type:    infrav1.HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+		conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+			Type:    infrav2.HetznerBareMetalMachineHostAssociatedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerBareMetalMachineNoAvailableHostV1Beta2Reason,
+			Reason:  infrav2.HetznerBareMetalMachineNoAvailableHostReason,
 			Message: fmt.Sprintf("no available host (%s)", reason),
 		})
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfterNoAvailableHost}
@@ -407,18 +410,18 @@ func (s *Service) associate(ctx context.Context) error {
 
 	if err := analyzePatchError(helper.Patch(ctx, host), false); err != nil {
 		reterr := fmt.Errorf("failed to patch host: %w", err)
-		v1beta1conditions.MarkFalse(
+		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.BareMetalMachine,
-			infrav1.HostAssociateSucceededCondition,
-			infrav1.HostAssociateFailedReason,
-			clusterv1beta1.ConditionSeverityWarning,
+			infrav2.HostAssociateSucceededV1Beta1Condition,
+			infrav2.HostAssociateFailedV1Beta1Reason,
+			clusterv1.ConditionSeverityWarning,
 			"%s",
 			reterr.Error(),
 		)
-		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-			Type:    infrav1.HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+		conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+			Type:    infrav2.HetznerBareMetalMachineHostAssociatedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerBareMetalMachineHostAssociationFailedV1Beta2Reason,
+			Reason:  infrav2.HetznerBareMetalMachineHostAssociationFailedReason,
 			Message: reterr.Error(),
 		})
 		return reterr
@@ -453,7 +456,7 @@ func (s *Service) getAssociatedHostAndPatchHelper(ctx context.Context) (*infrav2
 // ChooseHost tries to find a free hbmh.
 // If no hbmh was found, then hbmh and err are nil, and the string
 // "reason" contains human readable details.
-func ChooseHost(hbmm *infrav1.HetznerBareMetalMachine, hosts []infrav2.HetznerBareMetalHost) (
+func ChooseHost(hbmm *infrav2.HetznerBareMetalMachine, hosts []infrav2.HetznerBareMetalHost) (
 	hbmh *infrav2.HetznerBareMetalHost, reason string, err error,
 ) {
 	labelSelector := getLabelSelector(hbmm)
@@ -519,7 +522,7 @@ func ChooseHost(hbmm *infrav1.HetznerBareMetalMachine, hosts []infrav2.HetznerBa
 	return chosenHost, "", nil
 }
 
-func skipHost(labelSelector labels.Selector, hbmm *infrav1.HetznerBareMetalMachine, host infrav2.HetznerBareMetalHost, mapOfSkipReasons map[string]int) bool {
+func skipHost(labelSelector labels.Selector, hbmm *infrav2.HetznerBareMetalMachine, host infrav2.HetznerBareMetalHost, mapOfSkipReasons map[string]int) bool {
 	// This comes first, because we should not look too deep into machines
 	// which are not in our scope.
 	if !labelSelector.Matches(labels.Set(host.Labels)) {
@@ -566,7 +569,7 @@ func skipHost(labelSelector labels.Selector, hbmm *infrav1.HetznerBareMetalMachi
 		return true
 	}
 
-	if hbmm.Spec.InstallImage.Swraid == 1 {
+	if hbmm.Swraid() == 1 {
 		// Machine should have RAID. Skip machines which have less than two WWNs
 		lenOfWwnSlice := len(host.Spec.RootDeviceHints.Raid.WWN)
 		if lenOfWwnSlice < 2 {
@@ -606,13 +609,13 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 	var foundIPv4 bool
 	var foundIPv6 bool
 
-	if v1beta2conditions.IsTrue(s.scope.BareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition) {
+	if conditions.IsTrue(s.scope.BareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition) {
 		// The status may be slightly outdated but that is acceptable as this check
 		// is only a safeguard against unexpected changes (e.g. a user manually removing a target).
 		// In the vast majority of reconciles there is nothing to do, so we skip the extra API call
 		// to fetch the live load-balancer targets.
 		for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
-			if target.Type == infrav1.LoadBalancerTargetTypeIP {
+			if target.Type == infrav2.LoadBalancerTargetTypeIP {
 				switch target.IP {
 				case host.Status.IPv4:
 					foundIPv4 = true
@@ -627,14 +630,14 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		opts := hcloud.LoadBalancerListOpts{
 			ListOpts: hcloud.ListOpts{
 				LabelSelector: utils.LabelsToLabelSelector(map[string]string{
-					clusterTagKey: string(infrav1.ResourceLifecycleOwned),
+					clusterTagKey: string(infrav2.ResourceLifecycleOwned),
 				}),
 			},
 		}
 
 		loadBalancers, err := s.scope.HCloudClient.ListLoadBalancers(ctx, opts)
 		if err != nil {
-			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, s.scope.EventRecorder, err, "ListLoadBalancers")
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, s.scope.EventRecorder, err, "ListLoadBalancers")
 			return fmt.Errorf("failed to list load balancers: %w", err)
 		}
 
@@ -702,7 +705,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 
 	for _, ip := range addressesToDetach {
 		if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(ip)); err != nil {
-			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, s.scope.EventRecorder, err, "DeleteIPTargetOfLoadBalancer")
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, s.scope.EventRecorder, err, "DeleteIPTargetOfLoadBalancer")
 			// The address is no longer a target, which is the state we want, so carry on
 			// with the next address instead of giving up on it.
 			if strings.Contains(err.Error(), "load_balancer_target_not_found") {
@@ -731,17 +734,17 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 
 	// Attach only nodes with a healthy kube-apiserver once the load balancer already has a target.
 	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 && !apiServerPodHealthy {
-		v1beta1conditions.MarkFalse(
+		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.BareMetalMachine,
-			infrav1.ServerAvailableCondition,
+			infrav2.ServerAvailableV1Beta1Condition,
 			"WaitingForAPIServer",
-			clusterv1beta1.ConditionSeverityInfo,
+			clusterv1.ConditionSeverityInfo,
 			"Waiting for API server pod to become healthy before attaching to load balancer",
 		)
-		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
-			Type:    infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+		conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+			Type:    infrav2.HetznerBareMetalMachineServerAvailableCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HetznerBareMetalMachineWaitingForAPIServerV1Beta2Reason,
+			Reason:  infrav2.HetznerBareMetalMachineWaitingForAPIServerReason,
 			Message: "Waiting for API server pod to become healthy before attaching to load balancer",
 		})
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
@@ -753,7 +756,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		}
 
 		if err := s.scope.HCloudClient.AddIPTargetToLoadBalancer(ctx, opts, lb); err != nil {
-			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, s.scope.EventRecorder, err, "AddIPTargetToLoadBalancer")
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, s.scope.EventRecorder, err, "AddIPTargetToLoadBalancer")
 			// The address is already a target, which is the state we want, so carry on
 			// with the next address instead of giving up on it.
 			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
@@ -790,7 +793,7 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 	// remove host IPv4 as target
 	if host.Status.IPv4 != "" {
 		if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(host.Status.IPv4)); err != nil {
-			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, s.scope.EventRecorder, err, "DeleteIPTargetOfLoadBalancer")
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, s.scope.EventRecorder, err, "DeleteIPTargetOfLoadBalancer")
 			// ignore not found errors
 			if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
 				return fmt.Errorf("failed to remove IPv4 %v as target of load balancer: %w", host.Status.IPv4, err)
@@ -808,7 +811,7 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 	// remove host IPv6 as target
 	if host.Status.IPv6 != "" {
 		if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(host.Status.IPv6)); err != nil {
-			hcloudutil.HandleRateLimitExceededV1Beta1(s.scope.HetznerCluster, s.scope.EventRecorder, err, "DeleteIPTargetOfLoadBalancer")
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, s.scope.EventRecorder, err, "DeleteIPTargetOfLoadBalancer")
 			// ignore not found errors
 			if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
 				return fmt.Errorf("failed to remove IPv6 %v as target of load balancer: %w", host.Status.IPv6, err)
@@ -825,7 +828,7 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 	return nil
 }
 
-func getLabelSelector(hbmm *infrav1.HetznerBareMetalMachine) labels.Selector {
+func getLabelSelector(hbmm *infrav2.HetznerBareMetalMachine) labels.Selector {
 	labelSelector := labels.NewSelector()
 	var reqs labels.Requirements
 
@@ -849,7 +852,7 @@ func getLabelSelector(hbmm *infrav1.HetznerBareMetalMachine) labels.Selector {
 func (s *Service) setProviderID(ctx context.Context) error {
 	// nothing to do if providerID is set
 	if s.scope.BareMetalMachine.Spec.ProviderID != nil {
-		s.scope.BareMetalMachine.Status.Phase = clusterv1beta1.MachinePhaseRunning
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 		return nil
 	}
 
@@ -868,13 +871,13 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	if host.Status.ProvisioningState != infrav2.StateProvisioned {
-		s.scope.BareMetalMachine.Status.Phase = clusterv1beta1.MachinePhaseProvisioning
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseProvisioning
 		// no need for requeue error since host update will trigger a reconciliation
 		return nil
 	}
 	providerID := generateProviderID(s.scope.HetznerCluster, host.Spec.ServerID)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
-	s.scope.BareMetalMachine.Status.Phase = clusterv1beta1.MachinePhaseRunning
+	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
 	return nil
 }
@@ -909,7 +912,7 @@ func (s *Service) updateMachineAddresses(host *infrav2.HetznerBareMetalHost) {
 	// Update lastUpdated when status changed
 	if !equality.Semantic.DeepEqual(s.scope.BareMetalMachine.Status, bareMetalMachineOld.Status) {
 		now := metav1.Now()
-		s.scope.BareMetalMachine.Status.LastUpdated = &now
+		s.scope.BareMetalMachine.Status.LastUpdated = now
 	}
 }
 
@@ -986,29 +989,29 @@ func ensureClusterLabel(host *infrav2.HetznerBareMetalHost, clusterName string) 
 // which logic last computed the address, not merely that some address is present. ExternalIP
 // never needs checking: the old logic never produces it, and the corrected logic always strips
 // the suffix, so an ExternalIP address is never old-style.
-func hasOldStyleIPAddress(addrs []clusterv1beta1.MachineAddress) bool {
+func hasOldStyleIPAddress(addrs []clusterv1.MachineAddress) bool {
 	for _, addr := range addrs {
-		if addr.Type == clusterv1beta1.MachineInternalIP && strings.Contains(addr.Address, "/") {
+		if addr.Type == clusterv1.MachineInternalIP && strings.Contains(addr.Address, "/") {
 			return true
 		}
 	}
 	return false
 }
 
-// nodeAddresses returns a slice of clusterv1beta1.MachineAddress objects for a given host.
+// nodeAddresses returns a slice of clusterv1.MachineAddress objects for a given host.
 //
 // If hasOldStyle is true, NIC IPs are reported verbatim (including any CIDR suffix from
 // `ip addr show`) and always classified as InternalIP, matching the historical behavior. This
 // keeps already-running machines from silently changing their reported address type.
 // If hasOldStyle is false, the CIDR suffix is stripped and each address is classified as
 // ExternalIP or InternalIP depending on whether it is a public or private IP.
-func nodeAddresses(host *infrav2.HetznerBareMetalHost, bareMetalMachineName string, hasOldStyle bool) []clusterv1beta1.MachineAddress {
+func nodeAddresses(host *infrav2.HetznerBareMetalHost, bareMetalMachineName string, hasOldStyle bool) []clusterv1.MachineAddress {
 	// if there are no hw details, return
 	if host.Status.HardwareDetails == nil {
 		return nil
 	}
 
-	addrs := make([]clusterv1beta1.MachineAddress, 0, len(host.Status.HardwareDetails.NIC)+2)
+	addrs := make([]clusterv1.MachineAddress, 0, len(host.Status.HardwareDetails.NIC)+2)
 
 	for _, nic := range host.Status.HardwareDetails.NIC {
 		if nic.IP == "" {
@@ -1016,8 +1019,8 @@ func nodeAddresses(host *infrav2.HetznerBareMetalHost, bareMetalMachineName stri
 		}
 
 		if hasOldStyle {
-			addrs = append(addrs, clusterv1beta1.MachineAddress{
-				Type:    clusterv1beta1.MachineInternalIP,
+			addrs = append(addrs, clusterv1.MachineAddress{
+				Type:    clusterv1.MachineInternalIP,
 				Address: nic.IP,
 			})
 			continue
@@ -1026,7 +1029,7 @@ func nodeAddresses(host *infrav2.HetznerBareMetalHost, bareMetalMachineName stri
 		// `ip addr show` reports addresses in CIDR notation (e.g. "10.0.0.5/26").
 		// Machine.status.addresses is documented to hold a bare IP address, so drop the prefix length.
 		ip, _, _ := strings.Cut(nic.IP, "/")
-		addrs = append(addrs, clusterv1beta1.MachineAddress{
+		addrs = append(addrs, clusterv1.MachineAddress{
 			Type:    machineAddressType(ip),
 			Address: ip,
 		})
@@ -1035,12 +1038,12 @@ func nodeAddresses(host *infrav2.HetznerBareMetalHost, bareMetalMachineName stri
 	// Add hostname == bareMetalMachineName as well
 	addrs = append(
 		addrs,
-		clusterv1beta1.MachineAddress{
-			Type:    clusterv1beta1.MachineHostName,
+		clusterv1.MachineAddress{
+			Type:    clusterv1.MachineHostName,
 			Address: bareMetalMachineName,
 		},
-		clusterv1beta1.MachineAddress{
-			Type:    clusterv1beta1.MachineInternalDNS,
+		clusterv1.MachineAddress{
+			Type:    clusterv1.MachineInternalDNS,
 			Address: bareMetalMachineName,
 		},
 	)
@@ -1051,17 +1054,17 @@ func nodeAddresses(host *infrav2.HetznerBareMetalHost, bareMetalMachineName stri
 // machineAddressType classifies a bare metal NIC address as external (public,
 // routable) or internal (private, e.g. RFC1918/ULA), mirroring the
 // distinction made for hcloud servers in pkg/services/hcloud/server/server.go.
-func machineAddressType(address string) clusterv1beta1.MachineAddressType {
+func machineAddressType(address string) clusterv1.MachineAddressType {
 	ip := net.ParseIP(address)
 	if ip == nil || ip.IsPrivate() {
-		return clusterv1beta1.MachineInternalIP
+		return clusterv1.MachineInternalIP
 	}
-	return clusterv1beta1.MachineExternalIP
+	return clusterv1.MachineExternalIP
 }
 
 // consumerRefMatches returns a boolean based on whether the consumer reference and bare metal machine metadata match.
 // The consumer ref has no namespace, as the host and the consuming HetznerBareMetalMachine always live in the same namespace.
-func consumerRefMatches(consumer *infrav2.HetznerBareMetalHostConsumerReference, bmMachine *infrav1.HetznerBareMetalMachine) bool {
+func consumerRefMatches(consumer *infrav2.HetznerBareMetalHostConsumerReference, bmMachine *infrav2.HetznerBareMetalMachine) bool {
 	if consumer.Name != bmMachine.Name {
 		return false
 	}
@@ -1106,8 +1109,8 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 // (hcloud://bm-NNNN) by default. If the annotation
 // `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the HetznerCluster is set to "true"
 // (case-insensitive), then `hrobot://` is used.
-func generateProviderID(hetznerCluster *infrav1.HetznerCluster, serverNumber int) string {
-	annotationValue := strings.TrimSpace(hetznerCluster.Annotations[infrav1.UseHrobotProviderIDForBaremetalAnnotation])
+func generateProviderID(hetznerCluster *infrav2.HetznerCluster, serverNumber int) string {
+	annotationValue := strings.TrimSpace(hetznerCluster.Annotations[infrav2.UseHrobotProviderIDForBaremetalAnnotation])
 	if strings.EqualFold(annotationValue, "true") {
 		return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber)
 	}

@@ -452,6 +452,8 @@ func TestConvertHetznerBareMetalMachineCustomProvisioner(t *testing.T) {
 			Image:            Image{URL: "oci://ghcr.io/example/ubuntu:v1"},
 			ImageURLCommand:  "image-url-command-bm-test.sh",
 			DeviceStringType: DeviceStringTypeWWN,
+			Partitions:       []Partition{},
+			Swraid:           1,
 		},
 	}
 
@@ -466,6 +468,7 @@ func TestConvertHetznerBareMetalMachineCustomProvisioner(t *testing.T) {
 		URL:              "oci://ghcr.io/example/ubuntu:v1",
 		Command:          "image-url-command-bm-test.sh",
 		DeviceStringType: infrav2.DeviceStringTypeWWN,
+		Swraid:           1,
 	}
 	if !reflect.DeepEqual(hub.CustomProvisioner, wantCustom) {
 		t.Fatalf("customProvisioner mismatch:\n got: %#v\nwant: %#v", hub.CustomProvisioner, wantCustom)
@@ -477,6 +480,10 @@ func TestConvertHetznerBareMetalMachineCustomProvisioner(t *testing.T) {
 	}
 	if !reflect.DeepEqual(back.InstallImage, src.InstallImage) {
 		t.Fatalf("round trip installImage mismatch:\n got: %#v\nwant: %#v", back.InstallImage, src.InstallImage)
+	}
+	// See the partitions comment in Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec.
+	if back.InstallImage.Partitions == nil {
+		t.Fatalf("partitions must be an empty list, not nil")
 	}
 }
 
@@ -1535,14 +1542,13 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		func(in *InstallImage, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.UsesImageURLCommand() {
-				// custom provisioner flow: only image.url, imageURLCommand and deviceStringType survive.
+				// custom provisioner flow: only image.url, imageURLCommand, deviceStringType and swraid survive.
 				in.Image.Name = ""
 				in.Image.Path = ""
 				in.PostInstallScript = ""
 				in.Partitions = nil
 				in.LVMDefinitions = nil
 				in.BTRFSDefinitions = nil
-				in.Swraid = 0
 				in.SwraidLevel = 0
 			} else {
 				// installimage flow: deviceStringType belongs to the custom provisioner flow.

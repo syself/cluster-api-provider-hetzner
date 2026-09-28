@@ -58,7 +58,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -1086,9 +1085,9 @@ func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 				return false
 			}
 
-			conditionType := string(infrav2.HCloudMachineServerAvailableCondition)
+			conditionType := infrav2.HCloudMachineServerAvailableCondition
 			if _, ok := e.ObjectNew.(*infrav2.HetznerBareMetalMachine); ok {
-				conditionType = string(infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition)
+				conditionType = infrav2.HetznerBareMetalMachineServerAvailableCondition
 			}
 
 			wasTrue := conditions.IsTrue(oldGetter, conditionType)
