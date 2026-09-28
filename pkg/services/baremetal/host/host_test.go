@@ -1272,7 +1272,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
-			isTimeout, isConnectionRefused, err := service.analyzeSSHOutputRegistering(sshclient.Output{Err: tc.err})
+			isTimeout, isConnectionRefused, _, err := service.analyzeSSHOutputRegistering(sshclient.Output{Err: tc.err})
 			Expect(isTimeout).To(Equal(tc.expectedIsTimeout))
 			Expect(isConnectionRefused).To(Equal(tc.expectedIsConnectionRefused))
 			if tc.expectedErrMessage != "" {
@@ -1349,7 +1349,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
-			isTimeout, isConnectionRefused, err := service.analyzeSSHOutputRegistering(out)
+			isTimeout, isConnectionRefused, _, err := service.analyzeSSHOutputRegistering(out)
 			Expect(isTimeout).To(Equal(false))
 			Expect(isConnectionRefused).To(Equal(false))
 			if tc.expectedErrMessage != "" {
@@ -1811,6 +1811,10 @@ var _ = Describe("actionRegistering", func() {
 	})
 
 	It("shows a wrong ssh key error in status instead of leaving it stale", func() {
+		for len(testEventRecorder.Events) > 0 {
+			<-testEventRecorder.Events
+		}
+
 		host := helpers.BareMetalHost(
 			"test-host",
 			"default",
@@ -1836,6 +1840,33 @@ var _ = Describe("actionRegistering", func() {
 		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
 		Expect(cV1Beta1).NotTo(BeNil())
 		Expect(cV1Beta1.Message).To(ContainSubstring("wrong ssh key"))
+
+		Expect(testEventRecorder.Events).To(HaveLen(1))
+		event := <-testEventRecorder.Events
+		Expect(event).To(ContainSubstring("SSHFailedWhileRegistering"))
+		Expect(event).To(ContainSubstring("wrong ssh key"))
+	})
+
+	It("returns actionError for registering errors unrelated to the ssh key, e.g. GetBootRescue failing", func() {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: sshclient.ErrAuthenticationFailed})
+
+		robotMock := robotmock.Client{}
+		robotMock.On("GetBootRescue", mock.Anything).Return(nil, errTest)
+
+		service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		actResult := service.actionRegistering(ctx)
+
+		Expect(actResult).To(BeAssignableToTypeOf(actionError{}))
 	})
 })
 

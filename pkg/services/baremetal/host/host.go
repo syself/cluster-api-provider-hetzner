@@ -653,13 +653,16 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			return actionContinue{delay: 2 * time.Second}
 		}
 
-		isSSHTimeoutError, isSSHConnectionRefusedError, err := s.analyzeSSHOutputRegistering(out)
+		isSSHTimeoutError, isSSHConnectionRefusedError, isWrongSSHKey, err := s.analyzeSSHOutputRegistering(out)
 		if err != nil {
+			if isWrongSSHKey {
+				markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost, infrav2.StateRegistering, err.Error())
+				record.Warn(s.scope.HetznerBareMetalHost, "SSHFailedWhileRegistering", err.Error())
+				return actionContinue{delay: registeringSSHErrorRetryDelay}
+			}
 			// This can happen if the bare-metal server was taken by another mgt-cluster.
 			// Check in https://robot.hetzner.com/server for the "History" of the server.
-			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost, infrav2.StateRegistering, err.Error())
-			record.Warnf(s.scope.HetznerBareMetalHost, "SSHFailedWhileRegistering", err.Error())
-			return actionContinue{delay: registeringSSHErrorRetryDelay}
+			return actionError{err: fmt.Errorf("failed to handle incomplete boot - registering: %w", err)}
 		}
 
 		failed, err := s.handleIncompleteBoot(ctx, true, isSSHTimeoutError, isSSHConnectionRefusedError)
@@ -875,7 +878,7 @@ func getHardwareDetails(ctx context.Context, sshClient sshclient.Client) (infrav
 	}, nil
 }
 
-func (s *Service) analyzeSSHOutputRegistering(out sshclient.Output) (isSSHTimeoutError, isConnectionRefused bool, reterr error) {
+func (s *Service) analyzeSSHOutputRegistering(out sshclient.Output) (isSSHTimeoutError, isConnectionRefused, isWrongSSHKey bool, reterr error) {
 	if out.Err != nil {
 		return s.analyzeSSHErrorRegistering(out.Err)
 	}
@@ -883,19 +886,19 @@ func (s *Service) analyzeSSHOutputRegistering(out sshclient.Output) (isSSHTimeou
 	// check stderr
 	if out.StdErr != "" {
 		// This is an unexpected error
-		return false, false, fmt.Errorf("%w: StdErr: %s", errSSHGetHostname, out.StdErr)
+		return false, false, false, fmt.Errorf("%w: StdErr: %s", errSSHGetHostname, out.StdErr)
 	}
 
 	if trimLineBreak(out.StdOut) == "" {
 		// Hostname should not be empty. This is unexpected.
-		return false, false, errEmptyHostName
+		return false, false, false, errEmptyHostName
 	}
 
 	// wrong hostname
-	return false, false, nil
+	return false, false, false, nil
 }
 
-func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, isConnectionRefused bool, reterr error) {
+func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, isConnectionRefused, isWrongSSHKey bool, reterr error) {
 	switch {
 	case os.IsTimeout(sshErr) || sshclient.IsTimeoutError(sshErr):
 		isSSHTimeoutError = true
@@ -903,12 +906,13 @@ func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, i
 		// check if the reboot triggered
 		rebootTriggered, err := s.rebootTriggered()
 		if err != nil {
-			return false, false, fmt.Errorf("failed to check whether reboot triggered: %w", err)
+			return false, false, false, fmt.Errorf("failed to check whether reboot triggered: %w", err)
 		}
 
 		if !rebootTriggered {
-			return false, false, nil
+			return false, false, false, nil
 		}
+		isWrongSSHKey = true
 		reterr = fmt.Errorf("wrong ssh key: %w", sshErr)
 	case sshclient.IsConnectionRefusedError(sshErr):
 		isConnectionRefused = true
@@ -916,7 +920,7 @@ func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, i
 	default:
 		reterr = fmt.Errorf("unhandled ssh error while getting hostname: %w", sshErr)
 	}
-	return isSSHTimeoutError, isConnectionRefused, reterr
+	return isSSHTimeoutError, isConnectionRefused, isWrongSSHKey, reterr
 }
 
 func (s *Service) rebootTriggered() (bool, error) {
