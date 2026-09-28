@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
@@ -204,6 +205,7 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 				Client:               c,
 				Machine:              machine,
 				BareMetalRemediation: remediation,
+				EventRecorder:        record.NewFakeRecorder(10),
 			}}
 
 			// handlePhaseWaiting decides the node is healthy by checking the MachineNodeHealthy
@@ -366,6 +368,7 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 				Machine:              machine,
 				BareMetalMachine:     bareMetalMachine,
 				BareMetalRemediation: remediation,
+				EventRecorder:        record.NewFakeRecorder(10),
 			}}
 
 			res, err := service.Reconcile(ctx)

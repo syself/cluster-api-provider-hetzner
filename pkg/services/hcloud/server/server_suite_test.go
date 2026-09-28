@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/kubectl/pkg/scheme"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -303,6 +304,7 @@ func newTestService(hcloudMachine *infrav2.HCloudMachine, hcloudClient hcloudcli
 			Cluster:        &clusterv1.Cluster{},
 			HetznerCluster: &infrav2.HetznerCluster{},
 			Machine:        machine,
+			EventRecorder:  record.NewFakeRecorder(10),
 		},
 	}
 }

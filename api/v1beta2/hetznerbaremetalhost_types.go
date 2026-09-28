@@ -28,7 +28,6 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	"sigs.k8s.io/cluster-api/util/record"
 )
 
 const (
@@ -678,10 +677,13 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 
 // SetError sets the error type on the status and puts errorMessage on the ActionCompleted condition.
 // For a permanent error the message also names the annotation that an operator has to remove.
-func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) {
+//
+// When errorType is PermanentError, it returns permanentErrorSet as true along with the message that
+// callers holding an EventRecorder should emit as a "PermanentErrorSet" warning event.
+func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) (permanentErrorSet bool, message string) {
 	host.Status.ErrorType = errorType
 
-	message := errorMessage
+	message = errorMessage
 	if errorType == PermanentError {
 		// A permanent error stays on the host until someone removes the annotation. The condition has
 		// to name the annotation.
@@ -702,13 +704,16 @@ func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage str
 	deprecatedv1beta1conditions.MarkFalse(host, ActionCompletedV1Beta1Condition,
 		v1beta1Reason, clusterv1.ConditionSeverityError, "%s", message)
 
-	if errorType == PermanentError {
-		if host.Annotations == nil {
-			host.Annotations = make(map[string]string, 1)
-		}
-		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
-		record.Warn(host, "PermanentErrorSet", message)
+	if errorType != PermanentError {
+		return false, ""
 	}
+
+	if host.Annotations == nil {
+		host.Annotations = make(map[string]string, 1)
+	}
+	host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
+
+	return true, message
 }
 
 // ClearError clears the error type and removes the ActionCompleted condition from both surfaces.

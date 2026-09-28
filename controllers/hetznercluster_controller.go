@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -44,7 +45,6 @@ import (
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/predicates"
-	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -81,6 +81,7 @@ type HetznerClusterReconciler struct {
 	TargetClusterManagersWaitGroup *sync.WaitGroup
 	WatchFilterValue               string
 	DisableCSRApproval             bool
+	EventRecorder                  record.EventRecorder
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -155,6 +156,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		HetznerCluster: hetznerCluster,
 		HCloudClient:   hcloudClient,
 		HetznerSecret:  hetznerSecret,
+		EventRecorder:  r.EventRecorder,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
@@ -380,8 +382,9 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 		for i, m := range machines {
 			names[i] = fmt.Sprintf("machine/%s", m.Name)
 		}
-		record.Eventf(
+		r.EventRecorder.Eventf(
 			hetznerCluster,
+			corev1.EventTypeNormal,
 			"WaitingForMachineDeletion",
 			"Machines %s still running, waiting with deletion of HetznerCluster",
 			strings.Join(names, ", "),
@@ -875,6 +878,8 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 	if err != nil {
 		return fmt.Errorf("error creating controller: %w", err)
 	}
+
+	r.EventRecorder = mgr.GetEventRecorderFor("hetznercluster-controller")
 
 	return nil
 }

@@ -24,11 +24,11 @@ import (
 	"slices"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -107,12 +107,24 @@ func (s *Service) createNetwork(ctx context.Context) (*hcloud.Network, error) {
 
 	resp, err := s.scope.HCloudClient.CreateNetwork(ctx, opts)
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "CreateNetwork")
-		record.Warnf(s.scope.HetznerCluster, "NetworkCreatedFailed", "Failed to create network with opts %s", opts)
+		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, s.scope.EventRecorder, err, "CreateNetwork")
+		s.scope.EventRecorder.Eventf(
+			s.scope.HetznerCluster,
+			corev1.EventTypeWarning,
+			"NetworkCreatedFailed",
+			"Failed to create network with opts %s",
+			opts,
+		)
 		return nil, fmt.Errorf("failed to create network: %w", err)
 	}
 
-	record.Eventf(s.scope.HetznerCluster, "NetworkCreated", "Created network with opts %+v", opts)
+	s.scope.EventRecorder.Eventf(
+		s.scope.HetznerCluster,
+		corev1.EventTypeNormal,
+		"NetworkCreated",
+		"Created network with opts %+v",
+		opts,
+	)
 	return resp, nil
 }
 
@@ -153,17 +165,29 @@ func (s *Service) Delete(ctx context.Context) error {
 	id := s.scope.HetznerCluster.Status.Network.ID
 
 	if err := s.scope.HCloudClient.DeleteNetwork(ctx, &hcloud.Network{ID: id}); err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteNetwork")
+		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, s.scope.EventRecorder, err, "DeleteNetwork")
 		// if resource has been deleted already then do nothing
 		if hcloud.IsError(err, hcloud.ErrorCodeNotFound) {
 			s.scope.V(1).Info("deleting network failed - not found", "id", id)
 			return nil
 		}
-		record.Warnf(s.scope.HetznerCluster, "NetworkDeleteFailed", "Failed to delete network with ID %v", id)
+		s.scope.EventRecorder.Eventf(
+			s.scope.HetznerCluster,
+			corev1.EventTypeWarning,
+			"NetworkDeleteFailed",
+			"Failed to delete network with ID %v",
+			id,
+		)
 		return fmt.Errorf("failed to delete network: %w", err)
 	}
 
-	record.Eventf(s.scope.HetznerCluster, "NetworkDeleted", "Deleted network with ID %v", id)
+	s.scope.EventRecorder.Eventf(
+		s.scope.HetznerCluster,
+		corev1.EventTypeNormal,
+		"NetworkDeleted",
+		"Deleted network with ID %v",
+		id,
+	)
 	return nil
 }
 
@@ -173,7 +197,7 @@ func (s *Service) findNetwork(ctx context.Context) (*hcloud.Network, error) {
 
 	networks, err := s.scope.HCloudClient.ListNetworks(ctx, opts)
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ListNetworks")
+		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, s.scope.EventRecorder, err, "ListNetworks")
 		return nil, fmt.Errorf("failed to list networks: %w", err)
 	}
 
