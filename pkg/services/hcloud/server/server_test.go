@@ -300,7 +300,7 @@ var _ = Describe("handleBootStateUnset", func() {
 		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav2.HCloudMachineSSHPrivateKeyAvailableCondition, metav1.ConditionFalse, infrav2.HCloudMachineSSHPrivateKeySecretRefNotConfiguredReason)).To(BeTrue())
 	})
 
-	It("marks SSHPrivateKeyAvailableCondition false and stops reconciling when the SSH private key secret does not exist", func() {
+	It("marks SSHPrivateKeyAvailableCondition false and polls slowly when the SSH private key secret does not exist", func() {
 		machine := &clusterv1.Machine{
 			ObjectMeta: metav1.ObjectMeta{Name: hcloudMachine.Name, Namespace: hcloudMachine.Namespace},
 		}
@@ -332,8 +332,9 @@ var _ = Describe("handleBootStateUnset", func() {
 
 		res, err := service.handleBootStateUnset(context.Background())
 		Expect(err).To(BeNil())
-		Expect(res).To(Equal(reconcile.Result{})) // no requeue, a watch picks it up later
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Minute})) // no watch for a not-yet-existing secret, so poll
 
+		Expect(isPresentAndFalseWithReasonDeprecatedV1Beta1(hcloudMachine, infrav2.SSHPrivateKeyAvailableV1Beta1Condition, infrav2.SSHPrivateKeySecretNotFoundV1Beta1Reason)).To(BeTrue())
 		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav2.HCloudMachineSSHPrivateKeyAvailableCondition, metav1.ConditionFalse, infrav2.HCloudMachineSSHPrivateKeySecretNotFoundReason)).To(BeTrue())
 	})
 })
