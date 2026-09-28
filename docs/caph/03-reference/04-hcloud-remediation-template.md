@@ -1,10 +1,10 @@
 ---
 title: HCloudRemediationTemplate
-description: RemediationStrategyTypes define remediation strategy, timeouts and retries.
-metatitle: RemediationStrategyTypes Object Reference
+description: HCloudRemediationTemplate defines remediation strategy, timeouts and retries.
+metatitle: HCloudRemediationTemplate Object Reference
 ---
 
-## Overview of HCloudMachineTemplate.Spec
+## Overview of HCloudRemediationTemplate.Spec
 
 <PropField name="template.spec.strategy" type="object" required={false}>
 
