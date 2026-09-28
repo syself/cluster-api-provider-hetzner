@@ -1358,7 +1358,6 @@ sigs.k8s.io/cluster-api/util/controller
 sigs.k8s.io/cluster-api/util/conversion
 sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions
 sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2
-sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch
 sigs.k8s.io/cluster-api/util/finalizers
 sigs.k8s.io/cluster-api/util/kubeconfig
 sigs.k8s.io/cluster-api/util/labels
