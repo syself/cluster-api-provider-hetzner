@@ -699,7 +699,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		if err != nil {
 			if isWrongSSHKey {
 				markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost, infrav2.StateRegistering, err.Error())
-				record.Warn(s.scope.HetznerBareMetalHost, "SSHFailedWhileRegistering", err.Error())
+				s.scope.EventRecorder.Event(s.scope.HetznerBareMetalHost, corev1.EventTypeWarning, "SSHFailedWhileRegistering", err.Error())
 				return actionContinue{delay: registeringSSHErrorRetryDelay}
 			}
 			// This can happen if the bare-metal server was taken by another mgt-cluster.
