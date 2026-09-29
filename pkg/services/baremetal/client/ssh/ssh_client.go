@@ -126,7 +126,7 @@ const (
 	InstallImageStateFinished InstallImageState = "finished"
 )
 
-// CustomProvisionerState is the command which reads the imageURL of and provisions the machine accordingly. It gets copied to the server running in the rescue system.
+// CustomProvisionerState defines the states of the custom provisioner command running in the rescue system.
 type CustomProvisionerState string
 
 const (
@@ -234,7 +234,7 @@ type Client interface {
 	// This gets used when customProvisioner is set.
 	// For hcloud deviceNames is always {"sda"}. For baremetal it corresponds to the WWNs
 	// of RootDeviceHints.
-	StartCustomProvisioner(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (exitStatus int, stdoutAndStderr string, err error)
+	StartCustomProvisioner(ctx context.Context, command, url string, bootstrapData []byte, machineName string, deviceNames []string) (exitStatus int, stdoutAndStderr string, err error)
 
 	// StateOfCustomProvisioner returns the current states of the custom provisioner. States can
 	// be: NotStarted, Running, Failed, FinishedSuccesfully.
@@ -1148,7 +1148,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	return exitStatus, s, nil
 }
 
-func (c *sshClient) StartCustomProvisioner(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
+func (c *sshClient) StartCustomProvisioner(ctx context.Context, command, url string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
 	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
 
 	// validate deviceNames
@@ -1211,7 +1211,7 @@ func (c *sshClient) StartCustomProvisioner(ctx context.Context, command, imageUR
 	cmd := fmt.Sprintf(`#!/usr/bin/bash
 OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/image-url-command '%s' /root/bootstrap.data '%s' '%s' >%s 2>&1 </dev/null &
 echo $! > /root/image-url-command.pid
-`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL, machineName, strings.Join(deviceNames, " "),
+`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), url, machineName, strings.Join(deviceNames, " "),
 		customProvisionerLog)
 
 	out := c.runSSH(ctx, cmd)

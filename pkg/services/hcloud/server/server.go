@@ -164,7 +164,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	}
 }
 
-// handleBootStateUnset is first state for both ways (imageName/snapshot and imageURL).
+// handleBootStateUnset is first state for both ways (imageName/snapshot and customProvisioner).
 func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
@@ -378,7 +378,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
-// handleBootStateInitializing is for provisioning with imageURL and image-url-command.
+// handleBootStateInitializing is for provisioning with customProvisioner and image-url-command.
 func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcile.Result, reterr error) {
 	hm := s.scope.HCloudMachine
 
@@ -570,7 +570,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcil
 	return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 }
 
-// handleBootStateEnablingRescue is for provisioning with imageURL and image-url-command.
+// handleBootStateEnablingRescue is for provisioning with customProvisioner and image-url-command.
 func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
@@ -758,7 +758,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.
 	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
-// handleBootStateBootingToRescue is for provisioning with imageURL and image-url-command.
+// handleBootStateBootingToRescue is for provisioning with customProvisioner and image-url-command.
 func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
@@ -947,12 +947,12 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
-// handleBootStateRunningImageCommand is for provisioning with imageURL and image-url-command.
+// handleBootStateRunningImageCommand is for provisioning with customProvisioner and image-url-command.
 func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
-	// Please keep the number (20) in sync with the docstring of ImageURL.
+	// Please keep the number (20) in sync with the docstring of HCloudCustomProvisioner.URL.
 	if durationOfState > 20*time.Minute {
 		// timeout. Something has failed.
 		timeoutMsg := fmt.Sprintf("custom provisioner timed out, in this state since %s", durationOfState.Round(time.Second).String())
@@ -1146,7 +1146,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 	}
 }
 
-// handleBootingToRealOS is used for both ways (imageName/snapshot and imageURL).
+// handleBootingToRealOS is used for both ways (imageName/snapshot and customProvisioner).
 func (s *Service) handleBootingToRealOS(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 
@@ -1246,7 +1246,7 @@ func (s *Service) handleBootingToRealOS(ctx context.Context) (res reconcile.Resu
 	}
 }
 
-// handleOperatingSystemRunning is the final state. It is used for both ways (imageName/snapshot and imageURL).
+// handleOperatingSystemRunning is the final state. It is used for both ways (imageName/snapshot and customProvisioner).
 func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 
