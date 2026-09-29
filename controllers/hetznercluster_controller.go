@@ -227,35 +227,27 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	// set failure domains in status using information in spec
 	clusterScope.SetStatusFailureDomain(clusterScope.GetSpecRegion())
 
-	// reconcile the network
-	if err := network.NewService(clusterScope).Reconcile(ctx); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile network for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
-	}
-
 	emptyResult := reconcile.Result{}
 
-	// reconcile the load balancers
-	res, err := loadbalancer.NewService(clusterScope).Reconcile(ctx)
-	if res != emptyResult {
-		return res, nil
-	}
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancers for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	infraRes, infraErr := reconcileInfrastructure(ctx, clusterScope)
+
+	// The target cluster manager runs the CSR controller (unless DisableCSRApproval is set),
+	// which approves the certificate requests of new nodes. Start it even when
+	// reconcileInfrastructure failed or asked for a requeue.
+	tcmRes, tcmErr := r.reconcileTargetClusterManager(ctx, clusterScope)
+	if tcmErr != nil {
+		tcmErr = fmt.Errorf("failed to reconcile target cluster manager: %w", tcmErr)
 	}
 
-	// reconcile the placement groups
-	if err := placementgroup.NewService(clusterScope).Reconcile(ctx); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	// Return errors first, because controller-runtime ignores the result when an error is returned.
+	if infraErr != nil || tcmErr != nil {
+		return reconcile.Result{}, errors.Join(infraErr, tcmErr)
 	}
-
-	processControlPlaneEndpoint(hetznerCluster)
-
-	result, err := r.reconcileTargetClusterManager(ctx, clusterScope)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile target cluster manager: %w", err)
+	if infraRes != emptyResult {
+		return infraRes, nil
 	}
-	if result != emptyResult {
-		return result, nil
+	if tcmRes != emptyResult {
+		return tcmRes, nil
 	}
 
 	// target cluster is ready
@@ -267,7 +259,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		Reason: string(infrav2.HetznerClusterTargetClusterReadyReason),
 	})
 
-	result, err = reconcileWorkloadClusterSecrets(ctx, clusterScope)
+	result, err := reconcileWorkloadClusterSecrets(ctx, clusterScope)
 	if err != nil {
 		reterr := fmt.Errorf("failed to reconcile target secret: %w", err)
 		deprecatedv1beta1conditions.MarkFalse(
@@ -300,6 +292,37 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		Status: metav1.ConditionTrue,
 		Reason: string(infrav2.HetznerClusterTargetClusterSecretReadyReason),
 	})
+
+	return reconcile.Result{}, nil
+}
+
+// reconcileInfrastructure reconciles the network, the load balancers and the placement groups, and
+// sets the control plane endpoint. It returns as soon as one step fails or asks for a requeue.
+func reconcileInfrastructure(ctx context.Context, clusterScope *scope.ClusterScope) (reconcile.Result, error) {
+	hetznerCluster := clusterScope.HetznerCluster
+
+	// reconcile the network
+	if err := network.NewService(clusterScope).Reconcile(ctx); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile network for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	}
+
+	emptyResult := reconcile.Result{}
+
+	// reconcile the load balancers
+	res, err := loadbalancer.NewService(clusterScope).Reconcile(ctx)
+	if res != emptyResult {
+		return res, nil
+	}
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancers for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	}
+
+	// reconcile the placement groups
+	if err := placementgroup.NewService(clusterScope).Reconcile(ctx); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	}
+
+	processControlPlaneEndpoint(hetznerCluster)
 
 	return reconcile.Result{}, nil
 }
