@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
@@ -169,6 +170,7 @@ var _ = Describe("NewMachineScope with a missing owner Machine", func() {
 			APIReader:      crClient,
 			Logger:         klog.Background(),
 			HCloudClient:   fakehcloudclient.NewHCloudClientFactory().NewClient(""),
+			EventRecorder:  record.NewFakeRecorder(10),
 			Cluster:        &clusterv1.Cluster{},
 			HetznerCluster: &infrav2.HetznerCluster{},
 			HCloudMachine:  hcloudMachine,
