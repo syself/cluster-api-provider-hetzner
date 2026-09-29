@@ -279,6 +279,27 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		return actionError{err: fmt.Errorf("failed to enforce rescue mode: %w", err)}
 	}
 
+	// If rescue is already reachable over SSH, reboot through it instead of a calling the reset over Robot API.
+	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.Name, s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PublicKey, s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey)
+	rescueSSHClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
+		PrivateKey: creds.PrivateKey,
+		Port:       rescuePort,
+		IP:         s.scope.HetznerBareMetalHost.Status.GetIPAddress(),
+	})
+
+	if out := rescueSSHClient.GetHostName(ctx); trimLineBreak(out.StdOut) == rescue {
+		if err := handleSSHError(rescueSSHClient.Reboot(ctx)); err != nil {
+			return actionError{err: fmt.Errorf("failed to reboot server via ssh (already in rescue): %w", err)}
+		}
+		msg := "Rebooting into a fresh rescue system (was already in rescue)."
+		s.createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
+		s.scope.HetznerBareMetalHost.Status.RebootTriggeredAt = metav1.Now()
+		// we immediately set an error message in the host status to track the reboot we just performed
+		s.setHostError(infrav2.ErrorTypeSSHRebootTriggered, fmt.Sprintf("Phase %s, reboot via ssh: %s",
+			s.scope.HetznerBareMetalHost.Status.ProvisioningState, msg))
+		return actionComplete{} // next: Registering
+	}
+
 	if s.scope.SSHAfterInstallImageEnabled() {
 		// We have ssh access to running nodes. Maybe we can reboot via ssh instead of
 		// using the robot API.

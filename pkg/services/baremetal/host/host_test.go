@@ -1338,6 +1338,70 @@ var _ = Describe("actionPreparing", func() {
 		Expect(host.Status.IPv4).To(BeEmpty())
 		Expect(host.Annotations).To(HaveKey(infrav2.PermanentErrorAnnotation))
 	})
+
+	type testCaseActionPreparingInRescue struct {
+		rebootOutput          sshclient.Output
+		expectedActionResult  actionResult
+		expectedHostErrorType infrav2.ErrorType
+		expectRebootTriggered bool
+	}
+
+	DescribeTable("host is already in rescue",
+		func(tc testCaseActionPreparingInRescue) {
+			host := helpers.BareMetalHost("test-host", "default")
+
+			robotMock := robotmock.Client{}
+			robotMock.On("GetBMServer", mock.Anything).Return(&models.Server{
+				ServerNumber:  1,
+				ServerIP:      "1.2.3.4",
+				ServerIPv6Net: "2a01:4f9:3051:12ce::",
+			}, nil)
+			robotMock.On("ListSSHKeys").Return([]models.Key{}, nil)
+			robotMock.On("SetSSHKey", mock.Anything, mock.Anything).Return(
+				&models.Key{Name: rescueSSHKeyName, Fingerprint: sshFingerprint},
+				nil,
+			)
+			robotMock.On("GetReboot", mock.Anything).Return(&models.Reset{Type: []string{"sw", "hw"}}, nil)
+			robotMock.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
+			robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(&models.Rescue{Active: true}, nil)
+			robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
+
+			rescueSSHMock := &sshmock.Client{}
+			rescueSSHMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
+			rescueSSHMock.On("Reboot", mock.Anything).Return(tc.rebootOutput)
+			osSSHMock := &sshmock.Client{}
+
+			service := newTestService(
+				host,
+				&robotMock,
+				bmmock.NewSSHFactory(rescueSSHMock, osSSHMock, osSSHMock),
+				helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
+				helpers.GetDefaultSSHSecret("rescue-ssh-secret", "default"),
+			)
+
+			actResult := service.actionPreparing(context.Background())
+
+			Expect(actResult).To(BeAssignableToTypeOf(tc.expectedActionResult))
+			Expect(host.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
+			Expect(host.Status.RebootTriggeredAt.IsZero()).To(Equal(!tc.expectRebootTriggered))
+			Expect(robotMock.AssertCalled(GinkgoT(), "SetBootRescue", mock.Anything, sshFingerprint)).To(BeTrue())
+			Expect(rescueSSHMock.AssertCalled(GinkgoT(), "Reboot", mock.Anything)).To(BeTrue())
+			Expect(osSSHMock.AssertNotCalled(GinkgoT(), "GetHostName", mock.Anything)).To(BeTrue())
+			Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
+		},
+		Entry("reboots via ssh instead of the robot API", testCaseActionPreparingInRescue{
+			rebootOutput:          sshclient.Output{},
+			expectedActionResult:  actionComplete{},
+			expectedHostErrorType: infrav2.ErrorTypeSSHRebootTriggered,
+			expectRebootTriggered: true,
+		}),
+		Entry("returns an error when the ssh reboot fails", testCaseActionPreparingInRescue{
+			rebootOutput:          sshclient.Output{Err: errTest},
+			expectedActionResult:  actionError{},
+			expectedHostErrorType: infrav2.ErrorType(""),
+			expectRebootTriggered: false,
+		}),
+	)
 })
 
 var _ = Describe("analyzeSSHOutputInstallImage", func() {
