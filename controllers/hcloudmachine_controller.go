@@ -133,9 +133,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		log.Info("HCloudMachine has no owner CAPI Machine, continuing to delete it")
 	}
 
-	if machine != nil {
-		log = log.WithValues("Machine", klog.KObj(machine))
-	}
+	log = log.WithValues("Machine", klog.KObj(machine))
 
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r, hcloudMachine.ObjectMeta)
