@@ -1366,7 +1366,6 @@ sigs.k8s.io/cluster-api/util/labels/format
 sigs.k8s.io/cluster-api/util/log
 sigs.k8s.io/cluster-api/util/patch
 sigs.k8s.io/cluster-api/util/predicates
-sigs.k8s.io/cluster-api/util/record
 sigs.k8s.io/cluster-api/util/resource
 sigs.k8s.io/cluster-api/util/secret
 sigs.k8s.io/cluster-api/util/topology

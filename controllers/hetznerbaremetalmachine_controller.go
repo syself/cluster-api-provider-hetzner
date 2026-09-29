@@ -26,6 +26,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -43,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
@@ -56,6 +58,7 @@ type HetznerBareMetalMachineReconciler struct {
 	RateLimitWaitTime   time.Duration
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+	EventRecorder       record.EventRecorder
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -156,6 +159,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		BareMetalMachine: hbmMachine,
 		HetznerCluster:   hetznerCluster,
 		HCloudClient:     hcc,
+		EventRecorder:    r.EventRecorder,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
@@ -265,7 +269,7 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 			handler.EnqueueRequestsFromMapFunc(r.ClusterToBareMetalMachines(ctx, log)),
 		).
 		Watches(
-			&infrav1.HetznerBareMetalHost{},
+			&infrav2.HetznerBareMetalHost{},
 			handler.EnqueueRequestsFromMapFunc(BareMetalHostToBareMetalMachines(r, log)),
 		).
 		Watches(
@@ -277,6 +281,8 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 	if err != nil {
 		return fmt.Errorf("error creating controller: %w", err)
 	}
+
+	r.EventRecorder = mgr.GetEventRecorderFor("hetznerbaremetalmachine-controller")
 
 	return nil
 }
@@ -371,7 +377,7 @@ func (r *HetznerBareMetalMachineReconciler) ClusterToBareMetalMachines(ctx conte
 // BareMetalHost and that BareMetalHost references a BareMetalMachine.
 func BareMetalHostToBareMetalMachines(c client.Client, log logr.Logger) handler.MapFunc {
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
-		host, ok := obj.(*infrav1.HetznerBareMetalHost)
+		host, ok := obj.(*infrav2.HetznerBareMetalHost)
 		if !ok {
 			log.Error(fmt.Errorf("expected a BareMetalHost but got a %T", obj),
 				"failed to get BareMetalMachine for BareMetalHost")
@@ -379,18 +385,19 @@ func BareMetalHostToBareMetalMachines(c client.Client, log logr.Logger) handler.
 		}
 
 		// If this host has a consumerRef (hbmm), then reconcile the corresponding hbmm.
+		// The consuming HetznerBareMetalMachine always lives in the namespace of the host.
 		if host.Spec.ConsumerRef != nil {
 			return []reconcile.Request{
 				{
 					NamespacedName: types.NamespacedName{
 						Name:      host.Spec.ConsumerRef.Name,
-						Namespace: host.Spec.ConsumerRef.Namespace,
+						Namespace: host.Namespace,
 					},
 				},
 			}
 		}
 
-		if host.Spec.Status.ErrorType != "" {
+		if host.Status.ErrorType != "" {
 			return []reconcile.Request{}
 		}
 
@@ -412,7 +419,7 @@ func BareMetalHostToBareMetalMachines(c client.Client, log logr.Logger) handler.
 				continue
 			}
 
-			hosts := []infrav1.HetznerBareMetalHost{*host}
+			hosts := []infrav2.HetznerBareMetalHost{*host}
 			chosenHost, _, err := baremetal.ChooseHost(hbmm, hosts)
 			if err != nil {
 				log.Error(err, "failed to choose host for HetznerBareMetalMachine")

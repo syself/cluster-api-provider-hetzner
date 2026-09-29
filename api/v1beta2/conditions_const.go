@@ -271,6 +271,31 @@ const (
 	BootIDEmptyV1Beta1Reason = "BootIDEmpty"
 )
 
+const (
+	// ActionCompletedV1Beta1Condition surfaces the host's current provisioning or operational action.
+	// It is present only while an action is in progress or the host is stuck (carrying the reason and
+	// message for that state) and is removed once the action clears.
+	ActionCompletedV1Beta1Condition clusterv1.ConditionType = "ActionCompleted"
+	// ActionCompletedSSHRebootTriggeredV1Beta1Reason indicates a reboot via SSH was triggered.
+	ActionCompletedSSHRebootTriggeredV1Beta1Reason = "SSHRebootTriggered"
+	// ActionCompletedSoftwareRebootTriggeredV1Beta1Reason indicates a software reboot via the Robot API was triggered.
+	ActionCompletedSoftwareRebootTriggeredV1Beta1Reason = "SoftwareRebootTriggered"
+	// ActionCompletedHardwareRebootTriggeredV1Beta1Reason indicates a hardware reboot was triggered.
+	ActionCompletedHardwareRebootTriggeredV1Beta1Reason = "HardwareRebootTriggered"
+	// ActionCompletedRegistrationErrorV1Beta1Reason indicates the server info could not be read or the spec is incomplete.
+	ActionCompletedRegistrationErrorV1Beta1Reason = "RegistrationError"
+	// ActionCompletedPreparationErrorV1Beta1Reason indicates a step before provisioning failed.
+	ActionCompletedPreparationErrorV1Beta1Reason = "PreparationError"
+	// ActionCompletedProvisioningErrorV1Beta1Reason indicates provisioning or deprovisioning failed.
+	ActionCompletedProvisioningErrorV1Beta1Reason = "ProvisioningError"
+	// ActionCompletedFatalErrorV1Beta1Reason indicates an unrecoverable error that deletes the CAPI Machine.
+	ActionCompletedFatalErrorV1Beta1Reason = "FatalError"
+	// ActionCompletedPermanentErrorV1Beta1Reason indicates an error that stays on the host until an operator clears it.
+	ActionCompletedPermanentErrorV1Beta1Reason = "PermanentError"
+	// ActionCompletedUnknownErrorV1Beta1Reason is the fallback for an unrecognized error type.
+	ActionCompletedUnknownErrorV1Beta1Reason = "UnknownError"
+)
+
 // v1beta2 conditions.
 
 // common conditions used across resource types.
@@ -668,6 +693,25 @@ const (
 	// action. It is present only while an action is in progress or the host is stuck (carrying the reason and
 	// message for that state) and is removed once the action clears; it has no steady-state True.
 	HetznerBareMetalHostActionCompletedCondition = "ActionCompleted"
+
+	// HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason indicates a reboot via SSH was triggered.
+	HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason = "SSHRebootTriggered"
+	// HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason indicates a software reboot via the Robot API was triggered.
+	HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason = "SoftwareRebootTriggered"
+	// HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason indicates a hardware reboot was triggered.
+	HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason = "HardwareRebootTriggered"
+	// HetznerBareMetalHostActionCompletedRegistrationErrorReason indicates the server info could not be read or the spec is incomplete.
+	HetznerBareMetalHostActionCompletedRegistrationErrorReason = "RegistrationError"
+	// HetznerBareMetalHostActionCompletedPreparationErrorReason indicates a step before provisioning failed.
+	HetznerBareMetalHostActionCompletedPreparationErrorReason = "PreparationError"
+	// HetznerBareMetalHostActionCompletedProvisioningErrorReason indicates provisioning or deprovisioning failed.
+	HetznerBareMetalHostActionCompletedProvisioningErrorReason = "ProvisioningError"
+	// HetznerBareMetalHostActionCompletedFatalErrorReason indicates an unrecoverable error that deletes the CAPI Machine.
+	HetznerBareMetalHostActionCompletedFatalErrorReason = "FatalError"
+	// HetznerBareMetalHostActionCompletedPermanentErrorReason indicates an error that stays on the host until an operator clears it.
+	HetznerBareMetalHostActionCompletedPermanentErrorReason = "PermanentError"
+	// HetznerBareMetalHostActionCompletedUnknownErrorReason is the fallback for an unrecognized error type.
+	HetznerBareMetalHostActionCompletedUnknownErrorReason = "UnknownError"
 )
 
 // HetznerBareMetalMachine's v1beta2 conditions.

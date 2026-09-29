@@ -23,13 +23,13 @@ import (
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
-	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
@@ -88,7 +88,12 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		}
 
 		if err := s.setOwnerRemediatedConditionToFailed(ctx, msg); err != nil {
-			record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
+			s.scope.EventRecorder.Event(
+				s.scope.HCloudRemediation,
+				corev1.EventTypeWarning,
+				"FailedSettingConditionOnMachine",
+				err.Error(),
+			)
 			return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 		}
 		return reconcile.Result{}, nil
@@ -96,8 +101,12 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 
 	if s.scope.HCloudRemediation.Spec.Strategy == nil {
 		s.scope.Info("remediation strategy is nil")
-		record.Warn(s.scope.HCloudRemediation, "UnsupportedRemdiationStrategy",
-			"remediation strategy is nil")
+		s.scope.EventRecorder.Event(
+			s.scope.HCloudRemediation,
+			corev1.EventTypeWarning,
+			"UnsupportedRemdiationStrategy",
+			"remediation strategy is nil",
+		)
 		return reconcile.Result{}, nil
 	}
 
@@ -105,7 +114,13 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 
 	if remediationType != infrav2.RemediationTypeReboot {
 		s.scope.Info("unsupported remediation strategy")
-		record.Warnf(s.scope.HCloudRemediation, "UnsupportedRemdiationStrategy", "remediation strategy %q is unsupported", remediationType)
+		s.scope.EventRecorder.Eventf(
+			s.scope.HCloudRemediation,
+			corev1.EventTypeWarning,
+			"UnsupportedRemdiationStrategy",
+			"remediation strategy %q is unsupported",
+			remediationType,
+		)
 		return reconcile.Result{}, nil
 	}
 
@@ -120,7 +135,12 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 					fmt.Sprintf("skipping reboot: last remediation completed %s ago (cooldown window: %s)",
 						since.Round(time.Second), cooldown.Round(time.Second)))
 				if err != nil {
-					record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
+					s.scope.EventRecorder.Event(
+						s.scope.HCloudRemediation,
+						corev1.EventTypeWarning,
+						"FailedSettingConditionOnMachine",
+						err.Error(),
+					)
 					return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 				}
 				return reconcile.Result{}, nil
@@ -150,7 +170,12 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 	// is no remediation to perform. Mark the machine for deletion by CAPI.
 	if !s.scope.HasRetriesLeft() && s.scope.HCloudRemediation.Status.LastRemediated.IsZero() {
 		if err := s.setOwnerRemediatedConditionToFailed(ctx, "exit remediation because retryLimit is 0 (no reboot performed)"); err != nil {
-			record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
+			s.scope.EventRecorder.Event(
+				s.scope.HCloudRemediation,
+				corev1.EventTypeWarning,
+				"FailedSettingConditionOnMachine",
+				err.Error(),
+			)
 			return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 		}
 		return reconcile.Result{}, nil
@@ -159,11 +184,21 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 	// if server has never been remediated, then do that now
 	if s.scope.HCloudRemediation.Status.LastRemediated.IsZero() {
 		if err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudRemediation, err, "RebootServer")
-			record.Warn(s.scope.HCloudRemediation, "FailedRebootServer", err.Error())
+			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudRemediation, s.scope.EventRecorder, err, "RebootServer")
+			s.scope.EventRecorder.Event(
+				s.scope.HCloudRemediation,
+				corev1.EventTypeWarning,
+				"FailedRebootServer",
+				err.Error(),
+			)
 			return reconcile.Result{}, fmt.Errorf("failed to reboot server %s with ID %d: %w", server.Name, server.ID, err)
 		}
-		record.Event(s.scope.HCloudRemediation, "ServerRebooted", "Server has been rebooted")
+		s.scope.EventRecorder.Event(
+			s.scope.HCloudRemediation,
+			corev1.EventTypeNormal,
+			"ServerRebooted",
+			"Server has been rebooted",
+		)
 
 		s.scope.HCloudRemediation.Status.LastRemediated = now
 		s.scope.HCloudRemediation.Status.RetryCount = ptr.To(ptr.Deref(s.scope.HCloudRemediation.Status.RetryCount, 0) + 1)
@@ -184,11 +219,21 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 
 	// remediate now
 	if err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudRemediation, err, "RebootServer")
-		record.Warn(s.scope.HCloudRemediation, "FailedRebootServer", err.Error())
+		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudRemediation, s.scope.EventRecorder, err, "RebootServer")
+		s.scope.EventRecorder.Event(
+			s.scope.HCloudRemediation,
+			corev1.EventTypeWarning,
+			"FailedRebootServer",
+			err.Error(),
+		)
 		return reconcile.Result{}, fmt.Errorf("failed to reboot server %s with ID %d: %w", server.Name, server.ID, err)
 	}
-	record.Event(s.scope.HCloudRemediation, "ServerRebooted", "Server has been rebooted")
+	s.scope.EventRecorder.Event(
+		s.scope.HCloudRemediation,
+		corev1.EventTypeNormal,
+		"ServerRebooted",
+		"Server has been rebooted",
+	)
 
 	s.scope.HCloudRemediation.Status.LastRemediated = now
 	s.scope.HCloudRemediation.Status.RetryCount = ptr.To(ptr.Deref(s.scope.HCloudRemediation.Status.RetryCount, 0) + 1)
@@ -211,7 +256,12 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (reconcile.Result, err
 	if conditions.IsTrue(s.scope.Machine, clusterv1.MachineNodeHealthyCondition) {
 		if err := s.markRemediationSucceeded(ctx,
 			"reboot remediation succeeded: Node is healthy again"); err != nil {
-			record.Warn(s.scope.HCloudRemediation, "FailedFinishingRemediation", err.Error())
+			s.scope.EventRecorder.Event(
+				s.scope.HCloudRemediation,
+				corev1.EventTypeWarning,
+				"FailedFinishingRemediation",
+				err.Error(),
+			)
 			return reconcile.Result{}, fmt.Errorf("failed to finish remediation: %w", err)
 		}
 		return reconcile.Result{}, nil
@@ -220,7 +270,12 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (reconcile.Result, err
 	err := s.setOwnerRemediatedConditionToFailed(ctx,
 		"exit remediation because retryLimit is reached and reboot timed out")
 	if err != nil {
-		record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
+		s.scope.EventRecorder.Event(
+			s.scope.HCloudRemediation,
+			corev1.EventTypeWarning,
+			"FailedSettingConditionOnMachine",
+			err.Error(),
+		)
 		return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 	}
 
@@ -236,7 +291,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 
 	server, err := s.scope.HCloudClient.GetServer(ctx, serverID)
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudRemediation, err, "GetServer")
+		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudRemediation, s.scope.EventRecorder, err, "GetServer")
 		return nil, fmt.Errorf("failed to get server: %w", err)
 	}
 
@@ -273,7 +328,12 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 		return fmt.Errorf("failed to patch: %w", err)
 	}
 
-	record.Event(s.scope.HCloudRemediation, "ExitRemediation", msg)
+	s.scope.EventRecorder.Event(
+		s.scope.HCloudRemediation,
+		corev1.EventTypeNormal,
+		"ExitRemediation",
+		msg,
+	)
 
 	s.scope.HCloudRemediation.Status.Phase = infrav2.PhaseDeleting
 	return nil
@@ -313,7 +373,12 @@ func (s *Service) markRemediationSucceeded(ctx context.Context, msg string) erro
 		return fmt.Errorf("failed to patch hcloud machine: %w", err)
 	}
 
-	record.Event(s.scope.HCloudRemediation, "RemediationSucceeded", msg)
+	s.scope.EventRecorder.Event(
+		s.scope.HCloudRemediation,
+		corev1.EventTypeNormal,
+		"RemediationSucceeded",
+		msg,
+	)
 
 	s.scope.HCloudRemediation.Status.Phase = infrav2.PhaseSucceeded
 	return nil
@@ -348,7 +413,12 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 		return fmt.Errorf("failed to patch: %w", err)
 	}
 
-	record.Event(s.scope.HCloudRemediation, "RemediationSkipped", msg)
+	s.scope.EventRecorder.Event(
+		s.scope.HCloudRemediation,
+		corev1.EventTypeNormal,
+		"RemediationSkipped",
+		msg,
+	)
 
 	s.scope.HCloudRemediation.Status.Phase = infrav2.PhaseDeleting
 	return nil

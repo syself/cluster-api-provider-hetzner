@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2/textlogger"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -44,6 +45,7 @@ func newTestService(
 			Logger:           log,
 			Client:           client,
 			BareMetalMachine: bmMachine,
+			EventRecorder:    record.NewFakeRecorder(100),
 		},
 	}
 }
