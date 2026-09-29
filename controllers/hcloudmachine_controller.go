@@ -137,16 +137,14 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		log.Info("Owner Machine is gone, continuing to delete the HCloudMachine")
 	}
 
-	clusterOwner := hcloudMachine.ObjectMeta
 	if machine != nil {
 		log = log.WithValues("Machine", klog.KObj(machine))
-		clusterOwner = machine.ObjectMeta
 	}
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r, clusterOwner)
+	cluster, err := util.GetClusterFromMetadata(ctx, r, hcloudMachine.ObjectMeta)
 	if err != nil {
-		log.Info("Machine is missing cluster label or cluster does not exist")
+		log.Info("HCloudMachine is missing cluster label or cluster does not exist")
 		return reconcile.Result{}, nil
 	}
 

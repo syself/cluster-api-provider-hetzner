@@ -200,32 +200,19 @@ var _ = Describe("NewMachineScope with a missing owner Machine", func() {
 	})
 })
 
-var _ = Describe("IsControlPlane without an owner Machine", func() {
-	It("reads the label from the HCloudMachine", func() {
-		hcloudMachine := &infrav2.HCloudMachine{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{clusterv1.MachineControlPlaneLabel: ""},
-			},
-		}
+var _ = Describe("IsControlPlane", func() {
+	controlPlaneLabels := map[string]string{clusterv1.MachineControlPlaneLabel: ""}
+
+	It("is true when the HCloudMachine has the label", func() {
+		hcloudMachine := &infrav2.HCloudMachine{ObjectMeta: metav1.ObjectMeta{Labels: controlPlaneLabels}}
 		machineScope := MachineScope{HCloudMachine: hcloudMachine}
 
 		Expect(machineScope.IsControlPlane()).To(BeTrue())
 	})
 
-	It("is false for a worker", func() {
+	It("is false when the HCloudMachine has no label", func() {
 		machineScope := MachineScope{HCloudMachine: &infrav2.HCloudMachine{}}
 
 		Expect(machineScope.IsControlPlane()).To(BeFalse())
-	})
-
-	It("still uses the Machine when it is set", func() {
-		machine := &clusterv1.Machine{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{clusterv1.MachineControlPlaneLabel: ""},
-			},
-		}
-		machineScope := MachineScope{Machine: machine, HCloudMachine: &infrav2.HCloudMachine{}}
-
-		Expect(machineScope.IsControlPlane()).To(BeTrue())
 	})
 })

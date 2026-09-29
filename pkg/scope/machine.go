@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	"sigs.k8s.io/cluster-api/util"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -179,15 +178,10 @@ func (m *MachineScope) Close(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
 }
 
-// IsControlPlane returns true if the machine is a control plane.
+// IsControlPlane returns true if the HCloudMachine has the control plane label.
 func (m *MachineScope) IsControlPlane() bool {
-	if m.Machine == nil {
-		// The owner Machine is gone. CAPI puts the same label on the infra machine,
-		// so it still answers the question.
-		_, ok := m.HCloudMachine.Labels[clusterv1.MachineControlPlaneLabel]
-		return ok
-	}
-	return util.IsControlPlaneMachine(m.Machine)
+	_, ok := m.HCloudMachine.Labels[clusterv1.MachineControlPlaneLabel]
+	return ok
 }
 
 // Name returns the HCloudMachine name.
