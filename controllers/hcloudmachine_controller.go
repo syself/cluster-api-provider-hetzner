@@ -115,26 +115,20 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
 
-	// Fetch the Machine. It is nil if the owner reference is not set yet.
-	// It is also nil if the owner Machine is gone. GetOwnerMachine returns
-	// NotFound in that case.
+	// Fetch the CAPI Machine. It is nil if the owner reference is not set yet, or if
+	// the CAPI Machine does not exist anymore.
 	machine, err := util.GetOwnerMachine(ctx, r, hcloudMachine.ObjectMeta)
-	if apierrors.IsNotFound(err) {
-		machine = nil
-		err = nil
-	}
-	if err != nil {
+	if client.IgnoreNotFound(err) != nil {
 		return reconcile.Result{}, err
 	}
 	if machine == nil {
 		if hcloudMachine.DeletionTimestamp.IsZero() {
-			log.Info("Machine Controller has not yet set OwnerRef")
+			log.Info("HCloudMachine has no owner CAPI Machine")
 			return reconcile.Result{}, nil
 		}
-		// The owner Machine was force-deleted. The HCloudMachine is left behind with a
-		// deletion timestamp and our finalizer, and nothing else will clean it up.
-		// Carry on, so that the server gets deleted and the finalizer gets released.
-		log.Info("Owner Machine is gone, continuing to delete the HCloudMachine")
+		// Continue without the CAPI Machine, so that we delete the server and remove the
+		// finalizer.
+		log.Info("HCloudMachine has no owner CAPI Machine, continuing to delete it")
 	}
 
 	if machine != nil {

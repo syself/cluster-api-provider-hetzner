@@ -53,10 +53,10 @@ type MachineScopeParams struct {
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav2.HetznerCluster
 
-	// Machine is the CAPI Machine owning the HCloudMachine. It may be nil, but only
-	// while the HCloudMachine is being deleted: an owner Machine that was force-deleted
-	// leaves the HCloudMachine behind, and it still has to be cleaned up. Code that runs
-	// outside the deletion path can rely on Machine being set.
+	// Machine is the CAPI Machine that owns the HCloudMachine. It is nil only if the
+	// HCloudMachine is being deleted and has no owner CAPI Machine, for example after the
+	// CAPI Machine was force deleted. Only the code that deletes the HCloudMachine has to
+	// handle a nil Machine.
 	Machine *clusterv1.Machine
 
 	HCloudMachine    *infrav2.HCloudMachine
@@ -138,8 +138,8 @@ type MachineScope struct {
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav2.HetznerCluster
 
-	// Machine is nil when the owner Machine is already gone and the HCloudMachine is
-	// only being deleted. See MachineScopeParams.Machine.
+	// Machine is the CAPI Machine that owns the HCloudMachine. See
+	// MachineScopeParams.Machine for when it is nil.
 	Machine *clusterv1.Machine
 
 	HCloudMachine    *infrav2.HCloudMachine
