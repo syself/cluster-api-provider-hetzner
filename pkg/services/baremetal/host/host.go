@@ -1400,7 +1400,7 @@ func (s *Service) actionImageInstallingCustomProvisioner(ctx context.Context, ss
 		duration = time.Since(host.Status.RebootTriggeredAt.Time)
 	}
 
-	// Please keep the number (20) in sync with the docstring of ImageURL.
+	// Please keep the number (20) in sync with the docstring of CustomProvisioner.URL.
 	if duration > 20*time.Minute {
 		// timeout. Something has failed.
 		msg := fmt.Sprintf("custom provisioner timed out after %s. Deleting machine",

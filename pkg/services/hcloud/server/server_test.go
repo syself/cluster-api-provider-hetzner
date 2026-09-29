@@ -1672,7 +1672,7 @@ var _ = Describe("Reconcile", func() {
 			To(ContainSubstring("could not be adopted"))
 	})
 
-	It("recovers from a uniqueness error on CreateServer by adopting the existing server (imageURL)", func() {
+	It("recovers from a uniqueness error on CreateServer by adopting the existing server (customProvisioner)", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1761,7 +1761,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav2.HCloudBootStateEnablingRescue))
 	})
 
-	It("transitions to BootStateOperatingSystemRunning (imageURL)", func() {
+	It("transitions to BootStateOperatingSystemRunning (customProvisioner)", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1965,8 +1965,8 @@ var _ = Describe("Reconcile", func() {
 				getServerCalls++
 			}
 		}
-		GinkgoWriter.Printf("GetServer was called %d times during provisioning (imageURL)\n", getServerCalls)
-		Expect(getServerCalls).To(BeNumerically("<=", 1), "GetServer should not be called more than 1 time during imageURL provisioning")
+		GinkgoWriter.Printf("GetServer was called %d times during provisioning (customProvisioner)\n", getServerCalls)
+		Expect(getServerCalls).To(BeNumerically("<=", 1), "GetServer should not be called more than 1 time during customProvisioner provisioning")
 	})
 
 	It("ignores status in output.json when IMAGE_URL_DONE in stdout", func() {
@@ -2486,7 +2486,7 @@ var _ = Describe("Reconcile", func() {
 
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 
-		By("setting imageURL and a command that does not exist in the command directory")
+		By("setting customProvisioner with a command that does not exist in the command directory")
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
