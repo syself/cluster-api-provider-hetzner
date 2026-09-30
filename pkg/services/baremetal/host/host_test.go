@@ -1292,7 +1292,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
-			isTimeout, isConnectionRefused, _, err := service.analyzeSSHOutputRegistering(sshclient.Output{Err: tc.err})
+			isTimeout, isConnectionRefused, err := service.analyzeSSHOutputRegistering(sshclient.Output{Err: tc.err})
 			Expect(isTimeout).To(Equal(tc.expectedIsTimeout))
 			Expect(isConnectionRefused).To(Equal(tc.expectedIsConnectionRefused))
 			if tc.expectedErrMessage != "" {
@@ -1369,7 +1369,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
-			isTimeout, isConnectionRefused, _, err := service.analyzeSSHOutputRegistering(out)
+			isTimeout, isConnectionRefused, err := service.analyzeSSHOutputRegistering(out)
 			Expect(isTimeout).To(Equal(false))
 			Expect(isConnectionRefused).To(Equal(false))
 			if tc.expectedErrMessage != "" {
