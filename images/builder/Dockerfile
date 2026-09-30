@@ -21,16 +21,16 @@ FROM cgr.dev/chainguard/wolfi-base:latest AS wolfi
 WORKDIR /
 
 # update: datasource=repology depName=wolfi/controller-gen versioning=apk
-ARG CONTROLLER_GEN_VERSION="0.20.0-r1"
+ARG CONTROLLER_GEN_VERSION="0.20.1-r3"
 
 # update: datasource=repology depName=wolfi/golangci-lint versioning=apk
-ARG GOLANGCI_VERSION="2.8.0-r2"
+ARG GOLANGCI_VERSION="2.8.0-r3"
 
 # update: datasource=repology depName=wolfi/helm versioning=apk
-ARG HELM_VERSION="4.1.0-r1"
+ARG HELM_VERSION="4.1.4-r3"
 
 # update: datasource=repology depName=wolfi/skopeo versioning=apk
-ARG SKOPEO_VERSION="1.21.0-r3"
+ARG SKOPEO_VERSION="1.21.0-r4"
 
 # update: datasource=repology depName=wolfi/trivy versioning=apk
 ARG TRIVY_VERSION="0.69.0-r1"
@@ -50,12 +50,12 @@ RUN apk add --no-cache \
 FROM docker.io/lycheeverse/lychee:0.24.2 AS lychee
 
 # Install Hadolint
-FROM docker.io/hadolint/hadolint:v2.14.0-alpine@sha256:7aba693c1442eb31c0b015c129697cb3b6cb7da589d85c7562f9deb435a6657c AS hadolint
+FROM docker.io/hadolint/hadolint:v2.15.1-alpine@sha256:a1d49ae1a4e83c1dbad26b8c1ad7588c8bd1e04f4866b34ad3cac50335198552 AS hadolint
 
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.25-trixie@sha256:d41da62c5fa95d88bac8ea732451c00f76aefc5ba4931b694879f4ae15676db8
+FROM docker.io/library/golang:1.25-trixie@sha256:2c4c60ef415fbfa5e90300722293bef36c5e63fae17570ce18f580af933dbd73
 
 # Start of "we should move that to a previous Layer"
 # Note: We should keep the final layer clean. We could get most tools from wolfi.
