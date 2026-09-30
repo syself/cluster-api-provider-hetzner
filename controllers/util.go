@@ -36,13 +36,8 @@ import (
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 )
 
-// This file holds the condition and token helpers for the controllers. util_v1beta1.go holds the
-// counterparts for the controllers that have not been migrated yet, and can be deleted once they
-// are.
-
 // conditionsObject is an API object that owns both the conditions and the deprecated v1beta1
-// conditions and can be status-patched. reconcileRateLimit and hcloudTokenErrorResult accept it so
-// every controller that reconciles such an object shares them.
+// conditions and can be status-patched.
 type conditionsObject interface {
 	client.Object
 	conditions.Setter
@@ -72,8 +67,8 @@ func reconcileRateLimit(obj conditionsObject, rateLimitWaitTime time.Duration) b
 
 // getAndValidateHCloudToken acquires the Hetzner secret referenced by the cluster and returns the
 // HCloud token from it. It returns a *ResolveSecretRefError if the secret is missing and a
-// *HCloudTokenValidationError if the token is empty, which the hcloudTokenErrorResult helpers map to
-// the right conditions.
+// *HCloudTokenValidationError if the token is empty. hcloudTokenErrorResult uses the error type to
+// pick the reason of the HCloudTokenAvailable condition.
 func getAndValidateHCloudToken(ctx context.Context, namespace string, hetznerCluster *infrav2.HetznerCluster, secretManager *secretutil.SecretManager) (string, *corev1.Secret, error) {
 	// retrieve Hetzner secret
 	secretNamespacedName := types.NamespacedName{Namespace: namespace, Name: hetznerCluster.Spec.HetznerSecret.Name}

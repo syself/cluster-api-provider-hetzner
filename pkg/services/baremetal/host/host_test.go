@@ -1675,6 +1675,7 @@ var _ = Describe("actionRegistering", func() {
 		expectedActionResult      actionResult
 		expectedErrorMessage      *string
 		swRaid                    bool
+		customProvisioner         bool
 	}
 	ctx := context.Background()
 	DescribeTable("actionRegistering",
@@ -1706,7 +1707,10 @@ var _ = Describe("actionRegistering", func() {
 			}
 			sshMock := registeringSSHMock(tc.storageStdOut)
 			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-			if tc.swRaid {
+			if tc.customProvisioner {
+				service.scope.HetznerBareMetalMachine.Spec.InstallImage = nil
+				service.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = &infrav2.CustomProvisioner{Swraid: 1}
+			} else if tc.swRaid {
 				service.scope.HetznerBareMetalMachine.Spec.InstallImage = &infrav2.InstallImage{Swraid: 1}
 			}
 
@@ -1738,6 +1742,17 @@ var _ = Describe("actionRegistering", func() {
 			expectedActionResult:      actionComplete{},
 			expectedErrorMessage:      nil,
 			swRaid:                    true,
+		}),
+		Entry("working example - rootDeviceHints raid with a custom provisioner", testCaseActionRegistering{
+			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
+		NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
+		NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
+			includeRootDeviceHintWWN:  false,
+			includeRootDeviceHintRaid: true,
+			expectedActionResult:      actionComplete{},
+			expectedErrorMessage:      nil,
+			swRaid:                    true,
+			customProvisioner:         true,
 		}),
 		Entry("wwn does not fit to storage devices", testCaseActionRegistering{
 			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"

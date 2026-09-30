@@ -753,3 +753,15 @@ const (
 	// HetznerBareMetalMachineHostNotReadyReason surfaces when the host is not ready.
 	HetznerBareMetalMachineHostNotReadyReason = "NotReady"
 )
+
+const (
+	// HetznerBareMetalMachineServerAvailableCondition is true when the bare metal server is available.
+	HetznerBareMetalMachineServerAvailableCondition = "ServerAvailable"
+
+	// HetznerBareMetalMachineServerAvailableReason surfaces when the bare metal server is available.
+	HetznerBareMetalMachineServerAvailableReason = clusterv1.AvailableReason
+
+	// HetznerBareMetalMachineWaitingForAPIServerReason surfaces when the server is not attached to the
+	// load balancer yet, because its kube-apiserver pod is not healthy.
+	HetznerBareMetalMachineWaitingForAPIServerReason = "WaitingForAPIServer"
+)

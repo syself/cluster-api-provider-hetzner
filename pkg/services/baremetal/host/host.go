@@ -848,18 +848,14 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 
 	// Check RAID for the second time.
 	// See "tworaidchecks" for the other place.
-	// A custom provisioner has no installImage and no RAID setting, so treat it as swraid 0.
-	swraid := 0
-	if installImage := s.scope.HetznerBareMetalMachine.Spec.InstallImage; installImage != nil {
-		swraid = installImage.Swraid
-	}
+	swraid := s.scope.HetznerBareMetalMachine.Swraid()
 	msg = ""
 	if swraid != 0 &&
 		len(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.Raid.WWN) < 2 {
-		msg = "Invalid HetznerBareMetalHost: installImage.swraid of the HetznerBareMetalMachine is active. Use at least two WWNs in spec.rootDevideHints.raid.wwn."
+		msg = "Invalid HetznerBareMetalHost: swraid of the HetznerBareMetalMachine is active. Use at least two WWNs in spec.rootDevideHints.raid.wwn."
 	} else if swraid == 0 &&
 		s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN == "" {
-		msg = "Invalid HetznerBareMetalHost: installImage.swraid of the HetznerBareMetalMachine is not active. Use spec.rootDevideHints.wwn and leave raid.wwn empty."
+		msg = "Invalid HetznerBareMetalHost: swraid of the HetznerBareMetalMachine is not active. Use spec.rootDevideHints.wwn and leave raid.wwn empty."
 	}
 	if msg != "" {
 		// This triggers a FailureMessage on the HetznerBareMetalMachine

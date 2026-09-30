@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1" // HetznerBareMetalMachine is still on v1beta1
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/remediation"
@@ -157,7 +156,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	log = log.WithValues("Machine", klog.KObj(machine))
 
 	// Fetch the BareMetalMachine instance.
-	bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
+	bareMetalMachine := &infrav2.HetznerBareMetalMachine{}
 
 	key := client.ObjectKey{
 		Name:      machine.Spec.InfrastructureRef.Name,
