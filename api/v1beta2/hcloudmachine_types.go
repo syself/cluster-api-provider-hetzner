@@ -31,11 +31,11 @@ const (
 
 // HCloudMachineSpec defines the desired state of HCloudMachine.
 type HCloudMachineSpec struct {
-	// ProviderID is the unique identifier as specified by the cloud provider.
+	// providerID is the unique identifier as specified by the cloud provider.
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
-	// Type is the HCloud Machine Type for this machine. It defines the desired server type of
+	// type is the HCloud Machine Type for this machine. It defines the desired server type of
 	// server in Hetzner's Cloud API. You can use the hcloud CLI to get server names (`hcloud
 	// server-type list`) or on https://www.hetzner.com/cloud
 	//
@@ -49,14 +49,14 @@ type HCloudMachineSpec struct {
 	// locations.
 	Type HCloudMachineType `json:"type"`
 
-	// ImageName is the reference to the Machine Image from which to create the machine instance.
+	// imageName is the reference to the Machine Image from which to create the machine instance.
 	// It can reference an image uploaded to Hetzner API in two ways: either directly as the name of an image or as the label of an image.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Optional
 	// +optional
 	ImageName string `json:"imageName,omitempty"`
 
-	// ImageURL gets used for installing custom node images. If that field is set, the controller
+	// imageURL gets used for installing custom node images. If that field is set, the controller
 	// boots a new HCloud machine into rescue mode. Then the command referenced by
 	// ImageURLCommand will be copied into the rescue system and executed.
 	//
@@ -79,7 +79,7 @@ type HCloudMachineSpec struct {
 	// +optional
 	ImageURL string `json:"imageURL,omitempty"`
 
-	// ImageURLCommand is the basename of a command file below /shared on the controller pod which
+	// imageURLCommand is the basename of a command file below /shared on the controller pod which
 	// provisions a machine from ImageURL. CAPH copies that command into the rescue system and
 	// executes it there.
 	//
@@ -91,17 +91,17 @@ type HCloudMachineSpec struct {
 	// +optional
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`
 
-	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
+	// sshKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
 	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
 
-	// PlacementGroupName defines the placement group of the machine in HCloud API that must reference an existing placement group.
+	// placementGroupName defines the placement group of the machine in HCloud API that must reference an existing placement group.
 	// +optional
 	PlacementGroupName *string `json:"placementGroupName,omitempty"`
 
-	// PublicNetwork specifies information for public networks. It defines the specs about
+	// publicNetwork specifies information for public networks. It defines the specs about
 	// the primary IP address of the server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled.
 	// +optional
 	PublicNetwork *PublicNetworkSpec `json:"publicNetwork,omitempty"`
@@ -122,22 +122,22 @@ type HCloudMachineStatus struct {
 	// +optional
 	Initialization HCloudMachineInitializationStatus `json:"initialization,omitempty,omitzero"`
 
-	// Addresses contain the server's associated addresses.
+	// addresses contain the server's associated addresses.
 	// +optional
 	// +listType=atomic
 	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
 
-	// Region contains the name of the HCloud location the server is running.
+	// region contains the name of the HCloud location the server is running.
 	// +optional
 	Region Region `json:"region,omitempty"`
 
-	// SSHKeys specifies the ssh keys that were used for provisioning the server.
+	// sshKeys specifies the ssh keys that were used for provisioning the server.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
 	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
 
-	// InstanceState is the state of the server for this machine.
+	// instanceState is the state of the server for this machine.
 	// +optional
 	InstanceState InstanceState `json:"instanceState,omitempty"`
 
@@ -158,16 +158,16 @@ type HCloudMachineStatus struct {
 	// +optional
 	BootState HCloudBootState `json:"bootState"`
 
-	// BootStateSince is the timestamp of the last change to BootState. It is used to timeout
+	// bootStateSince is the timestamp of the last change to BootState. It is used to timeout
 	// provisioning if a state takes too long.
 	// +optional
 	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`
 
-	// ExternalIDs contains temporary data during the provisioning process
+	// externalIDs contains temporary data during the provisioning process
 	// +optional
 	ExternalIDs HCloudMachineStatusExternalIDs `json:"externalIDs,omitempty"`
 
-	// LastRemediatedAt records when the most recent successful remediation completed.
+	// lastRemediatedAt records when the most recent successful remediation completed.
 	// Used to prevent reboot loops across successive MHC incidents.
 	// +optional
 	LastRemediatedAt metav1.Time `json:"lastRemediatedAt,omitempty,omitzero"`
@@ -233,11 +233,11 @@ const (
 
 // HCloudMachineStatusExternalIDs holds temporary data during the provisioning process.
 type HCloudMachineStatusExternalIDs struct {
-	// ActionIDEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
+	// actionIdEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
 	// +optional
 	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`
 
-	// ActionIDCreateServer is the hcloud API Action result of CreateServer.
+	// actionIdCreateServer is the hcloud API Action result of CreateServer.
 	// +optional
 	ActionIDCreateServer int64 `json:"actionIdCreateServer,omitzero"`
 }

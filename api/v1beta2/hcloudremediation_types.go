@@ -24,23 +24,23 @@ import (
 
 // HCloudRemediationSpec defines the desired state of HCloudRemediation.
 type HCloudRemediationSpec struct {
-	// Strategy field defines remediation strategy.
+	// strategy field defines remediation strategy.
 	Strategy *RemediationStrategy `json:"strategy,omitempty"`
 }
 
 // HCloudRemediationStatus defines the observed state of HCloudRemediation.
 type HCloudRemediationStatus struct {
-	// Phase represents the current phase of machine remediation.
+	// phase represents the current phase of machine remediation.
 	// E.g. Pending, Running, Done etc.
 	// +optional
 	Phase string `json:"phase,omitempty"`
 
-	// RetryCount records how many times the remediation controller has tried to
+	// retryCount records how many times the remediation controller has tried to
 	// remediate the node, for example the number of reboots.
 	// +optional
 	RetryCount *int32 `json:"retryCount,omitempty"`
 
-	// LastRemediated identifies when the host was last remediated.
+	// lastRemediated identifies when the host was last remediated.
 	// A zero value is treated as absent.
 	// +optional
 	LastRemediated metav1.Time `json:"lastRemediated,omitempty,omitzero"`

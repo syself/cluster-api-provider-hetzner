@@ -811,24 +811,24 @@ spec:
             description: HetznerClusterSpec defines the desired state of HetznerCluster.
             properties:
               controlPlaneEndpoint:
-                description: ControlPlaneEndpoint represents the endpoint used to
+                description: controlPlaneEndpoint represents the endpoint used to
                   communicate with the control plane.
                 minProperties: 1
                 properties:
                   host:
-                    description: Host is the hostname on which the API server is serving.
+                    description: host is the hostname on which the API server is serving.
                     maxLength: 512
                     minLength: 1
                     type: string
                   port:
-                    description: Port is the port on which the API server is serving.
+                    description: port is the port on which the API server is serving.
                     format: int32
                     maximum: 65535
                     minimum: 1
                     type: integer
                 type: object
               controlPlaneLoadBalancer:
-                description: ControlPlaneLoadBalancer is an optional configuration
+                description: controlPlaneLoadBalancer is an optional configuration
                   for customizing control plane behavior.
                 properties:
                   algorithm:
@@ -840,13 +840,13 @@ spec:
                       - round_robin
                       - least_connections
                     default: round_robin
-                    description: Algorithm defines the type of load balancer algorithm.
+                    description: algorithm defines the type of load balancer algorithm.
                       It could be round_robin or least_connection. The default value
                       is "round_robin".
                     type: string
                   enableProxyProtocol:
                     description: |-
-                      EnableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
+                      enableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
                       Only the kube-apiserver service is affected; extra services are never given proxy protocol.
 
                       For new clusters the LB service is created with proxy protocol enabled immediately — no
@@ -865,30 +865,30 @@ spec:
                     type: boolean
                   enabled:
                     default: true
-                    description: Enabled specifies if a load balancer should be created.
+                    description: enabled specifies if a load balancer should be created.
                     type: boolean
                   extraServices:
-                    description: ExtraServices defines how traffic will be routed
+                    description: extraServices defines how traffic will be routed
                       from the load balancer to your target server.
                     items:
                       description: LoadBalancerServiceSpec defines a load balancer
                         Target.
                       properties:
                         destinationPort:
-                          description: DestinationPort defines the port on the server.
+                          description: destinationPort defines the port on the server.
                             It must be a valid port range (1-65535).
                           maximum: 65535
                           minimum: 1
                           type: integer
                         listenPort:
-                          description: ListenPort, i.e. source port, defines the incoming
+                          description: listenPort, i.e. source port, defines the incoming
                             port open on the load balancer. It must be a valid port
                             range (1-65535).
                           maximum: 65535
                           minimum: 1
                           type: integer
                         protocol:
-                          description: Protocol specifies the supported load balancer
+                          description: protocol specifies the supported load balancer
                             Protocol. It could be one of the https, http, or tcp.
                           enum:
                           - http
@@ -900,7 +900,7 @@ spec:
                     x-kubernetes-list-type: atomic
                   healthCheck:
                     description: |-
-                      HealthCheck configures the health check the load balancer uses to determine whether the
+                      healthCheck configures the health check the load balancer uses to determine whether the
                       kube-apiserver service on a control-plane node is healthy. If omitted, the load balancer's
                       default behavior (a plain TCP check, with Hetzner's default interval, timeout and retries)
                       is unchanged.
@@ -930,24 +930,24 @@ spec:
                     properties:
                       domain:
                         description: |-
-                          Domain sets the Host header sent with the HTTP(S) health check request. Only valid when
+                          domain sets the Host header sent with the HTTP(S) health check request. Only valid when
                           Protocol is http or https.
                         type: string
                       intervalSeconds:
                         description: |-
-                          IntervalSeconds is the time in seconds between two consecutive health checks. If omitted,
+                          intervalSeconds is the time in seconds between two consecutive health checks. If omitted,
                           Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec above).
                         maximum: 60
                         minimum: 3
                         type: integer
                       path:
                         description: |-
-                          Path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
+                          path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
                           Protocol is http or https.
                         type: string
                       port:
                         description: |-
-                          Port is the target port the check runs against. It defaults to the service's destination
+                          port is the target port the check runs against. It defaults to the service's destination
                           port. Set it when the health-check endpoint is served on a different port than the API
                           server itself.
                         maximum: 65535
@@ -956,7 +956,7 @@ spec:
                       protocol:
                         default: tcp
                         description: |-
-                          Protocol is the protocol used for the health check. If omitted, "tcp" is used, matching the
+                          protocol is the protocol used for the health check. If omitted, "tcp" is used, matching the
                           load balancer's own default behavior.
                         enum:
                         - tcp
@@ -965,12 +965,12 @@ spec:
                         type: string
                       response:
                         description: |-
-                          Response is a string that must be contained in the HTTP(S) response for the check to pass.
+                          response is a string that must be contained in the HTTP(S) response for the check to pass.
                           Only valid when Protocol is http or https.
                         type: string
                       retries:
                         description: |-
-                          Retries is the number of consecutive failed health checks before a target is considered
+                          retries is the number of consecutive failed health checks before a target is considered
                           unhealthy. The same number of successful checks makes it healthy again. If omitted,
                           Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec above).
                         maximum: 5
@@ -978,7 +978,7 @@ spec:
                         type: integer
                       statusCodes:
                         description: |-
-                          StatusCodes are the HTTP response status codes counted as healthy, for example ["200"].
+                          statusCodes are the HTTP response status codes counted as healthy, for example ["200"].
                           Single codes ("200") and wildcards ("2??") are both allowed. If empty, Hetzner's own default
                           is used (see the API reference on LoadBalancerHealthCheckSpec above). Only valid when
                           Protocol is http or https.
@@ -987,7 +987,7 @@ spec:
                         type: array
                       timeoutSeconds:
                         description: |-
-                          TimeoutSeconds is the time in seconds to wait for a health check attempt to succeed. If
+                          timeoutSeconds is the time in seconds to wait for a health check attempt to succeed. If
                           omitted, Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec
                           above).
                         maximum: 60
@@ -997,18 +997,18 @@ spec:
                     - protocol
                     type: object
                   name:
-                    description: Name defines the name of the load balancer. It can
+                    description: name defines the name of the load balancer. It can
                       be specified in order to use an existing load balancer.
                     type: string
                   port:
                     default: 6443
-                    description: Port defines the API Server port. It must be a valid
+                    description: port defines the API Server port. It must be a valid
                       port range (1-65535). If omitted, the default value is 6443.
                     maximum: 65535
                     minimum: 1
                     type: integer
                   region:
-                    description: Region contains the name of the HCloud location where
+                    description: region contains the name of the HCloud location where
                       the load balancer is running.
                     enum:
                     - fsn1
@@ -1020,7 +1020,7 @@ spec:
                     type: string
                   targetAddressFamily:
                     description: |-
-                      TargetAddressFamily selects which addresses of a bare metal control plane server are
+                      targetAddressFamily selects which addresses of a bare metal control plane server are
                       attached as targets of the load balancer.
 
                       This only affects bare metal servers. An HCloud server is a resource of the HCloud
@@ -1051,7 +1051,7 @@ spec:
                     type: string
                   type:
                     default: lb11
-                    description: Type defines the type of load balancer. It could
+                    description: type defines the type of load balancer. It could
                       be one of lb11, lb21, or lb31.
                     enum:
                     - lb11
@@ -1061,7 +1061,7 @@ spec:
                 type: object
               controlPlaneRegions:
                 description: |-
-                  ControlPlaneRegion consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
+                  controlPlaneRegions consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
                   have a very low latency we could assume in some use cases that a region is behaving like a zone.
                   https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
                 items:
@@ -1077,22 +1077,22 @@ spec:
                 type: array
                 x-kubernetes-list-type: set
               hcloudNetwork:
-                description: HCloudNetwork defines details about the private Network
+                description: hcloudNetwork defines details about the private Network
                   for Hetzner Cloud. If left empty, no private Network is configured.
                 properties:
                   cidrBlock:
                     default: 10.0.0.0/16
-                    description: CIDRBlock defines the cidrBlock of the HCloud Network.
+                    description: cidrBlock defines the cidrBlock of the HCloud Network.
                       If omitted, default "10.0.0.0/16" will be used.
                     type: string
                   enabled:
-                    description: Enabled defines whether the network should be enabled
+                    description: enabled defines whether the network should be enabled
                       or not.
                     type: boolean
                   networkZone:
                     default: eu-central
                     description: |-
-                      NetworkZone specifies the HCloud network zone of the private network.
+                      networkZone specifies the HCloud network zone of the private network.
                       The zones must be one of eu-central, us-east, or us-west. The default is eu-central.
                     enum:
                     - eu-central
@@ -1103,7 +1103,7 @@ spec:
                   subnetCidrBlock:
                     default: 10.0.0.0/24
                     description: |-
-                      SubnetCIDRBlock defines the cidrBlock for the subnet of the HCloud Network.
+                      subnetCidrBlock defines the cidrBlock for the subnet of the HCloud Network.
                       Note: A subnet is required.
                     type: string
                 required:
@@ -1130,17 +1130,17 @@ spec:
                 x-kubernetes-list-type: map
               hetznerSecretRef:
                 description: |-
-                  HetznerSecretRef is a reference to a token to be used when reconciling this cluster.
+                  hetznerSecretRef is a reference to a token to be used when reconciling this cluster.
                   This is generated in the security section under API TOKENS. Read & write is necessary.
                 properties:
                   key:
                     description: |-
-                      Key defines the keys that are used in the secret.
+                      key defines the keys that are used in the secret.
                       Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
                     properties:
                       hcloudToken:
                         description: |-
-                          HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
+                          hcloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
                           The controller reads the token from the management-cluster secret using this key and writes
                           it to workload-cluster secrets using the same key. Upstream hcloud-ccm expects the key
                           "token", while the legacy Syself ccm fork uses "hcloud". The configured workload-cluster
@@ -1152,7 +1152,7 @@ spec:
                       hetznerRobotPassword:
                         default: hetzner-robot-password
                         description: |-
-                          HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
+                          hetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
                           is stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
                           creating a secret in the wl-cluster. We recommend to use "robot-password", because this is
                           the default of upstream hcloud-ccm.
@@ -1160,7 +1160,7 @@ spec:
                       hetznerRobotUser:
                         default: hetzner-robot-user
                         description: |-
-                          HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
+                          hetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
                           stored. It gets used for reading the credential in the mgt-cluster, and it gets used for
                           creating a secret in the wl-cluster. We recommend to use "robot-user", because this is the
                           default of upstream hcloud-ccm.
@@ -1168,7 +1168,7 @@ spec:
                       sshKey:
                         default: hcloud-ssh-key-name
                         description: |-
-                          SSHKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
+                          sshKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
                           to the wl-cluster.
                         type: string
                     required:
@@ -1177,7 +1177,7 @@ spec:
                   name:
                     default: hetzner
                     description: |-
-                      Name defines the name of the secret. The controller reads the credential from the
+                      name defines the name of the secret. The controller reads the credential from the
                       management-cluster secret with this name and creates a workload-cluster secret with the same
                       name. The upstream hcloud-ccm helm chart expects the secret name "hcloud", while the Syself
                       ccm fork defaults to "hetzner".
@@ -1197,27 +1197,27 @@ spec:
                 type: object
               skipCreatingHetznerSecretInWorkloadCluster:
                 description: |-
-                  SkipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be
+                  skipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be
                   created in the workload cluster. By default the secret gets created, so that the ccm (running
                   in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
                   wl-cluster, you can set this to value to false, so that the secret is not created. Be sure to
                   run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
                 type: boolean
               sshKeys:
-                description: SSHKeys are cluster wide. Valid values are a valid SSH
+                description: sshKeys are cluster wide. Valid values are a valid SSH
                   key name.
                 properties:
                   hcloud:
-                    description: Hcloud defines the SSH keys used for hcloud.
+                    description: hcloud defines the SSH keys used for hcloud.
                     items:
                       description: SSHKey defines the SSHKey for HCloud.
                       properties:
                         fingerprint:
-                          description: Fingerprint defines the fingerprint of the
+                          description: fingerprint defines the fingerprint of the
                             SSH key - added by the controller.
                           type: string
                         name:
-                          description: Name defines the name of the SSH key.
+                          description: name defines the name of the SSH key.
                           minLength: 1
                           type: string
                       required:
@@ -1228,23 +1228,23 @@ spec:
                     - name
                     x-kubernetes-list-type: map
                   rescueSecretRef:
-                    description: RescueSecretRef defines the reference to the secret
+                    description: rescueSecretRef defines the reference to the secret
                       where the SSH key for the rescue system is stored.
                     properties:
                       key:
-                        description: Key contains details about the keys used in the
+                        description: key contains details about the keys used in the
                           data of the secret.
                         properties:
                           name:
-                            description: Name is the key in the secret's data where
+                            description: name is the key in the secret's data where
                               the SSH key's name is stored.
                             type: string
                           privateKey:
-                            description: PrivateKey is the key in the secret's data
+                            description: privateKey is the key in the secret's data
                               where the SSH key's private key is stored.
                             type: string
                           publicKey:
-                            description: PublicKey is the key in the secret's data
+                            description: publicKey is the key in the secret's data
                               where the SSH key's public key is stored.
                             type: string
                         required:
@@ -1253,7 +1253,7 @@ spec:
                         - publicKey
                         type: object
                       name:
-                        description: Name is the name of the secret.
+                        description: name is the name of the secret.
                         type: string
                     required:
                     - key
@@ -1347,7 +1347,7 @@ spec:
                     type: boolean
                   proxyProtocolEnabled:
                     description: |-
-                      ProxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
+                      proxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
                       has proxy protocol enabled, as observed on the actual HCloud load balancer. This can lag
                       behind spec.controlPlaneLoadBalancer.enableProxyProtocol while the migration to proxy
                       protocol is in progress (see the field's docs for details).
@@ -1487,7 +1487,7 @@ spec:
                       type: integer
                     name:
                       description: |-
-                        Name is the placement group name. It is required because status.hcloudPlacementGroups is a
+                        name is the placement group name. It is required because status.hcloudPlacementGroups is a
                         list-map keyed on name, and a list-map key must be a required (or defaulted) property.
                       type: string
                     servers:

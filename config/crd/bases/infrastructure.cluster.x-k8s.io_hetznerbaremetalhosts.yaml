@@ -863,23 +863,23 @@ spec:
             properties:
               consumerRef:
                 description: |-
-                  ConsumerRef is a reference to the HetznerBareMetalMachine
+                  consumerRef is a reference to the HetznerBareMetalMachine
                   that is using this host. When it is not empty, the host is considered "in use".
                 properties:
                   apiGroup:
-                    description: APIGroup is the group of the resource being referenced.
+                    description: apiGroup is the group of the resource being referenced.
                     maxLength: 253
                     minLength: 1
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                   kind:
-                    description: Kind is the kind of the resource being referenced.
+                    description: kind is the kind of the resource being referenced.
                     maxLength: 63
                     minLength: 1
                     pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                     type: string
                   name:
-                    description: Name is the name of the resource being referenced.
+                    description: name is the name of the resource being referenced.
                     maxLength: 253
                     minLength: 1
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -891,27 +891,27 @@ spec:
                 type: object
               description:
                 description: |-
-                  Description is a human-entered text used to help identify the host.
+                  description is a human-entered text used to help identify the host.
                   It can be used to store some valuable information about the host.
                 type: string
               maintenanceMode:
                 description: |-
-                  MaintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
+                  maintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
                   will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
                   machine. Additionally, the host won't be selected by any Hetzner bare metal machine.
                 type: boolean
               rootDeviceHints:
                 description: |-
-                  RootDeviceHints provides guidance about how to choose the device for the image
+                  rootDeviceHints provides guidance about how to choose the device for the image
                   being provisioned. They need to be specified to provision the host.
                 properties:
                   raid:
                     description: |-
-                      Raid is used to specify multiple storage devices. It provides the controller with information
+                      raid is used to specify multiple storage devices. It provides the controller with information
                       on which disks a raid can be established.
                     properties:
                       wwn:
-                        description: WWN defines a list of unique storage identifiers
+                        description: wwn defines a list of unique storage identifiers
                           used for raid setups.
                         items:
                           type: string
@@ -919,13 +919,13 @@ spec:
                     type: object
                   wwn:
                     description: |-
-                      WWN is a unique storage identifier used for non-raid setups. The hint
+                      wwn is a unique storage identifier used for non-raid setups. The hint
                       must match the actual value exactly.
                     type: string
                 type: object
               serverID:
                 description: |-
-                  ServerID defines the ID of the server provided by Hetzner.
+                  serverID defines the ID of the server provided by Hetzner.
                   Find it on your Hetzner robot dashboard.
                 type: integer
             required:
@@ -1098,23 +1098,25 @@ spec:
                       properties:
                         ip:
                           description: |-
-                            The IP address of the interface. This will be an IPv4 or IPv6 address
+                            ip is the IP address of the interface. This will be an IPv4 or IPv6 address
                             if one is present.  If both IPv4 and IPv6 addresses are present in a
                             dual-stack environment, two nics will be output, one with each IP.
                           type: string
                         mac:
-                          description: The device MAC address
+                          description: mac is the device MAC address
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                           type: string
                         model:
-                          description: The vendor and product IDs of the NIC, e.g.
-                            "0x8086 0x1572"
+                          description: model is the vendor and product IDs of the
+                            NIC, e.g. "0x8086 0x1572"
                           type: string
                         name:
-                          description: The name of the network interface, e.g. "en0"
+                          description: name is the name of the network interface,
+                            e.g. "en0"
                           type: string
                         speedMbps:
-                          description: The speed of the device in Gigabits per second
+                          description: speedMbps is the speed of the device in Gigabits
+                            per second
                           type: integer
                       type: object
                     type: array
@@ -1127,36 +1129,36 @@ spec:
                         etc.) on the host.
                       properties:
                         hctl:
-                          description: HCTL defines the SCSI location of the device.
+                          description: hctl defines the SCSI location of the device.
                           type: string
                         model:
-                          description: Model represents the Hardware model.
+                          description: model represents the Hardware model.
                           type: string
                         name:
                           description: |-
-                            The Linux device name of the disk, e.g. "/dev/sda". Note that this
+                            name is the Linux device name of the disk, e.g. "/dev/sda". Note that this
                             may not be stable across reboots.
                           type: string
                         rota:
-                          description: Rota defines if it's an HDD device or not.
+                          description: rota defines if it's an HDD device or not.
                           type: boolean
                         serialNumber:
-                          description: SerialNumber denotes the serial number of the
+                          description: serialNumber denotes the serial number of the
                             device.
                           type: string
                         sizeBytes:
-                          description: SizeBytes is the size of the disk in Bytes.
+                          description: sizeBytes is the size of the disk in Bytes.
                           format: int64
                           type: integer
                         sizeGB:
-                          description: SizeGB is the size of the disk in GB.
+                          description: sizeGB is the size of the disk in GB.
                           format: int64
                           type: integer
                         vendor:
-                          description: Vendor is the name of the vendor of the device.
+                          description: vendor is the name of the vendor of the device.
                           type: string
                         wwn:
-                          description: WWN defines the WWN of the device.
+                          description: wwn defines the WWN of the device.
                           type: string
                       type: object
                     type: array
@@ -1199,7 +1201,7 @@ spec:
                   keys that have been used.
                 properties:
                   currentOS:
-                    description: CurrentOS gives information about the secret where
+                    description: currentOS gives information about the secret where
                       the os ssh key is stored.
                     properties:
                       credentials:
@@ -1224,7 +1226,7 @@ spec:
                         type: string
                     type: object
                   currentRescue:
-                    description: CurrentRescue gives information about the secret
+                    description: currentRescue gives information about the secret
                       where the rescue ssh key is stored.
                     properties:
                       credentials:
@@ -1249,30 +1251,30 @@ spec:
                         type: string
                     type: object
                   osKey:
-                    description: OSKey contains name and fingerprint of the in HetznerBareMetalMachine
+                    description: osKey contains name and fingerprint of the in HetznerBareMetalMachine
                       spec specified SSH key.
                     properties:
                       fingerprint:
-                        description: Fingerprint defines the fingerprint of the SSH
+                        description: fingerprint defines the fingerprint of the SSH
                           key - added by the controller.
                         type: string
                       name:
-                        description: Name defines the name of the SSH key.
+                        description: name defines the name of the SSH key.
                         minLength: 1
                         type: string
                     required:
                     - name
                     type: object
                   rescueKey:
-                    description: RescueKey contains name and fingerprint of the in
+                    description: rescueKey contains name and fingerprint of the in
                       HetznerCluster spec specified SSH key.
                     properties:
                       fingerprint:
-                        description: Fingerprint defines the fingerprint of the SSH
+                        description: fingerprint defines the fingerprint of the SSH
                           key - added by the controller.
                         type: string
                       name:
-                        description: Name defines the name of the SSH key.
+                        description: name defines the name of the SSH key.
                         minLength: 1
                         type: string
                     required:
