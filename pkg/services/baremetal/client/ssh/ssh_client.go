@@ -45,7 +45,7 @@ const (
 	sshTimeOut time.Duration = 5 * time.Second
 	sshUser                  = "root"
 
-	imageURLCommandLog   = "/root/image-url-command.log"
+	customProvisionerLog = "/root/image-url-command.log"
 	outputJSONPath       = "/root/output.json"
 	outputJSONMaxRetries = 10
 )
@@ -105,22 +105,22 @@ const (
 	InstallImageStateFinished InstallImageState = "finished"
 )
 
-// ImageURLCommandState is the command which reads the imageURL of and provisions the machine accordingly. It gets copied to the server running in the rescue system.
-type ImageURLCommandState string
+// CustomProvisionerState defines the states of the custom provisioner command running in the rescue system.
+type CustomProvisionerState string
 
 const (
-	// ImageURLCommandStateNotStarted indicates that the command was not started yet.
-	ImageURLCommandStateNotStarted ImageURLCommandState = "ImageURLCommandStateNotStarted"
+	// CustomProvisionerStateNotStarted indicates that the command was not started yet.
+	CustomProvisionerStateNotStarted CustomProvisionerState = "CustomProvisionerStateNotStarted"
 
-	// ImageURLCommandStateRunning indicates that the command is running.
-	ImageURLCommandStateRunning ImageURLCommandState = "ImageURLCommandStateRunning"
+	// CustomProvisionerStateRunning indicates that the command is running.
+	CustomProvisionerStateRunning CustomProvisionerState = "CustomProvisionerStateRunning"
 
-	// ImageURLCommandStateFinishedSuccessfully indicates that the command is finished with IMAGE_URL_DONE in
+	// CustomProvisionerStateFinishedSuccessfully indicates that the command is finished with IMAGE_URL_DONE in
 	// stdout.
-	ImageURLCommandStateFinishedSuccessfully ImageURLCommandState = "ImageURLCommandStateFinishedSuccessfully"
+	CustomProvisionerStateFinishedSuccessfully CustomProvisionerState = "CustomProvisionerStateFinishedSuccessfully"
 
-	// ImageURLCommandStateFailed indicates that the command is finished, but failed.
-	ImageURLCommandStateFailed ImageURLCommandState = "ImageURLCommandStateFailed"
+	// CustomProvisionerStateFailed indicates that the command is finished, but failed.
+	CustomProvisionerStateFailed CustomProvisionerState = "CustomProvisionerStateFailed"
 )
 
 func (o Output) String() string {
@@ -179,8 +179,8 @@ type Client interface {
 	CreateAutoSetup(ctx context.Context, data string) Output
 
 	// DownloadImage is a synchronous process. This means the controller waits until the
-	// download is finished. Note: We should use StartImageURLCommand(), similar to the handling
-	// of ImageURLCommand.
+	// download is finished. Note: We should use StartCustomProvisioner(), similar to the handling
+	// of the custom provisioner.
 	DownloadImage(ctx context.Context, path, url string) Output
 
 	CreatePostInstallScript(ctx context.Context, data string) Output
@@ -206,18 +206,18 @@ type Client interface {
 	// A non-zero exit status will indicate that provisioning should not start.
 	ExecutePreProvisionCommand(ctx context.Context, preProvisionCommand string) (exitStatus int, stdoutAndStderr string, err error)
 
-	// StartImageURLCommand calls the command provided via image-url-command.
+	// StartCustomProvisioner calls the command provided via customProvisioner.command.
 	// It gets called by the controller after the rescue system of the new machine
 	// is reachable. The env var `OCI_REGISTRY_AUTH_TOKEN` gets set to the same value of the
 	// corresponding env var of the controller.
-	// This gets used when imageURL set.
+	// This gets used when customProvisioner is set.
 	// For hcloud deviceNames is always {"sda"}. For baremetal it corresponds to the WWNs
 	// of RootDeviceHints.
-	StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (exitStatus int, stdoutAndStderr string, err error)
+	StartCustomProvisioner(ctx context.Context, command, url string, bootstrapData []byte, machineName string, deviceNames []string) (exitStatus int, stdoutAndStderr string, err error)
 
-	// StateOfImageURLCommand returns the current states of the ImageURLCommand. States can
+	// StateOfCustomProvisioner returns the current states of the custom provisioner. States can
 	// be: NotStarted, Running, Failed, FinishedSuccesfully.
-	StateOfImageURLCommand(ctx context.Context) (state ImageURLCommandState, logFile string, err error)
+	StateOfCustomProvisioner(ctx context.Context) (state CustomProvisionerState, logFile string, err error)
 
 	// ReadOutputJSON reads /root/output.json from the rescue system. It retries up to
 	// outputJSONMaxRetries times when the content does not end with '}', which guards against
@@ -808,7 +808,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	return exitStatus, s, nil
 }
 
-func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
+func (c *sshClient) StartCustomProvisioner(ctx context.Context, command, url string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
 	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
 
 	// validate deviceNames
@@ -825,16 +825,16 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	}
 
 	if command == "" {
-		return 0, "", fmt.Errorf("image-url-command is empty")
+		return 0, "", fmt.Errorf("custom provisioner command is empty")
 	}
 
 	fdCommand, err := os.Open(command) //nolint:gosec // the variable was valided.
 	if err != nil {
-		return 0, "", fmt.Errorf("error opening image-url-command %q: %w", command, err)
+		return 0, "", fmt.Errorf("error opening custom provisioner command %q: %w", command, err)
 	}
 	defer func() {
 		if err := fdCommand.Close(); err != nil {
-			logger.Error(err, "failed to close image-url-command file", "path", command)
+			logger.Error(err, "failed to close custom provisioner command file", "path", command)
 		}
 	}()
 
@@ -872,8 +872,8 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	cmd := fmt.Sprintf(`#!/usr/bin/bash
 OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/image-url-command '%s' /root/bootstrap.data '%s' '%s' >%s 2>&1 </dev/null &
 echo $! > /root/image-url-command.pid
-`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL, machineName, strings.Join(deviceNames, " "),
-		imageURLCommandLog)
+`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), url, machineName, strings.Join(deviceNames, " "),
+		customProvisionerLog)
 
 	out := c.runSSH(ctx, cmd)
 
@@ -888,47 +888,47 @@ echo $! > /root/image-url-command.pid
 	return exitStatus, s, nil
 }
 
-func (c *sshClient) StateOfImageURLCommand(ctx context.Context) (state ImageURLCommandState, stdoutStderr string, err error) {
+func (c *sshClient) StateOfCustomProvisioner(ctx context.Context) (state CustomProvisionerState, stdoutStderr string, err error) {
 	out := c.runSSH(ctx, `[ -e /root/image-url-command.pid ]`)
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
-		return ImageURLCommandStateNotStarted, "", fmt.Errorf("getting exit status of custom provisioner failed: %w", err)
+		return CustomProvisionerStateNotStarted, "", fmt.Errorf("getting exit status of custom provisioner failed: %w", err)
 	}
 	if exitStatus > 0 {
 		// file does exists
-		return ImageURLCommandStateNotStarted, "", nil
+		return CustomProvisionerStateNotStarted, "", nil
 	}
 
 	out = c.runSSH(ctx, `ps -p "$(cat /root/image-url-command.pid)" -o args= | grep -q image-url-command`)
 	exitStatus, err = out.ExitStatus()
 	if err != nil {
-		return ImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if image-url-command is still running failed: %w", err)
+		return CustomProvisionerStateNotStarted, "", fmt.Errorf("detecting if the custom provisioner is still running failed: %w", err)
 	}
 
-	logFile, err := c.getImageURLCommandOutput(ctx)
+	logFile, err := c.getCustomProvisionerOutput(ctx)
 	if err != nil {
-		return ImageURLCommandStateFailed, logFile, err
+		return CustomProvisionerStateFailed, logFile, err
 	}
 
 	if exitStatus == 0 {
-		return ImageURLCommandStateRunning, logFile, nil
+		return CustomProvisionerStateRunning, logFile, nil
 	}
 
-	out = c.runSSH(ctx, fmt.Sprintf("tail -n 1 %s | grep -q IMAGE_URL_DONE", imageURLCommandLog))
+	out = c.runSSH(ctx, fmt.Sprintf("tail -n 1 %s | grep -q IMAGE_URL_DONE", customProvisionerLog))
 	exitStatus, err = out.ExitStatus()
 	if err != nil {
-		return ImageURLCommandStateNotStarted, logFile, fmt.Errorf("detecting if image-url-command was successful failed: %w", err)
+		return CustomProvisionerStateNotStarted, logFile, fmt.Errorf("detecting if the custom provisioner was successful failed: %w", err)
 	}
 
 	if exitStatus > 0 {
-		return ImageURLCommandStateFailed,
-			fmt.Sprintf("IMAGE_URL_DONE not found in %s:\n%s", imageURLCommandLog, logFile), nil
+		return CustomProvisionerStateFailed,
+			fmt.Sprintf("IMAGE_URL_DONE not found in %s:\n%s", customProvisionerLog, logFile), nil
 	}
-	return ImageURLCommandStateFinishedSuccessfully, logFile, nil
+	return CustomProvisionerStateFinishedSuccessfully, logFile, nil
 }
 
-func (c *sshClient) getImageURLCommandOutput(ctx context.Context) (string, error) {
-	out := c.runSSH(ctx, fmt.Sprintf("cat %s", imageURLCommandLog)) // TODO: implement getFile for sshClient.
+func (c *sshClient) getCustomProvisionerOutput(ctx context.Context) (string, error) {
+	out := c.runSSH(ctx, fmt.Sprintf("cat %s", customProvisionerLog)) // TODO: implement getFile for sshClient.
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
 		return "", fmt.Errorf("getting logs of custom provisioner failed: %w", err)
