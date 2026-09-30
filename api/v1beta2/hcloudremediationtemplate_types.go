@@ -27,13 +27,13 @@ type HCloudRemediationTemplateSpec struct {
 
 // HCloudRemediationTemplateResource describes the data needed to create a HCloudRemediation from a template.
 type HCloudRemediationTemplateResource struct {
-	// Spec is the specification of the desired behavior of the HCloudRemediation.
+	// spec is the specification of the desired behavior of the HCloudRemediation.
 	Spec HCloudRemediationSpec `json:"spec"`
 }
 
 // HCloudRemediationTemplateStatus defines the observed state of HCloudRemediationTemplate.
 type HCloudRemediationTemplateStatus struct {
-	// HCloudRemediationStatus defines the observed state of HCloudRemediation
+	// status defines the observed state of HCloudRemediation
 	Status HCloudRemediationStatus `json:"status"`
 }
 

@@ -27,13 +27,13 @@ type HetznerBareMetalRemediationTemplateSpec struct {
 
 // HetznerBareMetalRemediationTemplateResource describes the data needed to create a HetznerBareMetalRemediation from a template.
 type HetznerBareMetalRemediationTemplateResource struct {
-	// Spec is the specification of the desired behavior of the HetznerBareMetalRemediation.
+	// spec is the specification of the desired behavior of the HetznerBareMetalRemediation.
 	Spec HetznerBareMetalRemediationSpec `json:"spec"`
 }
 
 // HetznerBareMetalRemediationTemplateStatus defines the observed state of HetznerBareMetalRemediationTemplate.
 type HetznerBareMetalRemediationTemplateStatus struct {
-	// HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation
+	// status defines the observed state of HetznerBareMetalRemediation
 	Status HetznerBareMetalRemediationStatus `json:"status"`
 }
 

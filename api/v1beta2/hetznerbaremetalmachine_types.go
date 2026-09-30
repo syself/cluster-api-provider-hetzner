@@ -73,7 +73,7 @@ const (
 
 // HetznerBareMetalMachineSpec defines the desired state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineSpec struct {
-	// ProviderID is set by the controller to either (new) `hrobot://<server-id>` or (old)
+	// providerID is set by the controller to either (new) `hrobot://<server-id>` or (old)
 	// `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a ProviderID, then
 	// this will never change. If the ProviderID is empty, the controller sets it to the old format
 	// by default (hcloud://bm-NNNN), except the Annotation
@@ -82,26 +82,26 @@ type HetznerBareMetalMachineSpec struct {
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
-	// InstallImage provisions the machine with the Hetzner installimage tool.
+	// installImage provisions the machine with the Hetzner installimage tool.
 	// Exactly one of installImage or customProvisioner must be set.
 	// +optional
 	InstallImage *InstallImage `json:"installImage,omitempty"`
 
-	// CustomProvisioner provisions the machine with a custom command instead of installimage.
+	// customProvisioner provisions the machine with a custom command instead of installimage.
 	// Exactly one of installImage or customProvisioner must be set.
 	// +optional
 	CustomProvisioner *CustomProvisioner `json:"customProvisioner,omitempty"`
 
-	// HostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
+	// hostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
 	// This is used to limit the set of HetznerBareMetalHost objects considered for
 	// claiming for a HetznerBareMetalMachine.
 	// +optional
 	HostSelector HostSelector `json:"hostSelector,omitempty"`
 
-	// SSHSpec gives a reference on the secret where SSH details are specified as well as ports for SSH.
+	// sshSpec gives a reference on the secret where SSH details are specified as well as ports for SSH.
 	SSHSpec SSHSpec `json:"sshSpec,omitempty"`
 
-	// SkipCheckDisk skips the CheckDisk step during provisioning.
+	// skipCheckDisk skips the CheckDisk step during provisioning.
 	// This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
 	// +optional
 	SkipCheckDisk bool `json:"skipCheckDisk,omitempty"`
@@ -111,11 +111,11 @@ type HetznerBareMetalMachineSpec struct {
 // This is used to limit the set of BareMetalHost objects considered for
 // claiming for a Machine.
 type HostSelector struct {
-	// MatchLabels defines the key/value pairs of labels that must exist on a chosen BareMetalHost.
+	// matchLabels defines the key/value pairs of labels that must exist on a chosen BareMetalHost.
 	// +optional
 	MatchLabels map[string]string `json:"matchLabels,omitempty"`
 
-	// MatchExpressions defines the label match expressions that must be true on a chosen BareMetalHost.
+	// matchExpressions defines the label match expressions that must be true on a chosen BareMetalHost.
 	// +optional
 	// +listType=atomic
 	MatchExpressions []HostSelectorRequirement `json:"matchExpressions,omitempty"`
@@ -123,34 +123,34 @@ type HostSelector struct {
 
 // HostSelectorRequirement defines a requirement used for MatchExpressions to select host machines.
 type HostSelectorRequirement struct {
-	// Key defines the key of the label that should be matched in the host object.
+	// key defines the key of the label that should be matched in the host object.
 	Key string `json:"key"`
 
-	// Operator defines the selection operator.
+	// operator defines the selection operator.
 	Operator selection.Operator `json:"operator"`
 
-	// Values define the values whose relation to the label value in the host machine is defined by the selection operator.
+	// values define the values whose relation to the label value in the host machine is defined by the selection operator.
 	// +listType=atomic
 	Values []string `json:"values"`
 }
 
 // SSHSpec defines specs for SSH.
 type SSHSpec struct {
-	// SecretRef gives reference to the secret where the SSH key is stored.
+	// secretRef gives reference to the secret where the SSH key is stored.
 	SecretRef SSHSecretRef `json:"secretRef"`
 
-	// NoSSHAfterInstallImage disables SSH access to the machine after installimage
+	// noSSHAfterInstallImage disables SSH access to the machine after installimage
 	// completed successfully.
 	// +optional
 	NoSSHAfterInstallImage bool `json:"noSSHAfterInstallImage,omitempty"`
 
-	// PortAfterInstallImage specifies the port that has to be used to connect to the machine
+	// portAfterInstallImage specifies the port that has to be used to connect to the machine
 	// by reaching the server via SSH after installing the image successfully.
 	// +kubebuilder:default=22
 	// +optional
 	PortAfterInstallImage int `json:"portAfterInstallImage"`
 
-	// PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
+	// portAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
 	//
 	// Deprecated: This field is not used anymore.
 	// +optional
@@ -159,55 +159,55 @@ type SSHSpec struct {
 
 // SSHSecretRef defines the secret containing all information of the SSH key used for the Hetzner robot.
 type SSHSecretRef struct {
-	// Name is the name of the secret.
+	// name is the name of the secret.
 	Name string `json:"name"`
 
-	// Key contains details about the keys used in the data of the secret.
+	// key contains details about the keys used in the data of the secret.
 	Key SSHSecretKeyRef `json:"key"`
 }
 
 // SSHSecretKeyRef defines the key name of the SSHSecret.
 type SSHSecretKeyRef struct {
-	// Name is the key in the secret's data where the SSH key's name is stored.
+	// name is the key in the secret's data where the SSH key's name is stored.
 	Name string `json:"name"`
 
-	// PublicKey is the key in the secret's data where the SSH key's public key is stored.
+	// publicKey is the key in the secret's data where the SSH key's public key is stored.
 	PublicKey string `json:"publicKey"`
 
-	// PrivateKey is the key in the secret's data where the SSH key's private key is stored.
+	// privateKey is the key in the secret's data where the SSH key's private key is stored.
 	PrivateKey string `json:"privateKey"`
 }
 
 // InstallImage defines the configuration for provisioning a machine with the Hetzner installimage tool.
 type InstallImage struct {
-	// Image is the image to be provisioned. It defines the image for baremetal machine.
+	// image is the image to be provisioned. It defines the image for baremetal machine.
 	Image Image `json:"image"`
 
-	// PostInstallScript (Bash) is used for configuring commands that should be executed after installimage.
+	// postInstallScript (Bash) is used for configuring commands that should be executed after installimage.
 	// It is passed along with the installimage command.
 	PostInstallScript string `json:"postInstallScript,omitempty"`
 
-	// Partitions define the additional Partitions to be created in installimage.
+	// partitions define the additional Partitions to be created in installimage.
 	// +listType=atomic
 	Partitions []Partition `json:"partitions"`
 
-	// LVMDefinitions defines the logical volume definitions to be created.
+	// logicalVolumeDefinitions defines the logical volume definitions to be created.
 	// +optional
 	// +listType=atomic
 	LVMDefinitions []LVMDefinition `json:"logicalVolumeDefinitions,omitempty"`
 
-	// BTRFSDefinitions define the btrfs subvolume definitions to be created.
+	// btrfsDefinitions define the btrfs subvolume definitions to be created.
 	// +optional
 	// +listType=atomic
 	BTRFSDefinitions []BTRFSDefinition `json:"btrfsDefinitions,omitempty"`
 
-	// Swraid defines the SWRAID in InstallImage. It enables or disables raids. Set 1 to enable.
+	// swraid defines the SWRAID in InstallImage. It enables or disables raids. Set 1 to enable.
 	// +optional
 	// +kubebuilder:default=0
 	// +kubebuilder:validation:Enum=0;1;
 	Swraid int `json:"swraid"`
 
-	// SwraidLevel defines the SWRAIDLEVEL in InstallImage. Only relevant if the raid is enabled.
+	// swraidLevel defines the SWRAIDLEVEL in InstallImage. Only relevant if the raid is enabled.
 	// Pick one of 0,1,5,6,10. Ignored if Swraid=0.
 	// +optional
 	// +kubebuilder:default=1
@@ -218,19 +218,19 @@ type InstallImage struct {
 // CustomProvisioner defines the configuration for provisioning a machine with a custom command
 // instead of the Hetzner installimage tool.
 type CustomProvisioner struct {
-	// URL is the location of the image that Command provisions the machine from. CAPH passes it to
+	// url is the location of the image that Command provisions the machine from. CAPH passes it to
 	// Command in the rescue system.
 	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url"`
 
-	// Command is the basename of a command file below /shared on the controller pod. CAPH copies
+	// command is the basename of a command file below /shared on the controller pod. CAPH copies
 	// that command into the rescue system and executes it there to provision the machine from URL.
 	//
 	// Docs: https://syself.com/docs/caph/developers/image-url-command
 	// +kubebuilder:validation:MinLength=1
 	Command string `json:"command"`
 
-	// DeviceStringType instructs CAPH to either use the short device name, or the WWN when calling
+	// deviceStringType instructs CAPH to either use the short device name, or the WWN when calling
 	// Command. "" and "short" both pass the short device name (e.g. "sda"); "wwn" passes the WWN
 	// (e.g. "eui.00253885910c8cec").
 	// +kubebuilder:validation:Enum="";short;wwn
@@ -240,13 +240,13 @@ type CustomProvisioner struct {
 
 // Image defines the properties for the autosetup config.
 type Image struct {
-	// URL defines the remote URL for downloading a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
+	// url defines the remote URL for downloading a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
 	URL string `json:"url,omitempty"`
 
-	// Name defines the archive name after download. This has to be a valid name for Installimage.
+	// name defines the archive name after download. This has to be a valid name for Installimage.
 	Name string `json:"name,omitempty"`
 
-	// Path is the local path for a preinstalled image from upstream.
+	// path is the local path for a preinstalled image from upstream.
 	Path string `json:"path,omitempty"`
 }
 
@@ -292,49 +292,49 @@ func (image Image) String() string {
 
 // Partition defines the additional Partitions to be created.
 type Partition struct {
-	// Mount defines the mount path for this filesystem.
+	// mount defines the mount path for this filesystem.
 	// Keyword 'lvm' to use this PART as volume group (VG) for LVM.
 	// Identifier 'btrfs.X' to use this PART as volume for
 	// btrfs subvolumes. X can be replaced with a unique
 	// alphanumeric keyword. NOTE: no support for btrfs multi-device volumes.
 	Mount string `json:"mount"`
 
-	// FileSystem can be ext2, ext3, ext4, btrfs, reiserfs, xfs, swap
+	// fileSystem can be ext2, ext3, ext4, btrfs, reiserfs, xfs, swap
 	// or name of the LVM volume group (VG), if this PART is a VG.
 	FileSystem string `json:"fileSystem"`
 
-	// Size can use the keyword 'all' to assign all the remaining space of the drive to the last partition.
+	// size can use the keyword 'all' to assign all the remaining space of the drive to the last partition.
 	// You can use M/G/T for unit specification in MiB/GiB/TiB.
 	Size string `json:"size"`
 }
 
 // BTRFSDefinition defines the btrfs subvolume definitions to be created.
 type BTRFSDefinition struct {
-	// Volume defines the btrfs volume name.
+	// volume defines the btrfs volume name.
 	Volume string `json:"volume"`
 
-	// SubVolume defines the subvolume name.
+	// subvolume defines the subvolume name.
 	SubVolume string `json:"subvolume"`
 
-	// Mount defines the mountpath.
+	// mount defines the mountpath.
 	Mount string `json:"mount"`
 }
 
 // LVMDefinition defines the logical volume definitions to be created.
 type LVMDefinition struct {
-	// VG defines the vg name.
+	// vg defines the vg name.
 	VG string `json:"vg"`
 
-	// Name defines the volume name.
+	// name defines the volume name.
 	Name string `json:"name"`
 
-	// Mount defines the mountpath.
+	// mount defines the mountpath.
 	Mount string `json:"mount"`
 
-	// FileSystem defines the filesystem for this logical volume.
+	// filesystem defines the filesystem for this logical volume.
 	FileSystem string `json:"filesystem"`
 
-	// Size defines the size in M/G/T or MiB/GiB/TiB.
+	// size defines the size in M/G/T or MiB/GiB/TiB.
 	Size string `json:"size"`
 }
 
@@ -353,22 +353,22 @@ type HetznerBareMetalMachineStatus struct {
 	// +optional
 	Initialization HetznerBareMetalMachineInitializationStatus `json:"initialization,omitempty,omitzero"`
 
-	// Addresses is a list of addresses assigned to the machine.
+	// addresses is a list of addresses assigned to the machine.
 	// This field is copied from the infrastructure provider reference.
 	// +optional
 	// +listType=atomic
 	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
 
-	// Phase represents the current phase of HetznerBareMetalMachineStatus actuation.
+	// phase represents the current phase of HetznerBareMetalMachineStatus actuation.
 	// E.g. Pending, Running, Terminating, Failed, etc.
 	// +optional
 	Phase clusterv1.MachinePhase `json:"phase,omitempty"`
 
-	// LastUpdated identifies when this status was last observed.
+	// lastUpdated identifies when this status was last observed.
 	// +optional
 	LastUpdated metav1.Time `json:"lastUpdated,omitempty,omitzero"`
 
-	// LastRemediatedAt records when the most recent successful remediation completed.
+	// lastRemediatedAt records when the most recent successful remediation completed.
 	// Used to prevent reboot loops across successive MHC incidents.
 	// +optional
 	LastRemediatedAt metav1.Time `json:"lastRemediatedAt,omitempty,omitzero"`
