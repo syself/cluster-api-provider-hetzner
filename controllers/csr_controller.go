@@ -36,7 +36,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -46,7 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/csr"
 )
@@ -211,7 +209,7 @@ func hcloudMachineNameFromCSR(certificateSigningRequest *certificatesv1.Certific
 }
 
 func bmMachineNameFromCSR(certificateSigningRequest *certificatesv1.CertificateSigningRequest) string {
-	return strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix+infrav1.BareMetalHostNamePrefix)
+	return strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix+infrav2.BareMetalHostNamePrefix)
 }
 
 func machineNameFromCSR(certificateSigningRequest *certificatesv1.CertificateSigningRequest, isHCloudMachine bool) string {
@@ -224,7 +222,7 @@ func machineNameFromCSR(certificateSigningRequest *certificatesv1.CertificateSig
 func machineNameWithPrefix(machineName string, isHCloudMachine bool) string {
 	var hostNamePrefix string
 	if !isHCloudMachine {
-		hostNamePrefix = infrav1.BareMetalHostNamePrefix
+		hostNamePrefix = infrav2.BareMetalHostNamePrefix
 	}
 	return hostNamePrefix + machineName
 }
@@ -237,7 +235,7 @@ var (
 func (r *GuestCSRReconciler) getMachineAddresses(
 	ctx context.Context,
 	certificateSigningRequest *certificatesv1.CertificateSigningRequest,
-) (machineAddresses []clusterv1beta1.MachineAddress, isHCloudMachine bool, err error) {
+) (machineAddresses []clusterv1.MachineAddress, isHCloudMachine bool, err error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	_, serverID := getServerIDFromConstantHostname(ctx, certificateSigningRequest.Spec.Username, r.clusterName)
@@ -274,7 +272,7 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 	if err != nil {
 		// Could not find HCloud machine. Try to find bare metal machine without ConstantHostname.
 
-		var bmMachine infrav1.HetznerBareMetalMachine
+		var bmMachine infrav2.HetznerBareMetalMachine
 		bmMachineName := types.NamespacedName{
 			Namespace: r.mCluster.Namespace(),
 			Name:      bmMachineNameFromCSR(certificateSigningRequest),
@@ -290,15 +288,7 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 		return bmMachine.Status.Addresses, false, nil
 	}
 	log.Info(fmt.Sprintf("found hcloudmachine for %s", certificateSigningRequest.Spec.Username))
-	// HCloudMachine stores addresses as core v1beta2 MachineAddress, while the bare metal paths and the
-	// CSR validator both use the v1beta1 type, so convert to the v1beta1 type here.
-	// TODO: once the bare metal machines are on v1beta2 and pkg/csr.ValidateKubeletCSR takes v1beta2
-	// addresses, return hcloudMachine.Status.Addresses directly and drop this conversion.
-	addresses := make([]clusterv1beta1.MachineAddress, len(hcloudMachine.Status.Addresses))
-	for i, addr := range hcloudMachine.Status.Addresses {
-		addresses[i] = clusterv1beta1.MachineAddress{Type: clusterv1beta1.MachineAddressType(addr.Type), Address: addr.Address}
-	}
-	return addresses, true, nil
+	return hcloudMachine.Status.Addresses, true, nil
 }
 
 func getx509CSR(certificateSigningRequest *certificatesv1.CertificateSigningRequest) (*x509.CertificateRequest, error) {
@@ -359,13 +349,13 @@ func getServerIDFromConstantHostname(ctx context.Context, csrUsername string, cl
 	return clusterFromCSR, matches[2]
 }
 
-func getHbmmWithConstantHostname(ctx context.Context, csrUsername string, clusterName string, mCluster ManagementCluster) (*infrav1.HetznerBareMetalMachine, error) {
+func getHbmmWithConstantHostname(ctx context.Context, csrUsername string, clusterName string, mCluster ManagementCluster) (*infrav2.HetznerBareMetalMachine, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	clusterFromCSR, serverID := getServerIDFromConstantHostname(ctx, csrUsername, clusterName)
 	legacyProviderID := "hcloud://bm-" + serverID
 	providerID := "hrobot://" + serverID
-	hList := &infrav1.HetznerBareMetalMachineList{}
+	hList := &infrav2.HetznerBareMetalMachineList{}
 	selector := labels.NewSelector()
 	req, err := labels.NewRequirement(clusterv1.ClusterNameLabel, selection.Equals, []string{clusterFromCSR})
 	if err != nil {
@@ -382,7 +372,7 @@ func getHbmmWithConstantHostname(ctx context.Context, csrUsername string, cluste
 		return nil, fmt.Errorf("failed to get HetznerBareMetalMachineList: %w", err)
 	}
 
-	var hbmm *infrav1.HetznerBareMetalMachine
+	var hbmm *infrav2.HetznerBareMetalMachine
 	for i := range hList.Items {
 		if hList.Items[i].Spec.ProviderID == nil {
 			continue

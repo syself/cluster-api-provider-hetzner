@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 )
@@ -130,7 +129,6 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 	// used up and the node is still unhealthy, so handlePhaseWaiting decides whether
 	// to reuse or retire the host.
 	scheme := runtime.NewScheme()
-	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(infrav2.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
@@ -293,7 +291,6 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 	// missing Node: reboot is skipped, but OnExhaustion must still decide Reuse vs Retire,
 	// same as the exhausted-retries path in handlePhaseWaiting above.
 	scheme := runtime.NewScheme()
-	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(infrav2.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
@@ -324,7 +321,7 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 				},
 			}
 
-			bareMetalMachine := &infrav1.HetznerBareMetalMachine{
+			bareMetalMachine := &infrav2.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-bm-machine",
 					Namespace: "default",

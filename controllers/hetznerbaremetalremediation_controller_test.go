@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
@@ -46,7 +45,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 	var (
 		host                        *infrav2.HetznerBareMetalHost
 		hetznerBareMetalRemediation *infrav2.HetznerBareMetalRemediation
-		hetznerBaremetalMachine     *infrav1.HetznerBareMetalMachine
+		hetznerBaremetalMachine     *infrav2.HetznerBareMetalMachine
 		machineName                 string
 		hetznerCluster              *infrav2.HetznerCluster
 
@@ -139,7 +138,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		}
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
-		hetznerBaremetalMachine = &infrav1.HetznerBareMetalMachine{
+		hetznerBaremetalMachine = &infrav2.HetznerBareMetalMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      machineName,
 				Namespace: testNs.Name,
@@ -217,13 +216,13 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		osSSHClientAfterInstallImage.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
 		osSSHClientAfterInstallImage.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 		osSSHClientAfterInstallImage.On("GetHostName", mock.Anything).Return(sshclient.Output{
-			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
+			StdOut: infrav2.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
 		osSSHClientAfterCloudInit.On("Reboot", mock.Anything).Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("GetHostName", mock.Anything).Return(sshclient.Output{
-			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
+			StdOut: infrav2.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})

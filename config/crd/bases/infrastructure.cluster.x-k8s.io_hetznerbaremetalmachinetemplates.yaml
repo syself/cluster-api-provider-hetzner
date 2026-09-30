@@ -449,6 +449,15 @@ spec:
                             - short
                             - wwn
                             type: string
+                          swraid:
+                            default: 0
+                            description: |-
+                              Swraid defines whether Command sets up a RAID. Set 1 to enable. CAPH then uses a
+                              HetznerBareMetalHost with spec.rootDeviceHints.raid.wwn and passes all these disks to Command.
+                            enum:
+                            - 0
+                            - 1
+                            type: integer
                           url:
                             description: |-
                               URL is the location of the image that Command provisions the machine from. CAPH passes it to
