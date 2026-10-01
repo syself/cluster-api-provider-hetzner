@@ -408,7 +408,7 @@ func TestIgnoreInsignificantSecretUpdates(t *testing.T) {
 	require.False(t, p.Generic(event.GenericEvent{Object: makeSecret(nil, "1")}))
 }
 
-func TestHetznerSecretToHCloudMachines(t *testing.T) {
+func TestSecretToHCloudMachines(t *testing.T) {
 	ctx := context.Background()
 
 	testScheme := runtime.NewScheme()
@@ -462,25 +462,36 @@ func TestHetznerSecretToHCloudMachines(t *testing.T) {
 		}
 	}
 
+	const (
+		rescueSecretName  = "rescue-ssh"
+		rescueClusterName = "cluster-rescue"
+	)
+
 	capiClusterA := newCluster(clusterName)
 	capiClusterB := newCluster("cluster-b")
+	capiClusterRescue := newCluster(rescueClusterName)
 	hcA := newHetznerCluster("hc-a", clusterName, secretName)
 	hcB := newHetznerCluster("hc-b", "cluster-b", secretName)
 	hcUnrelated := newHetznerCluster("hc-u", clusterName, "other-secret")
+	hcRescue := newHetznerCluster("hc-rescue", rescueClusterName, "unrelated-hetzner-secret")
+	hcRescue.Spec.SSHKeys.RescueSecretRef.Name = rescueSecretName
 	hcmA := &infrav2.HCloudMachine{ObjectMeta: metav1.ObjectMeta{Name: "m-a", Namespace: ns}}
 	hcmB := &infrav2.HCloudMachine{ObjectMeta: metav1.ObjectMeta{Name: "m-b", Namespace: ns}}
+	hcmRescue := &infrav2.HCloudMachine{ObjectMeta: metav1.ObjectMeta{Name: "m-rescue", Namespace: ns}}
 	cmA := newMachine("cm-a", clusterName, hcmA.Name)
 	cmB := newMachine("cm-b", "cluster-b", hcmB.Name)
+	cmRescue := newMachine("cm-rescue", rescueClusterName, hcmRescue.Name)
 	matchingSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: ns}}
 	otherSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "no-ref", Namespace: ns}}
+	matchingRescueSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: rescueSecretName, Namespace: ns}}
 
 	c := fakeclient.NewClientBuilder().
 		WithScheme(testScheme).
-		WithObjects(capiClusterA, capiClusterB, hcA, hcB, hcUnrelated, hcmA, hcmB, cmA, cmB).
+		WithObjects(capiClusterA, capiClusterB, capiClusterRescue, hcA, hcB, hcUnrelated, hcRescue, hcmA, hcmB, hcmRescue, cmA, cmB, cmRescue).
 		Build()
 
 	r := &HCloudMachineReconciler{Client: c}
-	mapper := r.HetznerSecretToHCloudMachines(ctx)
+	mapper := r.SecretToHCloudMachines(ctx)
 
 	got := mapper(ctx, matchingSecret)
 	require.ElementsMatch(t, []reconcile.Request{
@@ -489,6 +500,11 @@ func TestHetznerSecretToHCloudMachines(t *testing.T) {
 	}, got)
 
 	require.Empty(t, mapper(ctx, otherSecret))
+
+	// the rescue secret must also match, so fixing its content re-triggers reconciliation
+	require.ElementsMatch(t, []reconcile.Request{
+		{NamespacedName: client.ObjectKey{Namespace: ns, Name: hcmRescue.Name}},
+	}, mapper(ctx, matchingRescueSecret))
 }
 
 var _ = Describe("HCloudMachineReconciler", func() {
