@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 
@@ -421,9 +422,116 @@ func (c *cacheHCloudClient) AddServiceToLoadBalancer(_ context.Context, lb *hclo
 	}
 
 	// Add it
-	c.loadBalancerCache.idMap[lb.ID].Services = append(
-		c.loadBalancerCache.idMap[lb.ID].Services, hcloud.LoadBalancerService{ListenPort: *opts.ListenPort, DestinationPort: *opts.DestinationPort})
+	service := hcloud.LoadBalancerService{ListenPort: *opts.ListenPort, DestinationPort: *opts.DestinationPort}
+	if opts.Proxyprotocol != nil {
+		service.Proxyprotocol = *opts.Proxyprotocol
+	}
+	if hc := opts.HealthCheck; hc != nil {
+		var http *serviceHealthCheckHTTP
+		if hc.HTTP != nil {
+			http = &serviceHealthCheckHTTP{
+				Domain:      hc.HTTP.Domain,
+				Path:        hc.HTTP.Path,
+				Response:    hc.HTTP.Response,
+				StatusCodes: hc.HTTP.StatusCodes,
+				TLS:         hc.HTTP.TLS,
+			}
+		}
+		service.HealthCheck = serviceHealthCheckFromOpts(hc.Protocol, hc.Port, hc.Interval, hc.Timeout, hc.Retries, http)
+	}
+	c.loadBalancerCache.idMap[lb.ID].Services = append(c.loadBalancerCache.idMap[lb.ID].Services, service)
 	return nil
+}
+
+// serviceHealthCheckHTTP holds the http fields of a health check. The add and update options
+// carry them in separate Go types with the same fields, so each caller copies into this one.
+type serviceHealthCheckHTTP struct {
+	Domain      *string
+	Path        *string
+	Response    *string
+	StatusCodes []string
+	TLS         *bool
+}
+
+// serviceHealthCheckFromOpts builds an observed health check from the fields the add and update
+// options carry, so a reconcile that sets a health check is reflected back on the next read. It
+// copies every field, so a test that sets one does not see the service drift from the spec forever.
+func serviceHealthCheckFromOpts(
+	protocol hcloud.LoadBalancerServiceProtocol,
+	port *int,
+	interval, timeout *time.Duration,
+	retries *int,
+	http *serviceHealthCheckHTTP,
+) hcloud.LoadBalancerServiceHealthCheck {
+	hc := hcloud.LoadBalancerServiceHealthCheck{Protocol: protocol}
+	if port != nil {
+		hc.Port = *port
+	}
+	if interval != nil {
+		hc.Interval = *interval
+	}
+	if timeout != nil {
+		hc.Timeout = *timeout
+	}
+	if retries != nil {
+		hc.Retries = *retries
+	}
+	if http != nil {
+		hc.HTTP = &hcloud.LoadBalancerServiceHealthCheckHTTP{StatusCodes: http.StatusCodes}
+		if http.Domain != nil {
+			hc.HTTP.Domain = *http.Domain
+		}
+		if http.Path != nil {
+			hc.HTTP.Path = *http.Path
+		}
+		if http.Response != nil {
+			hc.HTTP.Response = *http.Response
+		}
+		if http.TLS != nil {
+			hc.HTTP.TLS = *http.TLS
+		}
+	}
+	return hc
+}
+
+func (c *cacheHCloudClient) UpdateServiceOnLoadBalancer(_ context.Context, lb *hcloud.LoadBalancer, listenPort int, opts hcloud.LoadBalancerUpdateServiceOpts) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	// Check if loadBalancer exists
+	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	for i, s := range c.loadBalancerCache.idMap[lb.ID].Services {
+		if s.ListenPort != listenPort {
+			continue
+		}
+		if opts.Proxyprotocol != nil {
+			c.loadBalancerCache.idMap[lb.ID].Services[i].Proxyprotocol = *opts.Proxyprotocol
+		}
+		if opts.DestinationPort != nil {
+			c.loadBalancerCache.idMap[lb.ID].Services[i].DestinationPort = *opts.DestinationPort
+		}
+		if opts.Protocol != "" {
+			c.loadBalancerCache.idMap[lb.ID].Services[i].Protocol = opts.Protocol
+		}
+		if hc := opts.HealthCheck; hc != nil {
+			var http *serviceHealthCheckHTTP
+			if hc.HTTP != nil {
+				http = &serviceHealthCheckHTTP{
+					Domain:      hc.HTTP.Domain,
+					Path:        hc.HTTP.Path,
+					Response:    hc.HTTP.Response,
+					StatusCodes: hc.HTTP.StatusCodes,
+					TLS:         hc.HTTP.TLS,
+				}
+			}
+			c.loadBalancerCache.idMap[lb.ID].Services[i].HealthCheck = serviceHealthCheckFromOpts(hc.Protocol, hc.Port, hc.Interval, hc.Timeout, hc.Retries, http)
+		}
+		return nil
+	}
+
+	return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 }
 
 func (c *cacheHCloudClient) DeleteServiceFromLoadBalancer(_ context.Context, lb *hcloud.LoadBalancer, listenPort int) error {
@@ -472,12 +580,12 @@ func (c *cacheHCloudClient) ListImages(_ context.Context, opts hcloud.ImageListO
 	return nil, nil
 }
 
-func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCreateOpts) (*hcloud.Server, error) {
+func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	if _, found := c.serverCache.nameMap[opts.Name]; found {
-		return nil, fmt.Errorf("already exists")
+		return hcloud.ServerCreateResult{}, fmt.Errorf("already exists")
 	}
 
 	c.serverIDCounter++
@@ -490,11 +598,15 @@ func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCr
 		PlacementGroup: opts.PlacementGroup,
 		Status:         hcloud.ServerStatusRunning,
 	}
+	result := hcloud.ServerCreateResult{
+		Server: server,
+		Action: &hcloud.Action{ID: 1},
+	}
 
 	for _, network := range opts.Networks {
 		network, found := c.networkCache.idMap[network.ID]
 		if !found {
-			return server, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+			return result, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 		}
 		ip := network.IPRange.IP
 		server.PrivateNet = append(server.PrivateNet, hcloud.ServerPrivateNet{IP: ip})
@@ -503,7 +615,7 @@ func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCr
 	// Add server to cache
 	c.serverCache.idMap[server.ID] = server
 	c.serverCache.nameMap[server.Name] = struct{}{}
-	return server, nil
+	return result, nil
 }
 
 func (c *cacheHCloudClient) AttachServerToNetwork(_ context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) error {

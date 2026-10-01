@@ -21,16 +21,16 @@ FROM cgr.dev/chainguard/wolfi-base:latest AS wolfi
 WORKDIR /
 
 # update: datasource=repology depName=wolfi/controller-gen versioning=apk
-ARG CONTROLLER_GEN_VERSION="0.20.0-r1"
+ARG CONTROLLER_GEN_VERSION="0.20.1-r3"
 
 # update: datasource=repology depName=wolfi/golangci-lint versioning=apk
-ARG GOLANGCI_VERSION="2.8.0-r2"
+ARG GOLANGCI_VERSION="2.8.0-r3"
 
 # update: datasource=repology depName=wolfi/helm versioning=apk
-ARG HELM_VERSION="4.1.0-r1"
+ARG HELM_VERSION="4.1.4-r3"
 
 # update: datasource=repology depName=wolfi/skopeo versioning=apk
-ARG SKOPEO_VERSION="1.21.0-r3"
+ARG SKOPEO_VERSION="1.21.0-r4"
 
 # update: datasource=repology depName=wolfi/trivy versioning=apk
 ARG TRIVY_VERSION="0.69.0-r1"
@@ -47,21 +47,21 @@ RUN apk add --no-cache \
 # --- end of Wolfi
 
 # Install Lychee
-FROM docker.io/lycheeverse/lychee:0.23.0 AS lychee
+FROM docker.io/lycheeverse/lychee:0.24.2 AS lychee
 
 # Install Hadolint
-FROM docker.io/hadolint/hadolint:v2.12.0-alpine@sha256:3c206a451cec6d486367e758645269fd7d696c5ccb6ff59d8b03b0e45268a199 AS hadolint
+FROM docker.io/hadolint/hadolint:v2.15.1-alpine@sha256:a1d49ae1a4e83c1dbad26b8c1ad7588c8bd1e04f4866b34ad3cac50335198552 AS hadolint
 
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.25-bookworm@sha256:38342f3e7a504bf1efad858c18e771f84b66dc0b363add7a57c9a0bbb6cf7b12
+FROM docker.io/library/golang:1.25-trixie@sha256:2c4c60ef415fbfa5e90300722293bef36c5e63fae17570ce18f580af933dbd73
 
 # Start of "we should move that to a previous Layer"
 # Note: We should keep the final layer clean. We could get most tools from wolfi.
 
 # update: datasource=github-tags depName=adrienverge/yamllint versioning=semver
-ENV YAMLLINT_VERSION="v1.37.1"
+ENV YAMLLINT_VERSION="v1.38.0"
 # update: datasource=github-tags depName=opt-nc/yamlfixer versioning=semver
 ENV YAMLFIXER_VERSION="0.9.15"
 

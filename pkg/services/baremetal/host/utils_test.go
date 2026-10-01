@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
 var _ = Describe("buildAutoSetup", func() {
@@ -254,5 +255,18 @@ var _ = Describe("Test splitHostKey", func() {
 		namespace, name := splitHostKey("namespace/name")
 		Expect(namespace).To(Equal("namespace"))
 		Expect(name).To(Equal("name"))
+	})
+})
+
+var _ = Describe("hasJustRebooted", func() {
+	It("returns false when RebootTriggeredAt is nil even if ErrorType is a reboot type", func() {
+		host := helpers.BareMetalHost("test-host", "default",
+			helpers.WithError(infrav1.ErrorTypeSSHRebootTriggered, "", 0),
+		)
+		// RebootTriggeredAt is intentionally nil here.
+		// Without the nil guard, hasTimedOut(nil, ...) returns false, so hasJustRebooted()
+		// would return true indefinitely.
+		svc := newTestService(host, nil, nil, nil, nil)
+		Expect(svc.hasJustRebooted()).To(BeFalse())
 	})
 })

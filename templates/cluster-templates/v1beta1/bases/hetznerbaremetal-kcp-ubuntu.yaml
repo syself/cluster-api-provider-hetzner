@@ -141,7 +141,7 @@ spec:
         path: /etc/systemd/system/containerd.service
         permissions: "0744"
     preKubeadmCommands:
-      - set -x
+      - set -eux
       - export CONTAINERD=2.3.1 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
       - export RUNC=1.2.5
       - export KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//')
@@ -156,13 +156,13 @@ spec:
       - modprobe overlay
       - modprobe br_netfilter
       - sysctl --system
-      - wget https://github.com/opencontainers/runc/releases/download/v$RUNC/runc.$ARCH
-      - wget https://github.com/opencontainers/runc/releases/download/v$RUNC/runc.sha256sum
+      - wget --tries=5 --waitretry=10 https://github.com/opencontainers/runc/releases/download/v$RUNC/runc.$ARCH
+      - wget --tries=5 --waitretry=10 https://github.com/opencontainers/runc/releases/download/v$RUNC/runc.sha256sum
       - sha256sum --check --ignore-missing runc.sha256sum
       - install runc.$ARCH /usr/local/sbin/runc
       - rm -f runc.$ARCH runc.sha256sum
-      - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/containerd-$CONTAINERD-linux-$ARCH.tar.gz
-      - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
+      - wget --tries=5 --waitretry=10 https://github.com/containerd/containerd/releases/download/v$CONTAINERD/containerd-$CONTAINERD-linux-$ARCH.tar.gz
+      - wget --tries=5 --waitretry=10 https://github.com/containerd/containerd/releases/download/v$CONTAINERD/containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
       - sha256sum --check containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
       - tar -zxf containerd-$CONTAINERD-linux-$ARCH.tar.gz -C /usr/local
       - rm -f containerd-$CONTAINERD-linux-$ARCH.tar.gz containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum

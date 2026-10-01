@@ -1227,6 +1227,62 @@ func (_c *Client_GetResultOfInstallImage_Call) RunAndReturn(run func(context.Con
 	return _c
 }
 
+// ReadOutputJSON provides a mock function with given fields: ctx
+func (_m *Client) ReadOutputJSON(ctx context.Context) (string, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReadOutputJSON")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (string, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) string); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Client_ReadOutputJSON_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReadOutputJSON'
+type Client_ReadOutputJSON_Call struct {
+	*mock.Call
+}
+
+// ReadOutputJSON is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *Client_Expecter) ReadOutputJSON(ctx interface{}) *Client_ReadOutputJSON_Call {
+	return &Client_ReadOutputJSON_Call{Call: _e.mock.On("ReadOutputJSON", ctx)}
+}
+
+func (_c *Client_ReadOutputJSON_Call) Run(run func(ctx context.Context)) *Client_ReadOutputJSON_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Client_ReadOutputJSON_Call) Return(_a0 string, _a1 error) *Client_ReadOutputJSON_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_ReadOutputJSON_Call) RunAndReturn(run func(context.Context) (string, error)) *Client_ReadOutputJSON_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Reboot provides a mock function with given fields: ctx
 func (_m *Client) Reboot(ctx context.Context) sshclient.Output {
 	ret := _m.Called(ctx)

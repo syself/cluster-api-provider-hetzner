@@ -222,38 +222,30 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	// set failure domains in status using information in spec
 	clusterScope.SetStatusFailureDomain(clusterScope.GetSpecRegion())
 
-	// reconcile the network
-	if err := network.NewService(clusterScope).Reconcile(ctx); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile network for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
-	}
-
 	emptyResult := reconcile.Result{}
 
-	// reconcile the load balancers
-	res, err := loadbalancer.NewService(clusterScope).Reconcile(ctx)
-	if res != emptyResult {
-		return res, nil
-	}
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancers for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
-	}
-
-	// reconcile the placement groups
-	if err := placementgroup.NewService(clusterScope).Reconcile(ctx); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
-	}
-
-	processControlPlaneEndpoint(hetznerCluster)
+	infraRes, infraErr := reconcileInfrastructure(ctx, clusterScope)
 
 	// delete deprecated conditions of old clusters
 	v1beta1conditions.Delete(clusterScope.HetznerCluster, infrav1.DeprecatedHetznerClusterTargetClusterReadyCondition)
 
-	result, err := r.reconcileTargetClusterManager(ctx, clusterScope)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile target cluster manager: %w", err)
+	// The target cluster manager runs the CSR controller (unless DisableCSRApproval is set),
+	// which approves the certificate requests of new nodes. Start it even when
+	// reconcileInfrastructure failed or asked for a requeue.
+	tcmRes, tcmErr := r.reconcileTargetClusterManager(ctx, clusterScope)
+	if tcmErr != nil {
+		tcmErr = fmt.Errorf("failed to reconcile target cluster manager: %w", tcmErr)
 	}
-	if result != emptyResult {
-		return result, nil
+
+	// Return errors first, because controller-runtime ignores the result when an error is returned.
+	if infraErr != nil || tcmErr != nil {
+		return reconcile.Result{}, errors.Join(infraErr, tcmErr)
+	}
+	if infraRes != emptyResult {
+		return infraRes, nil
+	}
+	if tcmRes != emptyResult {
+		return tcmRes, nil
 	}
 
 	// target cluster is ready
@@ -265,7 +257,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		Reason: string(infrav1.HetznerClusterTargetClusterReadyV1Beta2Reason),
 	})
 
-	result, err = reconcileWorkloadClusterSecrets(ctx, clusterScope)
+	result, err := reconcileWorkloadClusterSecrets(ctx, clusterScope)
 	if err != nil {
 		reterr := fmt.Errorf("failed to reconcile target secret: %w", err)
 		v1beta1conditions.MarkFalse(
@@ -302,9 +294,40 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	return reconcile.Result{}, nil
 }
 
+// reconcileInfrastructure reconciles the network, the load balancers and the placement groups, and
+// sets the control plane endpoint. It returns as soon as one step fails or asks for a requeue.
+func reconcileInfrastructure(ctx context.Context, clusterScope *scope.ClusterScope) (reconcile.Result, error) {
+	hetznerCluster := clusterScope.HetznerCluster
+
+	// reconcile the network
+	if err := network.NewService(clusterScope).Reconcile(ctx); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile network for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	}
+
+	emptyResult := reconcile.Result{}
+
+	// reconcile the load balancers
+	res, err := loadbalancer.NewService(clusterScope).Reconcile(ctx)
+	if res != emptyResult {
+		return res, nil
+	}
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancers for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	}
+
+	// reconcile the placement groups
+	if err := placementgroup.NewService(clusterScope).Reconcile(ctx); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	}
+
+	processControlPlaneEndpoint(hetznerCluster)
+
+	return reconcile.Result{}, nil
+}
+
 func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
-		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
+		if hetznerCluster.Status.ControlPlaneLoadBalancer != nil && hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
 			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 
@@ -1005,6 +1028,16 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 			handler.EnqueueRequestsFromMapFunc(r.clusterToHetznerCluster),
 			builder.WithPredicates(IgnoreInsignificantClusterStatusUpdates(log)),
 		).
+		Watches(
+			&infrav1.HetznerBareMetalMachine{},
+			handler.EnqueueRequestsFromMapFunc(r.baremetalMachineToHetznerCluster),
+			builder.WithPredicates(controlPlaneMachineToHetznerClusterPredicate()),
+		).
+		Watches(
+			&infrav1.HCloudMachine{},
+			handler.EnqueueRequestsFromMapFunc(r.hcloudMachineToHetznerCluster),
+			builder.WithPredicates(controlPlaneMachineToHetznerClusterPredicate()),
+		).
 		Complete(r)
 	if err != nil {
 		return fmt.Errorf("error creating controller: %w", err)
@@ -1158,5 +1191,81 @@ func IgnoreInsignificantHetznerClusterStatusUpdates(logger logr.Logger) predicat
 		CreateFunc:  func(_ event.CreateEvent) bool { return true },
 		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
 		GenericFunc: func(_ event.GenericEvent) bool { return true },
+	}
+}
+
+// bareMetalMachineToHetznerCluster maps an HetznerBareMetalMachine to the owning HetznerCluster.
+func (r *HetznerClusterReconciler) baremetalMachineToHetznerCluster(ctx context.Context, o client.Object) []reconcile.Request {
+	bm, ok := o.(*infrav1.HetznerBareMetalMachine)
+	if !ok {
+		return nil
+	}
+
+	clusterName := bm.Labels[clusterv1.ClusterNameLabel]
+	if clusterName == "" {
+		return nil
+	}
+
+	cluster := &clusterv1.Cluster{}
+	if err := r.Get(ctx, client.ObjectKey{Namespace: bm.Namespace, Name: clusterName}, cluster); err != nil {
+		return nil
+	}
+
+	if !cluster.Spec.InfrastructureRef.IsDefined() || cluster.Spec.InfrastructureRef.Kind != "HetznerCluster" {
+		return nil
+	}
+
+	return []reconcile.Request{{
+		NamespacedName: client.ObjectKey{Namespace: bm.Namespace, Name: cluster.Spec.InfrastructureRef.Name},
+	}}
+}
+
+// hcloudMachineToHetznerCluster maps an HCloudMachine to the owning HetznerCluster.
+func (r *HetznerClusterReconciler) hcloudMachineToHetznerCluster(ctx context.Context, o client.Object) []reconcile.Request {
+	hm, ok := o.(*infrav1.HCloudMachine)
+	if !ok {
+		return nil
+	}
+
+	clusterName := hm.Labels[clusterv1.ClusterNameLabel]
+	if clusterName == "" {
+		return nil
+	}
+
+	cluster := &clusterv1.Cluster{}
+	if err := r.Get(ctx, client.ObjectKey{Namespace: hm.Namespace, Name: clusterName}, cluster); err != nil {
+		return nil
+	}
+
+	if !cluster.Spec.InfrastructureRef.IsDefined() || cluster.Spec.InfrastructureRef.Kind != "HetznerCluster" {
+		return nil
+	}
+
+	return []reconcile.Request{{
+		NamespacedName: client.ObjectKey{Namespace: hm.Namespace, Name: cluster.Spec.InfrastructureRef.Name},
+	}}
+}
+
+// controlPlaneMachineToHetznerClusterPredicate returns a predicate that fires only when:
+//   - a machine is deleted (so the HetznerCluster can update its LB target status), or
+//   - ServerAvailableCondition transitions to True.
+func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldGetter, ok := e.ObjectOld.(v1beta1conditions.Getter)
+			if !ok {
+				return false
+			}
+			newGetter, ok := e.ObjectNew.(v1beta1conditions.Getter)
+			if !ok {
+				return false
+			}
+			wasTrue := v1beta1conditions.IsTrue(oldGetter, infrav1.ServerAvailableCondition)
+			isTrue := v1beta1conditions.IsTrue(newGetter, infrav1.ServerAvailableCondition)
+			return !wasTrue && isTrue
+		},
+		CreateFunc:  func(_ event.CreateEvent) bool { return false },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
 	}
 }

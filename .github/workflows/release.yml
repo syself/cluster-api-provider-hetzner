@@ -19,16 +19,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: "go.mod"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
+        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
@@ -95,20 +95,11 @@ jobs:
         run: |
           cosign attest --yes --type=spdxjson --predicate sbom_ci_main_caph_${{ steps.meta.outputs.version }}-spdx.json ghcr.io/syself/caph@${{ steps.docker_build_release.outputs.digest }}
 
-      - name: Sign SBOM Images
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: |
-          docker_build_release_digest="${{ steps.docker_build_release.outputs.digest }}"
-          image_name="ghcr.io/syself/caph:${docker_build_release_digest/:/-}.sbom"
-          docker_build_release_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign --yes "ghcr.io/syself/caph@${docker_build_release_sbom_digest}"
-
       - name: Image Releases digests
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "ghcr.io/syself/caph:{{ steps.meta.outputs.version }}@${{ steps.docker_build_release.outputs.digest }}" >> image-digest/caph.txt
+          echo "ghcr.io/syself/caph:${{ steps.meta.outputs.version }}@${{ steps.docker_build_release.outputs.digest }}" >> image-digest/caph.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
@@ -135,11 +126,11 @@ jobs:
         run: echo "RELEASE_TAG=${GITHUB_REF:10}" >> $GITHUB_ENV
 
       - name: checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: "go.mod"
 
@@ -156,7 +147,7 @@ jobs:
           make release-notes
 
       - name: Release
-        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           draft: true
           files: out/*

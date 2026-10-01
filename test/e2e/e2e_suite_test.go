@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -85,9 +86,10 @@ var (
 
 // Test suite global vars.
 var (
-	ctx              = ctrl.SetupSignalHandler()
-	suiteStartTime   = time.Now()
-	errPermanentHBMH = errors.New("permanent HetznerBareMetalHost error")
+	ctx                = ctrl.SetupSignalHandler()
+	suiteStartTime     = time.Now()
+	errPermanentHBMH   = errors.New("permanent HetznerBareMetalHost error")
+	errNoAvailableHost = errors.New("no available bare-metal host")
 
 	// e2eConfig to be used for this test, read from configPath.
 	e2eConfig *clusterctl.E2EConfig
@@ -305,10 +307,31 @@ func createClusterctlLocalRepository(ctx context.Context, config *clusterctl.E2E
 	return clusterctlConfig
 }
 
+// pullKindNodeImageWithRetry pulls the kind node image before cluster creation to handle transient
+// Docker Hub failures without aborting the whole suite.
+func pullKindNodeImageWithRetry(ctx context.Context) {
+	image := fmt.Sprintf("%s:%s", bootstrap.DefaultNodeImageRepository, bootstrap.DefaultNodeImageVersion)
+	const maxAttempts = 3
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		out, err := exec.CommandContext(ctx, "docker", "pull", image).CombinedOutput() //nolint:gosec
+		if err == nil {
+			return
+		}
+		lastErr = err
+		GinkgoLogr.Info("docker pull failed", "image", image, "attempt", attempt, "maxAttempts", maxAttempts, "output", string(out))
+		if attempt < maxAttempts {
+			time.Sleep(time.Duration(attempt) * 15 * time.Second)
+		}
+	}
+	Expect(lastErr).ToNot(HaveOccurred(), "Failed to pull kind node image %s after %d attempts", image, maxAttempts)
+}
+
 func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme, useExistingCluster bool) (bootstrap.ClusterProvider, framework.ClusterProxy) {
 	var clusterProvider bootstrap.ClusterProvider
 	kubeconfigPath := ""
 	if !useExistingCluster {
+		pullKindNodeImageWithRetry(ctx)
 		clusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
 			Name:               config.ManagementClusterName,
 			RequiresDockerSock: config.HasDockerProvider(),
@@ -339,7 +362,7 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 		case <-time.After(30 * time.Second):
 			err := logStatus(ctx, restConfig, c, ccmLogs)
 			if err != nil {
-				if errors.Is(err, errPermanentHBMH) {
+				if errors.Is(err, errPermanentHBMH) || errors.Is(err, errNoAvailableHost) {
 					Fail(err.Error())
 				}
 				log(fmt.Sprintf("Error logging status: %v", err))
@@ -362,6 +385,10 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 	}
 
 	if err := logBareMetalHostStatus(ctx, c); err != nil {
+		return err
+	}
+
+	if err := checkBareMetalMachineNoAvailableHost(ctx, c); err != nil {
 		return err
 	}
 
@@ -959,6 +986,23 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState) + " | Ready Condition: " + state + " " + reason + " " + msg)
 	}
 	return errors.Join(allErrors...)
+}
+
+func checkBareMetalMachineNoAvailableHost(ctx context.Context, c client.Client) error {
+	machineList := &infrav1.HetznerBareMetalMachineList{}
+	if err := c.List(ctx, machineList); err != nil {
+		return fmt.Errorf("failed to list HetznerBareMetalMachines: %w", err)
+	}
+	for _, machine := range machineList.Items {
+		if machine.DeletionTimestamp != nil {
+			continue
+		}
+		cond := v1beta1conditions.Get(&machine, infrav1.HostAssociateSucceededCondition)
+		if cond != nil && cond.Status == corev1.ConditionFalse && cond.Reason == string(infrav1.NoAvailableHostReason) {
+			return fmt.Errorf("%w: HetznerBareMetalMachine %s/%s: %s", errNoAvailableHost, machine.Namespace, machine.Name, cond.Message)
+		}
+	}
+	return nil
 }
 
 func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.ClusterProxy, config *clusterctl.E2EConfig, clusterctlConfig, artifactFolder string) {

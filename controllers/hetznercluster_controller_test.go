@@ -578,7 +578,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			hcloudClient       hcloudclient.Client
 		)
 		BeforeEach(func() {
-			testNs, err = testEnv.ResetAndCreateNamespace(ctx, "cluster-tests")
+			var finish func()
+			testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "cluster-tests")
+			defer finish()
 			Expect(err).NotTo(HaveOccurred())
 			hcloudClient = testEnv.HCloudClientFactory.NewClient("fake-token")
 
@@ -1116,6 +1118,44 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						isPresentAndTrueWithReasonV1Beta2(key, instance, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Condition, infrav1.HetznerClusterControlPlaneEndpointSetV1Beta2Reason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
+
+			It("should run the target cluster manager step while the load balancer waits to enable proxy protocol", func() {
+				By("creating a load balancer whose kube-API service does not have proxy protocol yet")
+				lb, err := hcloudClient.CreateLoadBalancer(ctx, hcloud.LoadBalancerCreateOpts{
+					Name:             lbName,
+					Algorithm:        &hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeLeastConnections},
+					LoadBalancerType: &hcloud.LoadBalancerType{Name: "mytype"},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(hcloudClient.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
+					Protocol:        hcloud.LoadBalancerServiceProtocolTCP,
+					ListenPort:      ptr.To(6443),
+					DestinationPort: ptr.To(6443),
+					Proxyprotocol:   ptr.To(false),
+				})).To(Succeed())
+
+				By("creating a HetznerCluster that enables proxy protocol on this load balancer")
+				instance.Spec.ControlPlaneLoadBalancer.Name = &lbName
+				instance.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+				instance.Spec.ControlPlaneEndpoint = &clusterv1beta1.APIEndpoint{
+					Host: "localhost",
+					Port: 6443,
+				}
+				Expect(testEnv.Create(ctx, instance)).To(Succeed())
+
+				By("checking that the load balancer step waits and asks for a requeue")
+				Eventually(func() bool {
+					return isPresentAndFalseWithReasonV1Beta2(key, instance, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition, infrav1.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolV1Beta2Reason)
+				}, timeout, time.Second).Should(BeTrue())
+
+				By("checking that the target cluster manager step ran anyway")
+				// The target cluster manager step should set TargetClusterReady to False, because the
+				// kubeconfig secret does not exist.
+				Eventually(func() bool {
+					return isPresentAndFalseWithReason(key, instance, infrav1.TargetClusterReadyCondition, infrav1.KubeConfigNotFoundReason)
+				}, timeout, time.Second).Should(BeTrue())
+			})
 		})
 
 		Context("HetznerMachines belonging to the cluster", func() {
@@ -1332,7 +1372,9 @@ var _ = Describe("Hetzner secret", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hetzner-secret")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hetzner-secret")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -1430,7 +1472,9 @@ var _ = Describe("HetznerCluster validation", func() {
 	)
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		var finish func()
+		testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
+		defer finish()
 		Expect(err).NotTo(HaveOccurred())
 	})
 	AfterEach(func() {
@@ -1695,6 +1739,27 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		condition := v1beta1conditions.Get(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
 		if condition.Status != corev1.ConditionFalse {
 			t.Fatalf("condition status should be false")
+		}
+	})
+
+	t.Run("does not panic and returns false if load balancer is enabled but Status.ControlPlaneLoadBalancer itself is nil (load balancer not reconciled yet)", func(t *testing.T) {
+		hetznerCluster := &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled: true,
+				},
+				ControlPlaneEndpoint: nil,
+			},
+		}
+
+		processControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
+			t.Fatalf("ControlPlaneEndpoint should not change. It should remain nil")
+		}
+
+		if hetznerCluster.Status.Ready != false {
+			t.Fatalf("return value should be false")
 		}
 	})
 

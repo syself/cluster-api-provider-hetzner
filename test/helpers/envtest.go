@@ -117,7 +117,19 @@ type Resetter interface {
 	// testEnv: the TestEnvironment which should be resetted.
 	//
 	// t: g.GinkgoT()
-	ResetAndInitNamespace(namespace string, testEnv *TestEnvironment, t g.FullGinkgoTInterface)
+	//
+	// The returned func must be deferred by the caller immediately after ResetAndCreateNamespace
+	// returns. It calls SetClients with the fully configured mocks and releases the reconcile gate
+	// (write lock), and is safe to call multiple times (subsequent calls are no-ops). Example:
+	//
+	//  BeforeEach(func() {
+	//      var err error
+	//      var finish func()
+	//      testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-reconciler")
+	//      defer finish()
+	//      // ... register On() mock expectations here ...
+	//  })
+	ResetAndInitNamespace(namespace string, testEnv *TestEnvironment, t g.FullGinkgoTInterface) func()
 }
 
 // TestEnvironment encapsulates a Kubernetes local test environment.
@@ -274,8 +286,24 @@ func (t *TestEnvironment) Cleanup(ctx context.Context, objs ...client.Object) er
 	return kerrors.NewAggregate(errs)
 }
 
-// ResetAndCreateNamespace creates a namespace.
-func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateName string) (*corev1.Namespace, error) {
+// ResetAndCreateNamespace creates a namespace and initializes fresh mock clients for the next test.
+//
+// The second return value is a finish func that the caller MUST defer immediately:
+//
+//	BeforeEach(func() {
+//	    var err error
+//	    var finish func()
+//	    testNs, finish, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-reconciler")
+//	    defer finish()
+//	    // ... register On() mock expectations here ...
+//	})
+//
+// Between this call and finish(), the reconcile gate is held as a write lock, blocking new
+// Reconcile calls. The caller uses this window to register On() mock expectations. finish()
+// then installs the configured mocks (via SetClients) and releases the gate so reconciles can
+// proceed. Deferring — rather than calling directly — ensures finish() runs even if BeforeEach
+// panics mid-setup, which would otherwise leave the gate permanently locked.
+func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateName string) (*corev1.Namespace, func(), error) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-", generateName),
@@ -285,14 +313,15 @@ func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateN
 		},
 	}
 	if err := t.Create(ctx, ns); err != nil {
-		return nil, err
+		return nil, func() {}, err
 	}
 
+	finish := func() {}
 	if t.Resetter != nil {
-		t.Resetter.ResetAndInitNamespace(ns.Name, t, g.GinkgoT())
+		finish = t.Resetter.ResetAndInitNamespace(ns.Name, t, g.GinkgoT())
 	}
 
-	return ns, nil
+	return ns, finish, nil
 }
 
 // CreateKubeconfigSecret generates a kubeconfig secret in a given capi cluster.

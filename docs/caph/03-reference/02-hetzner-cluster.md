@@ -28,6 +28,43 @@ If you are using your own load balancer, you need to point towards it (by settin
 `controlPlaneLoadBalancer.name`) and configure the load balancer to target the control planes of the
 cluster.
 
+## HTTP(S) health checks for the control plane load balancer
+
+By default the Hetzner load balancer checks the kube-apiserver service with a plain TCP check: it
+only verifies that the port accepts connections, not that the apiserver is ready to serve requests.
+Setting `controlPlaneLoadBalancer.healthCheck.protocol` to `http` or `https` makes the load balancer
+request a path (for example `/readyz`) instead, so a control plane that is not ready is taken out of
+rotation instead of receiving traffic. The field names and their limits mirror the Hetzner Cloud
+API's load balancer
+[`health_check` object](https://docs.hetzner.cloud/reference/cloud#tag/load-balancer-actions/add_load_balancer_service).
+
+The endpoint the check requests must answer without authentication, because the load balancer cannot
+present credentials. CAPH does not configure that for you. Use `healthCheck.port` when that endpoint
+is served on a different port than the API server itself.
+
+CAPH sends only the fields you set. A field you never set keeps the default Hetzner applies for it,
+see the linked API reference above for the current defaults. Leaving `healthCheck` out means CAPH
+does not manage the health check, so a load balancer you point CAPH at keeps the check it already
+has. That also means deleting `healthCheck` after an http check was applied does not undo it. To get
+a tcp check back, keep the field and set `healthCheck.protocol: tcp`. `path`, `domain`, `response`
+and `statusCodes` are only valid when `protocol` is `http` or `https`.
+
+### Safe migration on an existing cluster
+
+If the load balancer switched to the http check right away, every control plane still running an
+older image that does not answer the path would be marked unhealthy at once, taking the API server
+offline. So CAPH waits, the same way it does for `enableProxyProtocol`: it switches the check only
+once every control plane infra machine carries the annotation
+`capi.syself.com/http-health-check-for-controlplane-loadbalancer: "true"`, set on the control plane
+infra machine template. Until then the tcp check stays active and CAPH requeues.
+
+This applies to every switch from tcp to http or https, not only the first one. A new cluster whose
+spec already sets an http or https check is created with that check from the start.
+
+The wait only covers the switch away from tcp. Setting `protocol` back to `tcp` is applied on the
+next reconcile, and so is a change that stays within http or https, for example a new `path`, `port`
+or `statusCodes`.
+
 ## Overview of HetznerCluster.Spec
 
 | Key                                                      | Type       | Default          | Required | Description                                                                                                                                   |
@@ -61,6 +98,18 @@ cluster.
 | `controlPlaneLoadBalancer.extraServices[].protocol`        | `string`   |                  | yes      | Defines protocol. Must be one of https, http, or tcp                                                                                          |
 | `controlPlaneLoadBalancer.extraServices[].listenPort`      | `int`      |                  | yes      | Defines listen port. Must be in range 1-65535                                                                                                 |
 | `controlPlaneLoadBalancer.extraServices[].destinationPort` | `int`      |                  | yes      | Defines destination port. Must be in range 1-65535                                                                                            |
+| `controlPlaneLoadBalancer.enableProxyProtocol`           | `bool`     | `false`          | no       | Enables proxy protocol on the kube-apiserver service. Cannot be disabled once enabled                                                          |
+| `controlPlaneLoadBalancer.healthCheck`                   | `object`   |                  | no       | Health check for the kube-apiserver service. Left out, Hetzner's default (tcp, 15s, 10s, 3 retries) applies and CAPH never touches it. See [above](#https-health-checks-for-the-control-plane-load-balancer) |
+| `controlPlaneLoadBalancer.healthCheck.protocol`          | `string`   | `tcp`            | no       | Health check protocol. One of tcp, http, https                                                                                                |
+| `controlPlaneLoadBalancer.healthCheck.port`              | `int`      | service port     | no       | Port the check runs against. Must be in range 1-65535                                                                                         |
+| `controlPlaneLoadBalancer.healthCheck.intervalSeconds`   | `int`      |                  | no       | Seconds between two checks. Must be in range 3-60                                                                                             |
+| `controlPlaneLoadBalancer.healthCheck.timeoutSeconds`    | `int`      |                  | no       | Seconds to wait for a response. Must be in range 1-60                                                                                         |
+| `controlPlaneLoadBalancer.healthCheck.retries`           | `int`      |                  | no       | Consecutive failed checks before a target counts as unhealthy, and successful checks to become healthy again. Must be in range 1-5            |
+| `controlPlaneLoadBalancer.healthCheck.path`              | `string`   |                  | no       | Request path, for example `/readyz`. Only valid when protocol is http or https                                                                |
+| `controlPlaneLoadBalancer.healthCheck.domain`            | `string`   |                  | no       | Host header sent with the request. Only valid when protocol is http or https                                                                  |
+| `controlPlaneLoadBalancer.healthCheck.response`          | `string`   |                  | no       | String that must appear in the response. Only valid when protocol is http or https                                                            |
+| `controlPlaneLoadBalancer.healthCheck.statusCodes`       | `[]string` |                  | no       | Status codes counted as healthy, for example `["200"]` or `["2??"]`. Only valid when protocol is http or https                                 |
+| `controlPlaneLoadBalancer.targetAddressFamily`            | `string`   | `dualstack`      | no       | Which addresses of a bare metal control plane server are attached as load balancer targets. One of `ipv4`, `ipv6`, `dualstack`. Has no effect on HCloud servers. See [Bare metal control planes and the load balancer](/docs/caph/02-topics/05-baremetal/05-load-balancer-targets.md) |
 | `hcloudPlacementGroups`                                   | `[]object` |                  | no       | List of placement groups that should be defined in Hetzner API                                                                                |
 | `hcloudPlacementGroups[].name`                              | `string`   |                  | yes      | Name of placement group                                                                                                                       |
 | `hcloudPlacementGroups[].type`                              | `string`   | `type`           | no       | Type of placement group. Hetzner only supports 'spread'                                                                                       |

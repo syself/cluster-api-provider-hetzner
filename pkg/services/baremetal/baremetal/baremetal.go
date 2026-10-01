@@ -620,13 +620,59 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		return nil
 	}
 
-	// check whether IPs of host have been added as load balancer targets already
+	// check whether IPs of host have been added as load balancer targets already.
 	var foundIPv4 bool
 	var foundIPv6 bool
 
-	for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
-		if target.Type == infrav1.LoadBalancerTargetTypeIP {
-			switch target.IP {
+	if v1beta1conditions.IsTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition) {
+		// The status may be slightly outdated but that is acceptable as this check
+		// is only a safeguard against unexpected changes (e.g. a user manually removing a target).
+		// In the vast majority of reconciles there is nothing to do, so we skip the extra API call
+		// to fetch the live load-balancer targets.
+		for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
+			if target.Type == infrav1.LoadBalancerTargetTypeIP {
+				switch target.IP {
+				case host.Spec.Status.IPv4:
+					foundIPv4 = true
+				case host.Spec.Status.IPv6:
+					foundIPv6 = true
+				}
+			}
+		}
+	} else {
+		// use the HCloud API.
+		clusterTagKey := s.scope.HetznerCluster.ClusterTagKey()
+		opts := hcloud.LoadBalancerListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: utils.LabelsToLabelSelector(map[string]string{
+					clusterTagKey: string(infrav1.ResourceLifecycleOwned),
+				}),
+			},
+		}
+
+		loadBalancers, err := s.scope.HCloudClient.ListLoadBalancers(ctx, opts)
+		if err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ListLoadBalancers")
+			return fmt.Errorf("failed to list load balancers: %w", err)
+		}
+
+		if len(loadBalancers) != 1 {
+			return fmt.Errorf("found %v loadbalancers in HCloud", len(loadBalancers))
+		}
+
+		lb := loadBalancers[0]
+
+		// This should never be the case: the label selector is cluster-scoped,
+		// so the only LB it can return is the one we own.
+		if lb.ID != s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID {
+			return fmt.Errorf("mismatch between the owned loadbalancer ID (%d) and the one specified in HetznerCluster.Status.ControlPlaneLoadBalancer.ID (%d)", lb.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+		}
+
+		for _, target := range lb.Targets {
+			if target.Type != hcloud.LoadBalancerTargetTypeIP || target.IP == nil {
+				continue
+			}
+			switch target.IP.IP {
 			case host.Spec.Status.IPv4:
 				foundIPv4 = true
 			case host.Spec.Status.IPv6:
@@ -635,16 +681,62 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		}
 	}
 
-	// IPv4 or IPv6 of host might be empty, in that case we don't want to add them
-	if host.Spec.Status.IPv4 == "" {
-		foundIPv4 = true
+	// The configured address family decides which of the host's addresses belong on the
+	// load balancer. An address of the family that is not selected but is still attached
+	// is stale and gets detached again. That happens when the address family of an
+	// existing cluster is changed.
+	//
+	// An address the host does not have cannot be attached and is not stale either, so an
+	// address that is missing or unusable is never wanted.
+	lbSpec := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer
+	hostIPv4 := attachableIP(host.Spec.Status.IPv4)
+	hostIPv6 := attachableIP(host.Spec.Status.IPv6)
+	wantIPv4 := lbSpec.WantsIPv4() && hostIPv4 != ""
+	wantIPv6 := lbSpec.WantsIPv6() && hostIPv6 != ""
+
+	addressesToAttach := make([]string, 0, 2)
+	if wantIPv4 && !foundIPv4 {
+		addressesToAttach = append(addressesToAttach, hostIPv4)
 	}
-	if host.Spec.Status.IPv6 == "" {
-		foundIPv6 = true
+	if wantIPv6 && !foundIPv6 {
+		addressesToAttach = append(addressesToAttach, hostIPv6)
 	}
 
-	// if both IPs are already added as target, then do nothing
-	if foundIPv4 && foundIPv6 {
+	// An address can only be found as a target if it is one, so it is usable here.
+	addressesToDetach := make([]string, 0, 2)
+	if !wantIPv4 && foundIPv4 {
+		addressesToDetach = append(addressesToDetach, host.Spec.Status.IPv4)
+	}
+	if !wantIPv6 && foundIPv6 {
+		addressesToDetach = append(addressesToDetach, host.Spec.Status.IPv6)
+	}
+
+	// Nothing to do, which is the case in the vast majority of reconciles.
+	if len(addressesToAttach) == 0 && len(addressesToDetach) == 0 {
+		return nil
+	}
+
+	lb := &hcloud.LoadBalancer{ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID}
+
+	for _, ip := range addressesToDetach {
+		if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(ip)); err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
+			// The address is no longer a target, which is the state we want, so carry on
+			// with the next address instead of giving up on it.
+			if strings.Contains(err.Error(), "load_balancer_target_not_found") {
+				continue
+			}
+			return fmt.Errorf("failed to remove IP %q as target of load balancer: %w", ip, err)
+		}
+		record.Eventf(
+			s.scope.HetznerCluster,
+			"DeletedIPTargetOfLoadBalancer",
+			"Deleted IP %q of server %d as target of the loadbalancer %v, it is not part of the configured address family %q",
+			ip, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID, s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.TargetAddressFamilyOrDefault(),
+		)
+	}
+
+	if len(addressesToAttach) == 0 {
 		return nil
 	}
 
@@ -666,25 +758,17 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 	}
 
-	newIPTargets := make([]string, 0, 2)
-	if !foundIPv4 {
-		newIPTargets = append(newIPTargets, host.Spec.Status.IPv4)
-	}
-	if !foundIPv6 {
-		newIPTargets = append(newIPTargets, host.Spec.Status.IPv6)
-	}
-
-	lb := &hcloud.LoadBalancer{ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID}
-
-	for _, ip := range newIPTargets {
+	for _, ip := range addressesToAttach {
 		opts := hcloud.LoadBalancerAddIPTargetOpts{
 			IP: net.ParseIP(ip),
 		}
 
 		if err := s.scope.HCloudClient.AddIPTargetToLoadBalancer(ctx, opts, lb); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "AddIPTargetToLoadBalancer")
+			// The address is already a target, which is the state we want, so carry on
+			// with the next address instead of giving up on it.
 			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
-				return nil
+				continue
 			}
 			return fmt.Errorf("failed to add IP %q as target to load balancer: %w", ip, err)
 		}
@@ -697,6 +781,17 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 	}
 
 	return nil
+}
+
+// attachableIP returns the address unchanged if the HCloud API can accept it as an ip
+// target, and the empty string otherwise. The API takes a parsed address, so a value that
+// does not parse would reach it as nil. Treating it as a missing address instead keeps
+// that out of the request and lets the reconcile continue with the other address.
+func attachableIP(address string) string {
+	if net.ParseIP(address) == nil {
+		return ""
+	}
+	return address
 }
 
 func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
@@ -826,7 +921,13 @@ func (s *Service) setReferencesOnHost(host *infrav1.HetznerBareMetalHost) {
 }
 
 func (s *Service) updateMachineAddresses(host *infrav1.HetznerBareMetalHost) {
-	addrs := nodeAddresses(host, s.scope.Name())
+	// Once a machine has an InternalIP/ExternalIP address with the (invalid) CIDR suffix still
+	// attached, keep computing it the same historical, incorrect way for the rest of its
+	// lifetime. This avoids silently changing status.addresses of already-running machines,
+	// which lives only in the management cluster (it has no effect on the workload cluster or
+	// its CNI), but could still surprise management-cluster automation that reads this field.
+	hasOldStyle := hasOldStyleIPAddress(s.scope.BareMetalMachine.Status.Addresses)
+	addrs := nodeAddresses(host, s.scope.Name(), hasOldStyle)
 
 	bareMetalMachineOld := s.scope.BareMetalMachine.DeepCopy()
 
@@ -923,8 +1024,29 @@ func ensureClusterLabel(host *infrav1.HetznerBareMetalHost, clusterName string) 
 	host.Labels[clusterv1.ClusterNameLabel] = clusterName
 }
 
+// hasOldStyleIPAddress returns true if addrs contains an InternalIP entry whose address still
+// carries a CIDR suffix (e.g. "/26"). Only the historical, uncorrected logic ever produces such
+// an address - it unconditionally uses InternalIP and never strips the suffix - so this reflects
+// which logic last computed the address, not merely that some address is present. ExternalIP
+// never needs checking: the old logic never produces it, and the corrected logic always strips
+// the suffix, so an ExternalIP address is never old-style.
+func hasOldStyleIPAddress(addrs []clusterv1beta1.MachineAddress) bool {
+	for _, addr := range addrs {
+		if addr.Type == clusterv1beta1.MachineInternalIP && strings.Contains(addr.Address, "/") {
+			return true
+		}
+	}
+	return false
+}
+
 // nodeAddresses returns a slice of clusterv1beta1.MachineAddress objects for a given host.
-func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string) []clusterv1beta1.MachineAddress {
+//
+// If hasOldStyle is true, NIC IPs are reported verbatim (including any CIDR suffix from
+// `ip addr show`) and always classified as InternalIP, matching the historical behavior. This
+// keeps already-running machines from silently changing their reported address type.
+// If hasOldStyle is false, the CIDR suffix is stripped and each address is classified as
+// ExternalIP or InternalIP depending on whether it is a public or private IP.
+func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string, hasOldStyle bool) []clusterv1beta1.MachineAddress {
 	// if there are no hw details, return
 	if host.Spec.Status.HardwareDetails == nil {
 		return nil
@@ -936,11 +1058,22 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 		if nic.IP == "" {
 			continue
 		}
-		address := clusterv1beta1.MachineAddress{
-			Type:    clusterv1beta1.MachineInternalIP,
-			Address: nic.IP,
+
+		if hasOldStyle {
+			addrs = append(addrs, clusterv1beta1.MachineAddress{
+				Type:    clusterv1beta1.MachineInternalIP,
+				Address: nic.IP,
+			})
+			continue
 		}
-		addrs = append(addrs, address)
+
+		// `ip addr show` reports addresses in CIDR notation (e.g. "10.0.0.5/26").
+		// Machine.status.addresses is documented to hold a bare IP address, so drop the prefix length.
+		ip, _, _ := strings.Cut(nic.IP, "/")
+		addrs = append(addrs, clusterv1beta1.MachineAddress{
+			Type:    machineAddressType(ip),
+			Address: ip,
+		})
 	}
 
 	// Add hostname == bareMetalMachineName as well
@@ -957,6 +1090,17 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 	)
 
 	return addrs
+}
+
+// machineAddressType classifies a bare metal NIC address as external (public,
+// routable) or internal (private, e.g. RFC1918/ULA), mirroring the
+// distinction made for hcloud servers in pkg/services/hcloud/server/server.go.
+func machineAddressType(address string) clusterv1beta1.MachineAddressType {
+	ip := net.ParseIP(address)
+	if ip == nil || ip.IsPrivate() {
+		return clusterv1beta1.MachineInternalIP
+	}
+	return clusterv1beta1.MachineExternalIP
 }
 
 // consumerRefMatches returns a boolean based on whether the consumer reference and bare metal machine metadata match.

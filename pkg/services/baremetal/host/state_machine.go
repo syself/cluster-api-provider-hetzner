@@ -84,6 +84,10 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 	}()
 
 	if hsm.checkInitiateDelete() {
+		// Deletion aborts provisioning early, possibly while the host is still in
+		// the rescue system. Evict any pooled SSH connection to it now rather than
+		// waiting for the idle-timeout sweep.
+		hsm.reconciler.scope.SSHClientFactory.EvictConnectionsForIP(hsm.host.Spec.Status.GetIPAddress())
 		return actionComplete{}
 	}
 
@@ -132,6 +136,7 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 		// Continue deprovisioning.
 		return false
 	}
+
 	return true
 }
 
@@ -325,6 +330,9 @@ func (hsm *hostStateMachine) handleImageInstalling(ctx context.Context) actionRe
 	switch actResult.(type) {
 	case actionComplete:
 		hsm.nextState = infrav1.StateEnsureProvisioned
+		// The host is leaving the rescue system for good: evict its pooled SSH
+		// connection now instead of waiting for the idle-timeout sweep.
+		hsm.reconciler.scope.SSHClientFactory.EvictConnectionsForIP(hsm.host.Spec.Status.GetIPAddress())
 	case actionError:
 		// re-enable rescue system. If installimage failed, then it is likely, that
 		// the next run (without reboot) fails with this error:
@@ -363,6 +371,9 @@ func (hsm *hostStateMachine) handleDeprovisioning(ctx context.Context) actionRes
 	actResult := hsm.reconciler.actionDeprovisioning(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateNone
+		// Deprovisioning is done: evict any pooled SSH connection to this host now
+		// instead of waiting for the idle-timeout sweep.
+		hsm.reconciler.scope.SSHClientFactory.EvictConnectionsForIP(hsm.host.Spec.Status.GetIPAddress())
 		return actionComplete{}
 	}
 	return actResult

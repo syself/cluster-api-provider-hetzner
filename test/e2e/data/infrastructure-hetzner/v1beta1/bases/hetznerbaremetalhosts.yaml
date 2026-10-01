@@ -1,3 +1,7 @@
+## CI always uses this file from the main branch, so disabling a server here takes effect for all
+## PRs immediately — no rebase required. See the `Use hbmh list from main branch` step in
+## .github/workflows/pr-e2e.yaml and .github/workflows/e2e-basic-baremetal.yaml.
+##
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
@@ -12,19 +16,19 @@ spec:
   maintenanceMode: false
   description: Test Machine 1670788
 ---
-# Feb 2026: worked.
+# 2026-07-14: new server and new disks.
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
   name: "bm-e2e-1716772"
   labels:
-    baremetal-pool: free-pool
+    baremetal-pool: ci-pool
     name: bm-e2e-1716772
 spec:
   serverID: 1716772 # ip: 136.243.69.24
   rootDeviceHints:
-    wwn: "0x5002538d41d70a46"
-  maintenanceMode: false
+    wwn: "0x500a075116bd44de"
+  maintenanceMode: true
   description: Test Machine 1716772
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
