@@ -900,11 +900,6 @@ func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, func(), erro
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
 
-	// Mark the entry used now, before the probe and dial. An entry whose dial
-	// fails keeps this timestamp, so the idle sweep eventually removes it
-	// instead of it sitting in the map forever.
-	pc.lastUsed = time.Now()
-
 	if pc.client != nil && !isConnAlive(pc.client) {
 		_ = pc.client.Close()
 		pc.client = nil
@@ -1018,12 +1013,16 @@ func (c *sshClient) runSSH(ctx context.Context, command string) Output {
 		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}
 	}
 
-	// If ctx fires, close the session (not the shared client) so any in-flight
-	// sess.Run returns. stop() deregisters the callback on normal exit.
+	// sess.Run waits until the command ends. The deferred sess.Close below only
+	// runs when runSSH returns. It cannot stop a command that is still running.
+	// Therefore, when ctx is canceled, we close the session here, so that
+	// sess.Run returns.
 	stop := context.AfterFunc(ctx, func() { _ = sess.Close() })
 	defer stop()
 
 	defer func() {
+		// If ctx was canceled, the session is already closed and Close returns
+		// io.EOF. We ignore that error.
 		if err := sess.Close(); err != nil && !errors.Is(err, io.EOF) {
 			logger.Error(err, "failed to close ssh session")
 		}
