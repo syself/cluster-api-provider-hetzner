@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
@@ -325,7 +324,7 @@ func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context
 		found++
 	}
 
-	bmMachines := &infrav1.HetznerBareMetalMachineList{}
+	bmMachines := &infrav2.HetznerBareMetalMachineList{}
 	if err := s.Client.List(ctx, bmMachines, listOptions...); err != nil {
 		return false, fmt.Errorf("failed to list control-plane HetznerBareMetalMachines: %w", err)
 	}

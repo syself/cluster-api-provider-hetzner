@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1" // HetznerBareMetalMachine is still on v1beta1
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
@@ -37,7 +36,7 @@ type BareMetalRemediationScopeParams struct {
 	Logger               *logr.Logger
 	Client               client.Client
 	Machine              *clusterv1.Machine
-	BareMetalMachine     *infrav1.HetznerBareMetalMachine
+	BareMetalMachine     *infrav2.HetznerBareMetalMachine
 	HetznerCluster       *infrav2.HetznerCluster
 	BareMetalRemediation *infrav2.HetznerBareMetalRemediation
 	EventRecorder        record.EventRecorder
@@ -84,7 +83,7 @@ type BareMetalRemediationScope struct {
 	Client               client.Client
 	patchHelper          *patch.Helper
 	Machine              *clusterv1.Machine
-	BareMetalMachine     *infrav1.HetznerBareMetalMachine
+	BareMetalMachine     *infrav2.HetznerBareMetalMachine
 	BareMetalRemediation *infrav2.HetznerBareMetalRemediation
 	EventRecorder        record.EventRecorder
 }
