@@ -258,11 +258,10 @@ type Factory interface {
 	EvictConnectionsForIP(ip string)
 }
 
-// connKey identifies a pooled connection. The private key is hashed (not
-// stored/compared as plain text) so that a rotated SSH secret (rescue key
-// changed, or the same IP now needs the OS key after installimage) naturally
-// lands on a different pool entry instead of accidentally reusing a
-// connection authenticated with the wrong key.
+// connKey identifies a pooled connection. It includes the private key, so a
+// pooled connection is only reused with the key it was opened with. When the
+// SSH secret changes, e.g. the host needs the OS key after installimage, we
+// open a new connection.
 type connKey struct {
 	ip      string
 	port    int
@@ -278,7 +277,8 @@ type pooledConn struct {
 	mu       sync.Mutex
 	client   *ssh.Client
 	lastUsed time.Time
-	// inUse is the number of commands that currently use client.
+	// inUse is the number of commands that currently use client. It is used to
+	// determine idle connections. A connection is only idle when inUse is 0.
 	inUse int
 }
 
@@ -291,10 +291,9 @@ type sshFactory struct {
 }
 
 // NewFactory creates a new factory for SSH clients. The idle-connection sweep
-// it starts runs until ctx is done, at which point all pooled connections are
-// closed. ctx should be the controller manager's long-lived context, not a
-// per-Reconcile context: the factory and its pooled connections must outlive
-// any single Reconcile call.
+// it starts runs until ctx is done. ctx should be the controller manager's
+// long-lived context, not a per-Reconcile context: the factory and its pooled
+// connections must outlive any single Reconcile call.
 func NewFactory(ctx context.Context) Factory {
 	return newFactory(ctx, connIdleTimeout, connSweepInterval)
 }
@@ -323,9 +322,10 @@ func (f *sshFactory) NewClient(in Input) Client {
 	}
 }
 
-// entry returns the pooled entry for key, creating an empty one if necessary.
-// The returned entry's client may be nil, meaning no connection is cached yet.
-func (f *sshFactory) entry(key connKey) *pooledConn {
+// getOrCreatePooledConn returns the pooled entry for key, creating an empty one
+// if necessary. The returned entry's client may be nil, meaning no connection
+// is cached yet.
+func (f *sshFactory) getOrCreatePooledConn(key connKey) *pooledConn {
 	f.mu.RLock()
 	pc, ok := f.conns[key]
 	f.mu.RUnlock()
@@ -354,9 +354,9 @@ func (pc *pooledConn) release() {
 	pc.lastUsed = time.Now()
 }
 
-// closeAndClear closes pc's pooled client, if any, and clears it so the entry
+// closeClient closes pc's pooled client, if any, and clears it so the entry
 // is ready to dial a fresh connection next time.
-func (pc *pooledConn) closeAndClear() {
+func (pc *pooledConn) closeClient() {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
 	if pc.client != nil {
@@ -365,7 +365,7 @@ func (pc *pooledConn) closeAndClear() {
 	}
 }
 
-// evict removes the pooled entry for key from the map first and closes the
+// evictConn removes the pooled entry for key from the map first and closes the
 // connection afterwards, outside of f.mu.
 //
 // Deleting from the map does not destroy the pooledConn: pc is a pointer, and
@@ -377,7 +377,7 @@ func (pc *pooledConn) closeAndClear() {
 // Closing outside of f.mu matters because Close() writes to the network and
 // can block. Holding the map lock across it would stall every other pool
 // operation for the duration.
-func (f *sshFactory) evict(key connKey) {
+func (f *sshFactory) evictConn(key connKey) {
 	f.mu.Lock()
 	pc, ok := f.conns[key]
 	if ok {
@@ -388,7 +388,7 @@ func (f *sshFactory) evict(key connKey) {
 		return
 	}
 
-	pc.closeAndClear()
+	pc.closeClient()
 }
 
 // EvictConnectionsForIP implements the EvictConnectionsForIP method of the
@@ -397,7 +397,7 @@ func (f *sshFactory) evict(key connKey) {
 // checking beforehand whether a connection is actually pooled.
 //
 // It removes the entries from the map before closing them, for the same
-// reasons as evict() above.
+// reasons as evictConn() above.
 func (f *sshFactory) EvictConnectionsForIP(ip string) {
 	f.mu.Lock()
 	var toClose []*pooledConn
@@ -410,13 +410,12 @@ func (f *sshFactory) EvictConnectionsForIP(ip string) {
 	f.mu.Unlock()
 
 	for _, pc := range toClose {
-		pc.closeAndClear()
+		pc.closeClient()
 	}
 }
 
 // sweepIdleConns periodically closes pooled connections that have been idle
-// for longer than connIdleTimeout. It runs until ctx is done, at which point
-// it closes every remaining pooled connection.
+// for longer than connIdleTimeout. It runs until ctx is done.
 func (f *sshFactory) sweepIdleConns(ctx context.Context) {
 	ticker := time.NewTicker(f.sweepInterval)
 	defer ticker.Stop()
@@ -424,15 +423,14 @@ func (f *sshFactory) sweepIdleConns(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			f.closeAll()
 			return
 		case <-ticker.C:
-			f.evictIdle()
+			f.evictIdleConns()
 		}
 	}
 }
 
-func (f *sshFactory) evictIdle() {
+func (f *sshFactory) evictIdleConns() {
 	now := time.Now()
 
 	f.mu.Lock()
@@ -451,18 +449,7 @@ func (f *sshFactory) evictIdle() {
 	f.mu.Unlock()
 
 	for _, pc := range toClose {
-		pc.closeAndClear()
-	}
-}
-
-func (f *sshFactory) closeAll() {
-	f.mu.Lock()
-	conns := f.conns
-	f.conns = make(map[connKey]*pooledConn)
-	f.mu.Unlock()
-
-	for _, pc := range conns {
-		pc.closeAndClear()
+		pc.closeClient()
 	}
 }
 
@@ -504,15 +491,15 @@ func isTransportError(err error) bool {
 	return !errors.As(err, &exitErr)
 }
 
-// evictUnlessCanceled evicts the pooled connection for this client, unless
+// evictConnUnlessCanceled evicts the pooled connection for this client, unless
 // ctx was canceled. The scp-based methods below evict on any copy failure,
 // since go-scp does not expose a way to distinguish a genuine transport
 // failure from a remote-side protocol error (e.g. "no such file"). But a
 // canceled ctx only means that the caller stopped waiting. It does not tell
 // us anything about the connection, so it must not trigger an eviction.
-func (c *sshClient) evictUnlessCanceled(ctx context.Context) {
+func (c *sshClient) evictConnUnlessCanceled(ctx context.Context) {
 	if ctx.Err() == nil {
-		c.factory.evict(c.connKey())
+		c.factory.evictConn(c.connKey())
 	}
 }
 
@@ -891,7 +878,7 @@ func IsTimeoutError(err error) bool {
 // key), calls to it will queue up behind this lock rather than run
 // concurrently.
 func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, func(), error) {
-	pc := c.factory.entry(c.connKey())
+	pc := c.factory.getOrCreatePooledConn(c.connKey())
 
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
@@ -1010,7 +997,7 @@ func (c *sshClient) runSSH(ctx context.Context, command string) Output {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return Output{Err: ctxErr}
 		}
-		c.factory.evict(c.connKey())
+		c.factory.evictConn(c.connKey())
 		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}
 	}
 
@@ -1041,7 +1028,7 @@ func (c *sshClient) runSSH(ctx context.Context, command string) Output {
 	}
 
 	if isTransportError(err) {
-		c.factory.evict(c.connKey())
+		c.factory.evictConn(c.connKey())
 	}
 	if err != nil {
 		err = fmt.Errorf("ssh command failed (%s): %w", c.connectionDetails(), err)
@@ -1114,7 +1101,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
-		c.factory.evict(c.connKey())
+		c.factory.evictConn(c.connKey())
 		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
 	}
 
@@ -1129,7 +1116,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	dest := "/root/" + baseName
 	err = scpClient.CopyFromFile(ctx, *f, dest, "0700")
 	if err != nil {
-		c.evictUnlessCanceled(ctx)
+		c.evictConnUnlessCanceled(ctx)
 		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
 	}
 
@@ -1183,7 +1170,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
-		c.factory.evict(c.connKey())
+		c.factory.evictConn(c.connKey())
 		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
 	}
 
@@ -1193,7 +1180,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	dest := "/root/" + baseName
 	err = scpClient.CopyFromFile(ctx, *fdCommand, dest, "0700")
 	if err != nil {
-		c.evictUnlessCanceled(ctx)
+		c.evictConnUnlessCanceled(ctx)
 		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
 	}
 
@@ -1201,7 +1188,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	dest = "/root/bootstrap.data"
 	err = scpClient.CopyFile(ctx, reader, dest, "0700")
 	if err != nil {
-		c.evictUnlessCanceled(ctx)
+		c.evictConnUnlessCanceled(ctx)
 		return 0, "", fmt.Errorf("error copying bootstrap data to %s:%d:%s %w", c.ip, c.port, dest, err)
 	}
 
@@ -1284,7 +1271,7 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
-		c.factory.evict(c.connKey())
+		c.factory.evictConn(c.connKey())
 		return "", fmt.Errorf("failed to create scp client: %w", err)
 	}
 	defer scpClient.Close()
@@ -1301,7 +1288,7 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 
 		var buf bytes.Buffer
 		if err := scpClient.CopyFromRemotePassThru(ctx, &buf, outputJSONPath, nil); err != nil {
-			c.evictUnlessCanceled(ctx)
+			c.evictConnUnlessCanceled(ctx)
 			return "", fmt.Errorf("failed to copy output.json from rescue system to caph: %w", err)
 		}
 

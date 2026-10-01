@@ -1062,7 +1062,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w", rebootErr)
 		}
 
-		// The imageURL-in-rescue flow is done: evict the pooled SSH connection now
+		// The custom provisioner is done. Evict the pooled SSH connection now
 		// instead of waiting for the idle-timeout sweep.
 		if len(hm.Status.Addresses) > 0 {
 			s.scope.SSHClientFactory.EvictConnectionsForIP(hm.Status.Addresses[0].Address)
@@ -1110,7 +1110,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 			return reconcile.Result{}, err
 		}
 
-		// The imageURL-in-rescue flow has failed for good: evict the pooled SSH
+		// The custom provisioner has failed for good. Evict the pooled SSH
 		// connection now instead of waiting for the idle-timeout sweep.
 		if len(hm.Status.Addresses) > 0 {
 			s.scope.SSHClientFactory.EvictConnectionsForIP(hm.Status.Addresses[0].Address)

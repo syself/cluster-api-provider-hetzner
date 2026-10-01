@@ -83,6 +83,10 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 	}()
 
 	if hsm.checkInitiateDelete() {
+		// Deletion aborts provisioning early, possibly while the host is still in
+		// the rescue system. Evict any pooled SSH connection to it now rather than
+		// waiting for the idle-timeout sweep.
+		hsm.reconciler.scope.SSHClientFactory.EvictConnectionsForIP(hsm.host.Status.GetIPAddress())
 		return actionComplete{}
 	}
 
@@ -131,11 +135,6 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 		// Continue deprovisioning.
 		return false
 	}
-
-	// Deletion aborts provisioning early, possibly while the host is still in
-	// the rescue system. Evict any pooled SSH connection to it now rather than
-	// waiting for the idle-timeout sweep.
-	hsm.reconciler.scope.SSHClientFactory.EvictConnectionsForIP(hsm.host.Status.GetIPAddress())
 
 	return true
 }
