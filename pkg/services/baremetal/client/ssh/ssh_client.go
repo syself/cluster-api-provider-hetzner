@@ -290,10 +290,10 @@ type sshFactory struct {
 	sweepInterval time.Duration
 }
 
-// NewFactory creates a new factory for SSH clients. The idle-connection sweep
-// it starts runs until ctx is done. ctx should be the controller manager's
-// long-lived context, not a per-Reconcile context: the factory and its pooled
-// connections must outlive any single Reconcile call.
+// NewFactory creates a new factory for SSH clients. When ctx is done, the
+// factory stops its idle sweep and closes all pooled connections. ctx should be
+// the controller manager's long-lived context, not a per-Reconcile context: the
+// factory and its pooled connections must outlive any single Reconcile call.
 func NewFactory(ctx context.Context) Factory {
 	return newFactory(ctx, connIdleTimeout, connSweepInterval)
 }
@@ -306,7 +306,13 @@ func newFactory(ctx context.Context, idleTimeout, sweepInterval time.Duration) *
 		idleTimeout:   idleTimeout,
 		sweepInterval: sweepInterval,
 	}
+
+	// Close idle connections periodically
 	go f.sweepIdleConns(ctx)
+
+	// Close all pooled connections when ctx is done
+	context.AfterFunc(ctx, f.closeAllConns)
+
 	return f
 }
 
@@ -449,6 +455,17 @@ func (f *sshFactory) evictIdleConns() {
 	f.mu.Unlock()
 
 	for _, pc := range toClose {
+		pc.closeClient()
+	}
+}
+
+func (f *sshFactory) closeAllConns() {
+	f.mu.Lock()
+	conns := f.conns
+	f.conns = make(map[connKey]*pooledConn)
+	f.mu.Unlock()
+
+	for _, pc := range conns {
 		pc.closeClient()
 	}
 }
