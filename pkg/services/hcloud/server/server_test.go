@@ -132,9 +132,9 @@ var _ = DescribeTable("createLabels",
 		capiMachine := clusterv1.Machine{}
 
 		if tc.isControlPlane {
-			// set label on capi machine to mark it as control plane
-			capiMachine.Labels = make(map[string]string)
-			capiMachine.Labels[clusterv1.MachineControlPlaneLabel] = "control-plane"
+			// set label on hcloud machine to mark it as control plane
+			hcloudMachine.Labels = make(map[string]string)
+			hcloudMachine.Labels[clusterv1.MachineControlPlaneLabel] = ""
 		}
 
 		service := Service{
@@ -2510,8 +2510,8 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 		service.scope.SetProviderID(server.ID)
 		client.On("GetServer", mock.Anything, server.ID).Return(server, nil)
 
-		// Mark capi Machine as control plane so the load balancer branch runs.
-		service.scope.Machine.Labels = map[string]string{
+		// Mark the HCloudMachine as control plane so the load balancer branch runs.
+		service.scope.HCloudMachine.Labels = map[string]string{
 			clusterv1.MachineControlPlaneLabel: "",
 		}
 
