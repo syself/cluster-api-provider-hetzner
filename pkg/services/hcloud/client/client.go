@@ -38,6 +38,15 @@ const errStringUnauthorized = "(unauthorized)"
 // ErrUnauthorized means that the API call is unauthorized.
 var ErrUnauthorized = fmt.Errorf("unauthorized")
 
+// wrapUnauthorized wraps err as ErrUnauthorized when the hcloud API reports the call as
+// unauthorized, so callers can detect it with errors.Is. It returns err unchanged otherwise.
+func wrapUnauthorized(err error) error {
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
+	return err
+}
+
 // Client collects all methods used by the controller in the hcloud cloud API.
 type Client interface {
 	CreateLoadBalancer(context.Context, hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error)
@@ -149,106 +158,92 @@ type realClient struct {
 
 func (c *realClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error) {
 	res, _, err := c.client.LoadBalancer.Create(ctx, opts)
-	return res.LoadBalancer, err
+	return res.LoadBalancer, wrapUnauthorized(err)
 }
 
 func (c *realClient) DeleteLoadBalancer(ctx context.Context, id int64) error {
 	_, err := c.client.LoadBalancer.Delete(ctx, &hcloud.LoadBalancer{ID: id})
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) ListLoadBalancers(ctx context.Context, opts hcloud.LoadBalancerListOpts) ([]*hcloud.LoadBalancer, error) {
 	resp, err := c.client.LoadBalancer.AllWithOpts(ctx, opts)
-	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
-		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
-	}
-	return resp, err
+	return resp, wrapUnauthorized(err)
 }
 
 func (c *realClient) AttachLoadBalancerToNetwork(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAttachToNetworkOpts) error {
 	_, _, err := c.client.LoadBalancer.AttachToNetwork(ctx, lb, opts)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) ChangeLoadBalancerType(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerChangeTypeOpts) error {
 	_, _, err := c.client.LoadBalancer.ChangeType(ctx, lb, opts)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) ChangeLoadBalancerAlgorithm(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerChangeAlgorithmOpts) error {
 	_, _, err := c.client.LoadBalancer.ChangeAlgorithm(ctx, lb, opts)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) UpdateLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerUpdateOpts) (*hcloud.LoadBalancer, error) {
 	res, _, err := c.client.LoadBalancer.Update(ctx, lb, opts)
-	return res, err
+	return res, wrapUnauthorized(err)
 }
 
 func (c *realClient) AddTargetServerToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddServerTargetOpts, lb *hcloud.LoadBalancer) error {
 	_, _, err := c.client.LoadBalancer.AddServerTarget(ctx, lb, opts)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) AddIPTargetToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddIPTargetOpts, lb *hcloud.LoadBalancer) error {
 	_, _, err := c.client.LoadBalancer.AddIPTarget(ctx, lb, opts)
-	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
-		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
-	}
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) DeleteTargetServerOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, server *hcloud.Server) error {
 	_, _, err := c.client.LoadBalancer.RemoveServerTarget(ctx, lb, server)
-	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
-		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
-	}
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) DeleteIPTargetOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, ip net.IP) error {
 	_, _, err := c.client.LoadBalancer.RemoveIPTarget(ctx, lb, ip)
-	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
-		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
-	}
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) AddServiceToLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAddServiceOpts) error {
 	_, _, err := c.client.LoadBalancer.AddService(ctx, lb, opts)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) UpdateServiceOnLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int, opts hcloud.LoadBalancerUpdateServiceOpts) error {
 	_, _, err := c.client.LoadBalancer.UpdateService(ctx, lb, listenPort, opts)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) DeleteServiceFromLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int) error {
 	_, _, err := c.client.LoadBalancer.DeleteService(ctx, lb, listenPort)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) ListImages(ctx context.Context, opts hcloud.ImageListOpts) ([]*hcloud.Image, error) {
-	return c.client.Image.AllWithOpts(ctx, opts)
+	res, err := c.client.Image.AllWithOpts(ctx, opts)
+	return res, wrapUnauthorized(err)
 }
 
 func (c *realClient) CreateServer(ctx context.Context, opts hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error) {
 	res, _, err := c.client.Server.Create(ctx, opts)
-	return res, err
+	return res, wrapUnauthorized(err)
 }
 
 func (c *realClient) AttachServerToNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) error {
 	_, _, err := c.client.Server.AttachToNetwork(ctx, server, opts)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) ListServers(ctx context.Context, opts hcloud.ServerListOpts) ([]*hcloud.Server, error) {
 	resp, err := c.client.Server.AllWithOpts(ctx, opts)
-	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
-		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
-	}
-	return resp, err
+	return resp, wrapUnauthorized(err)
 }
 
 // GetServer retrieves a server by its ID.
@@ -256,100 +251,83 @@ func (c *realClient) ListServers(ctx context.Context, opts hcloud.ServerListOpts
 // returns nil for non-existent server without an error.
 func (c *realClient) GetServer(ctx context.Context, id int64) (*hcloud.Server, error) {
 	res, _, err := c.client.Server.GetByID(ctx, id)
-	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
-		return res, fmt.Errorf("%w: %w", ErrUnauthorized, err)
-	}
-	return res, err
+	return res, wrapUnauthorized(err)
 }
 
 func (c *realClient) ListServerTypes(ctx context.Context) ([]*hcloud.ServerType, error) {
 	resp, err := c.client.ServerType.All(ctx)
-	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
-		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
-	}
-	return resp, err
+	return resp, wrapUnauthorized(err)
 }
 
 func (c *realClient) GetServerType(ctx context.Context, name string) (*hcloud.ServerType, error) {
 	res, _, err := c.client.ServerType.GetByName(ctx, name)
-	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
-		return res, fmt.Errorf("%w: %w", ErrUnauthorized, err)
-	}
-	return res, err
+	return res, wrapUnauthorized(err)
 }
 
 func (c *realClient) ShutdownServer(ctx context.Context, server *hcloud.Server) error {
 	_, _, err := c.client.Server.Shutdown(ctx, server)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) RebootServer(ctx context.Context, server *hcloud.Server) error {
 	_, _, err := c.client.Server.Reboot(ctx, server)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) PowerOnServer(ctx context.Context, server *hcloud.Server) error {
 	_, _, err := c.client.Server.Poweron(ctx, server)
-	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
-		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
-	}
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) DeleteServer(ctx context.Context, server *hcloud.Server) error {
 	_, _, err := c.client.Server.DeleteWithResult(ctx, server)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) CreateNetwork(ctx context.Context, opts hcloud.NetworkCreateOpts) (*hcloud.Network, error) {
 	res, _, err := c.client.Network.Create(ctx, opts)
-	return res, err
+	return res, wrapUnauthorized(err)
 }
 
 func (c *realClient) ListNetworks(ctx context.Context, opts hcloud.NetworkListOpts) ([]*hcloud.Network, error) {
 	resp, err := c.client.Network.AllWithOpts(ctx, opts)
-	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
-		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
-	}
-	return resp, err
+	return resp, wrapUnauthorized(err)
 }
 
 func (c *realClient) DeleteNetwork(ctx context.Context, network *hcloud.Network) error {
 	_, err := c.client.Network.Delete(ctx, network)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) ListSSHKeys(ctx context.Context, opts hcloud.SSHKeyListOpts) ([]*hcloud.SSHKey, error) {
 	res, _, err := c.client.SSHKey.List(ctx, opts)
-	return res, err
+	return res, wrapUnauthorized(err)
 }
 
 func (c *realClient) CreatePlacementGroup(ctx context.Context, opts hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error) {
 	res, _, err := c.client.PlacementGroup.Create(ctx, opts)
-	return res.PlacementGroup, err
+	return res.PlacementGroup, wrapUnauthorized(err)
 }
 
 func (c *realClient) DeletePlacementGroup(ctx context.Context, id int64) error {
 	_, err := c.client.PlacementGroup.Delete(ctx, &hcloud.PlacementGroup{ID: id})
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) ListPlacementGroups(ctx context.Context, opts hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error) {
-	return c.client.PlacementGroup.AllWithOpts(ctx, opts)
+	res, err := c.client.PlacementGroup.AllWithOpts(ctx, opts)
+	return res, wrapUnauthorized(err)
 }
 
 func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hcloud.Server, pg *hcloud.PlacementGroup) error {
 	_, _, err := c.client.Server.AddToPlacementGroup(ctx, server, pg)
-	return err
+	return wrapUnauthorized(err)
 }
 
 func (c *realClient) EnableRescueSystem(ctx context.Context, server *hcloud.Server, rescueOpts *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
 	result, _, err := c.client.Server.EnableRescue(ctx, server, *rescueOpts)
 	if err != nil {
-		if strings.Contains(err.Error(), errStringUnauthorized) {
-			return result, fmt.Errorf("%w: EnableRescue failed for %d: %w", ErrUnauthorized, server.ID, err)
-		}
-		return result, fmt.Errorf("EnableRescue failed for %d: %w", server.ID, err)
+		return result, wrapUnauthorized(fmt.Errorf("EnableRescue failed for %d: %w", server.ID, err))
 	}
 	return result, nil
 }
@@ -357,7 +335,7 @@ func (c *realClient) EnableRescueSystem(ctx context.Context, server *hcloud.Serv
 func (c *realClient) Reboot(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
 	action, _, err := c.client.Server.Reboot(ctx, server)
 	if err != nil {
-		return action, fmt.Errorf("Reboot failed for %d: %w", server.ID, err)
+		return action, wrapUnauthorized(fmt.Errorf("Reboot failed for %d: %w", server.ID, err))
 	}
 	return action, nil
 }
@@ -365,10 +343,7 @@ func (c *realClient) Reboot(ctx context.Context, server *hcloud.Server) (*hcloud
 func (c *realClient) GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error) {
 	action, _, err := c.client.Action.GetByID(ctx, actionID)
 	if err != nil {
-		if strings.Contains(err.Error(), errStringUnauthorized) {
-			return action, fmt.Errorf("%w: getting hcloud action failed: %w", ErrUnauthorized, err)
-		}
-		return action, fmt.Errorf("getting hcloud action failed: %w", err)
+		return action, wrapUnauthorized(fmt.Errorf("getting hcloud action failed: %w", err))
 	}
 	// GetByID returns a nil action and no error when the action does not exist.
 	// Return an error instead, so callers can rely on the action being non-nil when err is nil.
