@@ -134,7 +134,7 @@ var _ = Describe("chooseHost", func() {
 			ProvisioningState: infrav2.StateNone,
 		},
 	}
-	hostWithError.SetError(infrav2.PreparationError, "")
+	hostWithError.SetError(infrav2.PermanentError, "")
 
 	hostWithStateRegistering := infrav2.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{

@@ -137,8 +137,9 @@ func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T
 	require.Zero(t, robotFactory.calls)
 }
 
-func verifyError(host *infrav2.HetznerBareMetalHost, errorType infrav2.ErrorType) bool {
-	return host.Status.ErrorType == errorType
+func verifyActionCompletedReason(host *infrav2.HetznerBareMetalHost, reason string) bool {
+	actionCompleted := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
+	return actionCompleted != nil && actionCompleted.Reason == reason
 }
 
 var _ = Describe("HetznerBareMetalHostReconciler", func() {
@@ -404,7 +405,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					if err := testEnv.Get(ctx, key, host); err != nil {
 						return false
 					}
-					return verifyError(host, infrav2.RegistrationError)
+					return verifyActionCompletedReason(host, infrav2.HetznerBareMetalHostActionCompletedRegistrationErrorReason)
 				}, timeout).Should(BeTrue())
 			})
 
@@ -1108,7 +1109,7 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 	require.Equal(t, map[string]string{"other-annotation": "some value"}, bmHost.Annotations)
 
 	// Other Error without annotation --> Error should not get removed
-	bmHost = newHostWithError(map[string]string{}, infrav2.ProvisioningError)
+	bmHost = newHostWithError(map[string]string{}, infrav2.FatalError)
 	removed = reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Status.ErrorType)

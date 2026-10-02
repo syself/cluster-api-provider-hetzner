@@ -187,7 +187,20 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 				errMessage,
 			)
 			// The user has to fix the secret. Check again in five minutes.
-			hsm.reconciler.scope.SetHostError(infrav2.RegistrationError, errMessage)
+			deprecatedv1beta1conditions.MarkFalse(
+				hsm.host,
+				infrav2.ActionCompletedV1Beta1Condition,
+				infrav2.ActionCompletedRegistrationErrorV1Beta1Reason,
+				clusterv1.ConditionSeverityError,
+				"%s",
+				errMessage,
+			)
+			conditions.Set(hsm.host, metav1.Condition{
+				Type:    infrav2.HetznerBareMetalHostActionCompletedCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav2.HetznerBareMetalHostActionCompletedRegistrationErrorReason,
+				Message: errMessage,
+			})
 			return actionContinue{delay: 5 * time.Minute}
 		}
 		if err := hsm.host.UpdateOSSSHStatus(*osSSHSecret); err != nil {
@@ -218,7 +231,20 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 			msg,
 		)
 		// The user has to fix the secret. Check again in five minutes.
-		hsm.reconciler.scope.SetHostError(infrav2.PreparationError, infrav2.ErrorMessageMissingOrInvalidSecretData)
+		deprecatedv1beta1conditions.MarkFalse(
+			hsm.host,
+			infrav2.ActionCompletedV1Beta1Condition,
+			infrav2.ActionCompletedPreparationErrorV1Beta1Reason,
+			clusterv1.ConditionSeverityError,
+			"%s",
+			infrav2.ErrorMessageMissingOrInvalidSecretData,
+		)
+		conditions.Set(hsm.host, metav1.Condition{
+			Type:    infrav2.HetznerBareMetalHostActionCompletedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav2.HetznerBareMetalHostActionCompletedPreparationErrorReason,
+			Message: infrav2.ErrorMessageMissingOrInvalidSecretData,
+		})
 		return actionContinue{delay: 5 * time.Minute}
 	}
 	return nil
@@ -267,7 +293,20 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 			Message: msg,
 		})
 		// The user has to fix the secret. Check again in five minutes.
-		hsm.reconciler.scope.SetHostError(infrav2.PreparationError, infrav2.ErrorMessageMissingOrInvalidSecretData)
+		deprecatedv1beta1conditions.MarkFalse(
+			hsm.host,
+			infrav2.ActionCompletedV1Beta1Condition,
+			infrav2.ActionCompletedPreparationErrorV1Beta1Reason,
+			clusterv1.ConditionSeverityError,
+			"%s",
+			infrav2.ErrorMessageMissingOrInvalidSecretData,
+		)
+		conditions.Set(hsm.host, metav1.Condition{
+			Type:    infrav2.HetznerBareMetalHostActionCompletedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav2.HetznerBareMetalHostActionCompletedPreparationErrorReason,
+			Message: infrav2.ErrorMessageMissingOrInvalidSecretData,
+		})
 		return actionContinue{delay: 5 * time.Minute}
 	}
 	return nil

@@ -215,7 +215,7 @@ func TestConvertHetznerBareMetalHostConsumerRefInvalidAPIVersion(t *testing.T) {
 // TestHetznerBareMetalHostConvertToMovesStatusToSubresource verifies that converting a v1beta1
 // HetznerBareMetalHost to v1beta2 moves spec.status into the status subresource, promotes the staged
 // v1beta2 conditions to status.conditions, demotes the v1beta1 conditions to
-// status.deprecated.v1beta1.conditions, and maps rebootTriggeredAt from a pointer to a value.
+// status.deprecated.v1beta1.conditions.
 func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
 	legacyConditions := clusterv1beta1.Conditions{
 		{
@@ -244,8 +244,6 @@ func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
 			Message:            "legacy condition",
 		},
 	}
-	rebootTriggeredAt := metav1.Unix(3, 0)
-
 	src := &HetznerBareMetalHost{
 		Spec: HetznerBareMetalHostSpec{
 			ServerID: 42,
@@ -255,7 +253,6 @@ func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
 				ProvisioningState: StateProvisioned,
 				ErrorType:         FatalError,
 				RebootTypes:       []RebootType{RebootTypeSoftware, RebootTypeHardware},
-				RebootTriggeredAt: &rebootTriggeredAt,
 				NodeBootID:        "boot-id",
 				Conditions:        legacyConditions,
 				V1Beta2:           &HetznerBareMetalHostV1Beta2Status{Conditions: v1beta2Conditions},
@@ -279,9 +276,6 @@ func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
 	}
 	if !reflect.DeepEqual(dst.Status.RebootTypes, []infrav2.RebootType{infrav2.RebootTypeSoftware, infrav2.RebootTypeHardware}) {
 		t.Fatalf("status.rebootTypes mismatch: %#v", dst.Status.RebootTypes)
-	}
-	if !dst.Status.RebootTriggeredAt.Equal(&rebootTriggeredAt) {
-		t.Fatalf("status.rebootTriggeredAt mismatch: %#v", dst.Status.RebootTriggeredAt)
 	}
 	if !reflect.DeepEqual(dst.Status.Conditions, v1beta2Conditions) {
 		t.Fatalf("status.conditions mismatch:\n got: %#v\nwant: %#v", dst.Status.Conditions, v1beta2Conditions)
@@ -408,30 +402,160 @@ func TestHetznerBareMetalHostRoundTripPreservesDroppedStatusFields(t *testing.T)
 	}
 }
 
-// TestHetznerBareMetalHostRebootTriggeredAtNilRoundTrip verifies that a nil spec.status.rebootTriggeredAt
-// in v1beta1 converts to the zero value in v1beta2 and back to a nil pointer in v1beta1.
-func TestHetznerBareMetalHostRebootTriggeredAtNilRoundTrip(t *testing.T) {
-	src := &HetznerBareMetalHost{
-		Spec: HetznerBareMetalHostSpec{
-			ServerID: 1,
-			Status:   ControllerGeneratedStatus{RebootTriggeredAt: nil},
+// TestConvertHetznerBareMetalHostErrorTypeToV1Beta2 verifies how the v1beta1 errorType and
+// rebootTriggeredAt are split into the v1beta2 errorType and pendingReboot.
+func TestConvertHetznerBareMetalHostErrorTypeToV1Beta2(t *testing.T) {
+	triggeredAt := metav1.Unix(3, 0)
+
+	tests := []struct {
+		name              string
+		errorType         ErrorType
+		rebootTriggeredAt *metav1.Time
+		wantErrorType     infrav2.ErrorType
+		wantPendingReboot *infrav2.PendingReboot
+	}{
+		{
+			name:          "fatal error is copied",
+			errorType:     FatalError,
+			wantErrorType: infrav2.FatalError,
+		},
+		{
+			name:          "permanent error is copied",
+			errorType:     PermanentError,
+			wantErrorType: infrav2.PermanentError,
+		},
+		{
+			name:              "fatal error with rebootTriggeredAt does not get a pending reboot",
+			errorType:         FatalError,
+			rebootTriggeredAt: &triggeredAt,
+			wantErrorType:     infrav2.FatalError,
+		},
+		{
+			name:              "ssh reboot becomes a pending reboot",
+			errorType:         ErrorTypeSSHRebootTriggered,
+			rebootTriggeredAt: &triggeredAt,
+			wantPendingReboot: &infrav2.PendingReboot{State: infrav2.RebootStateSSH, TriggeredAt: triggeredAt},
+		},
+		{
+			name:              "software reboot becomes a pending reboot",
+			errorType:         ErrorTypeSoftwareRebootTriggered,
+			rebootTriggeredAt: &triggeredAt,
+			wantPendingReboot: &infrav2.PendingReboot{State: infrav2.RebootStateSoftware, TriggeredAt: triggeredAt},
+		},
+		{
+			name:              "hardware reboot becomes a pending reboot",
+			errorType:         ErrorTypeHardwareRebootTriggered,
+			rebootTriggeredAt: &triggeredAt,
+			wantPendingReboot: &infrav2.PendingReboot{State: infrav2.RebootStateHardware, TriggeredAt: triggeredAt},
+		},
+		{
+			name:      "reboot without rebootTriggeredAt does not get a pending reboot",
+			errorType: ErrorTypeSSHRebootTriggered,
+		},
+		{
+			name:              "rebootTriggeredAt without reboot does not get a pending reboot",
+			rebootTriggeredAt: &triggeredAt,
+		},
+		{
+			name:      "registration error is dropped",
+			errorType: RegistrationError,
+		},
+		{
+			name:      "preparation error is dropped",
+			errorType: PreparationError,
+		},
+		{
+			name:      "provisioning error is dropped",
+			errorType: ProvisioningError,
+		},
+		{
+			name:      "connection error is dropped",
+			errorType: ErrorTypeConnectionError,
 		},
 	}
 
-	hub := &infrav2.HetznerBareMetalHost{}
-	if err := src.ConvertTo(hub); err != nil {
-		t.Fatalf("failed to convert to v1beta2: %v", err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			src := &HetznerBareMetalHost{
+				Spec: HetznerBareMetalHostSpec{
+					Status: ControllerGeneratedStatus{
+						ErrorType:         tc.errorType,
+						RebootTriggeredAt: tc.rebootTriggeredAt,
+					},
+				},
+			}
+
+			dst := &infrav2.HetznerBareMetalHost{}
+			if err := src.ConvertTo(dst); err != nil {
+				t.Fatalf("failed to convert to v1beta2: %v", err)
+			}
+
+			if dst.Status.ErrorType != tc.wantErrorType {
+				t.Fatalf("status.errorType = %q, want %q", dst.Status.ErrorType, tc.wantErrorType)
+			}
+			if !reflect.DeepEqual(dst.Status.PendingReboot, tc.wantPendingReboot) {
+				t.Fatalf("status.pendingReboot = %#v, want %#v", dst.Status.PendingReboot, tc.wantPendingReboot)
+			}
+		})
 	}
-	if !hub.Status.RebootTriggeredAt.IsZero() {
-		t.Fatalf("expected a zero rebootTriggeredAt in v1beta2, got %#v", hub.Status.RebootTriggeredAt)
+}
+
+// TestConvertHetznerBareMetalHostPendingRebootToV1Beta1 verifies that the v1beta2 errorType and
+// pendingReboot are written back into the v1beta1 errorType and rebootTriggeredAt.
+func TestConvertHetznerBareMetalHostPendingRebootToV1Beta1(t *testing.T) {
+	triggeredAt := metav1.Unix(3, 0)
+
+	tests := []struct {
+		name                  string
+		errorType             infrav2.ErrorType
+		pendingReboot         *infrav2.PendingReboot
+		wantErrorType         ErrorType
+		wantRebootTriggeredAt *metav1.Time
+	}{
+		{
+			name: "no error and no pending reboot",
+		},
+		{
+			name:          "fatal error",
+			errorType:     infrav2.FatalError,
+			wantErrorType: FatalError,
+		},
+		{
+			name:                  "pending reboot",
+			pendingReboot:         &infrav2.PendingReboot{State: infrav2.RebootStateSoftware, TriggeredAt: triggeredAt},
+			wantErrorType:         ErrorTypeSoftwareRebootTriggered,
+			wantRebootTriggeredAt: &triggeredAt,
+		},
+		{
+			name:                  "errorType keeps the permanent error when there is also a pending reboot",
+			errorType:             infrav2.PermanentError,
+			pendingReboot:         &infrav2.PendingReboot{State: infrav2.RebootStateHardware, TriggeredAt: triggeredAt},
+			wantErrorType:         PermanentError,
+			wantRebootTriggeredAt: &triggeredAt,
+		},
 	}
 
-	restored := &HetznerBareMetalHost{}
-	if err := restored.ConvertFrom(hub); err != nil {
-		t.Fatalf("failed to convert back to v1beta1: %v", err)
-	}
-	if restored.Spec.Status.RebootTriggeredAt != nil {
-		t.Fatalf("expected a nil rebootTriggeredAt in v1beta1, got %#v", restored.Spec.Status.RebootTriggeredAt)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			src := &infrav2.HetznerBareMetalHost{
+				Status: infrav2.HetznerBareMetalHostStatus{
+					ErrorType:     tc.errorType,
+					PendingReboot: tc.pendingReboot,
+				},
+			}
+
+			dst := &HetznerBareMetalHost{}
+			if err := dst.ConvertFrom(src); err != nil {
+				t.Fatalf("failed to convert from v1beta2: %v", err)
+			}
+
+			if dst.Spec.Status.ErrorType != tc.wantErrorType {
+				t.Fatalf("spec.status.errorType = %q, want %q", dst.Spec.Status.ErrorType, tc.wantErrorType)
+			}
+			if !reflect.DeepEqual(dst.Spec.Status.RebootTriggeredAt, tc.wantRebootTriggeredAt) {
+				t.Fatalf("spec.status.rebootTriggeredAt = %#v, want %#v", dst.Spec.Status.RebootTriggeredAt, tc.wantRebootTriggeredAt)
+			}
+		})
 	}
 }
 
@@ -1711,6 +1835,20 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			if status.RebootTriggeredAt != nil && status.RebootTriggeredAt.IsZero() {
 				status.RebootTriggeredAt = nil
 			}
+			// errorType and rebootTriggeredAt are split into errorType and pendingReboot in v1beta2,
+			// and only some pairs convert back to the same values. Keep the fuzzed pair inside that subset.
+			// TestConvertHetznerBareMetalHostErrorTypeToV1Beta2 covers the other pairs.
+			switch status.ErrorType {
+			case FatalError, PermanentError:
+				status.RebootTriggeredAt = nil
+			case ErrorTypeSSHRebootTriggered, ErrorTypeSoftwareRebootTriggered, ErrorTypeHardwareRebootTriggered:
+				if status.RebootTriggeredAt == nil {
+					status.ErrorType = ""
+				}
+			default:
+				status.ErrorType = ""
+				status.RebootTriggeredAt = nil
+			}
 			if status.LastUpdated != nil && status.LastUpdated.IsZero() {
 				status.LastUpdated = nil
 			}
@@ -1737,6 +1875,23 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 			if in.Status.Deprecated == nil || in.Status.Deprecated.V1Beta1 == nil || len(in.Status.Deprecated.V1Beta1.Conditions) == 0 {
 				in.Status.Deprecated = nil
+			}
+
+			// v1beta1 stores errorType and pendingReboot in one errorType field. Keep the fuzzed pair
+			// inside the subset that converts back to the same values.
+			// TestConvertHetznerBareMetalHostPendingRebootToV1Beta1 covers the other pairs.
+			if in.Status.ErrorType != infrav2.FatalError && in.Status.ErrorType != infrav2.PermanentError {
+				in.Status.ErrorType = ""
+			}
+			if pendingReboot := in.Status.PendingReboot; pendingReboot != nil {
+				switch pendingReboot.State {
+				case infrav2.RebootStateSSH, infrav2.RebootStateSoftware, infrav2.RebootStateHardware:
+				default:
+					pendingReboot.State = infrav2.RebootStateSSH
+				}
+				if in.Status.ErrorType != "" || pendingReboot.TriggeredAt.IsZero() {
+					in.Status.PendingReboot = nil
+				}
 			}
 
 			if in.Spec.ConsumerRef == nil {

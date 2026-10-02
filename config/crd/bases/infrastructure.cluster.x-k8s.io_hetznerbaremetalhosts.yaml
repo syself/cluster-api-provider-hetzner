@@ -1070,7 +1070,11 @@ spec:
                     type: object
                 type: object
               errorType:
-                description: errorType indicates the type of failure encountered.
+                description: errorType is the fatal or permanent error of the host.
+                  It is empty when the host has neither.
+                enum:
+                - fatal error
+                - permanent error
                 type: string
               hardwareDetails:
                 description: hardwareDetails are automatically gathered and should
@@ -1172,14 +1176,29 @@ spec:
                 description: nodeBootID reflects the BootID of the corresponding Node
                   resource in the workload-cluster.
                 type: string
+              pendingReboot:
+                description: |-
+                  pendingReboot is the reboot we sent and are waiting for. It is empty when we are not waiting
+                  for a reboot.
+                properties:
+                  state:
+                    description: state is the kind of reboot we sent.
+                    enum:
+                    - ssh reboot triggered
+                    - software reboot triggered
+                    - hardware reboot triggered
+                    type: string
+                  triggeredAt:
+                    description: triggeredAt is when we sent the reboot.
+                    format: date-time
+                    type: string
+                required:
+                - state
+                - triggeredAt
+                type: object
               provisioningState:
                 description: provisioningState is the current state tracked by the
                   provisioner.
-                type: string
-              rebootTriggeredAt:
-                description: rebootTriggeredAt is the timestamp when the reboot was
-                  initiated.
-                format: date-time
                 type: string
               rebootTypes:
                 description: rebootTypes is a list of all available reboot types for

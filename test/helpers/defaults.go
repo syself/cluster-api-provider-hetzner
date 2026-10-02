@@ -70,10 +70,13 @@ func WithError(errorType infrav2.ErrorType, errorMessage string) HostOpts {
 	}
 }
 
-// WithRebootTriggeredAt gives the option to define a host with a reboot timestamp set.
-func WithRebootTriggeredAt(t metav1.Time) HostOpts {
+// WithPendingReboot gives the option to define a host that waits for a reboot sent at triggeredAt.
+func WithPendingReboot(state infrav2.RebootState, triggeredAt metav1.Time) HostOpts {
 	return func(host *infrav2.HetznerBareMetalHost) {
-		host.Status.RebootTriggeredAt = t
+		host.Status.PendingReboot = &infrav2.PendingReboot{
+			State:       state,
+			TriggeredAt: triggeredAt,
+		}
 	}
 }
 

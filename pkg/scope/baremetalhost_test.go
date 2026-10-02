@@ -102,7 +102,7 @@ var _ = Describe("SetHetznerBareMetalHostReadySummary", func() {
 		Expect(ready.Message).To(ContainSubstring("pre-provision command exited 1"))
 	})
 
-	It("reports Ready=False while a reboot the controller triggered is in flight", func() {
+	It("reports Ready=True after the controller sent a reboot", func() {
 		host := &infrav2.HetznerBareMetalHost{}
 
 		conditions.Set(host, metav1.Condition{
@@ -110,14 +110,12 @@ var _ = Describe("SetHetznerBareMetalHostReadySummary", func() {
 			Status: metav1.ConditionTrue,
 			Reason: infrav2.HetznerBareMetalHostRobotCredentialsAvailableReason,
 		})
-		host.SetError(infrav2.ErrorTypeSSHRebootTriggered, "ssh reboot just triggered")
+		host.SetPendingReboot(infrav2.RebootStateSSH, "ssh reboot just triggered")
 
 		SetHetznerBareMetalHostReadySummary(host)
 
 		ready := conditions.Get(host, clusterv1.ReadyCondition)
 		Expect(ready).NotTo(BeNil())
-		Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-		Expect(ready.Reason).To(Equal(clusterv1.NotReadyReason))
-		Expect(ready.Message).To(ContainSubstring("ssh reboot just triggered"))
+		Expect(ready.Status).To(Equal(metav1.ConditionTrue))
 	})
 })
