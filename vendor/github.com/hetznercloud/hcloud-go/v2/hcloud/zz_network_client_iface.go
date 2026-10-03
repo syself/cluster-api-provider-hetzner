@@ -42,4 +42,16 @@ type INetworkClient interface {
 	DeleteRoute(ctx context.Context, network *Network, opts NetworkDeleteRouteOpts) (*Action, *Response, error)
 	// ChangeProtection changes the resource protection level of a network.
 	ChangeProtection(ctx context.Context, network *Network, opts NetworkChangeProtectionOpts) (*Action, *Response, error)
+	// ListMembers returns a list of [NetworkMember] attached to a specific [Network] for the given options.
+	//
+	// See https://docs.hetzner.cloud/reference/cloud#tag/networks/list_network_members
+	ListMembers(ctx context.Context, network *Network, opts NetworkMemberListOpts) ([]*NetworkMember, *Response, error)
+	// AllMembersWithOpts returns all [NetworkMember] attached to a specific [Network] for the given options.
+	//
+	// See https://docs.hetzner.cloud/reference/cloud#tag/networks/list_network_members
+	AllMembersWithOpts(ctx context.Context, network *Network, opts NetworkMemberListOpts) ([]*NetworkMember, error)
+	// AllMembers returns all [NetworkMember] attached to a specific [Network].
+	//
+	// See https://docs.hetzner.cloud/reference/cloud#tag/networks/list_network_members
+	AllMembers(ctx context.Context, network *Network) ([]*NetworkMember, error)
 }

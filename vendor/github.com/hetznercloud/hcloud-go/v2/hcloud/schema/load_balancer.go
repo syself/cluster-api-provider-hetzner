@@ -64,6 +64,7 @@ type LoadBalancerServiceHTTP struct {
 	Certificates   []int64 `json:"certificates"`
 	RedirectHTTP   bool    `json:"redirect_http"`
 	StickySessions bool    `json:"sticky_sessions"`
+	TimeoutIdle    int     `json:"timeout_idle"`
 }
 
 type LoadBalancerServiceHealthCheck struct {
@@ -94,8 +95,10 @@ type LoadBalancerTarget struct {
 }
 
 type LoadBalancerTargetHealthStatus struct {
-	ListenPort int    `json:"listen_port"`
-	Status     string `json:"status"`
+	ListenPort     int     `json:"listen_port"`
+	Status         string  `json:"status"`
+	Detail         *string `json:"detail"`
+	HTTPStatusCode *int    `json:"http_status_code"`
 }
 
 type LoadBalancerTargetServer struct {
@@ -180,6 +183,7 @@ type LoadBalancerActionAddServiceRequestHTTP struct {
 	Certificates   *[]int64 `json:"certificates,omitempty"`
 	RedirectHTTP   *bool    `json:"redirect_http,omitempty"`
 	StickySessions *bool    `json:"sticky_sessions,omitempty"`
+	TimeoutIdle    *int     `json:"timeout_idle,omitempty"`
 }
 
 type LoadBalancerActionAddServiceRequestHealthCheck struct {
@@ -218,6 +222,7 @@ type LoadBalancerActionUpdateServiceRequestHTTP struct {
 	Certificates   *[]int64 `json:"certificates,omitempty"`
 	RedirectHTTP   *bool    `json:"redirect_http,omitempty"`
 	StickySessions *bool    `json:"sticky_sessions,omitempty"`
+	TimeoutIdle    *int     `json:"timeout_idle,omitempty"`
 }
 
 type LoadBalancerActionUpdateServiceRequestHealthCheck struct {
@@ -301,6 +306,7 @@ type LoadBalancerCreateRequestServiceHTTP struct {
 	Certificates   *[]int64 `json:"certificates,omitempty"`
 	RedirectHTTP   *bool    `json:"redirect_http,omitempty"`
 	StickySessions *bool    `json:"sticky_sessions,omitempty"`
+	TimeoutIdle    *int     `json:"timeout_idle,omitempty"`
 }
 
 type LoadBalancerCreateRequestServiceHealthCheck struct {
@@ -402,7 +408,7 @@ type LoadBalancerGetMetricsResponse struct {
 // LoadBalancerTimeSeriesVals contains the values for a Load Balancer time
 // series.
 type LoadBalancerTimeSeriesVals struct {
-	Values []interface{} `json:"values"`
+	Values []any `json:"values"`
 }
 
 // LoadBalancerActionChangeDNSPtrRequest defines the schema for the request to
