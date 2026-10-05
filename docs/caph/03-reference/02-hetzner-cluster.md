@@ -242,7 +242,7 @@ Which addresses of a bare metal control plane server are attached as load balanc
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.enableProxyProtocol" type="bool" defaultValue="false" required={false}>
-Enables proxy protocol on the kube-apiserver load balancer service. Cannot be disabled once enabled.
+Enables proxy protocol on the kube-apiserver load balancer service. Cannot be disabled once enabled. For an existing cluster, CAPH switches the service after every control plane HCloudMachine or HetznerBareMetalMachine has the annotation `capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true"`. See [Annotations](/docs/caph/03-reference/08-annotations.md).
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.healthCheck" type="object" required={false}>
