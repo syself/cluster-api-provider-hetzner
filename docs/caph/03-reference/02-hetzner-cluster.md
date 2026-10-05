@@ -92,14 +92,14 @@ Defines the CIDR block of the subnet. Note that one subnet ist required.
 </PropField>
 
 <PropField name="hcloudNetwork.networkZone" type="string" defaultValue='"eu-central"' required={false}>
-Defines the network zone. Must be eu-central, us-east or us-west.
+Defines the network zone. Must be eu-central, us-east, us-west or ap-southeast.
 </PropField>
 
 </Collapsible>
 
 </PropField>
 
-<PropField name="controlPlaneRegions" type="[]string" defaultValue={"[]string{fsn1}"} required={false}>
+<PropField name="controlPlaneRegions" type="[]string" required={false}>
 This is the base for the failureDomains of the cluster.
 </PropField>
 
@@ -315,7 +315,7 @@ Reference to secret where Hetzner API credentials are stored.
 
 <Collapsible title="properties">
 
-<PropField name="hetznerSecretRef.name" type="string" required={true}>
+<PropField name="hetznerSecretRef.name" type="string" defaultValue="hetzner" required={true}>
 Name of secret.
 </PropField>
 
@@ -329,11 +329,11 @@ Reference to the keys that are used in the secret, either `hcloudToken` or `hetz
 Name of the key where the token for the Hetzner Cloud API is stored.
 </PropField>
 
-<PropField name="hetznerSecretRef.key.hetznerRobotUser" type="string" required={false}>
+<PropField name="hetznerSecretRef.key.hetznerRobotUser" type="string" defaultValue="hetzner-robot-user" required={false}>
 Name of the key where the username for the Hetzner Robot API is stored.
 </PropField>
 
-<PropField name="hetznerSecretRef.key.hetznerRobotPassword" type="string" required={false}>
+<PropField name="hetznerSecretRef.key.hetznerRobotPassword" type="string" defaultValue="hetzner-robot-password" required={false}>
 Name of the key where the password for the Hetzner Robot API is stored.
 </PropField>
 
