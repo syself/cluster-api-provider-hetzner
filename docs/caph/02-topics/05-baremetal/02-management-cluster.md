@@ -33,7 +33,7 @@ Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/
 After creating the bootstrap cluster, it is also required to have some variables exported and the names of the variables that need to be exported can be known by running the following command:
 
 ```console
-export CAPH_VERSION="v1.0.7"
+export CAPH_VERSION="v1.1.8"
 clusterctl generate cluster my-cluster \
 --infrastructure hetzner:${CAPH_VERSION} \
 --list-variables \
@@ -69,12 +69,12 @@ clusterctl init --infrastructure hetzner
 
 ```shell
 Fetching providers
-Installing cert-manager Version="v1.14.2"
+Installing cert-manager Version="v1.20.3"
 Waiting for cert-manager to be available...
 Installing Provider="cluster-api" Version="v1.13.4" TargetNamespace="capi-system"
 Installing Provider="bootstrap-kubeadm" Version="v1.13.4" TargetNamespace="capi-kubeadm-bootstrap-system"
 Installing Provider="control-plane-kubeadm" Version="v1.13.4" TargetNamespace="capi-kubeadm-control-plane-system"
-Installing Provider="infrastructure-hetzner" Version="v1.0.7" TargetNamespace="caph-system"
+Installing Provider="infrastructure-hetzner" Version="v1.1.8" TargetNamespace="caph-system"
 
 Your management cluster has been initialized successfully!
 
