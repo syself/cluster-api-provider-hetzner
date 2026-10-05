@@ -1875,7 +1875,6 @@ var _ = Describe("Hetzner secret watch with a non-empty watch filter", func() {
 		hetznerSecret.Labels = map[string]string{secretutil.LabelEnvironmentName: secretutil.LabelEnvironmentValue}
 		hetznerSecret.Data = map[string][]byte{"hcloud": []byte("")}
 		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
-		Expect(hetznerSecret.Labels).NotTo(HaveKeyWithValue(clusterv1.WatchLabel, watchFilterValue))
 
 		By("expecting the HetznerCluster to be reconciled again as a result of that Secret event")
 		Eventually(func() bool {

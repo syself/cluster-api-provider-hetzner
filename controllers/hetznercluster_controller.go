@@ -858,9 +858,10 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		WithEventFilter(predicates.ResourceIsNotExternallyManaged(mgr.GetScheme(), log)).
 		WithEventFilter(IgnoreInsignificantHetznerClusterStatusUpdates(log)).
 		Owns(&corev1.Secret{}).
-		// Using WatchesRawSource here because Watches applies predicates
-		// configured through WithEventFilter above, which would reject
-		// Secrets without the CAPI watch label.
+		// Watches runs the WithEventFilter predicates above on the Secret. When
+		// --watch-filter is set, one of these predicates rejects objects without the
+		// watch filter label. The Hetzner Secret does not have this label. Therefore,
+		// we use WatchesRawSource because it skips these predicates.
 		WatchesRawSource(source.Kind[client.Object](
 			mgr.GetCache(),
 			&corev1.Secret{},
