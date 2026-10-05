@@ -8,6 +8,24 @@ In `HCloudMachineTemplate` you can define all important properties for `HCloudMa
 
 ## Overview of HCloudMachineTemplate.Spec
 
+<PropField name="template.metadata" type="object" required={false}>
+
+Labels and annotations for the HCloudMachines that are created from this template.
+
+<Collapsible title="properties">
+
+<PropField name="template.metadata.labels" type="map[string]string" required={false}>
+Labels for the HCloudMachines.
+</PropField>
+
+<PropField name="template.metadata.annotations" type="map[string]string" required={false}>
+Annotations for the HCloudMachines.
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
 <PropField name="template.spec.providerID" type="string" required={false}>
 ProviderID set by controller.
 </PropField>

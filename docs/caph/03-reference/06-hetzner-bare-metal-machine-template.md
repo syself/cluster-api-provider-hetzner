@@ -39,6 +39,24 @@ Via MatchLabels you can specify a certain label (key and value) that identifies 
 
 ## Overview of HetznerBareMetalMachineTemplate.Spec
 
+<PropField name="template.metadata" type="object" required={false}>
+
+Labels and annotations for the HetznerBareMetalMachines that are created from this template.
+
+<Collapsible title="properties">
+
+<PropField name="template.metadata.labels" type="map[string]string" required={false}>
+Labels for the HetznerBareMetalMachines.
+</PropField>
+
+<PropField name="template.metadata.annotations" type="map[string]string" required={false}>
+Annotations for the HetznerBareMetalMachines.
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
 <PropField name="template.spec.providerID" type="string" required={false}>
 Provider ID set by controller.
 </PropField>
