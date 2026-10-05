@@ -77,6 +77,10 @@ Local path of a pre-installed image.
 
 </PropField>
 
+<PropField name="template.spec.installImage.deviceStringType" type="string" required={false}>
+Which device name CAPH passes to the command in `template.spec.installImage.imageURLCommand`. `short` or empty passes the short name, for example `sda`. `wwn` passes the WWN, for example `eui.00253885910c8cec`.
+</PropField>
+
 <PropField name="template.spec.installImage.postInstallScript" type="string" required={false}>
 PostInstallScript that is used for commands that will be executed after installing image.
 </PropField>
@@ -247,6 +251,10 @@ PrivateKey is the key in the secret's data where the SSH key's private key is st
 
 </PropField>
 
+<PropField name="template.spec.sshSpec.noSSHAfterInstallImage" type="bool" defaultValue="false" required={false}>
+If true, CAPH does not connect to the server via SSH after installimage finished. CAPH then skips the SSH check at the end of provisioning and reboots the server through the Robot API.
+</PropField>
+
 <PropField name="template.spec.sshSpec.portAfterInstallImage" type="int" defaultValue="22" required={false}>
 PortAfterInstallImage specifies the port that can be used to reach the server via SSH after install image completed successfully.
 </PropField>
@@ -257,6 +265,10 @@ PortAfterCloudInit specifies the port that can be used to reach the server via S
 
 </Collapsible>
 
+</PropField>
+
+<PropField name="template.spec.skipCheckDisk" type="bool" defaultValue="false" required={false}>
+If true, provisioning continues when the check-disk step finds a faulty disk. This has the same effect as the annotation `capi.syself.com/ignore-check-disk` on the HetznerBareMetalHost.
 </PropField>
 
 ## installImage.image
