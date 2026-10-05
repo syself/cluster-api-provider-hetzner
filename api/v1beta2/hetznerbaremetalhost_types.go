@@ -562,7 +562,7 @@ type NIC struct {
 	// dual-stack environment, two nics will be output, one with each IP.
 	IP string `json:"ip,omitempty"`
 
-	// speedMbps is the speed of the device in Gigabits per second
+	// speedMbps is the speed of the device in Megabits per second
 	SpeedMbps int `json:"speedMbps,omitempty"`
 }
 

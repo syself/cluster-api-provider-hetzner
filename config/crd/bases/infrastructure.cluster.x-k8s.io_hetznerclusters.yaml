@@ -905,7 +905,7 @@ spec:
                       default behavior (a plain TCP check, with Hetzner's default interval, timeout and retries)
                       is unchanged.
 
-                      Switching Protocol to http or https lets the load balancer check the kube-apiserver's actual
+                      Switching protocol to http or https lets the load balancer check the kube-apiserver's actual
                       readiness (e.g. path "/readyz") instead of just whether the port accepts connections. Only
                       the kube-apiserver service is affected; extra services are never given a custom health
                       check. Doing so requires the kube-apiserver to serve that path without authentication,
@@ -931,7 +931,7 @@ spec:
                       domain:
                         description: |-
                           domain sets the Host header sent with the HTTP(S) health check request. Only valid when
-                          Protocol is http or https.
+                          protocol is http or https.
                         type: string
                       intervalSeconds:
                         description: |-
@@ -943,7 +943,7 @@ spec:
                       path:
                         description: |-
                           path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
-                          Protocol is http or https.
+                          protocol is http or https.
                         type: string
                       port:
                         description: |-
@@ -966,7 +966,7 @@ spec:
                       response:
                         description: |-
                           response is a string that must be contained in the HTTP(S) response for the check to pass.
-                          Only valid when Protocol is http or https.
+                          Only valid when protocol is http or https.
                         type: string
                       retries:
                         description: |-
@@ -981,7 +981,7 @@ spec:
                           statusCodes are the HTTP response status codes counted as healthy, for example ["200"].
                           Single codes ("200") and wildcards ("2??") are both allowed. If empty, Hetzner's own default
                           is used (see the API reference on LoadBalancerHealthCheckSpec above). Only valid when
-                          Protocol is http or https.
+                          protocol is http or https.
                         items:
                           type: string
                         type: array

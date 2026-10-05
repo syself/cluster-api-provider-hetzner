@@ -58,7 +58,7 @@ type HCloudMachineSpec struct {
 
 	// imageURL gets used for installing custom node images. If that field is set, the controller
 	// boots a new HCloud machine into rescue mode. Then the command referenced by
-	// ImageURLCommand will be copied into the rescue system and executed.
+	// imageURLCommand will be copied into the rescue system and executed.
 	//
 	// The controller uses url.ParseRequestURI (Go function) to validate the URL.
 	//
@@ -73,19 +73,19 @@ type HCloudMachineSpec struct {
 	//
 	// Docs: https://syself.com/docs/caph/developers/image-url-command
 	//
-	// ImageURL is mutually exclusive to "ImageName".
+	// imageURL is mutually exclusive to "imageName".
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Optional
 	// +optional
 	ImageURL string `json:"imageURL,omitempty"`
 
 	// imageURLCommand is the basename of a command file below /shared on the controller pod which
-	// provisions a machine from ImageURL. CAPH copies that command into the rescue system and
+	// provisions a machine from imageURL. CAPH copies that command into the rescue system and
 	// executes it there.
 	//
 	// Docs: https://syself.com/docs/caph/developers/image-url-command
 	//
-	// ImageURLCommand must be set if ImageURL is set. ImageURLCommand must be empty if ImageURL is
+	// imageURLCommand must be set if imageURL is set. imageURLCommand must be empty if imageURL is
 	// empty.
 	// +kubebuilder:validation:Optional
 	// +optional
@@ -141,24 +141,23 @@ type HCloudMachineStatus struct {
 	// +optional
 	InstanceState InstanceState `json:"instanceState,omitempty"`
 
-	// BootState indicates the current state during provisioning.
+	// bootState indicates the current state during provisioning.
 	//
-	// If Spec.ImageName is set the states will be:
+	// If spec.imageName is set the states will be:
 	//   1. BootingToRealOS
 	//   2. OperatingSystemRunning
 	//
-	// If Spec.ImageURL is set the states will be:
+	// If spec.imageURL is set the states will be:
 	//   1. Initializing
 	//   2. EnablingRescue
 	//   3. BootingToRescue
 	//   4. RunningImageCommand
 	//   5. BootingToRealOS
 	//   6. OperatingSystemRunning
-
 	// +optional
 	BootState HCloudBootState `json:"bootState"`
 
-	// bootStateSince is the timestamp of the last change to BootState. It is used to timeout
+	// bootStateSince is the timestamp of the last change to bootState. It is used to timeout
 	// provisioning if a state takes too long.
 	// +optional
 	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`

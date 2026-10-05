@@ -1115,7 +1115,7 @@ spec:
                             e.g. "en0"
                           type: string
                         speedMbps:
-                          description: speedMbps is the speed of the device in Gigabits
+                          description: speedMbps is the speed of the device in Megabits
                             per second
                           type: integer
                       type: object

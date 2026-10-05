@@ -75,8 +75,8 @@ const (
 // HetznerBareMetalMachineSpec defines the desired state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineSpec struct {
 	// providerID is set by the controller to either (new) `hrobot://<server-id>` or (old)
-	// `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a ProviderID, then
-	// this will never change. If the ProviderID is empty, the controller sets it to the old format
+	// `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a providerID, then
+	// this will never change. If the providerID is empty, the controller sets it to the old format
 	// by default (hcloud://bm-NNNN), except the Annotation
 	// `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
 	// `"true"`.
@@ -238,7 +238,7 @@ type CustomProvisioner struct {
 	// +optional
 	DeviceStringType DeviceStringType `json:"deviceStringType,omitempty"`
 
-	// Swraid defines whether Command sets up a RAID. Set 1 to enable. CAPH then uses a
+	// swraid defines whether Command sets up a RAID. Set 1 to enable. CAPH then uses a
 	// HetznerBareMetalHost with spec.rootDeviceHints.raid.wwn and passes all these disks to Command.
 	// +optional
 	// +kubebuilder:default=0
