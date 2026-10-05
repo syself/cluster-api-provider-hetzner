@@ -16,10 +16,18 @@ ProviderID set by controller.
 Desired server type of server in Hetzner's Cloud API. Example: cpx32.
 </PropField>
 
-<PropField name="template.spec.imageName" type="string" required={true}>
+<PropField name="template.spec.imageName" type="string" required={false}>
 
-Specifies desired image of server. ImageName can reference an image uploaded to Hetzner API in two ways: either directly as name of an image, or as label of an image (see [here](/docs/caph/02-topics/03-node-image.md) for more details).
+Specifies desired image of server. ImageName can reference an image uploaded to Hetzner API in two ways: either directly as name of an image, or as label of an image (see [here](/docs/caph/02-topics/03-node-image.md) for more details). Set either `template.spec.imageName` or `template.spec.imageURL`.
 
+</PropField>
+
+<PropField name="template.spec.imageURL" type="string" required={false}>
+Custom node image URL. When this is set, CAPH provisions the server via the rescue system instead of creating it directly from an HCloud image. Set either `template.spec.imageName` or `template.spec.imageURL`.
+</PropField>
+
+<PropField name="template.spec.imageURLCommand" type="string" required={false}>
+Basename of a command below `/shared` on the controller pod that CAPH copies into the rescue system and executes for `template.spec.imageURL`. Required when `template.spec.imageURL` is set.
 </PropField>
 
 <PropField name="template.spec.sshKeys" type="object" required={false}>
