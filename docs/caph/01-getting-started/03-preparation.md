@@ -110,14 +110,14 @@ $ clusterctl generate cluster --infrastructure hetzner:<caph-version> --list-var
 Required Variables:
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE
   - HCLOUD_REGION
-  - SSH_KEY_NAME
   - HCLOUD_WORKER_MACHINE_TYPE
+  - KUBERNETES_VERSION
+  - SSH_KEY_NAME
 
 Optional Variables:
   - CLUSTER_NAME                 (defaults to hetzner-cluster)
-  - CONTROL_PLANE_MACHINE_COUNT  (defaults to 3)
-  - KUBERNETES_VERSION           (defaults to 1.31.6)
-  - WORKER_MACHINE_COUNT         (defaults to 3)
+  - CONTROL_PLANE_MACHINE_COUNT  (defaults to 1)
+  - WORKER_MACHINE_COUNT         (defaults to 0)
 ```
 
 ### Create a secret for hcloud only

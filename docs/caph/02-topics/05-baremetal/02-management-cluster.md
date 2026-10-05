@@ -40,16 +40,17 @@ clusterctl generate cluster my-cluster \
 --flavor hetzner-hcloud-control-planes
 
 Required Variables:
+  - BAREMETAL_POOL
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE
   - HCLOUD_REGION
-  - SSH_KEY_NAME
   - HCLOUD_WORKER_MACHINE_TYPE
+  - KUBERNETES_VERSION
+  - SSH_KEY_NAME
 
 Optional Variables:
   - CLUSTER_NAME                 (defaults to my-cluster)
-  - CONTROL_PLANE_MACHINE_COUNT  (defaults to 3)
-  - KUBERNETES_VERSION           (defaults to v1.36.0)
-  - WORKER_MACHINE_COUNT         (defaults to 3)
+  - CONTROL_PLANE_MACHINE_COUNT  (defaults to 1)
+  - WORKER_MACHINE_COUNT         (defaults to 0)
 ```
 
 > [!NOTE]
