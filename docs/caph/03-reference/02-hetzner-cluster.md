@@ -75,7 +75,7 @@ next reconcile without waiting for the gate.
 
 <PropField name="hcloudNetwork" type="object" required={false}>
 
-Specifies details about Hetzner cloud private networks.
+Specifies details about Hetzner cloud private networks. Cannot be changed after the HetznerCluster is created.
 
 <Collapsible title="properties">
 
@@ -192,7 +192,7 @@ Defines specs of load balancer.
 <Collapsible title="properties">
 
 <PropField name="controlPlaneLoadBalancer.enabled" type="bool" defaultValue="true" required={false}>
-Specifies if a load balancer should be created.
+Specifies if a load balancer should be created. Cannot be changed after the HetznerCluster is created.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.name" type="string" required={false}>
@@ -208,7 +208,7 @@ Type of load balancer. One of lb11, lb21, lb31.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.port" type="int" defaultValue="6443" required={false}>
-Load balancer port. Must be in range 1-65535.
+Load balancer port. Must be in range 1-65535. Cannot be changed after the HetznerCluster is created.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.extraServices" type="[]object" required={false}>
@@ -234,7 +234,7 @@ Defines destination port. Must be in range 1-65535.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.region" type="string" required={false}>
-Name of the HCloud location where the load balancer runs, for example fsn1. Required when the load balancer is enabled.
+Name of the HCloud location where the load balancer runs, for example fsn1. Required when the load balancer is enabled. Cannot be changed after the HetznerCluster is created.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.targetAddressFamily" type="string" defaultValue="dualstack" required={false}>
@@ -256,19 +256,19 @@ Protocol used for the health check. One of tcp, http, https.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.healthCheck.port" type="int" defaultValue="service port" required={false}>
-Port the check runs against. If omitted, the service's destination port is used.
+Port the check runs against. Must be in range 1-65535. If omitted, the service's destination port is used.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.healthCheck.intervalSeconds" type="int" required={false}>
-Time in seconds between two consecutive health checks. If omitted, Hetzner's own default is used (see the linked API reference above).
+Time in seconds between two consecutive health checks. Must be in range 3-60. If omitted, Hetzner's own default is used (see the linked API reference above).
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.healthCheck.timeoutSeconds" type="int" required={false}>
-Time in seconds to wait for a health check attempt to succeed. If omitted, Hetzner's own default is used (see the linked API reference above).
+Time in seconds to wait for a health check attempt to succeed. Must be in range 1-60. If omitted, Hetzner's own default is used (see the linked API reference above).
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.healthCheck.retries" type="int" required={false}>
-Number of consecutive failed health checks before a target is considered unhealthy. If omitted, Hetzner's own default is used (see the linked API reference above).
+Number of consecutive failed health checks before a target is considered unhealthy. Must be in range 1-5. If omitted, Hetzner's own default is used (see the linked API reference above).
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.healthCheck.path" type="string" required={false}>
