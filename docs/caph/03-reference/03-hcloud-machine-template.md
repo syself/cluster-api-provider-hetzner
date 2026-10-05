@@ -1,7 +1,7 @@
 ---
 title: HCloudMachineTemplate
 description: In HCloudMachineTemplate you can define all important properties for HCloudMachines, which are reconciled by the `HCloudMachineController`, responsible for creating and deleting servers in Hetzner Cloud.
-metatitle: HCloudMachineController Object Reference
+metatitle: HCloudMachineTemplate Object Reference
 ---
 
 In `HCloudMachineTemplate` you can define all important properties for `HCloudMachines`. `HCloudMachines` are reconciled by the `HCloudMachineController`, which creates and deletes servers in Hetzner Cloud.
@@ -13,7 +13,7 @@ ProviderID set by controller.
 </PropField>
 
 <PropField name="template.spec.type" type="string" required={true}>
-Desired server type of server in Hetzner's Cloud API. Example: cpx11.
+Desired server type of server in Hetzner's Cloud API. Example: cpx32.
 </PropField>
 
 <PropField name="template.spec.imageName" type="string" required={true}>
@@ -54,7 +54,7 @@ Fingerprint of SSH key - used by the controller.
 Placement group of the machine in HCloud API, must be referencing an existing placement group.
 </PropField>
 
-<PropField name="template.spec.publicNetwork" type="object" defaultValue={"{enableIPv4: true, enabledIPv6: true}"} required={false}>
+<PropField name="template.spec.publicNetwork" type="object" defaultValue={"{enableIPv4: true, enableIPv6: true}"} required={false}>
 
 Specs about primary IP address of server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled.
 

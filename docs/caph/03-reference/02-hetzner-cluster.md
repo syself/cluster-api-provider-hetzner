@@ -301,7 +301,7 @@ List of placement groups that should be defined in Hetzner API.
 Name of placement group.
 </PropField>
 
-<PropField name="hcloudPlacementGroups[].type" type="string" defaultValue="type" required={false}>
+<PropField name="hcloudPlacementGroups[].type" type="string" defaultValue="spread" required={false}>
 Type of placement group. Hetzner only supports 'spread'.
 </PropField>
 
@@ -309,31 +309,31 @@ Type of placement group. Hetzner only supports 'spread'.
 
 </PropField>
 
-<PropField name="hetznerSecret" type="object" required={true}>
+<PropField name="hetznerSecretRef" type="object" required={true}>
 
 Reference to secret where Hetzner API credentials are stored.
 
 <Collapsible title="properties">
 
-<PropField name="hetznerSecret.name" type="string" required={true}>
+<PropField name="hetznerSecretRef.name" type="string" required={true}>
 Name of secret.
 </PropField>
 
-<PropField name="hetznerSecret.key" type="object" required={true}>
+<PropField name="hetznerSecretRef.key" type="object" required={true}>
 
 Reference to the keys that are used in the secret, either `hcloudToken` or `hetznerRobotUser` and `hetznerRobotPassword` need to be specified.
 
 <Collapsible title="properties">
 
-<PropField name="hetznerSecret.key.hcloudToken" type="string" required={false}>
+<PropField name="hetznerSecretRef.key.hcloudToken" type="string" required={false}>
 Name of the key where the token for the Hetzner Cloud API is stored.
 </PropField>
 
-<PropField name="hetznerSecret.key.hetznerRobotUser" type="string" required={false}>
+<PropField name="hetznerSecretRef.key.hetznerRobotUser" type="string" required={false}>
 Name of the key where the username for the Hetzner Robot API is stored.
 </PropField>
 
-<PropField name="hetznerSecret.key.hetznerRobotPassword" type="string" required={false}>
+<PropField name="hetznerSecretRef.key.hetznerRobotPassword" type="string" required={false}>
 Name of the key where the password for the Hetzner Robot API is stored.
 </PropField>
 
@@ -346,5 +346,5 @@ Name of the key where the password for the Hetzner Robot API is stored.
 </PropField>
 
 <PropField name="skipCreatingHetznerSecretInWorkloadCluster" type="bool" defaultValue="false" required={false}>
-Indicates whether the Hetzner secret should be created in the workload cluster. By default the secret gets created, so that the ccm (running in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the wl-cluster, you can set this to value to false, so that the secret is not created. Be sure to run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
+Indicates whether the Hetzner secret should be created in the workload cluster. By default the secret gets created, so that the ccm (running in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the wl-cluster, you can set this value to true, so that the secret is not created. Be sure to run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
 </PropField>

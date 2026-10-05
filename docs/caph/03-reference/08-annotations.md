@@ -1,6 +1,6 @@
 ---
 title: Annotations
-description: Full list of annotation you can set to instruct the Syself CAPH Controller to modify its behavior.
+description: Full list of annotations you can set to instruct the Syself CAPH Controller to modify its behavior.
 metatitle: Available Annotations For CAPH objects
 ---
 

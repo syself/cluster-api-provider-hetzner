@@ -129,10 +129,10 @@ In order for the provider integration hetzner to communicate with the Hetzner AP
 - HCLOUD_TOKEN: The project where your cluster will be placed. You have to get a token from your HCloud Project.
 
 ```shell
-kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN
+kubectl create secret generic hcloud --from-literal=hcloud=$HCLOUD_TOKEN
 
 # Patch the created secret so it is automatically moved to the target cluster later.
-kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
+kubectl patch secret hcloud -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 ```
 
 The secret name and the tokens can also be customized in the cluster template.
@@ -156,12 +156,12 @@ export HETZNER_SSH_PRIV_PATH="<YOUR-SSH-PRIVATE-PATH>"
 - HETZNER_SSH_PRIV_PATH: The Path to your generated Private SSH Key. This is needed because CAPH uses this key to provision the node in Hetzner Dedicated.
 
 ```shell
-kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN --from-literal=robot-user=$HETZNER_ROBOT_USER --from-literal=robot-password=$HETZNER_ROBOT_PASSWORD
+kubectl create secret generic hcloud --from-literal=hcloud=$HCLOUD_TOKEN --from-literal=robot-user=$HETZNER_ROBOT_USER --from-literal=robot-password=$HETZNER_ROBOT_PASSWORD
 
 kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=$HETZNER_SSH_PRIV_PATH --from-file=ssh-publickey=$HETZNER_SSH_PUB_PATH
 
 # Patch the created secrets so that they get automatically moved to the target cluster later.
-kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
+kubectl patch secret hcloud -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 kubectl patch secret robot-ssh -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 ```
 

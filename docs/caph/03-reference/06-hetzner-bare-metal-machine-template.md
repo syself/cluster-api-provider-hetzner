@@ -35,7 +35,7 @@ When the port is changed in cloud-init, then we additionally need to use the fol
 
 ## Choosing the right host
 
-Via MatchLabels you can specify a certain label (key and value) that identifies the host. You get more flexibility with MatchExpressions. This allows decisions like "take any host that has the key "mykey" and let this key have either one of the values "val1", "val2", and "val3".
+Via MatchLabels you can specify a certain label (key and value) that identifies the host. You get more flexibility with MatchExpressions. This allows decisions like "take any host that has the key `mykey` and let this key have either one of the values `val1`, `val2`, and `val3`".
 
 ## Overview of HetznerBareMetalMachineTemplate.Spec
 
@@ -129,7 +129,7 @@ Defines the volume name.
 Defines the mount path.
 </PropField>
 
-<PropField name="template.spec.installImage.logicalVolumeDefinitions.fileSystem" type="string" required={true}>
+<PropField name="template.spec.installImage.logicalVolumeDefinitions.filesystem" type="string" required={true}>
 Defines the file system.
 </PropField>
 
@@ -173,7 +173,7 @@ Options to select hosts with.
 
 <Collapsible title="properties">
 
-<PropField name="template.spec.hostSelector.matchLabels" type="map[string][string]" required={false}>
+<PropField name="template.spec.hostSelector.matchLabels" type="map[string]string" required={false}>
 Specify labels as key-value pairs that should be there in host object to select it.
 </PropField>
 
@@ -271,7 +271,7 @@ Example of an image provided by Hetzner via NFS:
 
 ```yaml
 image:
-  path: /root/.oldroot/nfs//images/Ubuntu-2404-noble-amd64-base.tar.zst
+  path: /root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.zst
 ```
 
 Example of an image provided by you via https. The script installimage of Hetzner parses the name to detect the version. It is

@@ -30,7 +30,7 @@ kubectl cluster-info --context kind-kind
 Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/#community 🙂
 ```
 
-After creating the bootstrap cluster, it is also required to have some variables exported and the name of the variables that needs to be exported can be known by running the following command:
+After creating the bootstrap cluster, it is also required to have some variables exported and the names of the variables that need to be exported can be known by running the following command:
 
 ```console
 export CAPH_VERSION="v1.0.7"
@@ -95,11 +95,11 @@ To create new user in Robot, click on the `Create User` button in the Hetzner Ro
 
 ![robot user](https://syself.com/images/robot-user.png)
 
-This is a required for following the next step.
+This is required for the next step.
 
-## Creating and verify ssh-key in hcloud
+## Creating and verifying ssh-key in hcloud
 
-First you need to create a ssh-key locally and you can `ssh-keygen` command for creation.
+First you need to create a ssh-key locally and you can use the `ssh-keygen` command for creation.
 
 ```shell
 ssh-keygen -t ed25519 -f ~/.ssh/caph
@@ -131,8 +131,8 @@ sshKeys:
 
 In order for the provider integration hetzner to communicate with the Hetzner API ([HCloud API](https://docs.hetzner.cloud/) + [Robot API](https://robot.your-server.de/doc/webservice/en.html#preface)), we need to create secrets with the access data. The secret must be in the same namespace as the other CRs.
 
-We create two secrets named `hetzner` for Hetzner Cloud and Robot API access and `robot-ssh` for provisioning bare metal servers via SSH.
-The `hetzner` secret contains API token for hcloud token. It also contains username and password that is used to interact with robot API. `robot-ssh` secret contains the public-key, private-key and name of the ssh-key used for baremetal servers.
+We create two secrets named `hcloud` for Hetzner Cloud and Robot API access and `robot-ssh` for provisioning bare metal servers via SSH.
+The `hcloud` secret contains API token for hcloud token. It also contains username and password that is used to interact with robot API. `robot-ssh` secret contains the public-key, private-key and name of the ssh-key used for baremetal servers.
 
 ```shell
 export HCLOUD_TOKEN="<YOUR-TOKEN>"
@@ -151,7 +151,7 @@ export HETZNER_SSH_PRIV_PATH="<YOUR-SSH-PRIVATE-PATH>"
 - `HETZNER_SSH_PRIV_PATH`: The Path to your generated Private SSH Key. This is needed because CAPH uses this key to provision the node in Hetzner Dedicated.
 
 ```shell
-kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN --from-literal=robot-user=$HETZNER_ROBOT_USER --from-literal=robot-password=$HETZNER_ROBOT_PASSWORD
+kubectl create secret generic hcloud --from-literal=hcloud=$HCLOUD_TOKEN --from-literal=robot-user=$HETZNER_ROBOT_USER --from-literal=robot-password=$HETZNER_ROBOT_PASSWORD
 
 kubectl create secret generic robot-ssh --from-literal=sshkey-name=$SSH_KEY_NAME \
         --from-file=ssh-privatekey=$HETZNER_SSH_PRIV_PATH \
@@ -159,12 +159,12 @@ kubectl create secret generic robot-ssh --from-literal=sshkey-name=$SSH_KEY_NAME
 ```
 
 > [!NOTE]
-> `sshkey-name` (from SSH_KEY_NAME) should must match the name that is present in Hetzner otherwise the controller will not know how to reach the machine. You can upload ssh-keys via the Robot UI (Server / Key Management).
+> `sshkey-name` (from SSH_KEY_NAME) must match the name that is present in Hetzner otherwise the controller will not know how to reach the machine. You can upload ssh-keys via the Robot UI (Server / Key Management).
 
 Patch the created secrets so that they get automatically moved to the target cluster later. The following command helps you do that:
 
 ```shell
-kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
+kubectl patch secret hcloud -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 kubectl patch secret robot-ssh -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 ```
 
@@ -190,7 +190,7 @@ spec:
 
 If you already know the WWN of the storage device you want to choose for booting, specify it in the `rootDeviceHints` of the object. If not, you can proceed. During the provisioning process, the controller will fetch information about all available storage devices and store it in the status of the object.
 
-For example, let's consider a `HetznerBareMetalHost` object without specify it's WWN.
+For example, let's consider a `HetznerBareMetalHost` object without specifying its WWN.
 
 ```yaml
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -235,7 +235,7 @@ storage:
     wwn: "0x500a07511bb48992"
 ```
 
-In the output above, we can see that on this baremetal servers we have two disk with their respective `Wwn`. We can also verify it by making an ssh connection to the rescue system and executing the following command:
+In the output above, we can see that on this baremetal server we have two disks with their respective `Wwn`. We can also verify it by making an ssh connection to the rescue system and executing the following command:
 
 ```shell
 # lsblk --nodeps --output name,type,wwn

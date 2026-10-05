@@ -80,7 +80,7 @@ You can use `make watch` to get an overview. It shows continously:
 - logs of caph and capi controller
 - events
 
-To tear down the workload cluster, press the **"Delete Workload Cluster"** button. After a few
+To tear down the workload cluster, press the **"Delete Cluster"** button. After a few
 minutes, the resources should be deleted.
 
 To tear down the kind cluster, use:
