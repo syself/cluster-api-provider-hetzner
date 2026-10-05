@@ -1181,20 +1181,20 @@ spec:
                   pendingReboot is the reboot we sent and are waiting for. It is empty when we are not waiting
                   for a reboot.
                 properties:
-                  state:
-                    description: state is the kind of reboot we sent.
-                    enum:
-                    - ssh reboot triggered
-                    - software reboot triggered
-                    - hardware reboot triggered
-                    type: string
                   triggeredAt:
                     description: triggeredAt is when we sent the reboot.
                     format: date-time
                     type: string
+                  type:
+                    description: type is the kind of reboot we sent.
+                    enum:
+                    - ssh
+                    - sw
+                    - hw
+                    type: string
                 required:
-                - state
                 - triggeredAt
+                - type
                 type: object
               provisioningState:
                 description: provisioningState is the current state tracked by the

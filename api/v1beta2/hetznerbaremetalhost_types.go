@@ -105,32 +105,20 @@ type Raid struct {
 type ErrorType string
 
 const (
-	// FatalError leads to the CAPI Machine being replaced. Deprovisioning clears it.
-	FatalError ErrorType = "fatal error"
+	// ErrorTypeFatal leads to the CAPI Machine being replaced. Deprovisioning clears it.
+	ErrorTypeFatal ErrorType = "fatal error"
 
-	// PermanentError is like FatalError, but deprovisioning keeps it on the HetznerBareMetalHost. It
-	// stays until someone removes the permanent error annotation.
-	PermanentError ErrorType = "permanent error"
-)
-
-// RebootState is the kind of reboot we sent.
-type RebootState string
-
-const (
-	// RebootStateSSH means we sent a reboot command via ssh.
-	RebootStateSSH RebootState = "ssh reboot triggered"
-	// RebootStateSoftware means we sent a software reboot via the Robot API.
-	RebootStateSoftware RebootState = "software reboot triggered"
-	// RebootStateHardware means we sent a hardware reboot via the Robot API.
-	RebootStateHardware RebootState = "hardware reboot triggered"
+	// ErrorTypePermanent is like ErrorTypeFatal, but deprovisioning keeps it on the
+	// HetznerBareMetalHost. It stays until someone removes the permanent error annotation.
+	ErrorTypePermanent ErrorType = "permanent error"
 )
 
 // PendingReboot is a reboot we sent and are waiting for.
 type PendingReboot struct {
-	// state is the kind of reboot we sent.
+	// type is the kind of reboot we sent.
 	// +required
-	// +kubebuilder:validation:Enum="ssh reboot triggered";"software reboot triggered";"hardware reboot triggered"
-	State RebootState `json:"state,omitempty"`
+	// +kubebuilder:validation:Enum=ssh;sw;hw
+	Type RebootType `json:"type,omitempty"`
 
 	// triggeredAt is when we sent the reboot.
 	// +required
@@ -359,7 +347,7 @@ func (sts HetznerBareMetalHostStatus) GetIPAddress() string {
 
 // HasFatalError returns true, if the corresponding capi machine should get deleted.
 func (sts HetznerBareMetalHostStatus) HasFatalError() bool {
-	return sts.ErrorType == FatalError || sts.ErrorType == PermanentError
+	return sts.ErrorType == ErrorTypeFatal || sts.ErrorType == ErrorTypePermanent
 }
 
 // GetConditions returns the conditions for the HetznerBareMetalHost object.
@@ -685,14 +673,14 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 // has a fatal or permanent error. For a permanent error the message also names the annotation that
 // an operator has to remove.
 //
-// When errorType is PermanentError, it returns permanentErrorSet as true along with the message that
-// callers holding an EventRecorder should emit as a "PermanentErrorSet" warning event.
+// When errorType is ErrorTypePermanent, it returns permanentErrorSet as true along with the message
+// that callers holding an EventRecorder should emit as a "PermanentErrorSet" warning event.
 func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) (permanentErrorSet bool, message string) {
 	host.Status.ErrorType = errorType
 	host.Status.PendingReboot = nil
 
 	message = errorMessage
-	if errorType == PermanentError {
+	if errorType == ErrorTypePermanent {
 		// A permanent error stays on the host until someone removes the annotation. The condition has
 		// to name the annotation.
 		message = fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
@@ -701,10 +689,10 @@ func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage str
 
 	var reason, v1beta1Reason string
 	switch errorType {
-	case FatalError:
+	case ErrorTypeFatal:
 		reason = HetznerBareMetalHostActionCompletedFatalErrorReason
 		v1beta1Reason = ActionCompletedFatalErrorV1Beta1Reason
-	case PermanentError:
+	case ErrorTypePermanent:
 		reason = HetznerBareMetalHostActionCompletedPermanentErrorReason
 		v1beta1Reason = ActionCompletedPermanentErrorV1Beta1Reason
 	default:
@@ -723,7 +711,7 @@ func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage str
 	deprecatedv1beta1conditions.MarkFalse(host, ActionCompletedV1Beta1Condition,
 		v1beta1Reason, clusterv1.ConditionSeverityError, "%s", message)
 
-	if errorType != PermanentError {
+	if errorType != ErrorTypePermanent {
 		return false, ""
 	}
 
@@ -733,46 +721,6 @@ func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage str
 	host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
 
 	return true, message
-}
-
-// SetPendingReboot records the reboot we just sent. It sets the ActionCompleted condition to true
-// with message, because sending the reboot succeeded.
-func (host *HetznerBareMetalHost) SetPendingReboot(state RebootState, message string) {
-	host.Status.PendingReboot = &PendingReboot{
-		State:       state,
-		TriggeredAt: metav1.Now(),
-	}
-
-	var reason, v1beta1Reason string
-	switch state {
-	case RebootStateSSH:
-		reason = HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason
-		v1beta1Reason = ActionCompletedSSHRebootTriggeredV1Beta1Reason
-	case RebootStateSoftware:
-		reason = HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason
-		v1beta1Reason = ActionCompletedSoftwareRebootTriggeredV1Beta1Reason
-	case RebootStateHardware:
-		reason = HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason
-		v1beta1Reason = ActionCompletedHardwareRebootTriggeredV1Beta1Reason
-	default:
-		reason = HetznerBareMetalHostActionCompletedUnknownErrorReason
-		v1beta1Reason = ActionCompletedUnknownErrorV1Beta1Reason
-	}
-
-	conditions.Set(host, metav1.Condition{
-		Type:    HetznerBareMetalHostActionCompletedCondition,
-		Status:  metav1.ConditionTrue,
-		Reason:  reason,
-		Message: message,
-	})
-
-	// Clients that read the host through the v1beta1 API see the same condition in status.conditions.
-	deprecatedv1beta1conditions.Set(host, &clusterv1.Condition{
-		Type:    ActionCompletedV1Beta1Condition,
-		Status:  corev1.ConditionTrue,
-		Reason:  v1beta1Reason,
-		Message: message,
-	})
 }
 
 // ClearError clears the error type and removes the ActionCompleted condition from both surfaces.

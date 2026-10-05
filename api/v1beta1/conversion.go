@@ -411,15 +411,21 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 	// other values are ignored, because users see them on the ActionCompleted condition. We do not
 	// stash them in the conversion data annotation, because controller does not need them and
 	// restoring them would overwrite newer values from the controller.
+	var rebootType infrav2.RebootType
 	switch in.ErrorType {
 	case FatalError, PermanentError:
 		out.ErrorType = infrav2.ErrorType(in.ErrorType)
-	case ErrorTypeSSHRebootTriggered, ErrorTypeSoftwareRebootTriggered, ErrorTypeHardwareRebootTriggered:
-		if !in.RebootTriggeredAt.IsZero() {
-			out.PendingReboot = &infrav2.PendingReboot{
-				State:       infrav2.RebootState(in.ErrorType),
-				TriggeredAt: *in.RebootTriggeredAt,
-			}
+	case ErrorTypeSSHRebootTriggered:
+		rebootType = infrav2.RebootTypeSSH
+	case ErrorTypeSoftwareRebootTriggered:
+		rebootType = infrav2.RebootTypeSoftware
+	case ErrorTypeHardwareRebootTriggered:
+		rebootType = infrav2.RebootTypeHardware
+	}
+	if rebootType != "" && !in.RebootTriggeredAt.IsZero() {
+		out.PendingReboot = &infrav2.PendingReboot{
+			Type:        rebootType,
+			TriggeredAt: *in.RebootTriggeredAt,
 		}
 	}
 
@@ -466,10 +472,17 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedSt
 	out.NodeBootID = in.NodeBootID
 
 	// v1beta1 stores the pending reboot in errorType and rebootTriggeredAt. When the host has a fatal
-	// or permanent error, errorType has that error instead of the reboot state.
+	// or permanent error, errorType has that error instead of the reboot type.
 	if in.PendingReboot != nil {
 		if in.ErrorType == "" {
-			out.ErrorType = ErrorType(in.PendingReboot.State)
+			switch in.PendingReboot.Type {
+			case infrav2.RebootTypeSSH:
+				out.ErrorType = ErrorTypeSSHRebootTriggered
+			case infrav2.RebootTypeSoftware:
+				out.ErrorType = ErrorTypeSoftwareRebootTriggered
+			case infrav2.RebootTypeHardware:
+				out.ErrorType = ErrorTypeHardwareRebootTriggered
+			}
 		}
 		if !in.PendingReboot.TriggeredAt.IsZero() {
 			triggeredAt := in.PendingReboot.TriggeredAt

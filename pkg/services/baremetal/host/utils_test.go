@@ -270,7 +270,7 @@ var _ = Describe("hasJustRebooted", func() {
 
 	It("returns true when the pending reboot was just sent", func() {
 		host := helpers.BareMetalHost("test-host", "default",
-			helpers.WithPendingReboot(infrav2.RebootStateSSH, metav1.Now()),
+			helpers.WithPendingReboot(infrav2.RebootTypeSSH, metav1.Now()),
 		)
 		svc := newTestService(host, nil, nil, nil, nil)
 		Expect(svc.hasJustRebooted()).To(BeTrue())
@@ -278,7 +278,7 @@ var _ = Describe("hasJustRebooted", func() {
 
 	It("returns false when the pending reboot was sent longer than rebootWaitTime ago", func() {
 		host := helpers.BareMetalHost("test-host", "default",
-			helpers.WithPendingReboot(infrav2.RebootStateSSH, metav1.NewTime(time.Now().Add(-2*rebootWaitTime))),
+			helpers.WithPendingReboot(infrav2.RebootTypeSSH, metav1.NewTime(time.Now().Add(-2*rebootWaitTime))),
 		)
 		svc := newTestService(host, nil, nil, nil, nil)
 		Expect(svc.hasJustRebooted()).To(BeFalse())

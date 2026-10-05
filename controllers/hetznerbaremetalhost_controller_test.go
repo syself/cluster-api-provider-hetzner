@@ -1096,20 +1096,20 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 	reconciler := &HetznerBareMetalHostReconciler{EventRecorder: record.NewFakeRecorder(10)}
 
 	// PermanentError with annotation --> Error should not get removed
-	bmHost := newHostWithError(map[string]string{infrav2.PermanentErrorAnnotation: ""}, infrav2.PermanentError)
+	bmHost := newHostWithError(map[string]string{infrav2.PermanentErrorAnnotation: ""}, infrav2.ErrorTypePermanent)
 	removed := reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Status.ErrorType)
 
 	// PermanentError without annotation --> Error should get removed
-	bmHost = newHostWithError(map[string]string{"other-annotation": "some value"}, infrav2.PermanentError)
+	bmHost = newHostWithError(map[string]string{"other-annotation": "some value"}, infrav2.ErrorTypePermanent)
 	removed = reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.True(t, removed)
 	require.Empty(t, bmHost.Status.ErrorType)
 	require.Equal(t, map[string]string{"other-annotation": "some value"}, bmHost.Annotations)
 
 	// Other Error without annotation --> Error should not get removed
-	bmHost = newHostWithError(map[string]string{}, infrav2.FatalError)
+	bmHost = newHostWithError(map[string]string{}, infrav2.ErrorTypeFatal)
 	removed = reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Status.ErrorType)

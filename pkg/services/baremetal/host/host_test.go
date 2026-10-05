@@ -74,7 +74,7 @@ var _ = Describe("SetError and ClearError", func() {
 			Expect(deprecated.Message).To(Equal(tc.errorMessage))
 		},
 		Entry("fatal error", testCaseSetError{
-			errorType:             infrav2.FatalError,
+			errorType:             infrav2.ErrorTypeFatal,
 			errorMessage:          "fatal failure",
 			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedFatalErrorReason,
 			expectedV1Beta1Reason: infrav2.ActionCompletedFatalErrorV1Beta1Reason,
@@ -82,63 +82,63 @@ var _ = Describe("SetError and ClearError", func() {
 	)
 
 	type testCaseSetPendingReboot struct {
-		rebootState           infrav2.RebootState
+		rebootType            infrav2.RebootType
 		message               string
 		expectedReason        string
 		expectedV1Beta1Reason string
 	}
 
-	DescribeTable("SetPendingReboot sets the PendingReboot and the ActionCompleted condition",
+	DescribeTable("setPendingReboot sets the PendingReboot and the ActionCompleted condition",
 		func(tc testCaseSetPendingReboot) {
 			host := helpers.BareMetalHost("test-host", "default")
 
-			host.SetPendingReboot(tc.rebootState, tc.message)
+			setPendingReboot(host, tc.rebootType, tc.message)
 
 			Expect(host.Status.PendingReboot).ToNot(BeNil())
-			Expect(host.Status.PendingReboot.State).To(Equal(tc.rebootState))
+			Expect(host.Status.PendingReboot.Type).To(Equal(tc.rebootType))
 			Expect(host.Status.PendingReboot.TriggeredAt.Time).To(BeTemporally("~", time.Now(), 5*time.Second))
 			Expect(host.Status.ErrorType).To(BeEmpty())
 
 			actionCompleted := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
 			Expect(actionCompleted).ToNot(BeNil())
-			Expect(actionCompleted.Status).To(Equal(metav1.ConditionTrue))
+			Expect(actionCompleted.Status).To(Equal(metav1.ConditionFalse))
 			Expect(actionCompleted.Reason).To(Equal(tc.expectedReason))
 			Expect(actionCompleted.Message).To(Equal(tc.message))
 
 			deprecated := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
 			Expect(deprecated).ToNot(BeNil())
-			Expect(deprecated.Status).To(Equal(corev1.ConditionTrue))
+			Expect(deprecated.Status).To(Equal(corev1.ConditionFalse))
 			Expect(deprecated.Reason).To(Equal(tc.expectedV1Beta1Reason))
 			Expect(deprecated.Message).To(Equal(tc.message))
 		},
 		Entry("ssh reboot triggered", testCaseSetPendingReboot{
-			rebootState:           infrav2.RebootStateSSH,
+			rebootType:            infrav2.RebootTypeSSH,
 			message:               "ssh reboot triggered",
-			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason,
+			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedSSHRebootOngoingReason,
 			expectedV1Beta1Reason: infrav2.ActionCompletedSSHRebootTriggeredV1Beta1Reason,
 		}),
 		Entry("software reboot triggered", testCaseSetPendingReboot{
-			rebootState:           infrav2.RebootStateSoftware,
+			rebootType:            infrav2.RebootTypeSoftware,
 			message:               "software reboot triggered",
-			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason,
+			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedSoftwareRebootOngoingReason,
 			expectedV1Beta1Reason: infrav2.ActionCompletedSoftwareRebootTriggeredV1Beta1Reason,
 		}),
 		Entry("hardware reboot triggered", testCaseSetPendingReboot{
-			rebootState:           infrav2.RebootStateHardware,
+			rebootType:            infrav2.RebootTypeHardware,
 			message:               "hardware reboot triggered",
-			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason,
+			expectedReason:        infrav2.HetznerBareMetalHostActionCompletedHardwareRebootOngoingReason,
 			expectedV1Beta1Reason: infrav2.ActionCompletedHardwareRebootTriggeredV1Beta1Reason,
 		}),
 	)
 
 	It("SetError clears the PendingReboot", func() {
 		host := helpers.BareMetalHost("test-host", "default",
-			helpers.WithPendingReboot(infrav2.RebootStateHardware, metav1.Now()),
+			helpers.WithPendingReboot(infrav2.RebootTypeHardware, metav1.Now()),
 		)
 
-		host.SetError(infrav2.FatalError, "fatal failure")
+		host.SetError(infrav2.ErrorTypeFatal, "fatal failure")
 
-		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 		Expect(host.Status.PendingReboot).To(BeNil())
 	})
 
@@ -158,7 +158,7 @@ var _ = Describe("SetError and ClearError", func() {
 		Expect(actionCompletedV1Beta1.Reason).To(Equal(infrav2.ActionCompletedUnknownErrorV1Beta1Reason))
 	})
 
-	It("updates the ActionCompleted condition when moving from a failure to a reboot state", func() {
+	It("updates the ActionCompleted condition when moving from a failure to a pending reboot", func() {
 		host := helpers.BareMetalHost("test-host", "default")
 		conditions.Set(host, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostActionCompletedCondition,
@@ -167,26 +167,26 @@ var _ = Describe("SetError and ClearError", func() {
 			Message: "provisioning failed",
 		})
 
-		host.SetPendingReboot(infrav2.RebootStateSSH, "reboot via ssh")
+		setPendingReboot(host, infrav2.RebootTypeSSH, "reboot via ssh")
 
 		Expect(host.Status.PendingReboot).ToNot(BeNil())
-		Expect(host.Status.PendingReboot.State).To(Equal(infrav2.RebootStateSSH))
+		Expect(host.Status.PendingReboot.Type).To(Equal(infrav2.RebootTypeSSH))
 		actionCompleted := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
 		Expect(actionCompleted).ToNot(BeNil())
-		Expect(actionCompleted.Status).To(Equal(metav1.ConditionTrue))
-		Expect(actionCompleted.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason))
+		Expect(actionCompleted.Status).To(Equal(metav1.ConditionFalse))
+		Expect(actionCompleted.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedSSHRebootOngoingReason))
 	})
 
 	It("overwrites an existing error", func() {
 		host := helpers.BareMetalHost(
 			"test-host",
 			"default",
-			helpers.WithError(infrav2.FatalError, "first message"),
+			helpers.WithError(infrav2.ErrorTypeFatal, "first message"),
 		)
 
-		host.SetError(infrav2.PermanentError, "new message")
+		host.SetError(infrav2.ErrorTypePermanent, "new message")
 
-		Expect(host.Status.ErrorType).To(Equal(infrav2.PermanentError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypePermanent))
 		actionCompleted := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
 		Expect(actionCompleted).ToNot(BeNil())
 		Expect(actionCompleted.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedPermanentErrorReason))
@@ -196,9 +196,9 @@ var _ = Describe("SetError and ClearError", func() {
 	It("sets the permanent error annotation and names it in both ActionCompleted conditions", func() {
 		host := helpers.BareMetalHost("test-host", "default")
 
-		host.SetError(infrav2.PermanentError, "permanent failure")
+		host.SetError(infrav2.ErrorTypePermanent, "permanent failure")
 
-		Expect(host.Status.ErrorType).To(Equal(infrav2.PermanentError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypePermanent))
 		Expect(host.Annotations).To(HaveKey(infrav2.PermanentErrorAnnotation))
 
 		wantMessage := fmt.Sprintf("permanent failure. Remove annotation %q, if you want the controller to use the hbmh again.",
@@ -219,7 +219,7 @@ var _ = Describe("SetError and ClearError", func() {
 	It("returns permanentErrorSet with a message naming the error and the annotation", func() {
 		host := helpers.BareMetalHost("test-host", "default")
 
-		permanentErrorSet, message := host.SetError(infrav2.PermanentError, "pre-provision command exited 1")
+		permanentErrorSet, message := host.SetError(infrav2.ErrorTypePermanent, "pre-provision command exited 1")
 
 		Expect(permanentErrorSet).To(BeTrue())
 		Expect(message).To(ContainSubstring("pre-provision command exited 1"))
@@ -229,7 +229,7 @@ var _ = Describe("SetError and ClearError", func() {
 	It("returns permanentErrorSet false and an empty message for a non-permanent error", func() {
 		host := helpers.BareMetalHost("test-host", "default")
 
-		permanentErrorSet, message := host.SetError(infrav2.FatalError, "some error")
+		permanentErrorSet, message := host.SetError(infrav2.ErrorTypeFatal, "some error")
 
 		Expect(permanentErrorSet).To(BeFalse())
 		Expect(message).To(BeEmpty())
@@ -243,7 +243,7 @@ var _ = Describe("SetError and ClearError", func() {
 		host := helpers.BareMetalHost("test-host", "default")
 		svc := newTestService(host, nil, nil, nil, nil)
 
-		svc.setHostError(infrav2.PermanentError, "pre-provision command exited 1")
+		svc.setHostError(infrav2.ErrorTypePermanent, "pre-provision command exited 1")
 
 		Expect(testEventRecorder.Events).To(HaveLen(1))
 		event := <-testEventRecorder.Events
@@ -256,14 +256,14 @@ var _ = Describe("SetError and ClearError", func() {
 
 		Expect(host.ErrorMessage()).To(BeEmpty())
 
-		host.SetError(infrav2.FatalError, "cloud init returned an error")
+		host.SetError(infrav2.ErrorTypeFatal, "cloud init returned an error")
 
 		Expect(host.ErrorMessage()).To(Equal("cloud init returned an error"))
 	})
 
 	It("ClearError removes the error type and both ActionCompleted conditions", func() {
 		host := helpers.BareMetalHost("test-host", "default")
-		host.SetError(infrav2.PermanentError, "permanent failure")
+		host.SetError(infrav2.ErrorTypePermanent, "permanent failure")
 
 		host.ClearError()
 
@@ -392,7 +392,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = customProvisioner
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionStop{}))
-		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("custom provisioner failed"))
 		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
@@ -418,10 +418,10 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		// the ssh reboot after the install is recorded as the pending reboot
 		Expect(host.Status.PendingReboot).NotTo(BeNil())
-		Expect(host.Status.PendingReboot.State).To(Equal(infrav2.RebootStateSSH))
+		Expect(host.Status.PendingReboot.Type).To(Equal(infrav2.RebootTypeSSH))
 		actionCompleted := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
 		Expect(actionCompleted).NotTo(BeNil())
-		Expect(actionCompleted.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason))
+		Expect(actionCompleted.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedSSHRebootOngoingReason))
 	})
 
 	It("starts the command on NotStarted and continues", func() {
@@ -541,7 +541,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 	It("times out after 20 minutes", func() {
 		host, customProvisioner := newBaseHost()
 		host.Status.PendingReboot = &infrav2.PendingReboot{
-			State:       infrav2.RebootStateSSH,
+			Type:        infrav2.RebootTypeSSH,
 			TriggeredAt: metav1.NewTime(time.Now().Add(-21 * time.Minute)),
 		}
 
@@ -554,7 +554,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionStop{}))
-		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("ImageURLCommand timed out"))
 		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
@@ -700,12 +700,12 @@ NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" 
 var _ = Describe("handleIncompleteBoot", func() {
 	Context("correct hostname == rescue", func() {
 		type testCaseHandleIncompleteBootCorrectHostname struct {
-			isRebootIntoRescue  bool
-			isTimeOut           bool
-			isConnectionRefused bool
-			hostRebootState     infrav2.RebootState
-			expectedReturnError error
-			expectedRebootState infrav2.RebootState
+			isRebootIntoRescue        bool
+			isTimeOut                 bool
+			isConnectionRefused       bool
+			hostPendingRebootType     infrav2.RebootType
+			expectedReturnError       error
+			expectedPendingRebootType infrav2.RebootType
 		}
 		DescribeTable("hostName = rescue, varying pending reboot and ssh client response - robot client giving all positive results, no timeouts",
 			func(tc testCaseHandleIncompleteBootCorrectHostname) {
@@ -722,8 +722,8 @@ var _ = Describe("handleIncompleteBoot", func() {
 					}),
 					helpers.WithSSHStatus(),
 				}
-				if tc.hostRebootState != "" {
-					opts = append(opts, helpers.WithPendingReboot(tc.hostRebootState, metav1.Now()))
+				if tc.hostPendingRebootType != "" {
+					opts = append(opts, helpers.WithPendingReboot(tc.hostPendingRebootType, metav1.Now()))
 				}
 				host := helpers.BareMetalHost("test-host", "default", opts...)
 				service := newTestService(host, &robotMock, nil, nil, nil)
@@ -737,73 +737,73 @@ var _ = Describe("handleIncompleteBoot", func() {
 				}
 
 				Expect(host.Status.PendingReboot).ToNot(BeNil())
-				Expect(host.Status.PendingReboot.State).To(Equal(tc.expectedRebootState))
+				Expect(host.Status.PendingReboot.Type).To(Equal(tc.expectedPendingRebootType))
 			},
 			Entry("timeout, no pending reboot", testCaseHandleIncompleteBootCorrectHostname{
-				isRebootIntoRescue:  true,
-				isTimeOut:           true,
-				isConnectionRefused: false,
-				hostRebootState:     infrav2.RebootState(""),
-				expectedReturnError: nil,
-				expectedRebootState: infrav2.RebootStateSSH,
+				isRebootIntoRescue:        true,
+				isTimeOut:                 true,
+				isConnectionRefused:       false,
+				hostPendingRebootType:     infrav2.RebootType(""),
+				expectedReturnError:       nil,
+				expectedPendingRebootType: infrav2.RebootTypeSSH,
 			}),
-			Entry("timeout, PendingReboot == RebootStateSoftware", testCaseHandleIncompleteBootCorrectHostname{
-				isRebootIntoRescue:  true,
-				isTimeOut:           true,
-				isConnectionRefused: false,
-				hostRebootState:     infrav2.RebootStateSoftware,
-				expectedReturnError: nil,
-				expectedRebootState: infrav2.RebootStateSoftware,
+			Entry("timeout, PendingReboot == RebootTypeSoftware", testCaseHandleIncompleteBootCorrectHostname{
+				isRebootIntoRescue:        true,
+				isTimeOut:                 true,
+				isConnectionRefused:       false,
+				hostPendingRebootType:     infrav2.RebootTypeSoftware,
+				expectedReturnError:       nil,
+				expectedPendingRebootType: infrav2.RebootTypeSoftware,
 			}),
-			Entry("timeout, PendingReboot == RebootStateHardware", testCaseHandleIncompleteBootCorrectHostname{
-				isRebootIntoRescue:  true,
-				isTimeOut:           true,
-				isConnectionRefused: false,
-				hostRebootState:     infrav2.RebootStateHardware,
-				expectedReturnError: nil,
-				expectedRebootState: infrav2.RebootStateHardware,
+			Entry("timeout, PendingReboot == RebootTypeHardware", testCaseHandleIncompleteBootCorrectHostname{
+				isRebootIntoRescue:        true,
+				isTimeOut:                 true,
+				isConnectionRefused:       false,
+				hostPendingRebootType:     infrav2.RebootTypeHardware,
+				expectedReturnError:       nil,
+				expectedPendingRebootType: infrav2.RebootTypeHardware,
 			}),
-			Entry("timeout, PendingReboot == RebootStateSoftware", testCaseHandleIncompleteBootCorrectHostname{
-				isRebootIntoRescue:  true,
-				isTimeOut:           true,
-				isConnectionRefused: false,
-				hostRebootState:     infrav2.RebootStateSoftware,
-				expectedReturnError: nil,
-				expectedRebootState: infrav2.RebootStateSoftware,
+			Entry("timeout, PendingReboot == RebootTypeSoftware", testCaseHandleIncompleteBootCorrectHostname{
+				isRebootIntoRescue:        true,
+				isTimeOut:                 true,
+				isConnectionRefused:       false,
+				hostPendingRebootType:     infrav2.RebootTypeSoftware,
+				expectedReturnError:       nil,
+				expectedPendingRebootType: infrav2.RebootTypeSoftware,
 			}),
-			Entry("timeout, PendingReboot == RebootStateHardware", testCaseHandleIncompleteBootCorrectHostname{
-				isRebootIntoRescue:  true,
-				isTimeOut:           true,
-				isConnectionRefused: false,
-				hostRebootState:     infrav2.RebootStateHardware,
-				expectedReturnError: nil,
-				expectedRebootState: infrav2.RebootStateHardware,
+			Entry("timeout, PendingReboot == RebootTypeHardware", testCaseHandleIncompleteBootCorrectHostname{
+				isRebootIntoRescue:        true,
+				isTimeOut:                 true,
+				isConnectionRefused:       false,
+				hostPendingRebootType:     infrav2.RebootTypeHardware,
+				expectedReturnError:       nil,
+				expectedPendingRebootType: infrav2.RebootTypeHardware,
 			}),
-			Entry("no timeout, PendingReboot == RebootStateSSH", testCaseHandleIncompleteBootCorrectHostname{
-				isRebootIntoRescue:  true,
-				isTimeOut:           false,
-				isConnectionRefused: false,
-				hostRebootState:     infrav2.RebootStateSSH,
-				expectedReturnError: nil,
-				expectedRebootState: infrav2.RebootStateSoftware,
+			Entry("no timeout, PendingReboot == RebootTypeSSH", testCaseHandleIncompleteBootCorrectHostname{
+				isRebootIntoRescue:        true,
+				isTimeOut:                 false,
+				isConnectionRefused:       false,
+				hostPendingRebootType:     infrav2.RebootTypeSSH,
+				expectedReturnError:       nil,
+				expectedPendingRebootType: infrav2.RebootTypeSoftware,
 			}),
 			Entry("wrong boot", testCaseHandleIncompleteBootCorrectHostname{
-				isRebootIntoRescue:  false,
-				isTimeOut:           false,
-				isConnectionRefused: false,
-				hostRebootState:     infrav2.RebootState(""),
-				expectedReturnError: nil,
-				expectedRebootState: infrav2.RebootStateSoftware,
+				isRebootIntoRescue:        false,
+				isTimeOut:                 false,
+				isConnectionRefused:       false,
+				hostPendingRebootType:     infrav2.RebootType(""),
+				expectedReturnError:       nil,
+				expectedPendingRebootType: infrav2.RebootTypeSoftware,
 			}),
 		)
 
 		type testCaseHandleIncompleteBootDifferentResetTypes struct {
-			isTimeOut           bool
-			isConnectionRefused bool
-			rebootTypes         []infrav2.RebootType
-			hostRebootState     infrav2.RebootState
-			expectedRebootState infrav2.RebootState
-			expectedRebootType  infrav2.RebootType
+			isTimeOut                 bool
+			isConnectionRefused       bool
+			rebootTypes               []infrav2.RebootType
+			hostPendingRebootType     infrav2.RebootType
+			expectedPendingRebootType infrav2.RebootType
+			expectedRebootType        infrav2.RebootType
 		}
 		// Test with different reset type only software on machine
 		DescribeTable("Different reset types",
@@ -817,9 +817,9 @@ var _ = Describe("handleIncompleteBoot", func() {
 					helpers.WithSSHStatus(),
 					helpers.WithRebootTypes(tc.rebootTypes),
 				}
-				if tc.hostRebootState != "" {
+				if tc.hostPendingRebootType != "" {
 					// PendingReboot.TriggeredAt is one hour ago. The reboot timeouts have passed for isTimeOut=true entries.
-					opts = append(opts, helpers.WithPendingReboot(tc.hostRebootState, metav1.NewTime(time.Now().Add(-time.Hour))))
+					opts = append(opts, helpers.WithPendingReboot(tc.hostPendingRebootType, metav1.NewTime(time.Now().Add(-time.Hour))))
 				}
 				host := helpers.BareMetalHost("test-host", "default", opts...)
 				service := newTestService(host, &robotMock, nil, nil, nil)
@@ -827,68 +827,68 @@ var _ = Describe("handleIncompleteBoot", func() {
 				_, err := service.handleIncompleteBoot(ctx, true, tc.isTimeOut, tc.isConnectionRefused)
 				Expect(err).To(Succeed())
 				Expect(host.Status.PendingReboot).ToNot(BeNil())
-				Expect(host.Status.PendingReboot.State).To(Equal(tc.expectedRebootState))
+				Expect(host.Status.PendingReboot.Type).To(Equal(tc.expectedPendingRebootType))
 				if tc.expectedRebootType != infrav2.RebootType("") {
 					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, tc.expectedRebootType)).To(BeTrue())
 				} else {
 					Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
 				}
 			},
-			Entry("timeout, PendingReboot == RebootStateSSH, only hw reset", testCaseHandleIncompleteBootDifferentResetTypes{
-				isTimeOut:           true,
-				isConnectionRefused: false,
-				rebootTypes:         []infrav2.RebootType{infrav2.RebootTypeHardware},
-				hostRebootState:     infrav2.RebootStateSSH,
-				expectedRebootState: infrav2.RebootStateHardware,
-				expectedRebootType:  infrav2.RebootTypeHardware,
+			Entry("timeout, PendingReboot == RebootTypeSSH, only hw reset", testCaseHandleIncompleteBootDifferentResetTypes{
+				isTimeOut:                 true,
+				isConnectionRefused:       false,
+				rebootTypes:               []infrav2.RebootType{infrav2.RebootTypeHardware},
+				hostPendingRebootType:     infrav2.RebootTypeSSH,
+				expectedPendingRebootType: infrav2.RebootTypeHardware,
+				expectedRebootType:        infrav2.RebootTypeHardware,
 			}),
 			Entry("wrong boot, only hw reset", testCaseHandleIncompleteBootDifferentResetTypes{
-				isTimeOut:           false,
-				isConnectionRefused: false,
-				rebootTypes:         []infrav2.RebootType{infrav2.RebootTypeHardware},
-				hostRebootState:     infrav2.RebootState(""),
-				expectedRebootState: infrav2.RebootStateHardware,
-				expectedRebootType:  infrav2.RebootTypeHardware,
+				isTimeOut:                 false,
+				isConnectionRefused:       false,
+				rebootTypes:               []infrav2.RebootType{infrav2.RebootTypeHardware},
+				hostPendingRebootType:     infrav2.RebootType(""),
+				expectedPendingRebootType: infrav2.RebootTypeHardware,
+				expectedRebootType:        infrav2.RebootTypeHardware,
 			}),
-			Entry("wrong boot, only hw reset, PendingReboot == RebootStateSSH", testCaseHandleIncompleteBootDifferentResetTypes{
-				isTimeOut:           false,
-				isConnectionRefused: false,
-				rebootTypes:         []infrav2.RebootType{infrav2.RebootTypeHardware},
-				hostRebootState:     infrav2.RebootStateSSH,
-				expectedRebootState: infrav2.RebootStateHardware,
-				expectedRebootType:  infrav2.RebootTypeHardware,
+			Entry("wrong boot, only hw reset, PendingReboot == RebootTypeSSH", testCaseHandleIncompleteBootDifferentResetTypes{
+				isTimeOut:                 false,
+				isConnectionRefused:       false,
+				rebootTypes:               []infrav2.RebootType{infrav2.RebootTypeHardware},
+				hostPendingRebootType:     infrav2.RebootTypeSSH,
+				expectedPendingRebootType: infrav2.RebootTypeHardware,
+				expectedRebootType:        infrav2.RebootTypeHardware,
 			}),
-			Entry("wrong boot, PendingReboot == RebootStateSSH", testCaseHandleIncompleteBootDifferentResetTypes{
-				isTimeOut:           false,
-				isConnectionRefused: false,
-				rebootTypes:         []infrav2.RebootType{infrav2.RebootTypeSoftware, infrav2.RebootTypeHardware},
-				hostRebootState:     infrav2.RebootStateSSH,
-				expectedRebootState: infrav2.RebootStateSoftware,
-				expectedRebootType:  infrav2.RebootTypeSoftware,
+			Entry("wrong boot, PendingReboot == RebootTypeSSH", testCaseHandleIncompleteBootDifferentResetTypes{
+				isTimeOut:                 false,
+				isConnectionRefused:       false,
+				rebootTypes:               []infrav2.RebootType{infrav2.RebootTypeSoftware, infrav2.RebootTypeHardware},
+				hostPendingRebootType:     infrav2.RebootTypeSSH,
+				expectedPendingRebootType: infrav2.RebootTypeSoftware,
+				expectedRebootType:        infrav2.RebootTypeSoftware,
 			}),
-			Entry("wrong boot, PendingReboot == RebootStateSoftware", testCaseHandleIncompleteBootDifferentResetTypes{
-				isTimeOut:           false,
-				isConnectionRefused: false,
-				rebootTypes:         []infrav2.RebootType{infrav2.RebootTypeSoftware, infrav2.RebootTypeHardware},
-				hostRebootState:     infrav2.RebootStateSoftware,
-				expectedRebootState: infrav2.RebootStateHardware,
-				expectedRebootType:  infrav2.RebootTypeHardware,
+			Entry("wrong boot, PendingReboot == RebootTypeSoftware", testCaseHandleIncompleteBootDifferentResetTypes{
+				isTimeOut:                 false,
+				isConnectionRefused:       false,
+				rebootTypes:               []infrav2.RebootType{infrav2.RebootTypeSoftware, infrav2.RebootTypeHardware},
+				hostPendingRebootType:     infrav2.RebootTypeSoftware,
+				expectedPendingRebootType: infrav2.RebootTypeHardware,
+				expectedRebootType:        infrav2.RebootTypeHardware,
 			}),
-			Entry("wrong boot, PendingReboot == RebootStateHardware", testCaseHandleIncompleteBootDifferentResetTypes{
-				isTimeOut:           false,
-				isConnectionRefused: false,
-				rebootTypes:         []infrav2.RebootType{infrav2.RebootTypeSoftware, infrav2.RebootTypeHardware},
-				hostRebootState:     infrav2.RebootStateHardware,
-				expectedRebootState: infrav2.RebootStateHardware,
-				expectedRebootType:  infrav2.RebootTypeHardware,
+			Entry("wrong boot, PendingReboot == RebootTypeHardware", testCaseHandleIncompleteBootDifferentResetTypes{
+				isTimeOut:                 false,
+				isConnectionRefused:       false,
+				rebootTypes:               []infrav2.RebootType{infrav2.RebootTypeSoftware, infrav2.RebootTypeHardware},
+				hostPendingRebootType:     infrav2.RebootTypeHardware,
+				expectedPendingRebootType: infrav2.RebootTypeHardware,
+				expectedRebootType:        infrav2.RebootTypeHardware,
 			}),
 		)
 
 		type testCaseHandleIncompleteBootDifferentTimeouts struct {
-			hostRebootState     infrav2.RebootState
-			rebootTriggeredAt   time.Time
-			expectedRebootState infrav2.RebootState
-			expectedRebootType  infrav2.RebootType
+			hostPendingRebootType     infrav2.RebootType
+			rebootTriggeredAt         time.Time
+			expectedPendingRebootType infrav2.RebootType
+			expectedRebootType        infrav2.RebootType
 		}
 
 		// Test with reached timeouts
@@ -906,7 +906,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 						infrav2.RebootTypePower,
 					}),
 					helpers.WithSSHStatus(),
-					helpers.WithPendingReboot(tc.hostRebootState, metav1.Time{Time: tc.rebootTriggeredAt}),
+					helpers.WithPendingReboot(tc.hostPendingRebootType, metav1.Time{Time: tc.rebootTriggeredAt}),
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
@@ -914,7 +914,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 				_, err := service.handleIncompleteBoot(ctx, true, true, false)
 				Expect(err).To(Succeed())
 				Expect(host.Status.PendingReboot).ToNot(BeNil())
-				Expect(host.Status.PendingReboot.State).To(Equal(tc.expectedRebootState))
+				Expect(host.Status.PendingReboot.Type).To(Equal(tc.expectedPendingRebootType))
 				if tc.expectedRebootType != infrav2.RebootType("") {
 					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, tc.expectedRebootType)).To(BeTrue())
 				} else {
@@ -922,22 +922,22 @@ var _ = Describe("handleIncompleteBoot", func() {
 				}
 			},
 			Entry("timed out sw reset", testCaseHandleIncompleteBootDifferentTimeouts{
-				hostRebootState:     infrav2.RebootStateSoftware,
-				rebootTriggeredAt:   time.Now().Add(-15 * time.Minute),
-				expectedRebootState: infrav2.RebootStateHardware,
-				expectedRebootType:  infrav2.RebootTypeHardware,
+				hostPendingRebootType:     infrav2.RebootTypeSoftware,
+				rebootTriggeredAt:         time.Now().Add(-15 * time.Minute),
+				expectedPendingRebootType: infrav2.RebootTypeHardware,
+				expectedRebootType:        infrav2.RebootTypeHardware,
 			}),
 			Entry("not timed out hw reset", testCaseHandleIncompleteBootDifferentTimeouts{
-				hostRebootState:     infrav2.RebootStateHardware,
-				rebootTriggeredAt:   time.Now().Add(-2 * time.Minute),
-				expectedRebootState: infrav2.RebootStateHardware,
-				expectedRebootType:  infrav2.RebootType(""),
+				hostPendingRebootType:     infrav2.RebootTypeHardware,
+				rebootTriggeredAt:         time.Now().Add(-2 * time.Minute),
+				expectedPendingRebootType: infrav2.RebootTypeHardware,
+				expectedRebootType:        infrav2.RebootType(""),
 			}),
 			Entry("not timed out sw reset", testCaseHandleIncompleteBootDifferentTimeouts{
-				hostRebootState:     infrav2.RebootStateSoftware,
-				rebootTriggeredAt:   time.Now().Add(-3 * time.Minute),
-				expectedRebootState: infrav2.RebootStateSoftware,
-				expectedRebootType:  infrav2.RebootType(""),
+				hostPendingRebootType:     infrav2.RebootTypeSoftware,
+				rebootTriggeredAt:         time.Now().Add(-3 * time.Minute),
+				expectedPendingRebootType: infrav2.RebootTypeSoftware,
+				expectedRebootType:        infrav2.RebootType(""),
 			}),
 		)
 		It("returns failed if connection error and timed out", func() {
@@ -953,7 +953,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 					infrav2.RebootTypePower,
 				}),
 				helpers.WithSSHStatus(),
-				helpers.WithPendingReboot(infrav2.RebootStateSSH, metav1.NewTime(time.Now().Add(-30*time.Minute))),
+				helpers.WithPendingReboot(infrav2.RebootTypeSSH, metav1.NewTime(time.Now().Add(-30*time.Minute))),
 			)
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
@@ -962,7 +962,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 			Expect(err).ToNot(BeNil())
 			Expect(failed).To(BeTrue())
 			Expect(host.Status.PendingReboot).ToNot(BeNil())
-			Expect(host.Status.PendingReboot.State).To(Equal(infrav2.RebootStateSSH))
+			Expect(host.Status.PendingReboot.Type).To(Equal(infrav2.RebootTypeSSH))
 			Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
 		})
 
@@ -979,7 +979,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 					infrav2.RebootTypePower,
 				}),
 				helpers.WithSSHStatus(),
-				helpers.WithPendingReboot(infrav2.RebootStateHardware, metav1.NewTime(time.Now().Add(-time.Hour))),
+				helpers.WithPendingReboot(infrav2.RebootTypeHardware, metav1.NewTime(time.Now().Add(-time.Hour))),
 			)
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
@@ -987,18 +987,18 @@ var _ = Describe("handleIncompleteBoot", func() {
 			_, err := service.handleIncompleteBoot(ctx, true, true, false)
 			Expect(err).ToNot(Succeed())
 			Expect(host.Status.PendingReboot).ToNot(BeNil())
-			Expect(host.Status.PendingReboot.State).To(Equal(infrav2.RebootStateHardware))
+			Expect(host.Status.PendingReboot.Type).To(Equal(infrav2.RebootTypeHardware))
 			Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
 		})
 	})
 
 	Context("hostname rescue vs machinename", func() {
 		type testCaseHandleIncompleteBoot struct {
-			isRebootIntoRescue  bool
-			hostRebootState     infrav2.RebootState
-			expectedReturnError error
-			expectedRebootState infrav2.RebootState
-			expectsRescueCall   bool
+			isRebootIntoRescue        bool
+			hostPendingRebootType     infrav2.RebootType
+			expectedReturnError       error
+			expectedPendingRebootType infrav2.RebootType
+			expectsRescueCall         bool
 		}
 
 		DescribeTable("vary hostname and see whether rescue gets triggered",
@@ -1016,8 +1016,8 @@ var _ = Describe("handleIncompleteBoot", func() {
 					}),
 					helpers.WithSSHStatus(),
 				}
-				if tc.hostRebootState != "" {
-					opts = append(opts, helpers.WithPendingReboot(tc.hostRebootState, metav1.Now()))
+				if tc.hostPendingRebootType != "" {
+					opts = append(opts, helpers.WithPendingReboot(tc.hostPendingRebootType, metav1.Now()))
 				}
 				host := helpers.BareMetalHost("test-host", "default", opts...)
 				service := newTestService(host, &robotMock, nil, nil, nil)
@@ -1031,7 +1031,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 					Expect(err).Should(Equal(tc.expectedReturnError))
 				}
 				Expect(host.Status.PendingReboot).ToNot(BeNil())
-				Expect(host.Status.PendingReboot.State).To(Equal(tc.expectedRebootState))
+				Expect(host.Status.PendingReboot.Type).To(Equal(tc.expectedPendingRebootType))
 				if tc.expectsRescueCall {
 					Expect(robotMock.AssertCalled(GinkgoT(), "GetBootRescue", mock.Anything)).To(BeTrue())
 				} else {
@@ -1039,39 +1039,39 @@ var _ = Describe("handleIncompleteBoot", func() {
 				}
 			},
 			Entry("hostname == rescue", testCaseHandleIncompleteBoot{
-				isRebootIntoRescue:  true,
-				hostRebootState:     infrav2.RebootState(""),
-				expectedReturnError: nil,
-				expectedRebootState: infrav2.RebootStateSoftware,
-				expectsRescueCall:   true,
+				isRebootIntoRescue:        true,
+				hostPendingRebootType:     infrav2.RebootType(""),
+				expectedReturnError:       nil,
+				expectedPendingRebootType: infrav2.RebootTypeSoftware,
+				expectsRescueCall:         true,
 			}),
 			Entry("hostname != rescue", testCaseHandleIncompleteBoot{
-				isRebootIntoRescue:  false,
-				hostRebootState:     infrav2.RebootState(""),
-				expectedReturnError: nil,
-				expectedRebootState: infrav2.RebootStateSoftware,
-				expectsRescueCall:   false,
+				isRebootIntoRescue:        false,
+				hostPendingRebootType:     infrav2.RebootType(""),
+				expectedReturnError:       nil,
+				expectedPendingRebootType: infrav2.RebootTypeSoftware,
+				expectsRescueCall:         false,
 			}),
-			Entry("hostname == rescue, PendingReboot == RebootStateSSH", testCaseHandleIncompleteBoot{
-				isRebootIntoRescue:  true,
-				hostRebootState:     infrav2.RebootStateSSH,
-				expectedReturnError: nil,
-				expectedRebootState: infrav2.RebootStateSoftware,
-				expectsRescueCall:   true,
+			Entry("hostname == rescue, PendingReboot == RebootTypeSSH", testCaseHandleIncompleteBoot{
+				isRebootIntoRescue:        true,
+				hostPendingRebootType:     infrav2.RebootTypeSSH,
+				expectedReturnError:       nil,
+				expectedPendingRebootType: infrav2.RebootTypeSoftware,
+				expectsRescueCall:         true,
 			}),
-			Entry("hostname != rescue, PendingReboot == RebootStateSSH", testCaseHandleIncompleteBoot{
-				isRebootIntoRescue:  false,
-				hostRebootState:     infrav2.RebootStateSSH,
-				expectedReturnError: nil,
-				expectedRebootState: infrav2.RebootStateSoftware,
-				expectsRescueCall:   false,
+			Entry("hostname != rescue, PendingReboot == RebootTypeSSH", testCaseHandleIncompleteBoot{
+				isRebootIntoRescue:        false,
+				hostPendingRebootType:     infrav2.RebootTypeSSH,
+				expectedReturnError:       nil,
+				expectedPendingRebootType: infrav2.RebootTypeSoftware,
+				expectsRescueCall:         false,
 			}),
 		)
 	})
 
 	Context("connection refused", func() {
 		DescribeTable("keeps the reboot method in the host status while the timeout has not passed",
-			func(rebootState infrav2.RebootState) {
+			func(rebootType infrav2.RebootType) {
 				robotMock := robotmock.Client{}
 				robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
 
@@ -1081,7 +1081,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 						infrav2.RebootTypeHardware,
 					}),
 					helpers.WithSSHStatus(),
-					helpers.WithPendingReboot(rebootState, metav1.NewTime(time.Now().Add(-time.Minute))),
+					helpers.WithPendingReboot(rebootType, metav1.NewTime(time.Now().Add(-time.Minute))),
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
@@ -1089,12 +1089,12 @@ var _ = Describe("handleIncompleteBoot", func() {
 				Expect(err).To(Succeed())
 				Expect(failed).To(BeFalse())
 				Expect(host.Status.PendingReboot).ToNot(BeNil())
-				Expect(host.Status.PendingReboot.State).To(Equal(rebootState))
+				Expect(host.Status.PendingReboot.Type).To(Equal(rebootType))
 				Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
 			},
-			Entry("ssh reboot", infrav2.RebootStateSSH),
-			Entry("software reboot", infrav2.RebootStateSoftware),
-			Entry("hardware reboot", infrav2.RebootStateHardware),
+			Entry("ssh reboot", infrav2.RebootTypeSSH),
+			Entry("software reboot", infrav2.RebootTypeSoftware),
+			Entry("hardware reboot", infrav2.RebootTypeHardware),
 		)
 
 	})
@@ -1270,7 +1270,7 @@ var _ = Describe("actionPreparing", func() {
 
 		Expect(actResult).To(BeAssignableToTypeOf(actionComplete{}))
 		Expect(host.Status.PendingReboot).ToNot(BeNil())
-		Expect(host.Status.PendingReboot.State).To(Equal(infrav2.RebootStateSoftware))
+		Expect(host.Status.PendingReboot.Type).To(Equal(infrav2.RebootTypeSoftware))
 		Expect(host.Status.IPv4).To(Equal("1.2.3.4"))
 		Expect(host.Status.IPv6).To(Equal("2a01:4f9:3051:12ce::1"))
 		Expect(robotMock.AssertCalled(GinkgoT(), "DeleteBootRescue", mock.Anything)).To(BeTrue())
@@ -1301,7 +1301,7 @@ var _ = Describe("actionPreparing", func() {
 		actResult := service.actionPreparing(context.Background())
 
 		Expect(actResult).To(BeAssignableToTypeOf(actionStop{}))
-		Expect(host.Status.ErrorType).To(Equal(infrav2.PermanentError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypePermanent))
 		Expect(host.Status.IPv4).To(BeEmpty())
 		Expect(host.Annotations).To(HaveKey(infrav2.PermanentErrorAnnotation))
 	})
@@ -1818,8 +1818,8 @@ var _ = Describe("actionRegistering", func() {
 	)
 
 	type testCaseActionRegisteringIncompleteBoot struct {
-		getHostNameOutput   sshclient.Output
-		expectedRebootState infrav2.RebootState
+		getHostNameOutput         sshclient.Output
+		expectedPendingRebootType infrav2.RebootType
 	}
 
 	DescribeTable("actionRegistering - incomplete reboot",
@@ -1843,20 +1843,20 @@ var _ = Describe("actionRegistering", func() {
 
 			actResult := service.actionRegistering(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
-			if tc.expectedRebootState == "" {
+			if tc.expectedPendingRebootType == "" {
 				Expect(host.Status.PendingReboot).To(BeNil())
 			} else {
 				Expect(host.Status.PendingReboot).ToNot(BeNil())
-				Expect(host.Status.PendingReboot.State).To(Equal(tc.expectedRebootState))
+				Expect(host.Status.PendingReboot.Type).To(Equal(tc.expectedPendingRebootType))
 			}
 		},
 		Entry("timeout", testCaseActionRegisteringIncompleteBoot{
-			getHostNameOutput:   sshclient.Output{Err: timeout},
-			expectedRebootState: infrav2.RebootStateSSH,
+			getHostNameOutput:         sshclient.Output{Err: timeout},
+			expectedPendingRebootType: infrav2.RebootTypeSSH,
 		}),
 		Entry("connectionRefused", testCaseActionRegisteringIncompleteBoot{
-			getHostNameOutput:   sshclient.Output{Err: syscall.ECONNREFUSED},
-			expectedRebootState: infrav2.RebootState(""),
+			getHostNameOutput:         sshclient.Output{Err: syscall.ECONNREFUSED},
+			expectedPendingRebootType: infrav2.RebootType(""),
 		}),
 	)
 
@@ -1867,7 +1867,7 @@ var _ = Describe("actionRegistering", func() {
 			helpers.WithRootDeviceHintWWN(),
 			helpers.WithIPv4(),
 			helpers.WithConsumerRef(),
-			helpers.WithPendingReboot(infrav2.RebootStateHardware, metav1.NewTime(time.Now().Add(-time.Hour))),
+			helpers.WithPendingReboot(infrav2.RebootTypeHardware, metav1.NewTime(time.Now().Add(-time.Hour))),
 		)
 
 		sshMock := &sshmock.Client{}
@@ -1878,7 +1878,7 @@ var _ = Describe("actionRegistering", func() {
 		actResult := service.actionRegistering(ctx)
 
 		Expect(actResult).To(BeAssignableToTypeOf(actionStop{}))
-		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 		ac := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
 		Expect(ac).NotTo(BeNil())
 		Expect(ac.Message).To(ContainSubstring("hardware reboot (to rescue mode) timed out"))
@@ -1897,7 +1897,7 @@ var _ = Describe("actionRegistering", func() {
 			helpers.WithRootDeviceHintWWN(),
 			helpers.WithIPv4(),
 			helpers.WithConsumerRef(),
-			helpers.WithError(infrav2.FatalError, "hardware reboot (to rescue mode) timed out"),
+			helpers.WithError(infrav2.ErrorTypeFatal, "hardware reboot (to rescue mode) timed out"),
 		)
 
 		sshMock := &sshmock.Client{}
@@ -1909,7 +1909,7 @@ var _ = Describe("actionRegistering", func() {
 		Expect(service.actionRegistering(ctx)).To(BeAssignableToTypeOf(actionStop{}))
 
 		// errorType is still fatal error and RebootBMServer was not called
-		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 		Expect(host.Status.PendingReboot).To(BeNil())
 		robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)
 	})
@@ -1956,7 +1956,7 @@ var _ = Describe("actionRegistering check RAID", func() {
 
 		_, err := actResult.Result()
 		Expect(err).Should(BeNil())
-		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 
 		service.scope.HetznerBareMetalMachine.Spec.InstallImage.Swraid = 0
 		host.Spec.RootDeviceHints.WWN = ""
@@ -1965,7 +1965,7 @@ var _ = Describe("actionRegistering check RAID", func() {
 
 		_, err = actResult.Result()
 		Expect(err).Should(BeNil())
-		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 	})
 })
 
@@ -2125,7 +2125,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		outOldSSHClientCheckSigterm            sshclient.Output
 		expectedActionResult                   actionResult
 		expectedErrorType                      infrav2.ErrorType
-		expectedRebootState                    infrav2.RebootState
+		expectedPendingRebootType              infrav2.RebootType
 		expectsSSHClientCallCloudInitStatus    bool
 		expectsSSHClientCallCheckSigterm       bool
 		expectsSSHClientCallReboot             bool
@@ -2170,11 +2170,11 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			actResult := service.actionEnsureProvisioned(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(in.expectedActionResult))
 			Expect(host.Status.ErrorType).To(Equal(in.expectedErrorType))
-			if in.expectedRebootState == "" {
+			if in.expectedPendingRebootType == "" {
 				Expect(host.Status.PendingReboot).To(BeNil())
 			} else {
 				Expect(host.Status.PendingReboot).ToNot(BeNil())
-				Expect(host.Status.PendingReboot.State).To(Equal(in.expectedRebootState))
+				Expect(host.Status.PendingReboot.Type).To(Equal(in.expectedPendingRebootType))
 			}
 			if in.expectsSSHClientCallCloudInitStatus {
 				Expect(sshMock.AssertCalled(GinkgoT(), "CloudInitStatus", mock.Anything)).To(BeTrue())
@@ -2250,7 +2250,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav2.ErrorType(""),
-				expectedRebootState:                    infrav2.RebootStateSSH,
+				expectedPendingRebootType:              infrav2.RebootTypeSSH,
 				expectsSSHClientCallCloudInitStatus:    true,
 				expectsSSHClientCallCheckSigterm:       true,
 				expectsSSHClientCallReboot:             true,
@@ -2267,7 +2267,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
 				expectedActionResult:                   actionStop{},
-				expectedErrorType:                      infrav2.FatalError,
+				expectedErrorType:                      infrav2.ErrorTypeFatal,
 				expectsSSHClientCallCloudInitStatus:    true,
 				expectsSSHClientCallCheckSigterm:       false,
 				expectsSSHClientCallReboot:             false,
@@ -2285,7 +2285,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav2.ErrorType(""),
-				expectedRebootState:                    infrav2.RebootStateSSH,
+				expectedPendingRebootType:              infrav2.RebootTypeSSH,
 				expectsSSHClientCallCloudInitStatus:    true,
 				expectsSSHClientCallCheckSigterm:       false,
 				expectsSSHClientCallReboot:             true,
@@ -2361,7 +2361,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			"default",
 			helpers.WithIPv4(),
 			helpers.WithConsumerRef(),
-			helpers.WithPendingReboot(infrav2.RebootStateHardware, metav1.NewTime(time.Now().Add(-time.Hour))),
+			helpers.WithPendingReboot(infrav2.RebootTypeHardware, metav1.NewTime(time.Now().Add(-time.Hour))),
 		)
 
 		sshMock := &sshmock.Client{}
@@ -2373,7 +2373,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		actResult := service.actionEnsureProvisioned(ctx)
 
 		Expect(actResult).To(BeAssignableToTypeOf(actionStop{}))
-		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 		ac := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
 		Expect(ac).NotTo(BeNil())
 		Expect(ac.Message).To(ContainSubstring("hardware reboot (to node) timed out"))
@@ -2392,7 +2392,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			"default",
 			helpers.WithIPv4(),
 			helpers.WithConsumerRef(),
-			helpers.WithPendingReboot(infrav2.RebootStateSoftware, metav1.NewTime(time.Now().Add(-time.Minute))),
+			helpers.WithPendingReboot(infrav2.RebootTypeSoftware, metav1.NewTime(time.Now().Add(-time.Minute))),
 		)
 
 		sshMock := &sshmock.Client{}
@@ -2403,7 +2403,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 
 		Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionContinue{}))
 		Expect(host.Status.PendingReboot).ToNot(BeNil())
-		Expect(host.Status.PendingReboot.State).To(Equal(infrav2.RebootStateSoftware))
+		Expect(host.Status.PendingReboot.Type).To(Equal(infrav2.RebootTypeSoftware))
 
 		conditionV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
 		Expect(conditionV1Beta1).ToNot(BeNil())
@@ -2423,7 +2423,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			"default",
 			helpers.WithIPv4(),
 			helpers.WithConsumerRef(),
-			helpers.WithPendingReboot(infrav2.RebootStateSoftware, metav1.NewTime(time.Now().Add(-time.Hour))),
+			helpers.WithPendingReboot(infrav2.RebootTypeSoftware, metav1.NewTime(time.Now().Add(-time.Hour))),
 		)
 
 		sshMock := &sshmock.Client{}
@@ -2434,7 +2434,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 
 		for run := 1; run <= 3; run++ {
 			Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionStop{}), "run %d", run)
-			Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError), "run %d", run)
+			Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal), "run %d", run)
 
 			conditionV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
 			Expect(conditionV1Beta1).ToNot(BeNil(), "run %d", run)
@@ -2485,7 +2485,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			if tc.rebooted {
 				host.Status.Rebooted = tc.rebooted
 				host.Status.PendingReboot = &infrav2.PendingReboot{
-					State:       infrav2.RebootStateSSH,
+					Type:        infrav2.RebootTypeSSH,
 					TriggeredAt: metav1.Now(),
 				}
 			}
@@ -2514,7 +2514,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			// Phase 2 (storedBootID != ""): SSH Reboot should not be called again.
 			if tc.shouldHaveRebootAnnotation && !tc.rebooted {
 				Expect(sshMock.AssertCalled(GinkgoT(), "Reboot", mock.Anything)).To(BeTrue())
-				Expect(host.Status.PendingReboot.State).To(Equal(infrav2.RebootStateSSH))
+				Expect(host.Status.PendingReboot.Type).To(Equal(infrav2.RebootTypeSSH))
 			} else {
 				Expect(sshMock.AssertNotCalled(GinkgoT(), "Reboot", mock.Anything)).To(BeTrue())
 			}
@@ -2573,7 +2573,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			"default",
 			helpers.WithIPv4(),
 			helpers.WithConsumerRef(),
-			helpers.WithPendingReboot(infrav2.RebootStateSSH, metav1.NewTime(time.Now().Add(-6*time.Minute))),
+			helpers.WithPendingReboot(infrav2.RebootTypeSSH, metav1.NewTime(time.Now().Add(-6*time.Minute))),
 		)
 		host.SetAnnotations(map[string]string{infrav2.RebootAnnotation: "reboot"})
 		host.Status.Rebooted = true
@@ -2583,14 +2583,14 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 		Expect(service.actionProvisioned(ctx)).To(BeAssignableToTypeOf(actionStop{}))
-		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 		Expect(host.Status.PendingReboot).To(BeNil())
 
 		// the node came back with a new BootID after the timeout
 		host.Status.NodeBootID = "old-boot-id"
 
 		Expect(service.actionProvisioned(ctx)).To(BeAssignableToTypeOf(actionStop{}))
-		Expect(host.Status.ErrorType).To(Equal(infrav2.FatalError))
+		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 		rebootSucceeded := conditions.Get(host, infrav2.HetznerBareMetalHostRebootSucceededCondition)
 		Expect(rebootSucceeded).NotTo(BeNil())
 		Expect(rebootSucceeded.Reason).To(Equal(infrav2.HetznerBareMetalHostRebootSucceededTimeoutReachedOutReason))
@@ -2621,7 +2621,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
 		Expect(robotMock.AssertNumberOfCalls(GinkgoT(), "RebootBMServer", 1)).To(BeTrue())
 		Expect(host.Status.PendingReboot).NotTo(BeNil())
-		Expect(host.Status.PendingReboot.State).To(Equal(infrav2.RebootStateHardware))
+		Expect(host.Status.PendingReboot.Type).To(Equal(infrav2.RebootTypeHardware))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostRebootSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("Rebooting because annotation was set"))
 		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.RebootSucceededV1Beta1Condition)

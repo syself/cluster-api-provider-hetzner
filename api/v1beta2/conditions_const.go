@@ -694,12 +694,12 @@ const (
 	// message for that state) and is removed once the action clears; it has no steady-state True.
 	HetznerBareMetalHostActionCompletedCondition = "ActionCompleted"
 
-	// HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason indicates a reboot via SSH was triggered.
-	HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason = "SSHRebootTriggered"
-	// HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason indicates a software reboot via the Robot API was triggered.
-	HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason = "SoftwareRebootTriggered"
-	// HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason indicates a hardware reboot was triggered.
-	HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason = "HardwareRebootTriggered"
+	// HetznerBareMetalHostActionCompletedSSHRebootOngoingReason indicates we sent a reboot via SSH and are waiting for it.
+	HetznerBareMetalHostActionCompletedSSHRebootOngoingReason = "SSHRebootOngoing"
+	// HetznerBareMetalHostActionCompletedSoftwareRebootOngoingReason indicates we sent a software reboot via the Robot API and are waiting for it.
+	HetznerBareMetalHostActionCompletedSoftwareRebootOngoingReason = "SoftwareRebootOngoing"
+	// HetznerBareMetalHostActionCompletedHardwareRebootOngoingReason indicates we sent a hardware reboot via the Robot API and are waiting for it.
+	HetznerBareMetalHostActionCompletedHardwareRebootOngoingReason = "HardwareRebootOngoing"
 	// HetznerBareMetalHostActionCompletedRegistrationErrorReason indicates the server info could not be read or the spec is incomplete.
 	HetznerBareMetalHostActionCompletedRegistrationErrorReason = "RegistrationError"
 	// HetznerBareMetalHostActionCompletedPreparationErrorReason indicates a step before provisioning failed.
