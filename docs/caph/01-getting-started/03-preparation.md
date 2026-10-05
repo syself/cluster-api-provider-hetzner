@@ -18,9 +18,9 @@ Create a new [HCloud project](https://console.hetzner.cloud/projects).
 
 Generate an API token with read and write access. You'll find this if you click on the project and go to "security".
 
-<Step>Add an SSH key (optional)</Step>
+<Step>Add an SSH key</Step>
 
-If you want to use it, generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. Read more about [Managing SSH Keys](/docs/caph/02-topics/01-managing-ssh-keys.md).
+Generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. The cluster templates need this name in `SSH_KEY_NAME`. Read more about [Managing SSH Keys](/docs/caph/02-topics/01-managing-ssh-keys.md).
 
 </Steps>
 
