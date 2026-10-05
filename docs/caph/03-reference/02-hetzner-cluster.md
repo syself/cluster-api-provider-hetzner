@@ -233,6 +233,10 @@ Defines destination port. Must be in range 1-65535.
 
 </PropField>
 
+<PropField name="controlPlaneLoadBalancer.region" type="string" required={false}>
+Name of the HCloud location where the load balancer runs, for example fsn1. Required when the load balancer is enabled.
+</PropField>
+
 <PropField name="controlPlaneLoadBalancer.targetAddressFamily" type="string" defaultValue="dualstack" required={false}>
 Which addresses of a bare metal control plane server are attached as load balancer targets. One of `ipv4`, `ipv6`, `dualstack`. Has no effect on HCloud servers. See [Bare metal control planes and the load balancer](/docs/caph/02-topics/05-baremetal/05-load-balancer-targets.md).
 </PropField>
@@ -335,6 +339,10 @@ Name of the key where the username for the Hetzner Robot API is stored.
 
 <PropField name="hetznerSecretRef.key.hetznerRobotPassword" type="string" defaultValue="hetzner-robot-password" required={false}>
 Name of the key where the password for the Hetzner Robot API is stored.
+</PropField>
+
+<PropField name="hetznerSecretRef.key.sshKey" type="string" defaultValue="hcloud-ssh-key-name" required={false}>
+Name of the key where the name of an HCloud SSH key is stored. If the secret has this key, CAPH adds this SSH key to the HCloud servers, in addition to the other SSH keys.
 </PropField>
 
 </Collapsible>
