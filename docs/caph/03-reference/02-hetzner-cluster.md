@@ -99,11 +99,11 @@ Defines the network zone. Must be eu-central, us-east, us-west or ap-southeast.
 
 </PropField>
 
-<PropField name="controlPlaneRegions" type="[]string" required={false}>
+<PropField name="controlPlaneRegions" type="[]string" required={true}>
 This is the base for the failureDomains of the cluster.
 </PropField>
 
-<PropField name="sshKeys" type="object" required={false}>
+<PropField name="sshKeys" type="object" required={true}>
 
 Cluster-wide SSH keys that serve as default for machines as well.
 
@@ -185,7 +185,7 @@ Defines port.
 
 </PropField>
 
-<PropField name="controlPlaneLoadBalancer" type="object" required={true}>
+<PropField name="controlPlaneLoadBalancer" type="object" required={false}>
 
 Defines specs of load balancer.
 
