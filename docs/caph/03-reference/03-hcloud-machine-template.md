@@ -30,28 +30,18 @@ Custom node image URL. When this is set, CAPH provisions the server via the resc
 Basename of a command below `/shared` on the controller pod that CAPH copies into the rescue system and executes for `template.spec.imageURL`. Required when `template.spec.imageURL` is set.
 </PropField>
 
-<PropField name="template.spec.sshKeys" type="object" required={false}>
+<PropField name="template.spec.sshKeys" type="[]object" required={false}>
 
-SSHKeys that are scoped to this machine.
-
-<Collapsible title="properties">
-
-<PropField name="template.spec.sshKeys.hcloud" type="[]object" required={false}>
-
-SSH keys for HCloud.
+SSH keys of the HCloudMachine. If set, CAPH uses them instead of `sshKeys.hcloud` of the HetznerCluster.
 
 <Collapsible title="properties">
 
-<PropField name="template.spec.sshKeys.hcloud.name" type="string" required={true}>
+<PropField name="template.spec.sshKeys.name" type="string" required={true}>
 Name of SSH key.
 </PropField>
 
-<PropField name="template.spec.sshKeys.hcloud.fingerprint" type="string" required={false}>
+<PropField name="template.spec.sshKeys.fingerprint" type="string" required={false}>
 Fingerprint of SSH key - used by the controller.
-</PropField>
-
-</Collapsible>
-
 </PropField>
 
 </Collapsible>
