@@ -23,8 +23,8 @@ The CCM is the "Cloud Controller" which runs in the workload-cluster. The most i
 The CCM calls the Hetzner APIs. To authenticate, it reads the credentials from a secret. This secret
 has to be in the workload cluster, when the CCM runs in the workload cluster. CAPH creates the
 secret and syncs the credentials specified in the management cluster to the workload cluster. In our
-default templates this secret is called `hetzner`. The upstream HCloud chart defaults to a secret
-called `hcloud`, so you need to override the secret references when installing the chart.
+default templates this secret is called `hcloud`. The Syself CCM chart defaults to a secret called
+`hetzner`, so you need to set `secret.name=hcloud` when installing the chart.
 
 Important: CAPH and the CCM must both use the same ProviderID format for bare metal. Unfortunately
 (for historical reasons), there are two formats:
@@ -107,6 +107,7 @@ helm repo update syself
 
 helm upgrade --install ccm syself/ccm-hetzner --version 2.0.6 \
              --namespace kube-system \
+             --set secret.name=hcloud \
              --set-json 'extraEnvVars=[{"name":"HCLOUD_USE_HROBOT_PROVIDER_ID_FOR_BAREMETAL","value":"true"}]' \
              --kubeconfig workload-kubeconfig
 ```
