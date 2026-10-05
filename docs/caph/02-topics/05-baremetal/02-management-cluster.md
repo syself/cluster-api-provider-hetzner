@@ -173,7 +173,7 @@ The secret name and the tokens can also be customized in the cluster template.
 
 ## Creating Host Object In Management Cluster
 
-For using baremetal servers as nodes, you need to create a `HetznerBareMetalHost` object for each bare metal server that you bought and specify its server ID in the specs. Below is a sample manifest for HetznerBareMetalHost object.
+For using baremetal servers as nodes, you need to create a `HetznerBareMetalHost` object for each bare metal server that you bought and specify its server ID in the specs. Below is a sample manifest for HetznerBareMetalHost object. The default templates only choose hosts with the label `baremetal-pool` set to the value of `BAREMETAL_POOL`.
 
 ```yaml
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -181,6 +181,8 @@ kind: HetznerBareMetalHost
 metadata:
   name: "caph-baremetal-server"
   namespace: default
+  labels:
+    baremetal-pool: <your-pool> # must match BAREMETAL_POOL
 spec:
   description: CAPH BareMetal Server
   serverID: <ID-of-your-server> # please check robot console
@@ -199,6 +201,8 @@ kind: HetznerBareMetalHost
 metadata:
   name: "caph-baremetal-server"
   namespace: default
+  labels:
+    baremetal-pool: <your-pool> # must match BAREMETAL_POOL
 spec:
   description: CAPH BareMetal Server
   serverID: <ID-of-your-server> # please check robot console
@@ -211,7 +215,8 @@ After a while, you will see that there is an error in provisioning of `HetznerBa
 
 ```console
 $ kubectl get hetznerbaremetalhost -A
-default     my-cluster-md-1-tgvl5   my-cluster   default/test-bm-gpu    my-cluster-md-1-t9znj-694hs   Provisioning   23m   ValidationFailed   no root device hints specified
+NAMESPACE   NAME                    PHASE         IPV4           IPV6                    MAINTENANCE   CPU   RAM   HETZNERBAREMETALMACHINE   AGE   REASON             MESSAGE
+default     caph-baremetal-server   registering   203.0.113.10   2001:db8:1234:5678::1   false         16    64    my-cluster-md-1-tgvl5     23m   ValidationFailed   no root device hints specified
 ```
 
 After you see the error, get the YAML output of the `HetznerBareMetalHost` object and then you will find the list of storage devices and their `wwn` in the status of the `HetznerBareMetalHost` resource.
