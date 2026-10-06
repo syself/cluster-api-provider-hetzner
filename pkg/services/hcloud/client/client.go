@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"regexp"
 	"runtime/debug"
-	"strings"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,15 +32,13 @@ import (
 	caphversion "github.com/syself/cluster-api-provider-hetzner/pkg/version"
 )
 
-const errStringUnauthorized = "(unauthorized)"
-
 // ErrUnauthorized means that the API call is unauthorized.
 var ErrUnauthorized = fmt.Errorf("unauthorized")
 
 // wrapUnauthorized wraps err as ErrUnauthorized when the hcloud API reports the call as
 // unauthorized, so callers can detect it with errors.Is. It returns err unchanged otherwise.
 func wrapUnauthorized(err error) error {
-	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+	if hcloud.IsError(err, hcloud.ErrorCodeUnauthorized) {
 		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
 	}
 	return err
