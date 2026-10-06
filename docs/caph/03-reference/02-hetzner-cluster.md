@@ -88,7 +88,7 @@ Defines the CIDR block.
 </PropField>
 
 <PropField name="hcloudNetwork.subnetCidrBlock" type="string" defaultValue='"10.0.0.0/24"' required={false}>
-Defines the CIDR block of the subnet. Note that one subnet ist required.
+Defines the CIDR block of the subnet. Note that one subnet is required.
 </PropField>
 
 <PropField name="hcloudNetwork.networkZone" type="string" defaultValue='"eu-central"' required={false}>
