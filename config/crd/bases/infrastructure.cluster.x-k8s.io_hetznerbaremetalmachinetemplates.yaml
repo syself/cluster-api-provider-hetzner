@@ -442,7 +442,7 @@ spec:
                           deviceStringType:
                             description: |-
                               deviceStringType instructs CAPH to either use the short device name, or the WWN when calling
-                              Command. "" and "short" both pass the short device name (e.g. "sda"); "wwn" passes the WWN
+                              command. "" and "short" both pass the short device name (e.g. "sda"); "wwn" passes the WWN
                               (e.g. "eui.00253885910c8cec").
                             enum:
                             - ""
@@ -452,16 +452,16 @@ spec:
                           swraid:
                             default: 0
                             description: |-
-                              swraid defines whether Command sets up a RAID. Set 1 to enable. CAPH then uses a
-                              HetznerBareMetalHost with spec.rootDeviceHints.raid.wwn and passes all these disks to Command.
+                              swraid defines whether command sets up a RAID. Set 1 to enable. CAPH then uses a
+                              HetznerBareMetalHost with spec.rootDeviceHints.raid.wwn and passes all these disks to command.
                             enum:
                             - 0
                             - 1
                             type: integer
                           url:
                             description: |-
-                              url is the location of the image that Command provisions the machine from. CAPH passes it to
-                              Command in the rescue system.
+                              url is the location of the image that command provisions the machine from. CAPH passes it to
+                              command in the rescue system.
                             minLength: 1
                             type: string
                         required:
@@ -589,7 +589,7 @@ spec:
                             type: array
                             x-kubernetes-list-type: atomic
                           partitions:
-                            description: partitions define the additional Partitions
+                            description: partitions define the additional partitions
                               to be created in installimage.
                             items:
                               description: Partition defines the additional Partitions
@@ -637,7 +637,7 @@ spec:
                             default: 1
                             description: |-
                               swraidLevel defines the SWRAIDLEVEL in InstallImage. Only relevant if the raid is enabled.
-                              Pick one of 0,1,5,6,10. Ignored if Swraid=0.
+                              Pick one of 0,1,5,6,10. Ignored if swraid=0.
                             enum:
                             - 0
                             - 1

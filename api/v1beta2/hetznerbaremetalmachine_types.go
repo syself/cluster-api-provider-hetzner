@@ -42,14 +42,14 @@ var errUnknownSuffix = errors.New("unknown suffix")
 // ImageType defines the accepted image types.
 type ImageType string
 
-// DeviceStringType controls what CAPH passes as the device argument to CustomProvisioner.Command.
+// DeviceStringType controls what CAPH passes as the device argument to customProvisioner.command.
 // Allowed values are "" (same as "short"), "short", and "wwn".
 type DeviceStringType string
 
 const (
-	// DeviceStringTypeShort passes the short device name (e.g. "sda") to CustomProvisioner.Command.
+	// DeviceStringTypeShort passes the short device name (e.g. "sda") to customProvisioner.command.
 	DeviceStringTypeShort DeviceStringType = "short"
-	// DeviceStringTypeWWN passes the WWN (e.g. "eui.00253885910c8cec") to CustomProvisioner.Command.
+	// DeviceStringTypeWWN passes the WWN (e.g. "eui.00253885910c8cec") to customProvisioner.command.
 	DeviceStringTypeWWN DeviceStringType = "wwn"
 )
 
@@ -188,7 +188,7 @@ type InstallImage struct {
 	// It is passed along with the installimage command.
 	PostInstallScript string `json:"postInstallScript,omitempty"`
 
-	// partitions define the additional Partitions to be created in installimage.
+	// partitions define the additional partitions to be created in installimage.
 	// +listType=atomic
 	Partitions []Partition `json:"partitions"`
 
@@ -209,7 +209,7 @@ type InstallImage struct {
 	Swraid int `json:"swraid"`
 
 	// swraidLevel defines the SWRAIDLEVEL in InstallImage. Only relevant if the raid is enabled.
-	// Pick one of 0,1,5,6,10. Ignored if Swraid=0.
+	// Pick one of 0,1,5,6,10. Ignored if swraid=0.
 	// +optional
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Enum=0;1;5;6;10;
@@ -219,8 +219,8 @@ type InstallImage struct {
 // CustomProvisioner defines the configuration for provisioning a machine with a custom command
 // instead of the Hetzner installimage tool.
 type CustomProvisioner struct {
-	// url is the location of the image that Command provisions the machine from. CAPH passes it to
-	// Command in the rescue system.
+	// url is the location of the image that command provisions the machine from. CAPH passes it to
+	// command in the rescue system.
 	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url"`
 
@@ -232,14 +232,14 @@ type CustomProvisioner struct {
 	Command string `json:"command"`
 
 	// deviceStringType instructs CAPH to either use the short device name, or the WWN when calling
-	// Command. "" and "short" both pass the short device name (e.g. "sda"); "wwn" passes the WWN
+	// command. "" and "short" both pass the short device name (e.g. "sda"); "wwn" passes the WWN
 	// (e.g. "eui.00253885910c8cec").
 	// +kubebuilder:validation:Enum="";short;wwn
 	// +optional
 	DeviceStringType DeviceStringType `json:"deviceStringType,omitempty"`
 
-	// swraid defines whether Command sets up a RAID. Set 1 to enable. CAPH then uses a
-	// HetznerBareMetalHost with spec.rootDeviceHints.raid.wwn and passes all these disks to Command.
+	// swraid defines whether command sets up a RAID. Set 1 to enable. CAPH then uses a
+	// HetznerBareMetalHost with spec.rootDeviceHints.raid.wwn and passes all these disks to command.
 	// +optional
 	// +kubebuilder:default=0
 	// +kubebuilder:validation:Enum=0;1;
