@@ -2221,8 +2221,8 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	// Therefore move to Step-2 i.e. ensuring host is booted into the desired OS.
 	// Otherwise, move to Step-1 i.e. check if the host is still in rescue mode.
 	if s.scope.HetznerBareMetalHost.Status.ErrorType != infrav2.ErrorTypeHardwareRebootTriggered {
-		if ar := s.checkRescueAndTriggerReboot(ctx); ar != nil {
-			return ar
+		if res := s.checkRescueAndTriggerReboot(ctx); res != nil {
+			return res
 		}
 	}
 
@@ -2270,6 +2270,14 @@ func (s *Service) checkRescueAndTriggerReboot(ctx context.Context) actionResult 
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
+	// Falling through to step-2 below never means "we've confirmed the host is provisioned". It only
+	// means step-1 has nothing more useful to say about rescue mode. Right after triggering a
+	// reboot, SSH on the rescue port is expected to fail or time out, so we hand off to
+	// verifyProvisionedOS without having verified anything yet. That is safe: if
+	// SSHAfterInstallImage is disabled, verifyProvisionedOS completes immediately without
+	// attempting SSH, so there is nothing to skip, otherwise it does its own SSH check and
+	// handles an unreachable/still-rebooting host via its own retry and error-tracking logic.
+
 	// Check hostname with sshClient.
 	out := sshClient.GetHostName(ctx)
 	if out.Err != nil || out.StdErr != "" {
@@ -2296,10 +2304,12 @@ func (s *Service) checkRescueAndTriggerReboot(ctx context.Context) actionResult 
 
 	// Host is in rescue mode.
 
-	// If it was not rebooted in the last 15s then we should trigger a reboot.
+	// A previous step may have triggered a reboot (e.g. while installing an image
+	// and rebooting into rescue mode). Wait for the reboot to take effect before
+	// acting on a host that still appears to be in rescue mode. This short prevents
+	// us from racing with the in-progress reboot and triggering a redundant one.
 	if !s.scope.HetznerBareMetalHost.Status.RebootTriggeredAt.IsZero() &&
 		!hasTimedOut(s.scope.HetznerBareMetalHost.Status.RebootTriggeredAt, rebootWaitTime) {
-		// reboot was recently triggered (possibly from image-installing), give it some time.
 		return actionContinue{delay: 10 * time.Second}
 	}
 
