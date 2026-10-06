@@ -1062,6 +1062,12 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w", rebootErr)
 		}
 
+		// The custom provisioner is done. Evict the pooled SSH connection now
+		// instead of waiting for the idle-timeout sweep.
+		if len(hm.Status.Addresses) > 0 {
+			s.scope.SSHClientFactory.EvictConnectionsForIP(hm.Status.Addresses[0].Address)
+		}
+
 		s.setBootState(infrav2.HCloudBootStateBootingToRealOS)
 
 		deprecatedv1beta1conditions.MarkFalse(hm, infrav2.ServerProvisionedV1Beta1Condition,
@@ -1103,6 +1109,13 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
+		// The custom provisioner has failed for good. Evict the pooled SSH
+		// connection now instead of waiting for the idle-timeout sweep.
+		if len(hm.Status.Addresses) > 0 {
+			s.scope.SSHClientFactory.EvictConnectionsForIP(hm.Status.Addresses[0].Address)
+		}
+
 		s.scope.EventRecorder.Event(
 			hm,
 			corev1.EventTypeWarning,

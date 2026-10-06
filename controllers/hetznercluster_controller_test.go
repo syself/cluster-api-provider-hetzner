@@ -31,18 +31,14 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -412,7 +408,7 @@ func TestControlPlaneMachineToHetznerClusterPredicate(t *testing.T) {
 		}
 		newObj := oldObj.DeepCopy()
 		conditions.Set(newObj, metav1.Condition{
-			Type:   string(infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition),
+			Type:   infrav2.HetznerBareMetalMachineServerAvailableCondition,
 			Status: metav1.ConditionTrue,
 			Reason: "reason",
 		})
@@ -1050,6 +1046,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				By("making sure LoadBalancerReady condition is not set")
 				Expect(isAbsent(key, instance, infrav2.HetznerClusterLoadBalancerReadyCondition)).To(BeTrue())
+				Expect(deprecatedv1beta1conditions.Has(instance, infrav2.LoadBalancerReadyV1Beta1Condition)).To(BeFalse())
 			})
 
 			It("should take over an existing load balancer with correct name", func() {
@@ -1091,7 +1088,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					}
 					if c.Status == corev1.ConditionTrue {
 						GinkgoLogr.Info("LoadBalancerReadyCondition is True now")
-						return true
+						return conditions.IsTrue(instance, infrav2.HetznerClusterLoadBalancerReadyCondition)
 					}
 					GinkgoLogr.Info("LoadBalancerReadyCondition is not True yet.",
 						"reason", c.Reason,
@@ -1275,6 +1272,44 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 					return isPresentAndTrueDeprecatedV1Beta1(key, instance, infrav2.ControlPlaneEndpointSetV1Beta1Condition) &&
 						isPresentAndTrueWithReason(key, instance, infrav2.HetznerClusterControlPlaneEndpointSetCondition, infrav2.HetznerClusterControlPlaneEndpointSetReason)
+				}, timeout, time.Second).Should(BeTrue())
+			})
+
+			It("should run the target cluster manager step while the load balancer waits to enable proxy protocol", func() {
+				By("creating a load balancer whose kube-API service does not have proxy protocol yet")
+				lb, err := hcloudClient.CreateLoadBalancer(ctx, hcloud.LoadBalancerCreateOpts{
+					Name:             lbName,
+					Algorithm:        &hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeLeastConnections},
+					LoadBalancerType: &hcloud.LoadBalancerType{Name: "mytype"},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(hcloudClient.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
+					Protocol:        hcloud.LoadBalancerServiceProtocolTCP,
+					ListenPort:      ptr.To(6443),
+					DestinationPort: ptr.To(6443),
+					Proxyprotocol:   ptr.To(false),
+				})).To(Succeed())
+
+				By("creating a HetznerCluster that enables proxy protocol on this load balancer")
+				instance.Spec.ControlPlaneLoadBalancer.Name = &lbName
+				instance.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+				instance.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{
+					Host: "localhost",
+					Port: 6443,
+				}
+				Expect(testEnv.Create(ctx, instance)).To(Succeed())
+
+				By("checking that the load balancer step waits and asks for a requeue")
+				Eventually(func() bool {
+					return isPresentAndFalseWithReason(key, instance, infrav2.HetznerClusterLoadBalancerReadyCondition, infrav2.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason)
+				}, timeout, time.Second).Should(BeTrue())
+
+				By("checking that the target cluster manager step ran anyway")
+				// The target cluster manager step should set TargetClusterReady to False, because the
+				// kubeconfig secret does not exist.
+				Eventually(func() bool {
+					return isPresentAndFalseWithReason(key, instance, infrav2.HetznerClusterTargetClusterReadyCondition, infrav2.HetznerClusterTargetClusterCreationFailedReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 		})
@@ -1697,6 +1732,7 @@ var _ = Describe("reconcileRateLimit", func() {
 			LastTransitionTime: metav1.Now(),
 		})
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeTrue())
+		Expect(conditions.IsTrue(hetznerCluster, infrav2.HCloudRateLimitExceededCondition)).To(BeTrue())
 		Expect(deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeNil())
 	})
 
@@ -1712,55 +1748,6 @@ var _ = Describe("reconcileRateLimit", func() {
 		Expect(deprecatedv1beta1conditions.IsTrue(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeTrue())
 	})
 
-	It("returns wait==true if HCloudRateLimitExceeded condition is True and time is not over (v1beta2)", func() {
-		// A still-v1beta1 object is used to exercise the v1beta1 rate-limit helper.
-		// HetznerBareMetalMachine is one of the resources still on v1beta1 and carries the same staged
-		// v1beta2 conditions.
-		// TODO: remove this test once reconcileRateLimitV1Beta1 is gone (every resource on v1beta2, only
-		// reconcileRateLimit left).
-		bmMachine := &infrav1.HetznerBareMetalMachine{}
-		v1beta1conditions.MarkFalse(bmMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
-		v1beta2conditions.Set(bmMachine, metav1.Condition{
-			Type:               infrav1.HCloudRateLimitExceededV1Beta2Condition,
-			Status:             metav1.ConditionTrue,
-			Reason:             infrav1.HCloudRateLimitExceededV1Beta2Reason,
-			LastTransitionTime: metav1.Now(),
-		})
-		Expect(reconcileRateLimitV1Beta1(bmMachine, testEnv.RateLimitWaitTime)).To(BeTrue())
-		rateLimitCond := v1beta2conditions.Get(bmMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)
-		Expect(rateLimitCond).NotTo(BeNil())
-		Expect(rateLimitCond.Status).To(Equal(metav1.ConditionTrue))
-		Expect(rateLimitCond.Reason).To(Equal(infrav1.HCloudRateLimitExceededV1Beta2Reason))
-		reachable := v1beta1conditions.Get(bmMachine, infrav1.HetznerAPIReachableCondition)
-		Expect(reachable).NotTo(BeNil())
-		Expect(reachable.Status).To(Equal(corev1.ConditionFalse))
-	})
-
-	It("removes HCloudRateLimitExceeded condition and returns wait==false when wait time is over (v1beta2)", func() {
-		// A still-v1beta1 object is used to exercise the v1beta1 rate-limit helper.
-		// HetznerBareMetalMachine is one of the resources still on v1beta1 and carries the same staged
-		// v1beta2 conditions.
-		// TODO: remove this test once reconcileRateLimitV1Beta1 is gone (every resource on v1beta2, only
-		// reconcileRateLimit left).
-		bmMachine := &infrav1.HetznerBareMetalMachine{}
-		v1beta1conditions.MarkFalse(bmMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
-		conditionList := bmMachine.GetConditions()
-		conditionList[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
-		v1beta2conditions.Set(bmMachine, metav1.Condition{
-			Type:               infrav1.HCloudRateLimitExceededV1Beta2Condition,
-			Status:             metav1.ConditionTrue,
-			Reason:             infrav1.HCloudRateLimitExceededV1Beta2Reason,
-			LastTransitionTime: metav1.NewTime(time.Now().Add(-time.Hour)),
-		})
-		Expect(reconcileRateLimitV1Beta1(bmMachine, testEnv.RateLimitWaitTime)).To(BeFalse())
-		// Condition must be deleted (not just set to False) so the next API call
-		// determines the real rate-limit status instead of assuming it is gone.
-		Expect(v1beta2conditions.Has(bmMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)).To(BeFalse())
-		reachable := v1beta1conditions.Get(bmMachine, infrav1.HetznerAPIReachableCondition)
-		Expect(reachable).NotTo(BeNil())
-		Expect(reachable.Status).To(Equal(corev1.ConditionTrue))
-	})
-
 	It("returns wait==false if rate limit condition is present but not exceeded", func() {
 		conditions.Set(hetznerCluster, metav1.Condition{
 			Type:               infrav2.HCloudRateLimitExceededCondition,
@@ -1769,11 +1756,13 @@ var _ = Describe("reconcileRateLimit", func() {
 			LastTransitionTime: metav1.Now(),
 		})
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(conditions.IsFalse(hetznerCluster, infrav2.HCloudRateLimitExceededCondition)).To(BeTrue())
 		Expect(deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeNil())
 	})
 
 	It("returns wait==false if rate limit condition is not set", func() {
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(conditions.Has(hetznerCluster, infrav2.HCloudRateLimitExceededCondition)).To(BeFalse())
 		Expect(deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeNil())
 	})
 
@@ -1895,6 +1884,11 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		condition := deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.ControlPlaneEndpointSetV1Beta1Condition)
 		if condition.Status != corev1.ConditionFalse {
 			t.Fatalf("condition status should be false")
+		}
+
+		if !conditions.IsFalse(hetznerCluster, infrav2.HetznerClusterControlPlaneEndpointSetCondition) ||
+			conditions.GetReason(hetznerCluster, infrav2.HetznerClusterControlPlaneEndpointSetCondition) != infrav2.HetznerClusterControlPlaneEndpointNotSetReason {
+			t.Fatalf("ControlPlaneEndpointSet should be False with reason %s", infrav2.HetznerClusterControlPlaneEndpointNotSetReason)
 		}
 	})
 

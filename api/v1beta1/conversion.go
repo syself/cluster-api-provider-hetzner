@@ -727,14 +727,15 @@ func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMach
 	}
 
 	if in.InstallImage.UsesImageURLCommand() {
-		// The custom provisioner flow uses only the image URL, command and device string.
+		// The custom provisioner flow uses only the image URL, command, device string and swraid.
 		// The v1beta1 webhook forbids image name and path when imageURLCommand is
-		// set, so those are always empty here. The remaining installImage fields (partitions, RAID,
-		// post-install script) have no equivalent on customProvisioner.
+		// set, so those are always empty here. The remaining installImage fields (partitions, RAID
+		// level, post-install script) have no equivalent on customProvisioner.
 		out.CustomProvisioner = &infrav2.CustomProvisioner{
 			URL:              in.InstallImage.Image.URL,
 			Command:          in.InstallImage.ImageURLCommand,
 			DeviceStringType: infrav2.DeviceStringType(in.InstallImage.DeviceStringType),
+			Swraid:           in.InstallImage.Swraid,
 		}
 		return nil
 	}
@@ -758,6 +759,12 @@ func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMach
 			Image:            Image{URL: in.CustomProvisioner.URL},
 			ImageURLCommand:  in.CustomProvisioner.Command,
 			DeviceStringType: DeviceStringType(in.CustomProvisioner.DeviceStringType),
+			Swraid:           in.CustomProvisioner.Swraid,
+			// The v1beta1 schema requires partitions. The custom provisioner does not use them, and
+			// customProvisioner has no field to keep them. With a nil list, the stored object has no
+			// partitions field. A v1beta1 create of that object then fails with "partitions: Required
+			// value". We set an empty list to avoid this error.
+			Partitions: []Partition{},
 		}
 		return nil
 	}
