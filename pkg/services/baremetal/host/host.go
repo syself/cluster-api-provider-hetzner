@@ -2801,7 +2801,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 				conditions.Set(host, metav1.Condition{
 					Type:    infrav2.HetznerBareMetalHostRebootSucceededCondition,
 					Status:  metav1.ConditionFalse,
-					Reason:  infrav2.HetznerBareMetalHostRebootingBMServerViaAPIFailedReason,
+					Reason:  infrav2.HetznerBareMetalHostRebootingViaAPIFailedReason,
 					Message: err.Error(),
 				})
 				return actionError{err: err}

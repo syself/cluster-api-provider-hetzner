@@ -209,7 +209,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		conditions.Set(hcloudRemediation, metav1.Condition{
 			Type:    infrav2.HCloudRemediationSkippedCondition,
 			Status:  metav1.ConditionTrue,
-			Reason:  infrav2.HCloudRemediationIrrecoverableServerCreateFailureReason,
+			Reason:  infrav2.HCloudRemediationServerCreationFailedIrrecoverablyReason,
 			Message: skippedMsg,
 		})
 

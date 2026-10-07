@@ -186,7 +186,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			}
 		}
 
-		v1beta2Reason := infrav2.HCloudMachineBootStateUnsetTimedOutReason
+		v1beta2Reason := infrav2.HCloudMachineBootStateUnsetTimeoutReachedReason
 		v1beta2Msg := timeoutMsg
 		if existing := conditions.Get(hm, infrav2.HCloudMachineServerCreatedCondition); existing != nil {
 			v1beta2Reason = existing.Reason
@@ -396,7 +396,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcil
 			}
 		}
 
-		v1beta2Reason := infrav2.HCloudMachineBootStateInitializingTimedOutReason
+		v1beta2Reason := infrav2.HCloudMachineBootStateInitializingTimeoutReachedReason
 		v1beta2Msg := timeoutMsg
 		if existing := conditions.Get(hm, infrav2.HCloudMachineServerProvisionedCondition); existing != nil {
 			v1beta2Reason = existing.Reason
@@ -588,7 +588,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.
 			}
 		}
 
-		v1beta2Reason := infrav2.HCloudMachineEnablingRescueTimedOutReason
+		v1beta2Reason := infrav2.HCloudMachineEnablingRescueTimeoutReachedReason
 		v1beta2Msg := timeoutMsg
 		if existing := conditions.Get(hm, infrav2.HCloudMachineServerProvisionedCondition); existing != nil {
 			v1beta2Reason = existing.Reason
@@ -776,7 +776,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 			}
 		}
 
-		v1beta2Reason := infrav2.HCloudMachineBootingToRescueTimedOutReason
+		v1beta2Reason := infrav2.HCloudMachineBootingToRescueTimeoutReachedReason
 		v1beta2Msg := timeoutMsg
 		if existing := conditions.Get(hm, infrav2.HCloudMachineServerProvisionedCondition); existing != nil {
 			v1beta2Reason = existing.Reason
@@ -1166,7 +1166,7 @@ func (s *Service) handleBootingToRealOS(ctx context.Context) (res reconcile.Resu
 			}
 		}
 
-		v1beta2Reason := infrav2.HCloudMachineBootingToRealOSTimedOutReason
+		v1beta2Reason := infrav2.HCloudMachineBootingToRealOSTimeoutReachedReason
 		v1beta2Msg := timeoutMsg
 		if existing := conditions.Get(hm, infrav2.HCloudMachineServerProvisionedCondition); existing != nil {
 			v1beta2Reason = existing.Reason

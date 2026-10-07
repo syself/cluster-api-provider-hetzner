@@ -451,12 +451,12 @@ const (
 	HCloudMachineCustomProvisionerRunningReason = "CustomProvisionerRunning"
 	// HCloudMachineCustomProvisionerFailedReason indicates the custom provisioner failed.
 	HCloudMachineCustomProvisionerFailedReason = "CustomProvisionerFailed"
-	// HCloudMachineBootStateUnsetTimedOutReason indicates the boot state unset timed out.
-	HCloudMachineBootStateUnsetTimedOutReason = "BootStateUnsetTimedOut"
+	// HCloudMachineBootStateUnsetTimeoutReachedReason indicates the boot state unset timed out.
+	HCloudMachineBootStateUnsetTimeoutReachedReason = "BootStateUnsetTimeoutReached"
 	// HCloudMachineBootStateInitializingReason indicates the boot state is being initialized.
 	HCloudMachineBootStateInitializingReason = "BootStateInitializing"
-	// HCloudMachineBootStateInitializingTimedOutReason indicates the boot state initialization timed out.
-	HCloudMachineBootStateInitializingTimedOutReason = "BootStateInitializingTimedOut"
+	// HCloudMachineBootStateInitializingTimeoutReachedReason indicates the boot state initialization timed out.
+	HCloudMachineBootStateInitializingTimeoutReachedReason = "BootStateInitializingTimeoutReached"
 	// HCloudMachineProvisioningServerReason indicates the server is being provisioned.
 	HCloudMachineProvisioningServerReason = "Provisioning"
 	// HCloudMachineServerStatusUnknownReason indicates the hcloud server returned a status that the controller does not handle.
@@ -472,8 +472,8 @@ const (
 	HCloudMachineWaitingForRescueSystemReason = "WaitingForRescueSystem"
 	// HCloudMachineEnablingRescueSystemFailedReason indicates enabling the rescue system failed.
 	HCloudMachineEnablingRescueSystemFailedReason = "EnablingRescueSystemFailed"
-	// HCloudMachineEnablingRescueTimedOutReason indicates enabling rescue system timed out.
-	HCloudMachineEnablingRescueTimedOutReason = "EnablingRescueTimedOut"
+	// HCloudMachineEnablingRescueTimeoutReachedReason indicates enabling rescue system timed out.
+	HCloudMachineEnablingRescueTimeoutReachedReason = "EnablingRescueTimeoutReached"
 	// HCloudMachineActionIDForEnablingRescueSystemNotSetReason indicates the action ID for enabling rescue is not set.
 	HCloudMachineActionIDForEnablingRescueSystemNotSetReason = "ActionIDForEnablingRescueSystemNotSet"
 	// HCloudMachineEnablingRescueGetActionFailedReason indicates getting the rescue enable action failed.
@@ -494,8 +494,8 @@ const (
 
 	// HCloudMachineBootingToRescueReason indicates the server is booting to rescue mode.
 	HCloudMachineBootingToRescueReason = "BootingToRescue"
-	// HCloudMachineBootingToRescueTimedOutReason indicates booting to rescue mode timed out.
-	HCloudMachineBootingToRescueTimedOutReason = "BootingToRescueTimedOut"
+	// HCloudMachineBootingToRescueTimeoutReachedReason indicates booting to rescue mode timed out.
+	HCloudMachineBootingToRescueTimeoutReachedReason = "BootingToRescueTimeoutReached"
 
 	// HCloudMachineImageURLCommandNotAccessibleReason indicates the image URL command is not accessible.
 	HCloudMachineImageURLCommandNotAccessibleReason = "ImageURLCommandNotAccessible"
@@ -511,8 +511,8 @@ const (
 	HCloudMachineImageURLCommandFailedReason = "ImageURLCommandFailed"
 	// HCloudMachineBootingToRealOSReason indicates the server is booting to the real OS.
 	HCloudMachineBootingToRealOSReason = "BootingToRealOS"
-	// HCloudMachineBootingToRealOSTimedOutReason indicates booting to the real OS timed out.
-	HCloudMachineBootingToRealOSTimedOutReason = "BootingToRealOSTimedOut"
+	// HCloudMachineBootingToRealOSTimeoutReachedReason indicates booting to the real OS timed out.
+	HCloudMachineBootingToRealOSTimeoutReachedReason = "BootingToRealOSTimeoutReached"
 
 	// HCloudMachineGettingServerImageFailedReason indicates getting the server image failed.
 	HCloudMachineGettingServerImageFailedReason = "GettingServerImageFailed"
@@ -566,9 +566,9 @@ const (
 	// HCloudRemediationSkippedCondition reports that remediation was skipped because
 	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
 	HCloudRemediationSkippedCondition = "RemediationSkipped"
-	// HCloudRemediationIrrecoverableServerCreateFailureReason indicates remediation was skipped because
+	// HCloudRemediationServerCreationFailedIrrecoverablyReason indicates remediation was skipped because
 	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
-	HCloudRemediationIrrecoverableServerCreateFailureReason = "IrrecoverableServerCreateFailure"
+	HCloudRemediationServerCreationFailedIrrecoverablyReason = "CreationFailedIrrecoverably"
 	// RemediationCooldownTriggeredReason indicates that the machine became unhealthy
 	// again within the cooldown window following a prior remediation. Rather than
 	// rebooting again, the controller sets MachineOwnerRemediated to False so CAPI
@@ -677,8 +677,8 @@ const (
 	HetznerBareMetalHostRebootSucceededTimeoutReachedOutReason = "TimeoutReached"
 	// HetznerBareMetalHostRebootingViaSSHFailedReason indicates triggering the reboot via SSH failed.
 	HetznerBareMetalHostRebootingViaSSHFailedReason = "RebootingViaSSHFailed"
-	// HetznerBareMetalHostRebootingBMServerViaAPIFailedReason indicates triggering the reboot via the Robot API failed.
-	HetznerBareMetalHostRebootingBMServerViaAPIFailedReason = "RebootingBMServerViaAPIFailed"
+	// HetznerBareMetalHostRebootingViaAPIFailedReason indicates triggering the reboot via the Robot API failed.
+	HetznerBareMetalHostRebootingViaAPIFailedReason = "RebootingViaAPIFailed"
 )
 
 const (

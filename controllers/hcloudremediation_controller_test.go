@@ -476,7 +476,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				skipped := conditions.Get(hcloudRemediation, infrav2.HCloudRemediationSkippedCondition)
 				if skipped == nil ||
 					skipped.Status != metav1.ConditionTrue ||
-					skipped.Reason != infrav2.HCloudRemediationIrrecoverableServerCreateFailureReason ||
+					skipped.Reason != infrav2.HCloudRemediationServerCreationFailedIrrecoverablyReason ||
 					skipped.Message != expectedSkippedMsg {
 					return false
 				}
