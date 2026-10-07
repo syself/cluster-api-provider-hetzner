@@ -236,11 +236,11 @@ var _ = BeforeSuite(func() {
 	utilruntime.Must(infrav2.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
 
-	tmpDir, err := os.MkdirTemp("", "caph-hcloud-image-url-command-*")
+	tmpDir, err := os.MkdirTemp("", "caph-hcloud-custom-provisioner-*")
 	Expect(err).NotTo(HaveOccurred())
 	hcloudCustomProvisionerTempDir = tmpDir
 	hcloudCustomProvisionerDir = tmpDir
-	commandPath := filepath.Join(hcloudCustomProvisionerDir, "image-url-command-test.sh")
+	commandPath := filepath.Join(hcloudCustomProvisionerDir, "custom-provisioner-test.sh")
 	err = os.WriteFile(commandPath, []byte("#!/bin/sh\nexit 0\n"), 0o600)
 	Expect(err).NotTo(HaveOccurred())
 

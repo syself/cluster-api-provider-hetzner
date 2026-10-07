@@ -298,7 +298,7 @@ var _ = Describe("SetError and ClearError", func() {
 	})
 })
 
-var _ = Describe("actionImageInstalling (image-url-command)", func() {
+var _ = Describe("actionImageInstalling (customProvisioner)", func() {
 	ctx := context.Background()
 
 	// newBaseHost returns the host and the custom provisioner of the consuming
@@ -306,7 +306,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 	// HetznerBareMetalMachine of the scope after newTestService.
 	newBaseHost := func() (*infrav2.HetznerBareMetalHost, *infrav2.CustomProvisioner) {
 		commandDir := GinkgoT().TempDir()
-		commandPath := filepath.Join(commandDir, "image-url-command-test.sh")
+		commandPath := filepath.Join(commandDir, "custom-provisioner-test.sh")
 		Expect(os.WriteFile(commandPath, []byte("#!/usr/bin/env bash\n"), 0o600)).To(Succeed())
 		oldCommandDir := baremetalCustomProvisionerDir
 		baremetalCustomProvisionerDir = commandDir
@@ -321,7 +321,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 			helpers.WithConsumerRef(),
 			helpers.WithSSHStatus(),
 		)
-		// Custom provisioner (image-url-command) mode.
+		// Custom provisioner mode.
 		customProvisioner := &infrav2.CustomProvisioner{
 			Command: filepath.Base(commandPath),
 			URL:     "https://example.com/foo/image",

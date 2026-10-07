@@ -873,7 +873,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 	}
 
 	// Now we know that we are inside a rescue system.
-	// image-url-command has not started yet. Start it.
+	// The custom provisioner has not started yet. Start it.
 
 	data, err := s.scope.GetRawBootstrapData(ctx)
 	if err != nil {
@@ -995,7 +995,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		return reconcile.Result{}, nil
 	}
 
-	// Not timed out yet. Read the current image-url-command state over SSH.
+	// Not timed out yet. Read the current custom provisioner state over SSH.
 	hcloudSSHClient, err := s.getSSHClient(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (wait for custom provisioner): %w", err)

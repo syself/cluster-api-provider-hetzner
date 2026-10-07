@@ -276,7 +276,7 @@ var _ = Describe("handleBootStateUnset", func() {
 			Spec: infrav2.HCloudMachineSpec{
 				CustomProvisioner: &infrav2.HCloudCustomProvisioner{
 					URL:     "oci://example.com/repo/image:v1",
-					Command: "image-url-command-test.sh",
+					Command: "custom-provisioner-test.sh",
 				},
 				Type: "cpx32",
 			},
@@ -1687,7 +1687,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
-			Command: "image-url-command-test.sh",
+			Command: "custom-provisioner-test.sh",
 		}
 
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
@@ -1776,7 +1776,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
-			Command: "image-url-command-test.sh",
+			Command: "custom-provisioner-test.sh",
 		}
 
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
@@ -1932,7 +1932,7 @@ var _ = Describe("Reconcile", func() {
 			StdErr: "",
 			Err:    nil,
 		})
-		testEnv.HCloudSSHClient.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateFinishedSuccessfully, "output-of-image-url-command", nil)
+		testEnv.HCloudSSHClient.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateFinishedSuccessfully, "output-of-custom-provisioner", nil)
 		testEnv.HCloudSSHClient.On("ReadOutputJSON", mock.Anything).Return(`{"status":"Succeeded"}`, nil).Once()
 		testEnv.HCloudSSHClient.On("Reboot", mock.Anything).Return(sshclient.Output{
 			Err:    nil,
@@ -1975,7 +1975,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
-			Command: "image-url-command-test.sh",
+			Command: "custom-provisioner-test.sh",
 		}
 		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
@@ -2020,7 +2020,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
-			Command: "image-url-command-test.sh",
+			Command: "custom-provisioner-test.sh",
 		}
 		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
@@ -2063,7 +2063,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
-			Command: "image-url-command-test.sh",
+			Command: "custom-provisioner-test.sh",
 		}
 		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
@@ -2101,7 +2101,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
-			Command: "image-url-command-test.sh",
+			Command: "custom-provisioner-test.sh",
 		}
 		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
@@ -2133,7 +2133,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
-			Command: "image-url-command-test.sh",
+			Command: "custom-provisioner-test.sh",
 		}
 		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
@@ -2165,7 +2165,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
-			Command: "image-url-command-test.sh",
+			Command: "custom-provisioner-test.sh",
 		}
 		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
@@ -2197,7 +2197,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
-			Command: "image-url-command-test.sh",
+			Command: "custom-provisioner-test.sh",
 		}
 		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
@@ -2246,7 +2246,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
-			Command: "image-url-command-test.sh",
+			Command: "custom-provisioner-test.sh",
 		}
 		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateBootingToRescue
@@ -2471,7 +2471,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(isPresentWithStatusAndReason(service.scope.HCloudMachine, clusterv1.ReadyCondition, metav1.ConditionTrue, clusterv1.ReadyReason)).To(BeTrue())
 	})
 
-	It("does not create a server when the image-url-command is not available on disk", func() {
+	It("does not create a server when the custom provisioner command is not available on disk", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -2490,7 +2490,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
-			Command: "image-url-command-nonexistent.sh",
+			Command: "custom-provisioner-nonexistent.sh",
 		}
 
 		By("calling reconcile — CreateServer must not be called")
