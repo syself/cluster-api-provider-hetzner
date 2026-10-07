@@ -74,8 +74,6 @@ const (
 const (
 	// SSHPrivateKeyAvailableV1Beta1Condition indicates that the SSH private key is available which is used to SSH into a server.
 	SSHPrivateKeyAvailableV1Beta1Condition clusterv1.ConditionType = "SSHPrivateKeyAvailable"
-	// SSHPrivateKeyNotFoundV1Beta1Reason indicates that the ssh private key could not be found.
-	SSHPrivateKeyNotFoundV1Beta1Reason = "SSHPrivateKeyNotFound"
 	// SSHPrivateKeySecretRefNotConfiguredV1Beta1Reason indicates that HetznerCluster.Spec.SSHKeys.RescueSecretRef.Name is empty.
 	SSHPrivateKeySecretRefNotConfiguredV1Beta1Reason = "SSHPrivateKeySecretRefNotConfigured" //nolint:gosec
 	// SSHPrivateKeySecretNotFoundV1Beta1Reason indicates that the referenced secret does not exist.
@@ -137,8 +135,6 @@ const (
 	RootDeviceHintsValidatedV1Beta1Condition clusterv1.ConditionType = "RootDeviceHintsValidated"
 	// ValidationFailedV1Beta1Reason indicates that the specified root device hints could not be successfully validated.
 	ValidationFailedV1Beta1Reason = "ValidationFailed"
-	// StorageDeviceNotFoundV1Beta1Reason indicates that the storage device specified in the root device hints could not be found.
-	StorageDeviceNotFoundV1Beta1Reason = "StorageDeviceNotFound"
 )
 
 const (
@@ -202,16 +198,12 @@ const (
 	StillProvisioningV1Beta1Reason = "StillProvisioning"
 	// SSHConnectionRefusedV1Beta1Reason indicates that the server cannot be reached via SSH.
 	SSHConnectionRefusedV1Beta1Reason = "SSHConnectionRefused"
-	// RescueSystemUnavailableV1Beta1Reason indicates that the server has no rescue system.
-	RescueSystemUnavailableV1Beta1Reason = "RescueSystemUnavailable"
 	// ImageSpecInvalidV1Beta1Reason indicates that the information specified about the image of the host are invalid.
 	ImageSpecInvalidV1Beta1Reason = "ImageSpecInvalid"
 	// ImageDownloadFailedV1Beta1Reason indicates that downloading the machine image (http or OCI) failed.
 	ImageDownloadFailedV1Beta1Reason = "ImageDownloadFailed"
 	// NoStorageDeviceFoundV1Beta1Reason indicates that no suitable storage device could be found.
 	NoStorageDeviceFoundV1Beta1Reason = "NoStorageDeviceFound"
-	// CloudInitNotInstalledV1Beta1Reason indicates that cloud init is not installed.
-	CloudInitNotInstalledV1Beta1Reason = "CloudInitNotInstalled"
 	// ServerNotFoundV1Beta1Reason indicates that a bare metal server could not be found.
 	ServerNotFoundV1Beta1Reason = "ServerNotFound"
 	// ServerHasNoIPv4V1Beta1Reason indicates that a bare metal server has no IPv4 address assigned.
@@ -339,8 +331,6 @@ const (
 	HetznerClusterLoadBalancerReadyReason = clusterv1.ReadyReason
 	// HetznerClusterLoadBalancerCreationFailedReason indicates that load balancer creation failed.
 	HetznerClusterLoadBalancerCreationFailedReason = "CreationFailed"
-	// HetznerClusterLoadBalancerMissingControlPlaneEndpointReason indicates that the control plane endpoint is not set.
-	HetznerClusterLoadBalancerMissingControlPlaneEndpointReason = "MissingControlPlaneEndpoint"
 	// HetznerClusterLoadBalancerSyncingServicesFailedReason indicates that an error occurred while syncing services of the load balancer.
 	HetznerClusterLoadBalancerSyncingServicesFailedReason = "SyncingServicesFailed"
 	// HetznerClusterLoadBalancerAttachingToNetworkFailedReason indicates that the server could not be attached to network.

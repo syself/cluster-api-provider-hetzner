@@ -497,17 +497,6 @@ type Region string
 // HCloudNetworkZone describes the Network zone.
 type HCloudNetworkZone string
 
-// IsZero returns true if a private Network is set.
-func (s *HCloudNetworkSpec) IsZero() bool {
-	if s.CIDRBlock != "" {
-		return false
-	}
-	if s.SubnetCIDRBlock != "" {
-		return false
-	}
-	return true
-}
-
 // HCloudBootState defines the boot state of an HCloud server.
 type HCloudBootState string
 

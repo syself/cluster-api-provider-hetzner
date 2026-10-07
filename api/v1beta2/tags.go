@@ -16,26 +16,11 @@ limitations under the License.
 
 package v1beta2
 
-import "fmt"
-
 const (
 	// ResourceLifecycleOwned is the value we use when tagging resources to indicate
 	// that the resource is considered owned and managed by the cluster,
 	// and in particular that the lifecycle is tied to the lifecycle of the cluster.
 	ResourceLifecycleOwned = ResourceLifecycle("owned")
-
-	// ResourceLifecycleShared is the value we use when tagging resources to indicate
-	// that the resource is shared between multiple clusters, and should not be destroyed
-	// if the cluster is destroyed.
-	ResourceLifecycleShared = ResourceLifecycle("shared")
-
-	// NameKubernetesHetznerCloudProviderPrefix is the tag name used by the cloud provider to logically
-	// separate independent cluster resources. We use it to identify which resources we expect
-	// to be permissive about state changes.
-	// logically independent clusters running in the same AZ.
-	// The tag key = NameKubernetesHetznerCloudProviderPrefix + clusterID
-	// The tag value is an ownership value.
-	NameKubernetesHetznerCloudProviderPrefix = "caph"
 
 	// NameHetznerProviderPrefix is the tag prefix we use to differentiate
 	// cluster-api-provider-hetzner owned components from other tooling that
@@ -50,8 +35,3 @@ const (
 	// MachineNameTagKey tags related MachineNameTag.
 	MachineNameTagKey = "machine." + NameHetznerProviderPrefix + "name"
 )
-
-// ClusterHetznerCloudProviderTagKey generates the key for resources associated a cluster's HCloud cloud provider.
-func ClusterHetznerCloudProviderTagKey(name string) string {
-	return fmt.Sprintf("%s%s", NameKubernetesHetznerCloudProviderPrefix, name)
-}

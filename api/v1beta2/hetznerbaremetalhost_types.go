@@ -137,8 +137,6 @@ const (
 const (
 	// ErrorMessageMissingRootDeviceHints specifies the error message when no root device hints are specified.
 	ErrorMessageMissingRootDeviceHints = "no root device hints specified"
-	// ErrorMessageInvalidRootDeviceHints specifies the error message when invalid root device hints are specified.
-	ErrorMessageInvalidRootDeviceHints = "invalid root device hints specified"
 	// ErrorMessageMissingHetznerSecret specifies the error message when no Hetzner secret is found.
 	ErrorMessageMissingHetznerSecret = "could not find HetznerSecret"
 	// ErrorMessageMissingRescueSSHSecret specifies the error message when no RescueSSH secret is found.
