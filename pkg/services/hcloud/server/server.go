@@ -880,10 +880,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 		return reconcile.Result{}, fmt.Errorf("hcloud GetRawBootstrapData failed: %w", err)
 	}
 
-	var commandName string
-	if hm.Spec.CustomProvisioner != nil {
-		commandName = hm.Spec.CustomProvisioner.Command
-	}
+	commandName := hm.Spec.CustomProvisioner.Command
 	commandPath, err := utils.ResolveCustomProvisionerCommandPath(hcloudCustomProvisionerDir, commandName)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("resolving custom provisioner command failed: %w", err)
@@ -1685,10 +1682,7 @@ func (s *Service) createServerFromCustomProvisioner(ctx context.Context) (*hclou
 	// is set and rejects any name that does not match the basename pattern. We still resolve the path
 	// at runtime so an empty or invalid name (for example, if the webhook has been disabled temporarily)
 	// is rejected before we copy anything into the rescue system.
-	var commandName string
-	if hm.Spec.CustomProvisioner != nil {
-		commandName = hm.Spec.CustomProvisioner.Command
-	}
+	commandName := hm.Spec.CustomProvisioner.Command
 	if _, err := utils.ResolveCustomProvisionerCommandPath(hcloudCustomProvisionerDir, commandName); err != nil {
 		err = fmt.Errorf("custom provisioner command %q is invalid or not accessible by the controller pod: %w", commandName, err)
 		s.scope.Error(err, "")

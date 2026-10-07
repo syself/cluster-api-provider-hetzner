@@ -1609,18 +1609,18 @@ func (s *Service) actionImageInstallingCustomProvisioner(ctx context.Context, ss
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
-				"StartCustomProvisionerFailed",
+				"CustomProvisionerFailedToStart",
 				msg,
 			)
 
 			deprecatedv1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav2.ProvisionSucceededV1Beta1Condition,
-				"StartCustomProvisionerFailed",
+				"CustomProvisionerFailedToStart",
 				clusterv1.ConditionSeverityWarning,
 				"%s", msg)
 			conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav2.HetznerBareMetalHostProvisionSucceededCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  "StartCustomProvisionerFailed",
+				Reason:  "CustomProvisionerFailedToStart",
 				Message: msg,
 			})
 			return actionContinue{delay: time.Minute}

@@ -561,10 +561,10 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("StartCustomProvisioner failed with non-zero exit status. Deleting machine"))
-		Expect(c.Reason).To(Equal("StartCustomProvisionerFailed"))
+		Expect(c.Reason).To(Equal("CustomProvisionerFailedToStart"))
 		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
 		Expect(cV1Beta1.Message).To(ContainSubstring("StartCustomProvisioner failed with non-zero exit status. Deleting machine"))
-		Expect(cV1Beta1.Reason).To(Equal("StartCustomProvisionerFailed"))
+		Expect(cV1Beta1.Reason).To(Equal("CustomProvisionerFailedToStart"))
 	})
 
 	It("times out after 20 minutes", func() {

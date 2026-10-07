@@ -178,7 +178,7 @@ type InstallImage struct {
 	// provisions a machine from Image.URL. CAPH copies that command into the rescue system and
 	// executes it there.
 	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	// Docs: https://syself.com/docs/caph/developers/custom-provisioner
 	//
 	// ImageURLCommand must be set if the machine should be provisioned from Image.URL without
 	// installimage.

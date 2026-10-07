@@ -95,7 +95,7 @@ type HCloudCustomProvisioner struct {
 	// (stdout and stderr) of the script. If the script takes longer than 20 minutes, the
 	// controller cancels the provisioning.
 	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	// Docs: https://syself.com/docs/caph/developers/custom-provisioner
 	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url"`
 
@@ -103,7 +103,7 @@ type HCloudCustomProvisioner struct {
 	// provisions a machine from URL. CAPH copies that command into the rescue system and
 	// executes it there.
 	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	// Docs: https://syself.com/docs/caph/developers/custom-provisioner
 	// +kubebuilder:validation:MinLength=1
 	Command string `json:"command"`
 }

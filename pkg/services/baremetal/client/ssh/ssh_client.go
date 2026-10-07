@@ -131,17 +131,17 @@ type CustomProvisionerState string
 
 const (
 	// CustomProvisionerStateNotStarted indicates that the command was not started yet.
-	CustomProvisionerStateNotStarted CustomProvisionerState = "CustomProvisionerStateNotStarted"
+	CustomProvisionerStateNotStarted CustomProvisionerState = "NotStarted"
 
 	// CustomProvisionerStateRunning indicates that the command is running.
-	CustomProvisionerStateRunning CustomProvisionerState = "CustomProvisionerStateRunning"
+	CustomProvisionerStateRunning CustomProvisionerState = "Running"
 
 	// CustomProvisionerStateFinishedSuccessfully indicates that the command is finished with IMAGE_URL_DONE in
 	// stdout.
-	CustomProvisionerStateFinishedSuccessfully CustomProvisionerState = "CustomProvisionerStateFinishedSuccessfully"
+	CustomProvisionerStateFinishedSuccessfully CustomProvisionerState = "FinishedSuccessfully"
 
 	// CustomProvisionerStateFailed indicates that the command is finished, but failed.
-	CustomProvisionerStateFailed CustomProvisionerState = "CustomProvisionerStateFailed"
+	CustomProvisionerStateFailed CustomProvisionerState = "Failed"
 )
 
 func (o Output) String() string {
