@@ -42,7 +42,6 @@ import (
 	bootstrapv1 "sigs.k8s.io/cluster-api/api/bootstrap/kubeadm/v1beta2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/log"
-	"sigs.k8s.io/cluster-api/util/kubeconfig"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -329,11 +328,6 @@ func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateN
 	}
 
 	return ns, finish, nil
-}
-
-// CreateKubeconfigSecret generates a kubeconfig secret in a given capi cluster.
-func (t *TestEnvironment) CreateKubeconfigSecret(ctx context.Context, cluster *clusterv1.Cluster) error {
-	return t.Create(ctx, kubeconfig.GenerateSecret(cluster, kubeconfig.FromEnvTestConfig(t.Config, cluster)))
 }
 
 func getFilePathToCAPICRDs(root string) string {
