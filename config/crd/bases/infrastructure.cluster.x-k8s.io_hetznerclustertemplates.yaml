@@ -941,11 +941,11 @@ spec:
                           This is generated in the security section under API TOKENS. Read & write is necessary.
                         properties:
                           key:
-                            description: |-
-                              Key defines the keys that are used in the secret.
-                              Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
+                            description: Key defines the keys that are used in the
+                              secret.
                             properties:
                               hcloudToken:
+                                default: token
                                 description: |-
                                   HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
                                   The controller reads the token from the management-cluster secret using this key and writes
@@ -954,7 +954,7 @@ spec:
                                   secret remains untouched. CAPH only adds the compatibility key "token" inside the
                                   workload-cluster secret named "hcloud", and only if this field is not already "token". If
                                   the configured secret name is already "hcloud", the same token value is stored under both
-                                  keys in that single secret. We recommend to use "token".
+                                  keys in that single secret. It defaults to "token".
                                 type: string
                               hetznerRobotPassword:
                                 default: hetzner-robot-password
@@ -978,8 +978,6 @@ spec:
                                   SSHKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
                                   to the wl-cluster.
                                 type: string
-                            required:
-                            - hcloudToken
                             type: object
                           name:
                             default: hetzner

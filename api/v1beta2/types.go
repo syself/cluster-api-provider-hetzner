@@ -146,12 +146,10 @@ type HetznerSecretRef struct {
 	Name string `json:"name"`
 
 	// Key defines the keys that are used in the secret.
-	// Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
 	Key HetznerSecretKeyRef `json:"key"`
 }
 
 // HetznerSecretKeyRef defines the key name of the HetznerSecret.
-// Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
 type HetznerSecretKeyRef struct {
 	// HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
 	// The controller reads the token from the management-cluster secret using this key and writes
@@ -160,9 +158,10 @@ type HetznerSecretKeyRef struct {
 	// secret remains untouched. CAPH only adds the compatibility key "token" inside the
 	// workload-cluster secret named "hcloud", and only if this field is not already "token". If
 	// the configured secret name is already "hcloud", the same token value is stored under both
-	// keys in that single secret. We recommend to use "token".
+	// keys in that single secret. It defaults to "token".
 	//
-	// +optional +kubebuilder:default=hcloud-token
+	// +optional
+	// +kubebuilder:default=token
 	HCloudToken string `json:"hcloudToken"`
 
 	// HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
