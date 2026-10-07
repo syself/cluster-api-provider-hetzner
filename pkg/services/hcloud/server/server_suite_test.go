@@ -28,12 +28,10 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/kubectl/pkg/scheme"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -232,10 +230,6 @@ func (r *Resetter) ResetAndInitNamespace(_ string, testEnv *helpers.TestEnvironm
 }
 
 var _ = BeforeSuite(func() {
-	utilruntime.Must(corev1.AddToScheme(scheme.Scheme))
-	utilruntime.Must(infrav2.AddToScheme(scheme.Scheme))
-	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
-
 	tmpDir, err := os.MkdirTemp("", "caph-hcloud-image-url-command-*")
 	Expect(err).NotTo(HaveOccurred())
 	hcloudImageURLCommandTempDir = tmpDir

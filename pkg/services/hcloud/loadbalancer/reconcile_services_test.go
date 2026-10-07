@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
@@ -388,7 +387,6 @@ func newMigrationTestService(t *testing.T, mockClient *mocks.Client, configureSp
 
 	scheme := runtime.NewScheme()
 	_ = clusterv1.AddToScheme(scheme)
-	_ = infrav1.AddToScheme(scheme)
 	_ = infrav2.AddToScheme(scheme)
 
 	svc := newTestService(t, hetznerCluster, mockClient)
