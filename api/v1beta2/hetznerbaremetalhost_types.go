@@ -471,10 +471,9 @@ type SSHStatus struct {
 	RescueKey *SSHKey `json:"rescueKey,omitempty"`
 }
 
-// SecretStatus contains the reference and version of the last secret that was used.
+// SecretStatus contains the reference and the data hash of the last secret that was used.
 type SecretStatus struct {
 	Reference *corev1.SecretReference `json:"credentials,omitempty"`
-	Version   string                  `json:"credentialsVersion,omitempty"`
 	DataHash  []byte                  `json:"credentialsDataHash,omitempty"`
 }
 

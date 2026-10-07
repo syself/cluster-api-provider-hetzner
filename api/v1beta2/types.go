@@ -484,8 +484,7 @@ type HCloudNetworkSpec struct {
 
 // NetworkStatus defines the observed state of the HCloud Private Network.
 type NetworkStatus struct {
-	ID     int64             `json:"id,omitempty"`
-	Labels map[string]string `json:"-"`
+	ID int64 `json:"id,omitempty"`
 	// +optional
 	// +listType=set
 	AttachedServers []int64 `json:"attachedServers,omitempty"`

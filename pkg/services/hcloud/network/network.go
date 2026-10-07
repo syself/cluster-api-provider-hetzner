@@ -255,7 +255,6 @@ func statusFromHCloudNetwork(network *hcloud.Network) *infrav2.NetworkStatus {
 
 	return &infrav2.NetworkStatus{
 		ID:              network.ID,
-		Labels:          network.Labels,
 		AttachedServers: attachedServerIDs,
 	}
 }

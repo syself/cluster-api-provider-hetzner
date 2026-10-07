@@ -1434,6 +1434,15 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			c.FillNoCustom(in)
 			in.V1Beta2 = nil
 		},
+		// credentialsVersion and labels do not exist in v1beta2, so they do not round-trip.
+		func(in *SecretStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.Version = ""
+		},
+		func(in *NetworkStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.Labels = nil
+		},
 		// HCloudMachine v1beta1 status: collapse empty condition slices to nil, drop the V1Beta2 wrapper
 		// unless it carries conditions, collapse a pointer to the empty instanceState to nil, and collapse
 		// a non-nil pointer to the zero time to nil so the round trip matches. failureReason/failureMessage

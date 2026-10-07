@@ -540,6 +540,12 @@ func restoreV1Beta1OnlyStatus(from, to *ControllerGeneratedStatus) {
 	}
 }
 
+// Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus converts the v1beta1 SecretStatus to v1beta2.
+// v1beta2 does not have credentialsVersion, because CAPH never sets it.
+func Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in *SecretStatus, out *infrav2.SecretStatus, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in, out, s)
+}
+
 // Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus converts the v1beta1
 // HCloudMachineStatus to v1beta2. The v1beta1 status.conditions (old clusterv1beta1.Conditions) and
 // the v1beta2 status.conditions ([]metav1.Condition) share a field name but not a type and do not
@@ -1082,6 +1088,12 @@ func Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMa
 	out.Ready = ptr.Deref(in.Initialization.Provisioned, false)
 
 	return nil
+}
+
+// Convert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus converts the v1beta1 NetworkStatus to v1beta2.
+// v1beta2 does not have labels, because the field was never stored (json:"-").
+func Convert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus(in *NetworkStatus, out *infrav2.NetworkStatus, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus(in, out, s)
 }
 
 // Convert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus converts the v1beta1
