@@ -31,7 +31,7 @@ type HCloudRemediationSpec struct {
 // HCloudRemediationStatus defines the observed state of HCloudRemediation.
 type HCloudRemediationStatus struct {
 	// Phase represents the current phase of machine remediation.
-	// E.g. Pending, Running, Done etc.
+	// One of Running, Waiting, Deleting machine or Succeeded.
 	// +optional
 	Phase string `json:"phase,omitempty"`
 
@@ -46,7 +46,7 @@ type HCloudRemediationStatus struct {
 	LastRemediated metav1.Time `json:"lastRemediated,omitempty,omitzero"`
 
 	// conditions represents the observations of a HCloudRemediation's current state.
-	// Known condition types are Ready, HCloudTokenAvailable and HCloudRateLimitExceeded.
+	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded and RemediationSkipped.
 	// +optional
 	// +listType=map
 	// +listMapKey=type

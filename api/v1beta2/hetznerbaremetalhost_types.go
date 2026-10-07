@@ -196,7 +196,7 @@ const (
 	RebootTypeSSH RebootType = "ssh"
 )
 
-// VerboseRebootType returns the verbose namem of a reboot Type.
+// VerboseRebootType returns the verbose name of a reboot Type.
 // The string is CamelCase.
 func VerboseRebootType(rebootType RebootType) string {
 	return map[RebootType]string{
@@ -342,7 +342,7 @@ type HetznerBareMetalHostV1Beta1DeprecatedStatus struct {
 	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
 }
 
-// GetIPAddress returns the IPv6 if set, otherwise the IPv4.
+// GetIPAddress returns the IPv4 if set, otherwise the IPv6.
 func (sts HetznerBareMetalHostStatus) GetIPAddress() string {
 	if sts.IPv4 == "" {
 		return sts.IPv6

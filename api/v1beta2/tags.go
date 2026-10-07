@@ -22,16 +22,12 @@ const (
 	// and in particular that the lifecycle is tied to the lifecycle of the cluster.
 	ResourceLifecycleOwned = ResourceLifecycle("owned")
 
-	// NameHetznerProviderPrefix is the tag prefix we use to differentiate
-	// cluster-api-provider-hetzner owned components from other tooling that
-	// uses NameKubernetesClusterPrefix
-	// NameHetznerProviderPrefix = "sigs.k8s.io/cluster-api-provider-hetzner/".
+	// NameHetznerProviderPrefix is the prefix of the tags that CAPH sets on HCloud resources.
 	NameHetznerProviderPrefix = "caph-"
-	// NameHetznerProviderOwned is the tag name we use to differentiate
-	// cluster-api-provider-hetzner owned components from other tooling that
-	// uses NameKubernetesClusterPrefix.
+	// NameHetznerProviderOwned is the prefix of the tag key that marks an HCloud resource as owned by a
+	// cluster. The cluster name follows the prefix.
 	NameHetznerProviderOwned = NameHetznerProviderPrefix + "cluster-"
 
-	// MachineNameTagKey tags related MachineNameTag.
+	// MachineNameTagKey is the tag key that has the name of the HCloudMachine of a server.
 	MachineNameTagKey = "machine." + NameHetznerProviderPrefix + "name"
 )

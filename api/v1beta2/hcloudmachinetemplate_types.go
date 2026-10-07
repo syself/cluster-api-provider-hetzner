@@ -181,7 +181,7 @@ type HCloudMachineTemplateList struct {
 	Items           []HCloudMachineTemplate `json:"items"`
 }
 
-// HCloudMachineTemplateResource describes the data needed to create am HCloudMachine from a template.
+// HCloudMachineTemplateResource describes the data needed to create an HCloudMachine from a template.
 type HCloudMachineTemplateResource struct {
 	// Standard object's metadata.
 	// +optional

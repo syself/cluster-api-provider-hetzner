@@ -643,7 +643,7 @@ spec:
                               - least_connections
                             default: round_robin
                             description: Algorithm defines the type of load balancer
-                              algorithm. It could be round_robin or least_connection.
+                              algorithm. It could be round_robin or least_connections.
                               The default value is "round_robin".
                             type: string
                           enableProxyProtocol:
@@ -900,7 +900,7 @@ spec:
                             default: eu-central
                             description: |-
                               NetworkZone specifies the HCloud network zone of the private network.
-                              The zones must be one of eu-central, us-east, or us-west. The default is eu-central.
+                              The zones must be one of eu-central, us-east, us-west or ap-southeast. The default is eu-central.
                             enum:
                             - eu-central
                             - us-east
@@ -1005,7 +1005,7 @@ spec:
                           SkipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be
                           created in the workload cluster. By default the secret gets created, so that the ccm (running
                           in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
-                          wl-cluster, you can set this to value to false, so that the secret is not created. Be sure to
+                          wl-cluster, you can set this to true, so that the secret is not created. Be sure to
                           run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
                         type: boolean
                       sshKeys:

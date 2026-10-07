@@ -25,8 +25,8 @@ const (
 	RebootAnnotation = "capi.syself.com/reboot"
 
 	// PermanentErrorAnnotation indicates that the bare metal host has an error which needs to be resolved manually.
-	// After the permanent error the annotation got removed (usually by a human), the controller removes
-	// ErrorType, ErrorCount and ErrorMessages, so that the hbmh will be usable again.
+	// After the annotation is removed (usually by a human), the controller clears the error, so that the
+	// HetznerBareMetalHost is usable again.
 	PermanentErrorAnnotation = "capi.syself.com/permanent-error"
 )
 

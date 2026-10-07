@@ -26,10 +26,11 @@ type LoadBalancerAlgorithmType string
 
 const (
 
-	// LoadBalancerAlgorithmTypeRoundRobin default for the Kubernetes Api Server load balancer.
+	// LoadBalancerAlgorithmTypeRoundRobin sends requests to the targets in turn. It is the default for the
+	// control plane load balancer.
 	LoadBalancerAlgorithmTypeRoundRobin = LoadBalancerAlgorithmType("round_robin")
 
-	// LoadBalancerAlgorithmTypeLeastConnections default for load balancer.
+	// LoadBalancerAlgorithmTypeLeastConnections sends requests to the target with the fewest open connections.
 	LoadBalancerAlgorithmTypeLeastConnections = LoadBalancerAlgorithmType("least_connections")
 )
 
@@ -39,10 +40,10 @@ type LoadBalancerTargetType string
 
 const (
 
-	// LoadBalancerTargetTypeServer default for the Kubernetes Api Server load balancer.
+	// LoadBalancerTargetTypeServer adds an HCloud server as a load balancer target.
 	LoadBalancerTargetTypeServer = LoadBalancerTargetType("server")
 
-	// LoadBalancerTargetTypeIP default for load balancer.
+	// LoadBalancerTargetTypeIP adds an IP address as a load balancer target. CAPH uses it for bare metal servers.
 	LoadBalancerTargetTypeIP = LoadBalancerTargetType("ip")
 )
 
@@ -214,7 +215,7 @@ type LoadBalancerSpec struct {
 	// +optional
 	Name *string `json:"name,omitempty"`
 
-	// Algorithm defines the type of load balancer algorithm. It could be round_robin or least_connection. The default value is "round_robin".
+	// Algorithm defines the type of load balancer algorithm. It could be round_robin or least_connections. The default value is "round_robin".
 	// +optional
 	// +kubebuilder:validation:Enum=round_robin;least_connections
 	// +kubebuilder:default=round_robin
@@ -475,7 +476,7 @@ type HCloudNetworkSpec struct {
 	SubnetCIDRBlock string `json:"subnetCidrBlock,omitempty"`
 
 	// NetworkZone specifies the HCloud network zone of the private network.
-	// The zones must be one of eu-central, us-east, or us-west. The default is eu-central.
+	// The zones must be one of eu-central, us-east, us-west or ap-southeast. The default is eu-central.
 	// +kubebuilder:validation:Enum=eu-central;us-east;us-west;ap-southeast
 	// +kubebuilder:default=eu-central
 	// +optional

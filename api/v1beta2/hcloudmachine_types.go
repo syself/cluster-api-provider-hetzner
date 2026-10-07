@@ -44,8 +44,8 @@ type HCloudMachineSpec struct {
 	//
 	// N is a number, and V is the version of this machine type. Example: cpx32.
 	//
-	// The list of valid machine types gets changed by Hetzner from time to time. CAPH no longer
-	// validates this string. It is up to you to use a valid type. Not all types are available in all
+	// The list of valid machine types gets changed by Hetzner from time to time. CAPH does not
+	// validate this string. It is up to you to use a valid type. Not all types are available in all
 	// locations.
 	Type HCloudMachineType `json:"type"`
 
@@ -110,7 +110,7 @@ type HCloudMachineSpec struct {
 // HCloudMachineStatus defines the observed state of HCloudMachine.
 type HCloudMachineStatus struct {
 	// conditions represents the observations of an HCloudMachine's current state.
-	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded, ServerCreated, ServerProvisioned and ServerAvailable.
+	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded, ServerCreated, SSHPrivateKeyAvailable, ServerProvisioned and ServerAvailable.
 	// +optional
 	// +listType=map
 	// +listMapKey=type
@@ -211,7 +211,8 @@ type HCloudMachineV1Beta1DeprecatedStatus struct {
 // InstanceState is the state of the HCloud server that backs an HCloudMachine. It is set from the
 // Hetzner Cloud server status, with additional CAPH owned states for lifecycle phases that Hetzner does
 // not report on its own, such as deletion driven by CAPH. The field may hold any status the Hetzner API
-// reports; the constants below name the states CAPH handles explicitly.
+// reports. The constants below name common Hetzner Cloud server statuses and the deleting state that
+// CAPH sets.
 type InstanceState string
 
 const (
@@ -355,7 +356,7 @@ func HCloudMachineSummaryOpts() []conditions.SummaryOption {
 	}
 }
 
-// SetBootState sets Status.BootStates and updates Status.BootStateSince.
+// SetBootState sets Status.BootState and updates Status.BootStateSince.
 func (r *HCloudMachine) SetBootState(bootState HCloudBootState) {
 	if r.Status.BootState == bootState {
 		return

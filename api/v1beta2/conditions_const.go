@@ -38,7 +38,7 @@ const (
 )
 
 const (
-	// ServerCreateSucceededV1Beta1Condition reports on current status of the instance. Ready indicates the instance is in a Running state.
+	// ServerCreateSucceededV1Beta1Condition reports whether the HCloud server of the HCloudMachine was created.
 	ServerCreateSucceededV1Beta1Condition clusterv1.ConditionType = "ServerCreateSucceeded"
 	// InstanceHasNonExistingPlacementGroupV1Beta1Reason instance has a placement group name that does not exist.
 	InstanceHasNonExistingPlacementGroupV1Beta1Reason = "InstanceHasNonExistingPlacementGroup"
@@ -83,9 +83,9 @@ const (
 )
 
 const (
-	// NetworkAttachFailedV1Beta1Reason is used when server could not be attached to network.
+	// NetworkAttachFailedV1Beta1Reason is used when the server could not be attached to the network.
 	NetworkAttachFailedV1Beta1Reason = "NetworkAttachFailed"
-	// LoadBalancerAttachFailedV1Beta1Reason is used when server could not be attached to network.
+	// LoadBalancerAttachFailedV1Beta1Reason is used when the server could not be attached to the load balancer.
 	LoadBalancerAttachFailedV1Beta1Reason = "LoadBalancerAttachFailed"
 )
 
@@ -172,7 +172,7 @@ const (
 )
 
 const (
-	// CredentialsAvailableV1Beta1Condition reports on whether the Hetzner cluster is in ready state.
+	// CredentialsAvailableV1Beta1Condition reports whether the SSH secrets of the HetznerBareMetalHost are available and valid.
 	CredentialsAvailableV1Beta1Condition clusterv1.ConditionType = "CredentialsAvailable"
 	// SSHCredentialsInSecretInvalidV1Beta1Reason indicates that ssh credentials are invalid.
 	SSHCredentialsInSecretInvalidV1Beta1Reason = "SSHCredentialsInSecretInvalid" // #nosec
@@ -291,9 +291,7 @@ const (
 	ActionCompletedUnknownErrorV1Beta1Reason = "UnknownError"
 )
 
-// v1beta2 conditions.
-
-// common conditions used across resource types.
+// Conditions and reasons used by more than one resource type.
 
 const (
 	// HCloudRateLimitExceededCondition reports on whether the HCloud API rate limit has been exceeded.
@@ -313,7 +311,15 @@ const (
 	HCloudTokenSecretUnreachableReason = "SecretUnreachable" // #nosec
 )
 
-// HetznerCluster's v1beta2 conditions.
+const (
+	// RemediationCooldownTriggeredReason is set on the MachineOwnerRemediated condition of the CAPI
+	// Machine when the CAPI Machine became unhealthy again within the cooldown window following a prior
+	// remediation. Rather than rebooting again, the remediation controller sets MachineOwnerRemediated
+	// to False, and CAPI then deletes the CAPI Machine.
+	RemediationCooldownTriggeredReason = "RemediationCooldownTriggered"
+)
+
+// HetznerCluster conditions.
 
 const (
 	// HetznerClusterNetworkReadyCondition reports on whether the network is ready.
@@ -333,7 +339,7 @@ const (
 	HetznerClusterLoadBalancerCreationFailedReason = "CreationFailed"
 	// HetznerClusterLoadBalancerSyncingServicesFailedReason indicates that an error occurred while syncing services of the load balancer.
 	HetznerClusterLoadBalancerSyncingServicesFailedReason = "SyncingServicesFailed"
-	// HetznerClusterLoadBalancerAttachingToNetworkFailedReason indicates that the server could not be attached to network.
+	// HetznerClusterLoadBalancerAttachingToNetworkFailedReason indicates that the load balancer could not be attached to the network.
 	HetznerClusterLoadBalancerAttachingToNetworkFailedReason = "AttachingToNetworkFailed"
 	// HetznerClusterLoadBalancerOwningFailedReason indicates no owned label could be set on a load balancer.
 	HetznerClusterLoadBalancerOwningFailedReason = "OwningFailed"
@@ -395,7 +401,7 @@ const (
 	HetznerClusterDeletingReason = clusterv1.DeletingReason
 )
 
-// HCloudMachine's v1beta2 conditions.
+// HCloudMachine conditions.
 
 const (
 	// HCloudMachineServerCreatedCondition reports on whether the HCloud server was created.
@@ -536,7 +542,7 @@ const (
 	HCloudMachineDeletingReason = clusterv1.DeletingReason
 )
 
-// HCloudMachineTemplate's v1beta2 conditions.
+// HCloudMachineTemplate conditions.
 
 const (
 	// HCloudMachineTemplateAvailableCondition reports whether the HCloudMachineTemplate is available.
@@ -553,7 +559,7 @@ const (
 	HCloudMachineTemplateServerTypeNotFoundReason = "ServerTypeNotFound"
 )
 
-// HCloudRemediation's v1beta2 conditions.
+// HCloudRemediation conditions.
 
 const (
 	// HCloudRemediationSkippedCondition reports that remediation was skipped because
@@ -562,14 +568,9 @@ const (
 	// HCloudRemediationServerCreationFailedIrrecoverablyReason indicates remediation was skipped because
 	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
 	HCloudRemediationServerCreationFailedIrrecoverablyReason = "CreationFailedIrrecoverably"
-	// RemediationCooldownTriggeredReason indicates that the machine became unhealthy
-	// again within the cooldown window following a prior remediation. Rather than
-	// rebooting again, the controller sets MachineOwnerRemediated to False so CAPI
-	// escalates by deleting the machine.
-	RemediationCooldownTriggeredReason = "RemediationCooldownTriggered"
 )
 
-// HetznerBareMetalHost's v1beta2 conditions.
+// HetznerBareMetalHost conditions.
 
 const (
 	// HetznerBareMetalHostSSHKeysAvailableCondition reports whether SSH keys for the host are available.
@@ -707,7 +708,7 @@ const (
 	HetznerBareMetalHostActionCompletedUnknownErrorReason = "UnknownError"
 )
 
-// HetznerBareMetalMachine's v1beta2 conditions.
+// HetznerBareMetalMachine conditions.
 const (
 	// HetznerBareMetalMachineHostAssociatedCondition is true when the host is associated.
 	HetznerBareMetalMachineHostAssociatedCondition = "HostAssociated"
