@@ -309,10 +309,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		}
 
 		// Always attempt to Patch the Remediation object and status after each reconciliation.
-		// Patch ObservedGeneration only if the reconciliation completed successfully
-		patchOpts := []patch.Option{patch.WithStatusObservedGeneration{}}
-
-		if err := remediationScope.Close(ctx, patchOpts...); err != nil {
+		if err := remediationScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
 			reterr = errors.Join(reterr, err)
 		}
