@@ -1178,8 +1178,8 @@ spec:
                 type: string
               ongoingReboot:
                 description: |-
-                  ongoingReboot is the reboot we sent and are waiting for. It is empty when we are not waiting
-                  for a reboot.
+                  ongoingReboot is the reboot request we sent and are waiting to complete. It is empty when we
+                  are not waiting for a reboot.
                 properties:
                   triggeredAt:
                     description: triggeredAt is when we sent the reboot.

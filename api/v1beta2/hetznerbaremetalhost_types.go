@@ -113,7 +113,7 @@ const (
 	ErrorTypePermanent ErrorType = "permanent error"
 )
 
-// OngoingReboot is a reboot we sent and are waiting for.
+// OngoingReboot represents a reboot request we sent and are waiting to complete.
 type OngoingReboot struct {
 	// type is the kind of reboot we sent.
 	// +required
@@ -290,8 +290,8 @@ type HetznerBareMetalHostStatus struct {
 	// +optional
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
 
-	// ongoingReboot is the reboot we sent and are waiting for. It is empty when we are not waiting
-	// for a reboot.
+	// ongoingReboot is the reboot request we sent and are waiting to complete. It is empty when we
+	// are not waiting for a reboot.
 	// +optional
 	OngoingReboot *OngoingReboot `json:"ongoingReboot,omitempty"`
 
