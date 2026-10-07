@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -212,22 +211,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	}
 
 	defer func() {
-		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
-			deprecatedv1beta1conditions.MarkFalse(hcloudMachineTemplate, infrav2.HCloudTokenAvailableV1Beta1Condition, infrav2.HCloudCredentialsInvalidV1Beta1Reason, clusterv1.ConditionSeverityError, "wrong hcloud token")
-			conditions.Set(hcloudMachineTemplate, metav1.Condition{
-				Type:    infrav2.HCloudTokenAvailableCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HCloudTokenInvalidReason,
-				Message: "wrong hcloud token",
-			})
-		} else {
-			deprecatedv1beta1conditions.MarkTrue(hcloudMachineTemplate, infrav2.HCloudTokenAvailableV1Beta1Condition)
-			conditions.Set(hcloudMachineTemplate, metav1.Condition{
-				Type:   infrav2.HCloudTokenAvailableCondition,
-				Status: metav1.ConditionTrue,
-				Reason: infrav2.HCloudTokenAvailableReason,
-			})
-		}
+		setHCloudTokenAvailable(hcloudMachineTemplate, reterr)
 	}()
 
 	// check whether rate limit has been reached and if so, then wait.
