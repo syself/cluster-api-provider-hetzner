@@ -426,6 +426,9 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
 					return fmt.Errorf("MachineOwnerRemediatedCondition not set")
 				}
+				if !isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason) {
+					return fmt.Errorf("v1beta2 MachineOwnerRemediatedCondition not set")
+				}
 				return nil
 			}, timeout).ShouldNot(HaveOccurred())
 		})
@@ -607,6 +610,14 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				}
 				if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine is in BootState ProvisioningFailed (no need to try a reboot)" {
 					return fmt.Errorf("Message is not as expected: %q", c.Message)
+				}
+
+				cond := conditions.Get(capiMachine, clusterv1.MachineOwnerRemediatedCondition)
+				if cond == nil {
+					return fmt.Errorf("not set: v1beta2 MachineOwnerRemediatedCondition")
+				}
+				if cond.Status != metav1.ConditionFalse || cond.Reason != clusterv1.MachineOwnerRemediatedWaitingForRemediationReason {
+					return fmt.Errorf("v1beta2 MachineOwnerRemediatedCondition is not as expected: %s/%s", cond.Status, cond.Reason)
 				}
 				return nil
 			}, timeout).Should(Succeed())

@@ -1271,6 +1271,19 @@ var _ = Describe("IgnoreInsignificantHetznerClusterUpdates Predicate", func() {
 		})).To(BeFalse())
 	})
 
+	It("should skip updates to the v1beta2 HetznerCluster conditions", func() {
+		conditions.Set(newCluster, metav1.Condition{
+			Type:   infrav2.HCloudTokenAvailableCondition,
+			Status: metav1.ConditionFalse,
+			Reason: infrav2.HCloudTokenInvalidReason,
+		})
+
+		Expect(predicate.Update(event.UpdateEvent{
+			ObjectOld: oldCluster,
+			ObjectNew: newCluster,
+		})).To(BeFalse())
+	})
+
 	It("should process updates to other fields", func() {
 		newCluster.Spec.ControlPlaneRegions = []infrav2.Region{"fsn1", "nbg1", "hel1"}
 

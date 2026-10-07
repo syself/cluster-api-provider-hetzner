@@ -24,11 +24,13 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -442,6 +444,11 @@ func TestReconcileServices_ProxyProtocolMigration_MachinesNotReady(t *testing.T)
 	require.Equal(t, metav1.ConditionFalse, cond.Status)
 	require.Equal(t, infrav2.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason, cond.Reason)
 
+	deprecatedCond := deprecatedv1beta1conditions.Get(svc.scope.HetznerCluster, infrav2.LoadBalancerReadyV1Beta1Condition)
+	require.NotNil(t, deprecatedCond, "deprecated LoadBalancerReady condition should report the same wait")
+	require.Equal(t, corev1.ConditionFalse, deprecatedCond.Status)
+	require.Equal(t, infrav2.LoadBalancerWaitingToActivateProxyProtocolV1Beta1Reason, deprecatedCond.Reason)
+
 	mockClient.AssertExpectations(t)
 }
 
@@ -534,6 +541,11 @@ func TestReconcileServices_HealthCheckMigration_MachinesNotReady_Requeues(t *tes
 	require.NotNil(t, cond, "LoadBalancerReady condition should report the http health check wait")
 	require.Equal(t, metav1.ConditionFalse, cond.Status)
 	require.Equal(t, infrav2.HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason, cond.Reason)
+
+	deprecatedCond := deprecatedv1beta1conditions.Get(svc.scope.HetznerCluster, infrav2.LoadBalancerReadyV1Beta1Condition)
+	require.NotNil(t, deprecatedCond, "deprecated LoadBalancerReady condition should report the same wait")
+	require.Equal(t, corev1.ConditionFalse, deprecatedCond.Status)
+	require.Equal(t, infrav2.LoadBalancerWaitingToActivateHTTPHealthCheckV1Beta1Reason, deprecatedCond.Reason)
 
 	// No UpdateServiceOnLoadBalancer expectation was set up, so AssertExpectations fails here if
 	// the tcp check got switched to http anyway.
