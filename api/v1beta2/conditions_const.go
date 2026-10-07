@@ -152,8 +152,6 @@ const (
 	TargetClusterCreateFailedV1Beta1Reason = "TargetClusterCreateFailed"
 	// TargetClusterControlPlaneNotReadyV1Beta1Reason indicates that the target cluster's control plane is not ready yet.
 	TargetClusterControlPlaneNotReadyV1Beta1Reason = "TargetClusterControlPlaneNotReady"
-	// ControlPlaneEndpointSetV1Beta1Condition indicates that the control plane is set.
-	ControlPlaneEndpointSetV1Beta1Condition = "ControlPlaneEndpointSet"
 )
 
 const (
@@ -161,6 +159,11 @@ const (
 	TargetClusterSecretReadyV1Beta1Condition clusterv1.ConditionType = "TargetClusterSecretReady"
 	// TargetSecretSyncFailedV1Beta1Reason indicates that the target secret could not be synced.
 	TargetSecretSyncFailedV1Beta1Reason = "TargetSecretSyncFailed"
+)
+
+const (
+	// ControlPlaneEndpointSetV1Beta1Condition indicates that the control plane endpoint is set.
+	ControlPlaneEndpointSetV1Beta1Condition clusterv1.ConditionType = "ControlPlaneEndpointSet"
 	// ControlPlaneEndpointNotSetV1Beta1Reason indicates that the control plane endpoint is not set.
 	ControlPlaneEndpointNotSetV1Beta1Reason = "ControlPlaneEndpointNotSet"
 )
@@ -457,8 +460,8 @@ const (
 	HCloudMachineBootStateInitializingReason = "BootStateInitializing"
 	// HCloudMachineBootStateInitializingTimeoutReachedReason indicates the boot state initialization timed out.
 	HCloudMachineBootStateInitializingTimeoutReachedReason = "BootStateInitializingTimeoutReached"
-	// HCloudMachineProvisioningServerReason indicates the server is being provisioned.
-	HCloudMachineProvisioningServerReason = "Provisioning"
+	// HCloudMachineProvisioningReason indicates the server is being provisioned.
+	HCloudMachineProvisioningReason = "Provisioning"
 	// HCloudMachineServerStatusUnknownReason indicates the hcloud server returned a status that the controller does not handle.
 	HCloudMachineServerStatusUnknownReason = "ServerStatusUnknown"
 	// HCloudMachineActionIDCreateServerNotSetReason indicates the ActionIDCreateServer status field is not set.
@@ -522,8 +525,8 @@ const (
 	HCloudMachinePoweringOnServerFailedReason = "PoweringOnServerFailed"
 	// HCloudMachineServerOffReason indicates the server is off.
 	HCloudMachineServerOffReason = "ServerOff"
-	// HCloudMachineServerOffTimeoutReason indicates the server off timeout was reached.
-	HCloudMachineServerOffTimeoutReason = "ServerOffTimeoutReached"
+	// HCloudMachineServerOffTimeoutReachedReason indicates the server off timeout was reached.
+	HCloudMachineServerOffTimeoutReachedReason = "ServerOffTimeoutReached"
 )
 
 const (
@@ -609,8 +612,8 @@ const (
 	HetznerBareMetalHostRootDeviceHintsValidatedCondition = "RootDeviceHintsValidated"
 	// HetznerBareMetalHostRootDeviceHintsValidatedReason indicates root device hints are validated.
 	HetznerBareMetalHostRootDeviceHintsValidatedReason = "Validated"
-	// HetznerBareMetalHostValidationFailedReason indicates the specified root device hints could not be validated.
-	HetznerBareMetalHostValidationFailedReason = "ValidationFailed"
+	// HetznerBareMetalHostRootDeviceHintsValidationFailedReason indicates the specified root device hints could not be validated.
+	HetznerBareMetalHostRootDeviceHintsValidationFailedReason = "ValidationFailed"
 )
 
 const (
@@ -673,8 +676,8 @@ const (
 	HetznerBareMetalHostRebootSucceededReason = "Succeeded"
 	// HetznerBareMetalHostRebootingReason indicates the host is rebooting.
 	HetznerBareMetalHostRebootingReason = "Rebooting"
-	// HetznerBareMetalHostRebootSucceededTimeoutReachedOutReason indicates the reboot did not complete within the timeout.
-	HetznerBareMetalHostRebootSucceededTimeoutReachedOutReason = "TimeoutReached"
+	// HetznerBareMetalHostRebootSucceededTimeoutReachedReason indicates the reboot did not complete within the timeout.
+	HetznerBareMetalHostRebootSucceededTimeoutReachedReason = "TimeoutReached"
 	// HetznerBareMetalHostRebootingViaSSHFailedReason indicates triggering the reboot via SSH failed.
 	HetznerBareMetalHostRebootingViaSSHFailedReason = "RebootingViaSSHFailed"
 	// HetznerBareMetalHostRebootingViaAPIFailedReason indicates triggering the reboot via the Robot API failed.
@@ -747,8 +750,8 @@ const (
 	// HetznerBareMetalMachineHostReadyReason surfaces when the host is ready.
 	HetznerBareMetalMachineHostReadyReason = clusterv1.ReadyReason
 
-	// HetznerBareMetalMachineNotFoundReason surfaces when the host is not found.
-	HetznerBareMetalMachineNotFoundReason = "NotFound"
+	// HetznerBareMetalMachineHostNotFoundReason surfaces when the host is not found.
+	HetznerBareMetalMachineHostNotFoundReason = "NotFound"
 
 	// HetznerBareMetalMachineHostNotReadyReason surfaces when the host is not ready.
 	HetznerBareMetalMachineHostNotReadyReason = "NotReady"

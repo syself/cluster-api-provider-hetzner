@@ -138,7 +138,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
 				Type:    infrav2.HetznerBareMetalMachineHostReadyCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HetznerBareMetalMachineNotFoundReason,
+				Reason:  infrav2.HetznerBareMetalMachineHostNotFoundReason,
 				Message: "associated host not found",
 			})
 

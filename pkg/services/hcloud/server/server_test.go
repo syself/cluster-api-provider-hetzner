@@ -241,7 +241,7 @@ var _ = Describe("handleServerStatusOff", func() {
 		Expect(server.Status).To(Equal(hcloud.ServerStatusOff))
 
 		Expect(isPresentAndFalseWithReasonDeprecatedV1Beta1(hcloudMachine, infrav2.ServerProvisionedV1Beta1Condition, "ServerOffTimeout")).To(BeTrue())
-		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav2.HCloudMachineServerProvisionedCondition, metav1.ConditionFalse, infrav2.HCloudMachineServerOffTimeoutReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav2.HCloudMachineServerProvisionedCondition, metav1.ConditionFalse, infrav2.HCloudMachineServerOffTimeoutReachedReason)).To(BeTrue())
 
 		_, exists := service.scope.Machine.Annotations[clusterv1.RemediateMachineAnnotation]
 		Expect(exists).To(BeTrue())

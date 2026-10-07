@@ -943,7 +943,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			Eventually(func() bool {
 				return isPresentAndFalseWithReasonDeprecatedV1Beta1(bmmKey, bmMachine, infrav2.HostReadyV1Beta1Condition, infrav2.HostNotFoundV1Beta1Reason) &&
-					isPresentAndFalseWithReason(bmmKey, bmMachine, infrav2.HetznerBareMetalMachineHostReadyCondition, infrav2.HetznerBareMetalMachineNotFoundReason)
+					isPresentAndFalseWithReason(bmmKey, bmMachine, infrav2.HetznerBareMetalMachineHostReadyCondition, infrav2.HetznerBareMetalMachineHostNotFoundReason)
 			}, timeout).Should(BeTrue())
 
 			By("ensuring remediate machine annotation is set on CAPI machine")

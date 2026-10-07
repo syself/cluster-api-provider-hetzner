@@ -771,7 +771,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalHostValidationFailedReason,
+			Reason:  infrav2.HetznerBareMetalHostRootDeviceHintsValidationFailedReason,
 			Message: infrav2.ErrorMessageMissingRootDeviceHints,
 		})
 		s.scope.EventRecorder.Event(
@@ -797,7 +797,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalHostValidationFailedReason,
+			Reason:  infrav2.HetznerBareMetalHostRootDeviceHintsValidationFailedReason,
 			Message: errMsg,
 		})
 		s.scope.EventRecorder.Event(
@@ -824,7 +824,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalHostValidationFailedReason,
+			Reason:  infrav2.HetznerBareMetalHostRootDeviceHintsValidationFailedReason,
 			Message: err.Error(),
 		})
 		s.scope.EventRecorder.Event(
@@ -867,7 +867,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalHostValidationFailedReason,
+			Reason:  infrav2.HetznerBareMetalHostRootDeviceHintsValidationFailedReason,
 			Message: msg,
 		})
 		s.scope.EventRecorder.Event(
@@ -2715,7 +2715,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav2.HetznerBareMetalHostRebootSucceededCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HetznerBareMetalHostRebootSucceededTimeoutReachedOutReason,
+				Reason:  infrav2.HetznerBareMetalHostRebootSucceededTimeoutReachedReason,
 				Message: msg,
 			})
 			s.scope.SetHostError(infrav2.FatalError, msg)

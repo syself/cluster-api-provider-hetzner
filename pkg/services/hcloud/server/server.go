@@ -372,7 +372,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	conditions.Set(hm, metav1.Condition{
 		Type:    infrav2.HCloudMachineServerProvisionedCondition,
 		Status:  metav1.ConditionFalse,
-		Reason:  infrav2.HCloudMachineProvisioningServerReason,
+		Reason:  infrav2.HCloudMachineProvisioningReason,
 		Message: "Provisioning and rebooting server",
 	})
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
@@ -2214,7 +2214,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 			conditions.Set(s.scope.HCloudMachine, metav1.Condition{
 				Type:    infrav2.HCloudMachineServerProvisionedCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HCloudMachineServerOffTimeoutReason,
+				Reason:  infrav2.HCloudMachineServerOffTimeoutReachedReason,
 				Message: "reached timeout waiting for server that is switched off",
 			})
 			return res, nil
