@@ -70,10 +70,10 @@ func WithError(errorType infrav2.ErrorType, errorMessage string) HostOpts {
 	}
 }
 
-// WithPendingReboot gives the option to define a host that waits for a reboot sent at triggeredAt.
-func WithPendingReboot(rebootType infrav2.RebootType, triggeredAt metav1.Time) HostOpts {
+// WithOngoingReboot gives the option to define a host that waits for a reboot sent at triggeredAt.
+func WithOngoingReboot(rebootType infrav2.RebootType, triggeredAt metav1.Time) HostOpts {
 	return func(host *infrav2.HetznerBareMetalHost) {
-		host.Status.PendingReboot = &infrav2.PendingReboot{
+		host.Status.OngoingReboot = &infrav2.OngoingReboot{
 			Type:        rebootType,
 			TriggeredAt: triggeredAt,
 		}

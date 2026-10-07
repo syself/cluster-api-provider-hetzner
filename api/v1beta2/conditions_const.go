@@ -179,6 +179,8 @@ const (
 	SSHCredentialsInSecretInvalidV1Beta1Reason = "SSHCredentialsInSecretInvalid" // #nosec
 	// SSHKeyAlreadyExistsV1Beta1Reason indicates that the ssh key which is specified in the host spec exists already under a different name in Hetzner robot.
 	SSHKeyAlreadyExistsV1Beta1Reason = "SSHKeyAlreadyExists"
+	// SSHSecretModifiedV1Beta1Reason indicates that the OS SSH secret changed while a provisioned host uses it.
+	SSHSecretModifiedV1Beta1Reason = "SSHSecretModified" // #nosec
 	// OSSSHSecretMissingV1Beta1Reason indicates that secret with the os ssh key is missing.
 	OSSSHSecretMissingV1Beta1Reason = "OSSSHSecretMissing"
 	// RescueSSHSecretMissingV1Beta1Reason indicates that secret with the rescue ssh key is missing.
@@ -272,9 +274,8 @@ const (
 )
 
 const (
-	// ActionCompletedV1Beta1Condition surfaces the host's current provisioning or operational action.
-	// It is present only while an action is in progress or the host is stuck (carrying the reason and
-	// message for that state) and is removed once the action clears.
+	// ActionCompletedV1Beta1Condition is False while we wait for a reboot we sent, or while the host has
+	// a fatal or permanent error. We remove it when the reboot is done or the error is cleared.
 	ActionCompletedV1Beta1Condition clusterv1.ConditionType = "ActionCompleted"
 	// ActionCompletedSSHRebootTriggeredV1Beta1Reason indicates a reboot via SSH was triggered.
 	ActionCompletedSSHRebootTriggeredV1Beta1Reason = "SSHRebootTriggered"
@@ -282,12 +283,6 @@ const (
 	ActionCompletedSoftwareRebootTriggeredV1Beta1Reason = "SoftwareRebootTriggered"
 	// ActionCompletedHardwareRebootTriggeredV1Beta1Reason indicates a hardware reboot was triggered.
 	ActionCompletedHardwareRebootTriggeredV1Beta1Reason = "HardwareRebootTriggered"
-	// ActionCompletedRegistrationErrorV1Beta1Reason indicates the server info could not be read or the spec is incomplete.
-	ActionCompletedRegistrationErrorV1Beta1Reason = "RegistrationError"
-	// ActionCompletedPreparationErrorV1Beta1Reason indicates a step before provisioning failed.
-	ActionCompletedPreparationErrorV1Beta1Reason = "PreparationError"
-	// ActionCompletedProvisioningErrorV1Beta1Reason indicates provisioning or deprovisioning failed.
-	ActionCompletedProvisioningErrorV1Beta1Reason = "ProvisioningError"
 	// ActionCompletedFatalErrorV1Beta1Reason indicates an unrecoverable error that deletes the CAPI Machine.
 	ActionCompletedFatalErrorV1Beta1Reason = "FatalError"
 	// ActionCompletedPermanentErrorV1Beta1Reason indicates an error that stays on the host until an operator clears it.
@@ -587,6 +582,8 @@ const (
 	HetznerBareMetalHostSSHKeysInvalidReason = "Invalid"
 	// HetznerBareMetalHostSSHKeyAlreadyExistsReason indicates the SSH key already exists under a different name in Hetzner Robot.
 	HetznerBareMetalHostSSHKeyAlreadyExistsReason = "AlreadyExists"
+	// HetznerBareMetalHostSSHSecretModifiedReason indicates the OS SSH secret changed while a provisioned host uses it.
+	HetznerBareMetalHostSSHSecretModifiedReason = "SecretModified"
 	// HetznerBareMetalHostOSSSHSecretMissingReason indicates the OS SSH secret is missing.
 	HetznerBareMetalHostOSSSHSecretMissingReason = "OSSSHSecretMissing"
 	// HetznerBareMetalHostRescueSSHSecretMissingReason indicates the rescue SSH secret is missing.
@@ -689,9 +686,8 @@ const (
 )
 
 const (
-	// HetznerBareMetalHostActionCompletedCondition surfaces the host's current provisioning or operational
-	// action. It is present only while an action is in progress or the host is stuck (carrying the reason and
-	// message for that state) and is removed once the action clears; it has no steady-state True.
+	// HetznerBareMetalHostActionCompletedCondition is False while we wait for a reboot we sent, or while
+	// the host has a fatal or permanent error. We remove it when the reboot is done or the error is cleared.
 	HetznerBareMetalHostActionCompletedCondition = "ActionCompleted"
 
 	// HetznerBareMetalHostActionCompletedSSHRebootOngoingReason indicates we sent a reboot via SSH and are waiting for it.
@@ -700,12 +696,6 @@ const (
 	HetznerBareMetalHostActionCompletedSoftwareRebootOngoingReason = "SoftwareRebootOngoing"
 	// HetznerBareMetalHostActionCompletedHardwareRebootOngoingReason indicates we sent a hardware reboot via the Robot API and are waiting for it.
 	HetznerBareMetalHostActionCompletedHardwareRebootOngoingReason = "HardwareRebootOngoing"
-	// HetznerBareMetalHostActionCompletedRegistrationErrorReason indicates the server info could not be read or the spec is incomplete.
-	HetznerBareMetalHostActionCompletedRegistrationErrorReason = "RegistrationError"
-	// HetznerBareMetalHostActionCompletedPreparationErrorReason indicates a step before provisioning failed.
-	HetznerBareMetalHostActionCompletedPreparationErrorReason = "PreparationError"
-	// HetznerBareMetalHostActionCompletedProvisioningErrorReason indicates provisioning or deprovisioning failed.
-	HetznerBareMetalHostActionCompletedProvisioningErrorReason = "ProvisioningError"
 	// HetznerBareMetalHostActionCompletedFatalErrorReason indicates an unrecoverable error that deletes the CAPI Machine.
 	HetznerBareMetalHostActionCompletedFatalErrorReason = "FatalError"
 	// HetznerBareMetalHostActionCompletedPermanentErrorReason indicates an error that stays on the host until an operator clears it.

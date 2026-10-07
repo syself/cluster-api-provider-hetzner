@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -37,6 +38,9 @@ var _ = Describe("updateSSHKey", func() {
 		expectedNextState        infrav2.ProvisioningState
 		expectedOSSecretData     map[string][]byte
 		expectedRescueSecretData map[string][]byte
+		// expectedSSHKeysAvailableReason is the reason of the SSHKeysAvailable condition when it is
+		// set to False. It is empty when the condition is not set to False.
+		expectedSSHKeysAvailableReason string
 	}
 
 	DescribeTable("updateSSHKey",
@@ -102,6 +106,13 @@ var _ = Describe("updateSSHKey", func() {
 				DataHash: expectedDataHashOS,
 			}))
 			Expect(hsm.nextState).Should(Equal(tc.expectedNextState))
+			if tc.expectedSSHKeysAvailableReason != "" {
+				sshKeysAvailable := conditions.Get(host, infrav2.HetznerBareMetalHostSSHKeysAvailableCondition)
+				Expect(sshKeysAvailable).ToNot(BeNil())
+				Expect(sshKeysAvailable.Status).To(Equal(metav1.ConditionFalse))
+				Expect(sshKeysAvailable.Reason).To(Equal(tc.expectedSSHKeysAvailableReason))
+				Expect(conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
+			}
 		},
 		Entry("nothing changed", testCaseUpdateSSHKey{
 			osSecretData: map[string][]byte{
@@ -164,9 +175,10 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-name"),
 				"public-key":  []byte("my-public-key"),
 			},
-			currentState:         infrav2.StateProvisioned,
-			expectedActionResult: actionContinue{},
-			expectedNextState:    infrav2.StateProvisioned,
+			currentState:                   infrav2.StateProvisioned,
+			expectedActionResult:           actionContinue{},
+			expectedNextState:              infrav2.StateProvisioned,
+			expectedSSHKeysAvailableReason: infrav2.HetznerBareMetalHostSSHSecretModifiedReason,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-old-name"),

@@ -137,11 +137,6 @@ func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T
 	require.Zero(t, robotFactory.calls)
 }
 
-func verifyActionCompletedReason(host *infrav2.HetznerBareMetalHost, reason string) bool {
-	actionCompleted := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
-	return actionCompleted != nil && actionCompleted.Reason == reason
-}
-
 var _ = Describe("HetznerBareMetalHostReconciler", func() {
 	var (
 		host           *infrav2.HetznerBareMetalHost
@@ -405,7 +400,8 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					if err := testEnv.Get(ctx, key, host); err != nil {
 						return false
 					}
-					return verifyActionCompletedReason(host, infrav2.HetznerBareMetalHostActionCompletedRegistrationErrorReason)
+					c := conditions.Get(host, infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition)
+					return c != nil && c.Reason == infrav2.HetznerBareMetalHostValidationFailedReason
 				}, timeout).Should(BeTrue())
 			})
 

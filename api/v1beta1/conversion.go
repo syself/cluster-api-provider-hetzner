@@ -371,7 +371,7 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_HetznerBareMetalHostS
 //   - status.v1beta2.conditions is promoted to status.conditions.
 //   - status.conditions is demoted to status.deprecated.v1beta1.conditions.
 //   - status.errorType and status.rebootTriggeredAt are split into status.errorType and
-//     status.pendingReboot.
+//     status.ongoingReboot.
 //   - hetznerClusterRef, userData, installImage, sshSpec, errorCount, errorMessage, lastUpdated and
 //     hardwareDetails.cpu.flags have no v1beta2 equivalent; they are dropped here and stashed in the
 //     conversion data annotation at the object level (HetznerBareMetalHost.ConvertTo).
@@ -407,7 +407,7 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 	out.Rebooted = in.Rebooted
 	out.NodeBootID = in.NodeBootID
 
-	// errorType only keeps fatal error and permanent error. A reboot moves to pendingReboot. The
+	// errorType only keeps fatal error and permanent error. A reboot moves to ongoingReboot. The
 	// other values are ignored, because users see them on the ActionCompleted condition. We do not
 	// stash them in the conversion data annotation, because controller does not need them and
 	// restoring them would overwrite newer values from the controller.
@@ -423,7 +423,7 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 		rebootType = infrav2.RebootTypeHardware
 	}
 	if rebootType != "" && !in.RebootTriggeredAt.IsZero() {
-		out.PendingReboot = &infrav2.PendingReboot{
+		out.OngoingReboot = &infrav2.OngoingReboot{
 			Type:        rebootType,
 			TriggeredAt: *in.RebootTriggeredAt,
 		}
@@ -436,7 +436,7 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 // status subresource back into the v1beta1 spec.status. It is the inverse of the function above:
 //   - status.conditions is demoted to the staged status.v1beta2.conditions.
 //   - status.deprecated.v1beta1.conditions is promoted back to status.conditions.
-//   - status.pendingReboot moves back into status.errorType and status.rebootTriggeredAt.
+//   - status.ongoingReboot moves back into status.errorType and status.rebootTriggeredAt.
 //   - hetznerClusterRef, userData, installImage, sshSpec, errorCount, errorMessage, lastUpdated and
 //     hardwareDetails.cpu.flags are restored from the conversion data annotation at the object level
 //     (HetznerBareMetalHost.ConvertFrom); they have no v1beta2 source field.
@@ -471,11 +471,11 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedSt
 	out.Rebooted = in.Rebooted
 	out.NodeBootID = in.NodeBootID
 
-	// v1beta1 stores the pending reboot in errorType and rebootTriggeredAt. When the host has a fatal
+	// v1beta1 stores the ongoing reboot in errorType and rebootTriggeredAt. When the host has a fatal
 	// or permanent error, errorType has that error instead of the reboot type.
-	if in.PendingReboot != nil {
+	if in.OngoingReboot != nil {
 		if in.ErrorType == "" {
-			switch in.PendingReboot.Type {
+			switch in.OngoingReboot.Type {
 			case infrav2.RebootTypeSSH:
 				out.ErrorType = ErrorTypeSSHRebootTriggered
 			case infrav2.RebootTypeSoftware:
@@ -484,8 +484,8 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedSt
 				out.ErrorType = ErrorTypeHardwareRebootTriggered
 			}
 		}
-		if !in.PendingReboot.TriggeredAt.IsZero() {
-			triggeredAt := in.PendingReboot.TriggeredAt
+		if !in.OngoingReboot.TriggeredAt.IsZero() {
+			triggeredAt := in.OngoingReboot.TriggeredAt
 			out.RebootTriggeredAt = &triggeredAt
 		}
 	}

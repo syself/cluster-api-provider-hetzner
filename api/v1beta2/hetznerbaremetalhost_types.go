@@ -113,8 +113,8 @@ const (
 	ErrorTypePermanent ErrorType = "permanent error"
 )
 
-// PendingReboot is a reboot we sent and are waiting for.
-type PendingReboot struct {
+// OngoingReboot is a reboot we sent and are waiting for.
+type OngoingReboot struct {
 	// type is the kind of reboot we sent.
 	// +required
 	// +kubebuilder:validation:Enum=ssh;sw;hw
@@ -290,10 +290,10 @@ type HetznerBareMetalHostStatus struct {
 	// +optional
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
 
-	// pendingReboot is the reboot we sent and are waiting for. It is empty when we are not waiting
+	// ongoingReboot is the reboot we sent and are waiting for. It is empty when we are not waiting
 	// for a reboot.
 	// +optional
-	PendingReboot *PendingReboot `json:"pendingReboot,omitempty"`
+	OngoingReboot *OngoingReboot `json:"ongoingReboot,omitempty"`
 
 	// rebooted shows whether the server is currently being rebooted.
 	// +optional
@@ -669,7 +669,7 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 }
 
 // SetError sets the error type on the status and puts errorMessage on the ActionCompleted condition.
-// It also clears the pending reboot, because the controllers stop waiting for a reboot when the host
+// It also clears the ongoing reboot, because the controllers stop waiting for a reboot when the host
 // has a fatal or permanent error. For a permanent error the message also names the annotation that
 // an operator has to remove.
 //
@@ -677,7 +677,7 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 // that callers holding an EventRecorder should emit as a "PermanentErrorSet" warning event.
 func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) (permanentErrorSet bool, message string) {
 	host.Status.ErrorType = errorType
-	host.Status.PendingReboot = nil
+	host.Status.OngoingReboot = nil
 
 	message = errorMessage
 	if errorType == ErrorTypePermanent {

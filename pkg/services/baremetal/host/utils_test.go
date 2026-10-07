@@ -262,23 +262,23 @@ var _ = Describe("Test splitHostKey", func() {
 })
 
 var _ = Describe("hasJustRebooted", func() {
-	It("returns false when there is no pending reboot", func() {
+	It("returns false when there is no ongoing reboot", func() {
 		host := helpers.BareMetalHost("test-host", "default")
 		svc := newTestService(host, nil, nil, nil, nil)
 		Expect(svc.hasJustRebooted()).To(BeFalse())
 	})
 
-	It("returns true when the pending reboot was just sent", func() {
+	It("returns true when the ongoing reboot was just sent", func() {
 		host := helpers.BareMetalHost("test-host", "default",
-			helpers.WithPendingReboot(infrav2.RebootTypeSSH, metav1.Now()),
+			helpers.WithOngoingReboot(infrav2.RebootTypeSSH, metav1.Now()),
 		)
 		svc := newTestService(host, nil, nil, nil, nil)
 		Expect(svc.hasJustRebooted()).To(BeTrue())
 	})
 
-	It("returns false when the pending reboot was sent longer than rebootWaitTime ago", func() {
+	It("returns false when the ongoing reboot was sent longer than rebootWaitTime ago", func() {
 		host := helpers.BareMetalHost("test-host", "default",
-			helpers.WithPendingReboot(infrav2.RebootTypeSSH, metav1.NewTime(time.Now().Add(-2*rebootWaitTime))),
+			helpers.WithOngoingReboot(infrav2.RebootTypeSSH, metav1.NewTime(time.Now().Add(-2*rebootWaitTime))),
 		)
 		svc := newTestService(host, nil, nil, nil, nil)
 		Expect(svc.hasJustRebooted()).To(BeFalse())

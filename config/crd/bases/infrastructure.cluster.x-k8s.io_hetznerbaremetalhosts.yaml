@@ -1176,9 +1176,9 @@ spec:
                 description: nodeBootID reflects the BootID of the corresponding Node
                   resource in the workload-cluster.
                 type: string
-              pendingReboot:
+              ongoingReboot:
                 description: |-
-                  pendingReboot is the reboot we sent and are waiting for. It is empty when we are not waiting
+                  ongoingReboot is the reboot we sent and are waiting for. It is empty when we are not waiting
                   for a reboot.
                 properties:
                   triggeredAt:
