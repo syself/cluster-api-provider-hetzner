@@ -407,10 +407,11 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 	out.Rebooted = in.Rebooted
 	out.NodeBootID = in.NodeBootID
 
-	// errorType only keeps fatal error and permanent error. A reboot moves to ongoingReboot. The
-	// other values are ignored, because users see them on the ActionCompleted condition. We do not
-	// stash them in the conversion data annotation, because controller does not need them and
-	// restoring them would overwrite newer values from the controller.
+	// errorType only keeps fatal error and permanent error. A reboot value moves to ongoingReboot
+	// together with rebootTriggeredAt, when rebootTriggeredAt is set. We do not copy registration
+	// error, preparation error, provisioning error and connection refused error of SSH command,
+	// because the controller does not read them. We do not stash them in the conversion data
+	// annotation, because restoring them would overwrite newer values from the controller.
 	var rebootType infrav2.RebootType
 	switch in.ErrorType {
 	case FatalError, PermanentError:

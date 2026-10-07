@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -41,6 +42,9 @@ var _ = Describe("updateSSHKey", func() {
 		// expectedSSHKeysAvailableReason is the reason of the SSHKeysAvailable condition when it is
 		// set to False. It is empty when the condition is not set to False.
 		expectedSSHKeysAvailableReason string
+		// expectedCredentialsAvailableV1Beta1Reason is the reason of the v1beta1 CredentialsAvailable
+		// condition when it is set to False.
+		expectedCredentialsAvailableV1Beta1Reason string
 	}
 
 	DescribeTable("updateSSHKey",
@@ -111,6 +115,10 @@ var _ = Describe("updateSSHKey", func() {
 				Expect(sshKeysAvailable).ToNot(BeNil())
 				Expect(sshKeysAvailable.Status).To(Equal(metav1.ConditionFalse))
 				Expect(sshKeysAvailable.Reason).To(Equal(tc.expectedSSHKeysAvailableReason))
+				credentialsAvailableV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.CredentialsAvailableV1Beta1Condition)
+				Expect(credentialsAvailableV1Beta1).ToNot(BeNil())
+				Expect(credentialsAvailableV1Beta1.Status).To(Equal(corev1.ConditionFalse))
+				Expect(credentialsAvailableV1Beta1.Reason).To(Equal(tc.expectedCredentialsAvailableV1Beta1Reason))
 				Expect(conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
 			}
 		},
@@ -175,10 +183,11 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-name"),
 				"public-key":  []byte("my-public-key"),
 			},
-			currentState:                   infrav2.StateProvisioned,
-			expectedActionResult:           actionContinue{},
-			expectedNextState:              infrav2.StateProvisioned,
-			expectedSSHKeysAvailableReason: infrav2.HetznerBareMetalHostSSHSecretModifiedReason,
+			currentState:                              infrav2.StateProvisioned,
+			expectedActionResult:                      actionContinue{},
+			expectedNextState:                         infrav2.StateProvisioned,
+			expectedSSHKeysAvailableReason:            infrav2.HetznerBareMetalHostSSHSecretModifiedReason,
+			expectedCredentialsAvailableV1Beta1Reason: infrav2.SSHSecretModifiedV1Beta1Reason,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-old-name"),

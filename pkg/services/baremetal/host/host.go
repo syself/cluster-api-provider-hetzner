@@ -705,7 +705,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	}
 
 	// we are in rescue mode i.e. reboot was successful, now clear the ongoing reboot.
-	s.scope.HetznerBareMetalHost.Status.OngoingReboot = nil
+	clearOngoingReboot(s.scope.HetznerBareMetalHost)
 
 	output := sshClient.GetHardwareDetailsDebug(ctx)
 	if output.Err != nil {
@@ -2271,7 +2271,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	// from now on we know that the machine is reachable and
 	// is no longer in the rescue system.
 
-	s.scope.HetznerBareMetalHost.Status.OngoingReboot = nil
+	clearOngoingReboot(s.scope.HetznerBareMetalHost)
 
 	createEventWithCloudInitOutput := func(ar actionResult) actionResult {
 		// Create an Event which contains the cloud-init-output.
@@ -2659,7 +2659,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	if !rebootDesired {
 		// No reboot annotation, ensure all reboot-related state is cleared.
 		host.Status.Rebooted = false
-		host.Status.OngoingReboot = nil
+		clearOngoingReboot(host)
 
 		// Populate NodeBootID the first time the host enters Provisioned state.
 		if host.Status.NodeBootID == "" {
@@ -2812,10 +2812,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// Persist the pre-reboot BootID. Phase 2 compares the live BootID against this
 		// value on every reconcile; a difference means the node completed a reboot.
 		host.Status.NodeBootID = currentBootID
-		host.Status.OngoingReboot = &infrav2.OngoingReboot{
-			Type:        rebootType,
-			TriggeredAt: metav1.Now(),
-		}
+		setOngoingReboot(host, rebootType, msg)
 		host.Status.Rebooted = true
 
 		deprecatedv1beta1conditions.MarkFalse(host, infrav2.RebootSucceededV1Beta1Condition,
@@ -2840,7 +2837,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	if host.Status.NodeBootID != currentBootID {
 		// Reboot has been successful
 		s.scope.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Status.NodeBootID, currentBootID))
-		host.Status.OngoingReboot = nil
+		clearOngoingReboot(host)
 		host.Status.Rebooted = false
 
 		deprecatedv1beta1conditions.MarkTrue(host, infrav2.RebootSucceededV1Beta1Condition)
@@ -3032,8 +3029,8 @@ func (s *Service) hasJustRebooted() bool {
 	return ongoingReboot != nil && !hasTimedOut(ongoingReboot, rebootWaitTime)
 }
 
-// setOngoingReboot records the reboot we just sent. It sets the ActionCompleted condition to false
-// with message that specifies the type of reboot triggered.
+// setOngoingReboot records the reboot we just sent and sets the ActionCompleted condition to False
+// with message. The reason names the reboot type.
 func setOngoingReboot(host *infrav2.HetznerBareMetalHost, rebootType infrav2.RebootType, message string) {
 	host.Status.OngoingReboot = &infrav2.OngoingReboot{
 		Type:        rebootType,
@@ -3066,6 +3063,18 @@ func setOngoingReboot(host *infrav2.HetznerBareMetalHost, rebootType infrav2.Reb
 	// Clients that read the host through the v1beta1 API see the same condition in status.conditions.
 	deprecatedv1beta1conditions.MarkFalse(host, infrav2.ActionCompletedV1Beta1Condition,
 		v1beta1Reason, clusterv1.ConditionSeverityError, "%s", message)
+}
+
+// clearOngoingReboot clears the ongoing reboot when the reboot is done and removes the
+// ActionCompleted condition that setOngoingReboot set. A host with a fatal or permanent error keeps
+// the condition, because the condition shows that error.
+func clearOngoingReboot(host *infrav2.HetznerBareMetalHost) {
+	host.Status.OngoingReboot = nil
+	if host.Status.HasFatalError() {
+		return
+	}
+	conditions.Delete(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
+	deprecatedv1beta1conditions.Delete(host, infrav2.ActionCompletedV1Beta1Condition)
 }
 
 func markProvisionPendingWithInfo(host *infrav2.HetznerBareMetalHost, state infrav2.ProvisioningState, info string) {

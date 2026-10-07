@@ -67,11 +67,11 @@ var _ = Describe("SetError and ClearError", func() {
 			Expect(actionCompleted.Reason).To(Equal(tc.expectedReason))
 			Expect(actionCompleted.Message).To(Equal(tc.errorMessage))
 
-			deprecated := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
-			Expect(deprecated).ToNot(BeNil())
-			Expect(deprecated.Status).To(Equal(corev1.ConditionFalse))
-			Expect(deprecated.Reason).To(Equal(tc.expectedV1Beta1Reason))
-			Expect(deprecated.Message).To(Equal(tc.errorMessage))
+			actionCompletedV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
+			Expect(actionCompletedV1Beta1).ToNot(BeNil())
+			Expect(actionCompletedV1Beta1.Status).To(Equal(corev1.ConditionFalse))
+			Expect(actionCompletedV1Beta1.Reason).To(Equal(tc.expectedV1Beta1Reason))
+			Expect(actionCompletedV1Beta1.Message).To(Equal(tc.errorMessage))
 		},
 		Entry("fatal error", testCaseSetError{
 			errorType:             infrav2.ErrorTypeFatal,
@@ -105,11 +105,11 @@ var _ = Describe("SetError and ClearError", func() {
 			Expect(actionCompleted.Reason).To(Equal(tc.expectedReason))
 			Expect(actionCompleted.Message).To(Equal(tc.message))
 
-			deprecated := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
-			Expect(deprecated).ToNot(BeNil())
-			Expect(deprecated.Status).To(Equal(corev1.ConditionFalse))
-			Expect(deprecated.Reason).To(Equal(tc.expectedV1Beta1Reason))
-			Expect(deprecated.Message).To(Equal(tc.message))
+			actionCompletedV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)
+			Expect(actionCompletedV1Beta1).ToNot(BeNil())
+			Expect(actionCompletedV1Beta1.Status).To(Equal(corev1.ConditionFalse))
+			Expect(actionCompletedV1Beta1.Reason).To(Equal(tc.expectedV1Beta1Reason))
+			Expect(actionCompletedV1Beta1.Message).To(Equal(tc.message))
 		},
 		Entry("ssh reboot triggered", testCaseSetOngoingReboot{
 			rebootType:            infrav2.RebootTypeSSH,
@@ -130,6 +130,31 @@ var _ = Describe("SetError and ClearError", func() {
 			expectedV1Beta1Reason: infrav2.ActionCompletedHardwareRebootTriggeredV1Beta1Reason,
 		}),
 	)
+
+	It("clearOngoingReboot removes the ActionCompleted condition that setOngoingReboot set", func() {
+		host := helpers.BareMetalHost("test-host", "default")
+		setOngoingReboot(host, infrav2.RebootTypeSSH, "reboot via ssh")
+
+		clearOngoingReboot(host)
+
+		Expect(host.Status.OngoingReboot).To(BeNil())
+		Expect(conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
+		Expect(deprecatedv1beta1conditions.Get(host, infrav2.ActionCompletedV1Beta1Condition)).To(BeNil())
+	})
+
+	It("clearOngoingReboot keeps the ActionCompleted condition of a host with a fatal error", func() {
+		host := helpers.BareMetalHost("test-host", "default",
+			helpers.WithError(infrav2.ErrorTypeFatal, "fatal failure"),
+			helpers.WithOngoingReboot(infrav2.RebootTypeSSH, metav1.Now()),
+		)
+
+		clearOngoingReboot(host)
+
+		Expect(host.Status.OngoingReboot).To(BeNil())
+		actionCompleted := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
+		Expect(actionCompleted).ToNot(BeNil())
+		Expect(actionCompleted.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedFatalErrorReason))
+	})
 
 	It("SetError clears the OngoingReboot", func() {
 		host := helpers.BareMetalHost("test-host", "default",
@@ -2518,6 +2543,9 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			if tc.shouldHaveRebootAnnotation && !tc.rebooted {
 				Expect(sshMock.AssertCalled(GinkgoT(), "Reboot", mock.Anything)).To(BeTrue())
 				Expect(host.Status.OngoingReboot.Type).To(Equal(infrav2.RebootTypeSSH))
+				actionCompleted := conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)
+				Expect(actionCompleted).ToNot(BeNil())
+				Expect(actionCompleted.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedSSHRebootOngoingReason))
 			} else {
 				Expect(sshMock.AssertNotCalled(GinkgoT(), "Reboot", mock.Anything)).To(BeTrue())
 			}

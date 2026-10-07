@@ -425,51 +425,51 @@ func TestConvertHetznerBareMetalHostErrorTypeToV1Beta2(t *testing.T) {
 			wantErrorType: infrav2.ErrorTypePermanent,
 		},
 		{
-			name:              "fatal error with rebootTriggeredAt does not get a ongoing reboot",
+			name:              "fatal error with rebootTriggeredAt does not get an ongoing reboot",
 			errorType:         FatalError,
 			rebootTriggeredAt: &triggeredAt,
 			wantErrorType:     infrav2.ErrorTypeFatal,
 		},
 		{
-			name:              "ssh reboot becomes a ongoing reboot",
+			name:              "ssh reboot becomes an ongoing reboot",
 			errorType:         ErrorTypeSSHRebootTriggered,
 			rebootTriggeredAt: &triggeredAt,
 			wantOngoingReboot: &infrav2.OngoingReboot{Type: infrav2.RebootTypeSSH, TriggeredAt: triggeredAt},
 		},
 		{
-			name:              "software reboot becomes a ongoing reboot",
+			name:              "software reboot becomes an ongoing reboot",
 			errorType:         ErrorTypeSoftwareRebootTriggered,
 			rebootTriggeredAt: &triggeredAt,
 			wantOngoingReboot: &infrav2.OngoingReboot{Type: infrav2.RebootTypeSoftware, TriggeredAt: triggeredAt},
 		},
 		{
-			name:              "hardware reboot becomes a ongoing reboot",
+			name:              "hardware reboot becomes an ongoing reboot",
 			errorType:         ErrorTypeHardwareRebootTriggered,
 			rebootTriggeredAt: &triggeredAt,
 			wantOngoingReboot: &infrav2.OngoingReboot{Type: infrav2.RebootTypeHardware, TriggeredAt: triggeredAt},
 		},
 		{
-			name:      "reboot without rebootTriggeredAt does not get a ongoing reboot",
+			name:      "reboot without rebootTriggeredAt does not get an ongoing reboot",
 			errorType: ErrorTypeSSHRebootTriggered,
 		},
 		{
-			name:              "rebootTriggeredAt without reboot does not get a ongoing reboot",
+			name:              "rebootTriggeredAt without reboot does not get an ongoing reboot",
 			rebootTriggeredAt: &triggeredAt,
 		},
 		{
-			name:      "registration error is dropped",
+			name:      "registration error is not copied",
 			errorType: RegistrationError,
 		},
 		{
-			name:      "preparation error is dropped",
+			name:      "preparation error is not copied",
 			errorType: PreparationError,
 		},
 		{
-			name:      "provisioning error is dropped",
+			name:      "provisioning error is not copied",
 			errorType: ProvisioningError,
 		},
 		{
-			name:      "connection error is dropped",
+			name:      "connection error is not copied",
 			errorType: ErrorTypeConnectionError,
 		},
 	}
@@ -527,7 +527,7 @@ func TestConvertHetznerBareMetalHostOngoingRebootToV1Beta1(t *testing.T) {
 			wantRebootTriggeredAt: &triggeredAt,
 		},
 		{
-			name:                  "errorType keeps the permanent error when there is also a ongoing reboot",
+			name:                  "errorType keeps the permanent error when there is also an ongoing reboot",
 			errorType:             infrav2.ErrorTypePermanent,
 			ongoingReboot:         &infrav2.OngoingReboot{Type: infrav2.RebootTypeHardware, TriggeredAt: triggeredAt},
 			wantErrorType:         PermanentError,
