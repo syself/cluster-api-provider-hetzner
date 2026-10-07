@@ -588,8 +588,8 @@ type HardwareDetails struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
 // +kubebuilder:printcolumn:name="IPv4",type="string",JSONPath=".status.ipv4",description="IPv4 of the host",priority=1
 // +kubebuilder:printcolumn:name="IPv6",type="string",JSONPath=".status.ipv6",description="IPv6 of the host",priority=1
-// +kubebuilder:printcolumn:name="CPU",type="string",JSONPath=".status.hardwareDetails.cpu.threads",description="CPU threads",priority=1
-// +kubebuilder:printcolumn:name="RAM",type="string",JSONPath=".status.hardwareDetails.ramGB",description="RAM in GB",priority=1
+// +kubebuilder:printcolumn:name="CPU",type=integer,JSONPath=".status.hardwareDetails.cpu.threads",description="CPU threads",priority=1
+// +kubebuilder:printcolumn:name="RAM",type=integer,JSONPath=".status.hardwareDetails.ramGB",description="RAM in GB",priority=1
 // +kubebuilder:printcolumn:name="Server ID",type="integer",JSONPath=".spec.serverID",description="Server ID of the host",priority=1
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason",priority=1
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message",priority=1

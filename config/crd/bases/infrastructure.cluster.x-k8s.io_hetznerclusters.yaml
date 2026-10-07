@@ -763,7 +763,7 @@ spec:
       name: Age
       type: date
     - description: API Endpoint
-      jsonPath: .spec.controlPlaneEndpoint
+      jsonPath: .spec.controlPlaneEndpoint.host
       name: Endpoint
       priority: 1
       type: string

@@ -198,7 +198,7 @@ type HetznerClusterV1Beta1DeprecatedStatus struct {
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this HetznerCluster belongs"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status",description="Cluster infrastructure is ready for Nodes"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of HetznerCluster"
-// +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".spec.controlPlaneEndpoint",description="API Endpoint",priority=1
+// +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".spec.controlPlaneEndpoint.host",description="API Endpoint",priority=1
 // +kubebuilder:printcolumn:name="Regions",type="string",JSONPath=".spec.controlPlaneRegions",description="Control plane regions",priority=1
 // +kubebuilder:printcolumn:name="Network enabled",type="boolean",JSONPath=".spec.hcloudNetwork.enabled",description="Indicates if private network is enabled.",priority=1
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason",priority=1
