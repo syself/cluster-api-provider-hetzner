@@ -564,7 +564,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					}
 
 					if !hasEvent(ctx, testEnv, testNs.Name, bmMachine.Name, "MachineWillBeDeleted",
-						baremetal.FailureMessageMaintenanceMode) {
+						baremetal.MaintenanceModeMessage) {
 						return fmt.Errorf("Event not found")
 					}
 
@@ -1044,7 +1044,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Expect(testEnv.Create(ctx, bmMachine)).NotTo(Succeed())
 			})
 
-			It("should fail with a wrong host selector label", func() {
+			It("should fail with a wrong host selector operator", func() {
 				bmMachine.Spec.HostSelector.MatchExpressions = []infrav2.HostSelectorRequirement{
 					{
 						Key:      "Cluster",

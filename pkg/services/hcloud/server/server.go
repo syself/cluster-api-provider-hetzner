@@ -2036,7 +2036,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 				return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, s.scope.EventRecorder, err, "PowerOnServer", "failed to power on server")
 			}
 		} else {
-			// Timed out. Set failure reason
+			// Timed out. Remediate the CAPI Machine.
 			err := s.scope.SetErrorAndRemediate(ctx, "reached timeout of waiting for machines that are switched off")
 			if err != nil {
 				return reconcile.Result{}, err

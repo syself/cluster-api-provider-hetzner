@@ -61,8 +61,8 @@ const (
 
 	requeueAfterNoAvailableHost = time.Minute * 7
 
-	// FailureMessageMaintenanceMode indicates that host is in maintenance mode.
-	FailureMessageMaintenanceMode = "host machine in maintenance mode"
+	// MaintenanceModeMessage is the remediation message when the host is in maintenance mode.
+	MaintenanceModeMessage = "host machine in maintenance mode"
 
 	// prefixRobotLegacy is the prefix used by the Syself ccm.
 	prefixRobotLegacy = "hcloud://bm-"
@@ -318,14 +318,14 @@ func (s *Service) update(ctx context.Context) (*infrav2.HetznerBareMetalHost, er
 
 	// maintenance mode on the host is a fatal error for the machine object
 	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
-		err := s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, FailureMessageMaintenanceMode)
+		err := s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, MaintenanceModeMessage)
 		if err != nil {
 			return nil, err
 		}
 		return host, nil
 	}
 
-	// if host has a fatal error, then it should be set on the hbmm object as well
+	// If the host has a fatal error, remediate the CAPI Machine, so that CAPI deletes it.
 	if host.Status.HasFatalError() {
 		err := s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, host.ErrorMessage())
 		if err != nil {

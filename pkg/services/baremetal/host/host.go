@@ -851,10 +851,9 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		msg = "Invalid HetznerBareMetalHost: swraid of the HetznerBareMetalMachine is not active. Use spec.rootDevideHints.wwn and leave raid.wwn empty."
 	}
 	if msg != "" {
-		// This triggers a FailureMessage on the HetznerBareMetalMachine
-		// and CAPI machine and will lead to this Machine to be deleted.
-		// Another machine (with same swraid setting) will not take the same host anymore,
-		// because the rootDeviceHints don't fit.
+		// The fatal error set below makes the HetznerBareMetalMachine controller remediate the CAPI
+		// Machine, and CAPI then deletes it. Another HetznerBareMetalMachine (with the same swraid
+		// setting) will not take the same host anymore, because the rootDeviceHints don't fit.
 		s.scope.Info(msg)
 		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,

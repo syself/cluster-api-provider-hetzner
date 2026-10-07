@@ -2417,7 +2417,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 		service.scope.HCloudMachine.Status.Initialization.Provisioned = ptr.To(true)
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateOperatingSystemRunning
-		// Setting HCloudTokenAvailableV1Beta2Condition here so the summary condition can be computed.
+		// Setting HCloudTokenAvailableCondition here so the summary condition can be computed.
 		conditions.Set(service.scope.HCloudMachine, metav1.Condition{
 			Type:   infrav2.HCloudTokenAvailableCondition,
 			Status: metav1.ConditionTrue,
@@ -2596,10 +2596,8 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 
 var _ = Describe("reconcileLoadBalancerAttachment", func() {
 	It("re-attaches server when live LB shows it absent but stale status claims it present", func() {
-		// Regression: the stale-cache loop that used to follow the live-LB if/else block
-		// would return early (nil) when HetznerCluster.Status listed the server as attached,
-		// even after the live LB check confirmed it was missing. This test would have failed
-		// with the old code because AddTargetServerToLoadBalancer was never called.
+		// The live load balancer does not have the server as a target, while HetznerCluster.Status
+		// still lists the server as attached. AddTargetServerToLoadBalancer must be called anyway.
 		hcloudClient := mocks.NewClient(GinkgoT())
 		server := newTestServer()
 

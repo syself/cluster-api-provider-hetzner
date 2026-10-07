@@ -306,10 +306,9 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 		return fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
-	// Move control to CAPI machine controller. CAPI will delete the machine.
-	// CAPI v1.13 MachineSet reads MachineOwnerRemediated from the v1beta2
-	// conditions list, so we must write to BOTH lists: the deprecated v1beta1
-	// list (legacy consumers) and the v1beta2 list (current MachineSet filter).
+	// CAPI deletes the CAPI Machine once MachineOwnerRemediated is False.
+	// We set MachineOwnerRemediated in status.conditions, which the CAPI MachineSet controller
+	// reads, and the deprecated v1beta1 condition for clients that still read it.
 	deprecatedv1beta1conditions.MarkFalse(
 		s.scope.Machine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
@@ -393,8 +392,8 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 		return fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
-	// Dual-write: deprecated v1beta1 list AND v1beta2 list. CAPI v1.13 MachineSet
-	// reads from the v1beta2 list to trigger Machine deletion.
+	// We set MachineOwnerRemediated in status.conditions, which the CAPI MachineSet controller
+	// reads, and the deprecated v1beta1 condition for clients that still read it.
 	deprecatedv1beta1conditions.MarkFalse(
 		s.scope.Machine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
