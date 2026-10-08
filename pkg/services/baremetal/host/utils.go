@@ -23,7 +23,6 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
@@ -111,7 +110,7 @@ func splitHostKey(key string) (namespace, name string) {
 // GetAssociatedHost gets the associated host by looking for an annotation on the machine that
 // contains a reference to the host. Returns nil if no annotation exist or the referenced hbmh is
 // not found.
-func GetAssociatedHost(ctx context.Context, crClient client.Client, hbmm *infrav1.HetznerBareMetalMachine) (*infrav2.HetznerBareMetalHost, error) {
+func GetAssociatedHost(ctx context.Context, crClient client.Client, hbmm *infrav2.HetznerBareMetalMachine) (*infrav2.HetznerBareMetalHost, error) {
 	annotations := hbmm.GetAnnotations()
 	// if no annotations exist on machine, no host can be associated
 	if annotations == nil {

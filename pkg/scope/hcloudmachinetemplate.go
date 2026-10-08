@@ -21,6 +21,7 @@ import (
 	"errors"
 
 	"github.com/go-logr/logr"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2/textlogger"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
@@ -35,6 +36,7 @@ type HCloudMachineTemplateScopeParams struct {
 	Logger                *logr.Logger
 	HCloudClient          hcloudclient.Client
 	HCloudMachineTemplate *infrav2.HCloudMachineTemplate
+	EventRecorder         record.EventRecorder
 }
 
 // NewHCloudMachineTemplateScope creates a new Scope from the supplied parameters.
@@ -42,6 +44,9 @@ type HCloudMachineTemplateScopeParams struct {
 func NewHCloudMachineTemplateScope(params HCloudMachineTemplateScopeParams) (*HCloudMachineTemplateScope, error) {
 	if params.HCloudClient == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudClient")
+	}
+	if params.EventRecorder == nil {
+		return nil, errors.New("failed to generate new scope from nil EventRecorder")
 	}
 
 	if params.Logger == nil {
@@ -53,6 +58,7 @@ func NewHCloudMachineTemplateScope(params HCloudMachineTemplateScopeParams) (*HC
 		Logger:                params.Logger,
 		HCloudMachineTemplate: params.HCloudMachineTemplate,
 		HCloudClient:          params.HCloudClient,
+		EventRecorder:         params.EventRecorder,
 	}, nil
 }
 
@@ -62,6 +68,7 @@ type HCloudMachineTemplateScope struct {
 	HCloudClient hcloudclient.Client
 
 	HCloudMachineTemplate *infrav2.HCloudMachineTemplate
+	EventRecorder         record.EventRecorder
 }
 
 // Name returns the HCloudMachineTemplate name.

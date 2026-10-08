@@ -1,23 +1,57 @@
 ---
-title: image-url-command
-description: Documentation on the CAPH image-url-command
-metatitle: Cluster API Provider Hetzner Custom Command to Install Node Image via imageURL
+title: Custom provisioner (image-url-command)
+description: Documentation on the CAPH custom provisioner, formerly called image-url-command
+metatitle: Cluster API Provider Hetzner Custom Provisioner to Install Node Image via URL
 ---
 
-The hcloud `spec.imageURLCommand` field and the bare metal `spec.installImage.imageURLCommand` field
-can be used to execute a custom command to install the node image. This feature is also known as a
-"custom provisioner".
+The custom provisioner executes your own command to install the node image. In v1beta2 it is
+configured with `spec.customProvisioner` on both HCloudMachine and HetznerBareMetalMachine. In
+v1beta1 the same feature uses the hcloud fields `spec.imageURL` and `spec.imageURLCommand`, and the
+bare metal field `spec.installImage.imageURLCommand`. The feature was formerly called
+image-url-command.
 
 This provides you a flexible way to create nodes.
 
 The script/binary will be copied into the rescue system and executed.
 
-You need to enable two things:
+### v1beta2
 
-- for hcloud: The HCloudMachine resource must set both `spec.imageURL` and
-  `spec.imageURLCommand` (usually via a HCloudMachineTemplate)
-- for baremetal: The HetznerBareMetalMachine must set
-  `spec.installImage.imageURLCommand`, for example:
+Set `spec.customProvisioner` with `url` and `command`, usually via a template, as an alternative to
+`imageName` (hcloud) or `installImage` (bare metal). Exactly one of them must be set.
+
+Example for hcloud:
+
+```yaml
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: HCloudMachineTemplate
+metadata:
+  name: my-hcloud-template
+spec:
+  template:
+    spec:
+      type: cpx22
+      customProvisioner:
+        url: oci://example.com/yourimage:v1
+        command: image-url-command-install-foo.sh
+```
+
+Example for bare metal:
+
+```yaml
+spec:
+  customProvisioner:
+    url: oci://example.com/yourimage:v1
+    command: image-url-command-install-foo.sh
+```
+
+### v1beta1
+
+- for hcloud: the HCloudMachine must set both `spec.imageURL` and `spec.imageURLCommand` (usually
+  via a HCloudMachineTemplate)
+- for bare metal: the HetznerBareMetalMachine must set `spec.installImage.imageURLCommand` and
+  `spec.installImage.image.url`. `image.name` and `image.path` must stay empty.
+
+Example for bare metal:
 
 ```yaml
 spec:
@@ -26,8 +60,6 @@ spec:
     image:
       url: oci://example.com/yourimage:v1
 ```
-
-In bare metal custom-command mode, `image.name` and `image.path` must stay empty.
 
 Example for hcloud:
 
@@ -46,7 +78,7 @@ spec:
 
 The command receives the following positional arguments:
 
-1. `imageURL` — the OCI (or other) image URL
+1. `url` — the OCI (or other) image URL (`customProvisioner.url`, or `imageURL` in v1beta1)
 2. `/root/bootstrap.data` — path to the bootstrap data file written by CAPH
 3. `machine-name` — name of the corresponding machine
 4. `root-devices` — space-separated list of root device names (e.g. `sda sdb`)
@@ -58,7 +90,7 @@ Example:
 ```
 
 The image format — whole-disk image, root-filesystem tarball, or anything else — is entirely
-your choice, as long as the `imageURLCommand` binary and the artifact at `imageURL` match each other.
+your choice, as long as the command and the artifact at the URL match each other.
 Both are user-configurable; you are responsible for keeping them in sync.
 
 The command must be accessible by the controller pod below `/shared`. You can use an initContainer
@@ -68,7 +100,8 @@ the basename of a command below `/shared`.
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 
 By default, CAPH passes short device names (e.g. `sda`) as the last argument to the command.
-For bare metal machines you can set `spec.installImage.deviceStringType` to control this:
+For bare metal machines you can set `spec.customProvisioner.deviceStringType` (v1beta1:
+`spec.installImage.deviceStringType`) to control this:
 
 - `"short"` (or empty): passes the short device name, e.g. `sda`
 - `"wwn"`: passes the WWN from the `rootDeviceHints`, e.g. `eui.00253885910c8cec`
@@ -77,11 +110,10 @@ Example:
 
 ```yaml
 spec:
-  installImage:
-    imageURLCommand: image-url-command-install-foo.sh
+  customProvisioner:
+    url: oci://example.com/yourimage:v1
+    command: image-url-command-install-foo.sh
     deviceStringType: wwn
-    image:
-      url: oci://example.com/yourimage:v1
 ```
 
 Using `deviceStringType: wwn` avoids fragile device-name lookups, because device names like `sda`
@@ -98,7 +130,7 @@ Implementation detail: CAPH executes the command in the rescue system via `ssh` 
 and stderr are redirected to a file. CAPH continuously connects to the rescue system to see if the
 process is still running.
 
-The controller uses url.ParseRequestURI (Go function) to validate the imageURL.
+The controller uses url.ParseRequestURI (Go function) to validate the URL.
 
 The full output (stdout and stderr) of the script is written to the controller log. On failure or
 timeout CAPH also creates a Warning event, but with a short message only, never the full output. If
@@ -136,7 +168,7 @@ Optionally `output.json` can be created by the process. The content of `output.j
 the final result (succeeded or failed).
 
 Implemented in `handleBootStateRunningImageCommand` (hcloud) and
-`actionImageInstallingImageURLCommand` (baremetal).
+`actionImageInstallingCustomProvisioner` (baremetal).
 
 Minimal example:
 

@@ -91,7 +91,7 @@ var _ = Describe("SetHetznerBareMetalHostReadySummary", func() {
 			Status: metav1.ConditionTrue,
 			Reason: infrav2.HetznerBareMetalHostRobotCredentialsAvailableReason,
 		})
-		host.SetError(infrav2.PermanentError, "pre-provision command exited 1")
+		host.SetError(infrav2.ErrorTypePermanent, "pre-provision command exited 1")
 
 		SetHetznerBareMetalHostReadySummary(host)
 
@@ -110,7 +110,12 @@ var _ = Describe("SetHetznerBareMetalHostReadySummary", func() {
 			Status: metav1.ConditionTrue,
 			Reason: infrav2.HetznerBareMetalHostRobotCredentialsAvailableReason,
 		})
-		host.SetError(infrav2.ErrorTypeSSHRebootTriggered, "ssh reboot just triggered")
+		conditions.Set(host, metav1.Condition{
+			Type:    infrav2.HetznerBareMetalHostActionCompletedCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav2.HetznerBareMetalHostActionCompletedSSHRebootOngoingReason,
+			Message: "ssh reboot just triggered",
+		})
 
 		SetHetznerBareMetalHostReadySummary(host)
 

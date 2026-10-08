@@ -42,17 +42,10 @@ func validateHCloudMachineSpecUpdate(oldSpec, newSpec infrav2.HCloudMachineSpec)
 		)
 	}
 
-	// ImageURL is immutable
-	if !reflect.DeepEqual(oldSpec.ImageURL, newSpec.ImageURL) {
+	// CustomProvisioner is immutable
+	if !reflect.DeepEqual(oldSpec.CustomProvisioner, newSpec.CustomProvisioner) {
 		allErrs = append(allErrs,
-			field.Forbidden(field.NewPath("spec", "imageURL"), "field is immutable"),
-		)
-	}
-
-	// ImageURLCommand is immutable
-	if !reflect.DeepEqual(oldSpec.ImageURLCommand, newSpec.ImageURLCommand) {
-		allErrs = append(allErrs,
-			field.Forbidden(field.NewPath("spec", "imageURLCommand"), "field is immutable"),
+			field.Forbidden(field.NewPath("spec", "customProvisioner"), "field is immutable"),
 		)
 	}
 
@@ -77,42 +70,36 @@ func validateHCloudMachineSpecUpdate(oldSpec, newSpec infrav2.HCloudMachineSpec)
 
 func validateHCloudMachineSpec(spec infrav2.HCloudMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
-	if spec.ImageName != "" && spec.ImageURL != "" {
+	if spec.ImageName != "" && spec.CustomProvisioner != nil {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "imageName"), spec.ImageName, "imageName and imageURL are mutually exclusive"))
+			field.Invalid(field.NewPath("spec", "imageName"), spec.ImageName, "imageName and customProvisioner are mutually exclusive"))
 	}
 
-	if spec.ImageName == "" && spec.ImageURL == "" {
+	if spec.ImageName == "" && spec.CustomProvisioner == nil {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "imageName"), spec.ImageName, "imageName and imageURL empty. One of these attributes must be set"))
+			field.Invalid(field.NewPath("spec", "imageName"), spec.ImageName, "imageName and customProvisioner empty. One of these attributes must be set"))
 	}
 
-	if spec.ImageURL != "" {
-		_, err := url.ParseRequestURI(spec.ImageURL)
-		if err != nil {
-			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "imageURL"), spec.ImageURL, err.Error()))
-		}
+	if spec.CustomProvisioner != nil {
+		allErrs = append(allErrs, validateHCloudCustomProvisioner(*spec.CustomProvisioner)...)
 	}
 
-	if spec.ImageURL != "" && spec.ImageURLCommand == "" {
-		allErrs = append(allErrs,
-			field.Required(field.NewPath("spec", "imageURLCommand"), "imageURLCommand must be set when imageURL is set"))
+	return allErrs
+}
+
+func validateHCloudCustomProvisioner(customProvisioner infrav2.HCloudCustomProvisioner) field.ErrorList {
+	var allErrs field.ErrorList
+	base := field.NewPath("spec", "customProvisioner")
+
+	// url and command are required and non-empty by the CRD schema, so this only checks their format.
+	if _, err := url.ParseRequestURI(customProvisioner.URL); err != nil {
+		allErrs = append(allErrs, field.Invalid(base.Child("url"), customProvisioner.URL, err.Error()))
 	}
 
-	if spec.ImageURL == "" && spec.ImageURLCommand != "" {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "imageURLCommand"), spec.ImageURLCommand, "imageURLCommand requires imageURL to be set"))
-	}
-
-	if spec.ImageURLCommand != "" {
-		// Intentionally validate only the name here. Checking whether the file exists on the
-		// controller pod would make kubectl apply depend on the current controller filesystem state.
-		if err := utils.ValidateImageURLCommandName(spec.ImageURLCommand); err != nil {
-			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "imageURLCommand"), spec.ImageURLCommand,
-					err.Error()))
-		}
+	// Intentionally validate only the name here. Checking whether the file exists on the
+	// controller pod would make kubectl apply depend on the current controller filesystem state.
+	if err := utils.ValidateCustomProvisionerCommandName(customProvisioner.Command); err != nil {
+		allErrs = append(allErrs, field.Invalid(base.Child("command"), customProvisioner.Command, err.Error()))
 	}
 
 	return allErrs

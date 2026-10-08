@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
@@ -42,7 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
@@ -75,7 +75,6 @@ func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T
 	scheme := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
-	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(infrav2.AddToScheme(scheme))
 
 	namespace := "default"
@@ -122,6 +121,7 @@ func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T
 		Client:             c,
 		APIReader:          c,
 		RobotClientFactory: robotFactory,
+		EventRecorder:      record.NewFakeRecorder(100),
 	}
 
 	result, err := reconciler.Reconcile(ctx, reconcile.Request{
@@ -137,14 +137,10 @@ func TestHetznerBareMetalHostReconciler_ReconcileSkipsPausedCluster(t *testing.T
 	require.Zero(t, robotFactory.calls)
 }
 
-func verifyError(host *infrav2.HetznerBareMetalHost, errorType infrav2.ErrorType) bool {
-	return host.Status.ErrorType == errorType
-}
-
 var _ = Describe("HetznerBareMetalHostReconciler", func() {
 	var (
 		host           *infrav2.HetznerBareMetalHost
-		bmMachine      *infrav1.HetznerBareMetalMachine
+		bmMachine      *infrav2.HetznerBareMetalMachine
 		machineName    string
 		hetznerCluster *infrav2.HetznerCluster
 
@@ -359,7 +355,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-			bmMachine = &infrav1.HetznerBareMetalMachine{
+			bmMachine = &infrav2.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      machineName,
 					Namespace: testNs.Name,
@@ -404,7 +400,8 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					if err := testEnv.Get(ctx, key, host); err != nil {
 						return false
 					}
-					return verifyError(host, infrav2.RegistrationError)
+					c := conditions.Get(host, infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition)
+					return c != nil && c.Reason == infrav2.HetznerBareMetalHostValidationFailedReason
 				}, timeout).Should(BeTrue())
 			})
 
@@ -531,7 +528,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-			bmMachine = &infrav1.HetznerBareMetalMachine{
+			bmMachine = &infrav2.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      machineName,
 					Namespace: testNs.Name,
@@ -614,7 +611,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-			bmMachine = &infrav1.HetznerBareMetalMachine{
+			bmMachine = &infrav2.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      machineName,
 					Namespace: testNs.Name,
@@ -675,7 +672,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 	var (
 		host           *infrav2.HetznerBareMetalHost
-		bmMachine      *infrav1.HetznerBareMetalMachine
+		bmMachine      *infrav2.HetznerBareMetalMachine
 		machineName    string
 		hetznerCluster *infrav2.HetznerCluster
 		capiCluster    *clusterv1.Cluster
@@ -764,7 +761,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		}
 		Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-		bmMachine = &infrav1.HetznerBareMetalMachine{
+		bmMachine = &infrav2.HetznerBareMetalMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      machineName,
 				Namespace: testNs.Name,
@@ -1092,23 +1089,24 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 			},
 		}
 	}
+	reconciler := &HetznerBareMetalHostReconciler{EventRecorder: record.NewFakeRecorder(10)}
 
 	// PermanentError with annotation --> Error should not get removed
-	bmHost := newHostWithError(map[string]string{infrav2.PermanentErrorAnnotation: ""}, infrav2.PermanentError)
-	removed := removePermanentErrorIfAnnotationIsGone(&bmHost)
+	bmHost := newHostWithError(map[string]string{infrav2.PermanentErrorAnnotation: ""}, infrav2.ErrorTypePermanent)
+	removed := reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Status.ErrorType)
 
 	// PermanentError without annotation --> Error should get removed
-	bmHost = newHostWithError(map[string]string{"other-annotation": "some value"}, infrav2.PermanentError)
-	removed = removePermanentErrorIfAnnotationIsGone(&bmHost)
+	bmHost = newHostWithError(map[string]string{"other-annotation": "some value"}, infrav2.ErrorTypePermanent)
+	removed = reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.True(t, removed)
 	require.Empty(t, bmHost.Status.ErrorType)
 	require.Equal(t, map[string]string{"other-annotation": "some value"}, bmHost.Annotations)
 
 	// Other Error without annotation --> Error should not get removed
-	bmHost = newHostWithError(map[string]string{}, infrav2.ProvisioningError)
-	removed = removePermanentErrorIfAnnotationIsGone(&bmHost)
+	bmHost = newHostWithError(map[string]string{}, infrav2.ErrorTypeFatal)
+	removed = reconciler.removePermanentErrorIfAnnotationIsGone(&bmHost)
 	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Status.ErrorType)
 }
@@ -1290,11 +1288,13 @@ var _ = Describe("reconcileRobotRateLimit", func() {
 			LastTransitionTime: metav1.Now(),
 		})
 		Expect(reconcileRobotRateLimit(host, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(conditions.IsFalse(host, infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition)).To(BeTrue())
 		Expect(deprecatedv1beta1conditions.Get(host, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeNil())
 	})
 
 	It("returns wait==false if the robot rate limit condition is not set", func() {
 		Expect(reconcileRobotRateLimit(host, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(conditions.Has(host, infrav2.HetznerBareMetalHostRobotRateLimitExceededCondition)).To(BeFalse())
 		Expect(deprecatedv1beta1conditions.Get(host, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeNil())
 	})
 })

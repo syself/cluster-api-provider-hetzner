@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 )
 
 const (
@@ -225,8 +226,6 @@ type CustomProvisioner struct {
 
 	// Command is the basename of a command file below /shared on the controller pod. CAPH copies
 	// that command into the rescue system and executes it there to provision the machine from URL.
-	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
 	// +kubebuilder:validation:MinLength=1
 	Command string `json:"command"`
 
@@ -236,6 +235,13 @@ type CustomProvisioner struct {
 	// +kubebuilder:validation:Enum="";short;wwn
 	// +optional
 	DeviceStringType DeviceStringType `json:"deviceStringType,omitempty"`
+
+	// Swraid defines whether Command sets up a RAID. Set 1 to enable. CAPH then uses a
+	// HetznerBareMetalHost with spec.rootDeviceHints.raid.wwn and passes all these disks to Command.
+	// +optional
+	// +kubebuilder:default=0
+	// +kubebuilder:validation:Enum=0;1;
+	Swraid int `json:"swraid,omitempty"`
 }
 
 // Image defines the properties for the autosetup config.
@@ -461,6 +467,60 @@ func (hbmm *HetznerBareMetalMachine) SetV1Beta1Conditions(conditions clusterv1.C
 	hbmm.Status.Deprecated.V1Beta1.Conditions = conditions
 }
 
+// HetznerBareMetalMachineSummaryOpts returns the summary options for a HetznerBareMetalMachine.
+//
+// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
+// when multiple conditions are unhealthy, the summary lists all of them in priority
+// order (highest-priority first). The ordering reflects operational importance:
+//  1. HCloudTokenAvailable - invalid credentials block everything.
+//  2. HostAssociated       - host association precedes host readiness; bootstrap readiness is folded in as a reason.
+//  3. Deleting             - deletion progress (negative polarity), which should be surfaced before host readiness.
+//  4. HostReady            - underlying HetznerBareMetalHost readiness.
+//  5. ServerAvailable      - the HetznerBareMetalMachine is fully available; for control planes this is also gated on load balancer attachment.
+func HetznerBareMetalMachineSummaryOpts() []conditions.SummaryOption {
+	return []conditions.SummaryOption{
+		// ForConditionTypes lists every condition that contributes to Ready, in
+		// priority order. When multiple conditions are unhealthy the summary
+		// surfaces them in this order, so the most important issue is listed first.
+		conditions.ForConditionTypes{
+			HCloudTokenAvailableCondition,
+			HetznerBareMetalMachineHostAssociatedCondition,
+			HetznerBareMetalMachineDeletingCondition,
+			HetznerBareMetalMachineHostReadyCondition,
+			HetznerBareMetalMachineServerAvailableCondition,
+		},
+		// IgnoreTypesIfMissing lists the conditions whose absence does not mean the HetznerBareMetalMachine
+		// is not ready. Deleting is set only while the HetznerBareMetalMachine is being deleted. The other
+		// conditions are steps of bringing the HetznerBareMetalMachine up, so a missing one counts as Unknown.
+		conditions.IgnoreTypesIfMissing{
+			HetznerBareMetalMachineDeletingCondition,
+		},
+		// CustomMergeStrategy is used only to override the merge reasons, so
+		// the Ready summary uses CAPI's standard Ready reasons (Ready /
+		// NotReady / ReadyUnknown) instead of the generic merge defaults
+		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
+		conditions.CustomMergeStrategy{
+			MergeStrategy: conditions.DefaultMergeStrategy(
+				conditions.GetPriorityFunc(conditions.GetDefaultMergePriorityFunc(
+					// conditions with negative polarity
+					HetznerBareMetalMachineDeletingCondition,
+				)),
+				conditions.ComputeReasonFunc(conditions.GetDefaultComputeMergeReasonFunc(
+					clusterv1.NotReadyReason,
+					clusterv1.ReadyUnknownReason,
+					clusterv1.ReadyReason,
+				)),
+			),
+		},
+	}
+}
+
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.
 func GetImageSuffix(url string) (string, error) {
 	if strings.HasPrefix(url, "oci://") {
@@ -482,6 +542,17 @@ func GetImageSuffix(url string) (string, error) {
 	}
 
 	return "", fmt.Errorf("unknown suffix in URL %s: %w", url, errUnknownSuffix)
+}
+
+// Swraid returns the swraid setting of installImage or customProvisioner, whichever is set.
+func (hbmm *HetznerBareMetalMachine) Swraid() int {
+	if hbmm.Spec.InstallImage != nil {
+		return hbmm.Spec.InstallImage.Swraid
+	}
+	if hbmm.Spec.CustomProvisioner != nil {
+		return hbmm.Spec.CustomProvisioner.Swraid
+	}
+	return 0
 }
 
 // HasHostAnnotation checks whether the annotation that references a host exists.

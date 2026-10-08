@@ -28,7 +28,6 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	"sigs.k8s.io/cluster-api/util/record"
 )
 
 const (
@@ -102,38 +101,29 @@ type Raid struct {
 	WWN []string `json:"wwn,omitempty"`
 }
 
-// ErrorType indicates the class of problem that has caused the Host resource
-// to enter an error state.
+// ErrorType is an error that the controllers act on.
 type ErrorType string
 
 const (
-	// ErrorTypeSSHRebootTriggered is an error condition that triggers the SSH reboot.
-	ErrorTypeSSHRebootTriggered ErrorType = "ssh reboot triggered"
-	// ErrorTypeSoftwareRebootTriggered is an error condition that triggers the software reboot.
-	ErrorTypeSoftwareRebootTriggered ErrorType = "software reboot triggered"
-	// ErrorTypeHardwareRebootTriggered is an error condition that triggers the hardware reboot.
-	ErrorTypeHardwareRebootTriggered ErrorType = "hardware reboot triggered"
+	// ErrorTypeFatal leads to the CAPI Machine being replaced. Deprovisioning clears it.
+	ErrorTypeFatal ErrorType = "fatal error"
 
-	// ErrorTypeConnectionError ErrorType is an error condition indicating that the SSH command returned a connection refused error.
-	ErrorTypeConnectionError ErrorType = "connection refused error of SSH command"
-
-	// RegistrationError is an error condition occurring when the
-	// controller is unable to retrieve information on a specific server via robot.
-	RegistrationError ErrorType = "registration error"
-
-	// PreparationError is an error condition occurring when something fails while preparing host reconciliation.
-	PreparationError ErrorType = "preparation error"
-
-	// ProvisioningError is an error condition occurring when the controller
-	// fails to provision or deprovision the Host.
-	ProvisioningError ErrorType = "provisioning error"
-
-	// FatalError is a fatal error that triggers a failureMessage in the bm machine.
-	FatalError ErrorType = "fatal error"
-
-	// PermanentError is like a fatal error but stays on the host machine.
-	PermanentError ErrorType = "permanent error"
+	// ErrorTypePermanent is like ErrorTypeFatal, but deprovisioning keeps it on the
+	// HetznerBareMetalHost. It stays until someone removes the permanent error annotation.
+	ErrorTypePermanent ErrorType = "permanent error"
 )
+
+// OngoingReboot represents a reboot request we sent and are waiting to complete.
+type OngoingReboot struct {
+	// type is the kind of reboot we sent.
+	// +required
+	// +kubebuilder:validation:Enum=ssh;sw;hw
+	Type RebootType `json:"type,omitempty"`
+
+	// triggeredAt is when we sent the reboot.
+	// +required
+	TriggeredAt metav1.Time `json:"triggeredAt,omitzero"`
+}
 
 const (
 	// ErrorMessageMissingRootDeviceHints specifies the error message when no root device hints are specified.
@@ -291,7 +281,8 @@ type HetznerBareMetalHostStatus struct {
 	// +optional
 	SSHStatus SSHStatus `json:"sshStatus,omitempty"`
 
-	// errorType indicates the type of failure encountered.
+	// errorType is the fatal or permanent error of the host. It is empty when the host has neither.
+	// +kubebuilder:validation:Enum="fatal error";"permanent error"
 	// +optional
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
@@ -299,9 +290,10 @@ type HetznerBareMetalHostStatus struct {
 	// +optional
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
 
-	// rebootTriggeredAt is the timestamp when the reboot was initiated.
+	// ongoingReboot is the reboot request we sent and are waiting to complete. It is empty when we
+	// are not waiting for a reboot.
 	// +optional
-	RebootTriggeredAt metav1.Time `json:"rebootTriggeredAt,omitempty,omitzero"`
+	OngoingReboot *OngoingReboot `json:"ongoingReboot,omitempty"`
 
 	// rebooted shows whether the server is currently being rebooted.
 	// +optional
@@ -355,7 +347,7 @@ func (sts HetznerBareMetalHostStatus) GetIPAddress() string {
 
 // HasFatalError returns true, if the corresponding capi machine should get deleted.
 func (sts HetznerBareMetalHostStatus) HasFatalError() bool {
-	return sts.ErrorType == FatalError || sts.ErrorType == PermanentError
+	return sts.ErrorType == ErrorTypeFatal || sts.ErrorType == ErrorTypePermanent
 }
 
 // GetConditions returns the conditions for the HetznerBareMetalHost object.
@@ -677,19 +669,36 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 }
 
 // SetError sets the error type on the status and puts errorMessage on the ActionCompleted condition.
-// For a permanent error the message also names the annotation that an operator has to remove.
-func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) {
+// It also clears the ongoing reboot, because the controllers stop waiting for a reboot when the host
+// has a fatal or permanent error. For a permanent error the message also names the annotation that
+// an operator has to remove.
+//
+// When errorType is ErrorTypePermanent, it returns permanentErrorSet as true along with the message
+// that callers holding an EventRecorder should emit as a "PermanentErrorSet" warning event.
+func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) (permanentErrorSet bool, message string) {
 	host.Status.ErrorType = errorType
+	host.Status.OngoingReboot = nil
 
-	message := errorMessage
-	if errorType == PermanentError {
+	message = errorMessage
+	if errorType == ErrorTypePermanent {
 		// A permanent error stays on the host until someone removes the annotation. The condition has
 		// to name the annotation.
 		message = fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
 			errorMessage, PermanentErrorAnnotation)
 	}
 
-	reason, v1beta1Reason := actionCompletedFor(errorType)
+	var reason, v1beta1Reason string
+	switch errorType {
+	case ErrorTypeFatal:
+		reason = HetznerBareMetalHostActionCompletedFatalErrorReason
+		v1beta1Reason = ActionCompletedFatalErrorV1Beta1Reason
+	case ErrorTypePermanent:
+		reason = HetznerBareMetalHostActionCompletedPermanentErrorReason
+		v1beta1Reason = ActionCompletedPermanentErrorV1Beta1Reason
+	default:
+		reason = HetznerBareMetalHostActionCompletedUnknownErrorReason
+		v1beta1Reason = ActionCompletedUnknownErrorV1Beta1Reason
+	}
 
 	conditions.Set(host, metav1.Condition{
 		Type:    HetznerBareMetalHostActionCompletedCondition,
@@ -702,13 +711,16 @@ func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage str
 	deprecatedv1beta1conditions.MarkFalse(host, ActionCompletedV1Beta1Condition,
 		v1beta1Reason, clusterv1.ConditionSeverityError, "%s", message)
 
-	if errorType == PermanentError {
-		if host.Annotations == nil {
-			host.Annotations = make(map[string]string, 1)
-		}
-		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
-		record.Warn(host, "PermanentErrorSet", message)
+	if errorType != ErrorTypePermanent {
+		return false, ""
 	}
+
+	if host.Annotations == nil {
+		host.Annotations = make(map[string]string, 1)
+	}
+	host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
+
+	return true, message
 }
 
 // ClearError clears the error type and removes the ActionCompleted condition from both surfaces.
@@ -718,40 +730,14 @@ func (host *HetznerBareMetalHost) ClearError() {
 	deprecatedv1beta1conditions.Delete(host, ActionCompletedV1Beta1Condition)
 }
 
-// ErrorMessage returns the message SetError recorded on the ActionCompleted condition. It returns
-// an empty string when the host has no ActionCompleted condition.
+// ErrorMessage returns the message of the ActionCompleted condition. It returns an empty string
+// when the host does not have an ActionCompleted condition.
 func (host *HetznerBareMetalHost) ErrorMessage() string {
 	actionCompleted := conditions.Get(host, HetznerBareMetalHostActionCompletedCondition)
 	if actionCompleted == nil {
 		return ""
 	}
 	return actionCompleted.Message
-}
-
-// actionCompletedFor maps an ErrorType to the reason on each surface of the ActionCompleted
-// condition. An unrecognized type falls back to the UnknownError reason.
-func actionCompletedFor(errorType ErrorType) (reason, v1beta1Reason string) {
-	switch errorType {
-	case ErrorTypeSSHRebootTriggered:
-		return HetznerBareMetalHostActionCompletedSSHRebootTriggeredReason, ActionCompletedSSHRebootTriggeredV1Beta1Reason
-	case ErrorTypeSoftwareRebootTriggered:
-		return HetznerBareMetalHostActionCompletedSoftwareRebootTriggeredReason, ActionCompletedSoftwareRebootTriggeredV1Beta1Reason
-	case ErrorTypeHardwareRebootTriggered:
-		return HetznerBareMetalHostActionCompletedHardwareRebootTriggeredReason, ActionCompletedHardwareRebootTriggeredV1Beta1Reason
-	case ErrorTypeConnectionError:
-		return HetznerBareMetalHostSSHConnectionRefusedReason, SSHConnectionRefusedV1Beta1Reason
-	case RegistrationError:
-		return HetznerBareMetalHostActionCompletedRegistrationErrorReason, ActionCompletedRegistrationErrorV1Beta1Reason
-	case PreparationError:
-		return HetznerBareMetalHostActionCompletedPreparationErrorReason, ActionCompletedPreparationErrorV1Beta1Reason
-	case ProvisioningError:
-		return HetznerBareMetalHostActionCompletedProvisioningErrorReason, ActionCompletedProvisioningErrorV1Beta1Reason
-	case FatalError:
-		return HetznerBareMetalHostActionCompletedFatalErrorReason, ActionCompletedFatalErrorV1Beta1Reason
-	case PermanentError:
-		return HetznerBareMetalHostActionCompletedPermanentErrorReason, ActionCompletedPermanentErrorV1Beta1Reason
-	}
-	return HetznerBareMetalHostActionCompletedUnknownErrorReason, ActionCompletedUnknownErrorV1Beta1Reason
 }
 
 // HasRebootAnnotation checks for the existence of reboot annotations and returns true if at least one exists.

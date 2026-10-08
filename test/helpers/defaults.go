@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
@@ -71,10 +70,13 @@ func WithError(errorType infrav2.ErrorType, errorMessage string) HostOpts {
 	}
 }
 
-// WithRebootTriggeredAt gives the option to define a host with a reboot timestamp set.
-func WithRebootTriggeredAt(t metav1.Time) HostOpts {
+// WithOngoingReboot gives the option to define a host that waits for a reboot sent at triggeredAt.
+func WithOngoingReboot(rebootType infrav2.RebootType, triggeredAt metav1.Time) HostOpts {
 	return func(host *infrav2.HetznerBareMetalHost) {
-		host.Status.RebootTriggeredAt = t
+		host.Status.OngoingReboot = &infrav2.OngoingReboot{
+			Type:        rebootType,
+			TriggeredAt: triggeredAt,
+		}
 	}
 }
 
@@ -228,18 +230,6 @@ func GetDefaultHetznerClusterSpec() infrav2.HetznerClusterSpec {
 			},
 		},
 	}
-}
-
-// GetDefaultHetznerClusterSpecV1Beta1 returns the default Hetzner cluster spec as v1beta1, for the
-// tests that still build the v1beta1 type. It converts the v1beta2 spec so that there is one literal
-// to change when the default changes.
-func GetDefaultHetznerClusterSpecV1Beta1() infrav1.HetznerClusterSpec {
-	v2 := GetDefaultHetznerClusterSpec()
-	var v1 infrav1.HetznerClusterSpec
-	if err := infrav1.Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(&v2, &v1, nil); err != nil {
-		panic(err)
-	}
-	return v1
 }
 
 // GetDefaultSSHSecret returns the default ssh secret given name and namespace.

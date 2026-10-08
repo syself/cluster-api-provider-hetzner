@@ -85,6 +85,9 @@ func (f *SSHFactory) NewClient(in sshclient.Input) sshclient.Client {
 	return f.osClientAfterInstallImage
 }
 
+// EvictConnectionsForIP implements sshclient.Factory. There is no connection pool to evict from in tests.
+func (f *SSHFactory) EvictConnectionsForIP(_ string) {}
+
 type robotFactory struct {
 	client *robotmock.Client
 }
