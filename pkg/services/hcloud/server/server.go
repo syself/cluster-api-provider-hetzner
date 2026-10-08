@@ -895,12 +895,12 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 			"exitStatus", exitStatus,
 			"stdoutStderr", stdoutStderr)
 		deprecatedv1beta1conditions.MarkFalse(hm, infrav2.ServerProvisionedV1Beta1Condition,
-			"StartCustomProvisionerFailed", clusterv1.ConditionSeverityWarning,
+			"CustomProvisionerFailedToStart", clusterv1.ConditionSeverityWarning,
 			"%s", err.Error())
 		conditions.Set(hm, metav1.Condition{
 			Type:    infrav2.HCloudMachineServerProvisionedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HCloudMachineStartCustomProvisionerFailedReason,
+			Reason:  infrav2.HCloudMachineCustomProvisionerFailedToStartReason,
 			Message: err.Error(),
 		})
 		return reconcile.Result{}, err

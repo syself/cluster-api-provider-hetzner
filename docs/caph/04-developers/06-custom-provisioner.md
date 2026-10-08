@@ -16,7 +16,7 @@ The script/binary will be copied into the rescue system and executed.
 
 ### v1beta2
 
-Set `spec.customProvisioner` with `url` and `command`, usually via a template. It replaces
+Set `spec.customProvisioner` with `url` and `command`, usually via a template, as an alternative to
 `imageName` (hcloud) or `installImage` (bare metal). Exactly one of them must be set.
 
 Example for hcloud:

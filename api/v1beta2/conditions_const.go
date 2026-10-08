@@ -494,8 +494,8 @@ const (
 
 	// HCloudMachineCustomProvisionerCommandNotAccessibleReason indicates the custom provisioner command is not accessible.
 	HCloudMachineCustomProvisionerCommandNotAccessibleReason = "CustomProvisionerCommandNotAccessible"
-	// HCloudMachineStartCustomProvisionerFailedReason indicates starting the custom provisioner failed.
-	HCloudMachineStartCustomProvisionerFailedReason = "StartCustomProvisionerFailed"
+	// HCloudMachineCustomProvisionerFailedToStartReason indicates starting the custom provisioner failed.
+	HCloudMachineCustomProvisionerFailedToStartReason = "CustomProvisionerFailedToStart"
 	// HCloudMachineStartCustomProvisionerNonZeroExitCodeReason indicates the custom provisioner returned a non-zero exit code.
 	HCloudMachineStartCustomProvisionerNonZeroExitCodeReason = "StartCustomProvisionerNonZeroExitCode"
 	// HCloudMachineRunningCustomProvisionerTimedOutReason indicates the running custom provisioner timed out.
