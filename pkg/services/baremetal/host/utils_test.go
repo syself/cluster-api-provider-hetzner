@@ -17,8 +17,11 @@ limitations under the License.
 package host
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -259,13 +262,24 @@ var _ = Describe("Test splitHostKey", func() {
 })
 
 var _ = Describe("hasJustRebooted", func() {
-	It("returns false when RebootTriggeredAt is zero even if ErrorType is a reboot type", func() {
+	It("returns false when there is no ongoing reboot", func() {
+		host := helpers.BareMetalHost("test-host", "default")
+		svc := newTestService(host, nil, nil, nil, nil)
+		Expect(svc.hasJustRebooted()).To(BeFalse())
+	})
+
+	It("returns true when the ongoing reboot was just sent", func() {
 		host := helpers.BareMetalHost("test-host", "default",
-			helpers.WithError(infrav2.ErrorTypeSSHRebootTriggered, ""),
+			helpers.WithOngoingReboot(infrav2.RebootTypeSSH, metav1.Now()),
 		)
-		// RebootTriggeredAt is intentionally left at its zero value here.
-		// Without the zero check in hasJustRebooted, hasTimedOut(zero, ...) returns false and
-		// hasJustRebooted would return true indefinitely.
+		svc := newTestService(host, nil, nil, nil, nil)
+		Expect(svc.hasJustRebooted()).To(BeTrue())
+	})
+
+	It("returns false when the ongoing reboot was sent longer than rebootWaitTime ago", func() {
+		host := helpers.BareMetalHost("test-host", "default",
+			helpers.WithOngoingReboot(infrav2.RebootTypeSSH, metav1.NewTime(time.Now().Add(-2*rebootWaitTime))),
+		)
 		svc := newTestService(host, nil, nil, nil, nil)
 		Expect(svc.hasJustRebooted()).To(BeFalse())
 	})

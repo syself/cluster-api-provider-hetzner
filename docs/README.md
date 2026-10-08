@@ -22,7 +22,7 @@ This is the official documentation of Cluster API Provider Hetzner. Before start
 - [General](/docs/caph/03-reference/01-introduction.md)
 - [HetznerCluster](/docs/caph/03-reference/02-hetzner-cluster.md)
 - [HCloudMachineTemplate](/docs/caph/03-reference/03-hcloud-machine-template.md)
-- [HCloudMachineTemplate](/docs/caph/03-reference/04-hcloud-remediation-template.md)
+- [HCloudRemediationTemplate](/docs/caph/03-reference/04-hcloud-remediation-template.md)
 - [HetznerBareMetalHost](/docs/caph/03-reference/05-hetzner-bare-metal-host.md)
 - [HetznerBareMetalMachineTemplate](/docs/caph/03-reference/06-hetzner-bare-metal-machine-template.md)
 - [HetznerBareMetalRemediationTemplate](/docs/caph/03-reference/07-hetzner-bare-metal-remediation-template.md)
