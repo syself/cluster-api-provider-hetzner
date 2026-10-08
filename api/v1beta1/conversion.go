@@ -370,7 +370,8 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_HetznerBareMetalHostS
 // spec.status into the v1beta2 status subresource:
 //   - status.v1beta2.conditions is promoted to status.conditions.
 //   - status.conditions is demoted to status.deprecated.v1beta1.conditions.
-//   - status.rebootTriggeredAt moves from a pointer to a value.
+//   - status.errorType and status.rebootTriggeredAt are split into status.errorType and
+//     status.ongoingReboot.
 //   - hetznerClusterRef, userData, installImage, sshSpec, errorCount, errorMessage, lastUpdated and
 //     hardwareDetails.cpu.flags have no v1beta2 equivalent; they are dropped here and stashed in the
 //     conversion data annotation at the object level (HetznerBareMetalHost.ConvertTo).
@@ -402,14 +403,31 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 	if err := Convert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(&in.SSHStatus, &out.SSHStatus, s); err != nil {
 		return err
 	}
-	out.ErrorType = infrav2.ErrorType(in.ErrorType)
 	out.ProvisioningState = infrav2.ProvisioningState(in.ProvisioningState)
 	out.Rebooted = in.Rebooted
 	out.NodeBootID = in.NodeBootID
 
-	// rebootTriggeredAt moves from a pointer to a value; a nil pointer maps to the zero time.
-	if in.RebootTriggeredAt != nil {
-		out.RebootTriggeredAt = *in.RebootTriggeredAt
+	// errorType only keeps fatal error and permanent error. A reboot value moves to ongoingReboot
+	// together with rebootTriggeredAt, when rebootTriggeredAt is set. We do not copy registration
+	// error, preparation error, provisioning error and connection refused error of SSH command,
+	// because the controller does not read them. We do not stash them in the conversion data
+	// annotation, because restoring them would overwrite newer values from the controller.
+	var rebootType infrav2.RebootType
+	switch in.ErrorType {
+	case FatalError, PermanentError:
+		out.ErrorType = infrav2.ErrorType(in.ErrorType)
+	case ErrorTypeSSHRebootTriggered:
+		rebootType = infrav2.RebootTypeSSH
+	case ErrorTypeSoftwareRebootTriggered:
+		rebootType = infrav2.RebootTypeSoftware
+	case ErrorTypeHardwareRebootTriggered:
+		rebootType = infrav2.RebootTypeHardware
+	}
+	if rebootType != "" && !in.RebootTriggeredAt.IsZero() {
+		out.OngoingReboot = &infrav2.OngoingReboot{
+			Type:        rebootType,
+			TriggeredAt: *in.RebootTriggeredAt,
+		}
 	}
 
 	return nil
@@ -419,7 +437,7 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 // status subresource back into the v1beta1 spec.status. It is the inverse of the function above:
 //   - status.conditions is demoted to the staged status.v1beta2.conditions.
 //   - status.deprecated.v1beta1.conditions is promoted back to status.conditions.
-//   - status.rebootTriggeredAt moves from a value to a pointer (zero time -> nil).
+//   - status.ongoingReboot moves back into status.errorType and status.rebootTriggeredAt.
 //   - hetznerClusterRef, userData, installImage, sshSpec, errorCount, errorMessage, lastUpdated and
 //     hardwareDetails.cpu.flags are restored from the conversion data annotation at the object level
 //     (HetznerBareMetalHost.ConvertFrom); they have no v1beta2 source field.
@@ -454,10 +472,23 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedSt
 	out.Rebooted = in.Rebooted
 	out.NodeBootID = in.NodeBootID
 
-	// rebootTriggeredAt moves from a value to a pointer; the zero time maps to a nil pointer.
-	if !in.RebootTriggeredAt.IsZero() {
-		rebootTriggeredAt := in.RebootTriggeredAt
-		out.RebootTriggeredAt = &rebootTriggeredAt
+	// v1beta1 stores the ongoing reboot in errorType and rebootTriggeredAt. When the host has a fatal
+	// or permanent error, errorType has that error instead of the reboot type.
+	if in.OngoingReboot != nil {
+		if in.ErrorType == "" {
+			switch in.OngoingReboot.Type {
+			case infrav2.RebootTypeSSH:
+				out.ErrorType = ErrorTypeSSHRebootTriggered
+			case infrav2.RebootTypeSoftware:
+				out.ErrorType = ErrorTypeSoftwareRebootTriggered
+			case infrav2.RebootTypeHardware:
+				out.ErrorType = ErrorTypeHardwareRebootTriggered
+			}
+		}
+		if !in.OngoingReboot.TriggeredAt.IsZero() {
+			triggeredAt := in.OngoingReboot.TriggeredAt
+			out.RebootTriggeredAt = &triggeredAt
+		}
 	}
 
 	return nil

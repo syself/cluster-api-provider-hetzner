@@ -220,7 +220,7 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			updatedHost := &infrav2.HetznerBareMetalHost{}
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost)).To(Succeed())
 			if tc.expectHostPermanentError {
-				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.PermanentError))
+				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.ErrorTypePermanent))
 				// The retire reason is recorded on the ActionCompleted condition. Its wording
 				// differs for 0 reboots (retryLimit 0) versus one or more failed reboots, and
 				// SetError appends the annotation an operator has to remove.
@@ -379,7 +379,7 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 			updatedHost := &infrav2.HetznerBareMetalHost{}
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost)).To(Succeed())
 			if tc.expectHostPermanentError {
-				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.PermanentError))
+				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.ErrorTypePermanent))
 				Expect(updatedHost.Annotations).To(HaveKey(infrav2.PermanentErrorAnnotation))
 
 				// retireHost passes the MachineHealthCheck message on, and SetError appends the
