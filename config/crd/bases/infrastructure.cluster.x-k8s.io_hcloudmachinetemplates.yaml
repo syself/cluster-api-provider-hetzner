@@ -119,8 +119,6 @@ spec:
                           (stdout and stderr) of the script. If the script takes longer than 20 minutes, the
                           controller cancels the provisioning.
 
-                          Docs: https://syself.com/docs/caph/developers/custom-provisioner
-
                           ImageURL is mutually exclusive to "ImageName".
                         minLength: 1
                         type: string
@@ -129,8 +127,6 @@ spec:
                           ImageURLCommand is the basename of a command file below /shared on the controller pod which
                           provisions a machine from ImageURL. CAPH copies that command into the rescue system and
                           executes it there.
-
-                          Docs: https://syself.com/docs/caph/developers/custom-provisioner
 
                           ImageURLCommand must be set if ImageURL is set. ImageURLCommand must be empty if ImageURL is
                           empty.
@@ -440,8 +436,6 @@ spec:
                               Command is the basename of a command file below /shared on the controller pod which
                               provisions a machine from URL. CAPH copies that command into the rescue system and
                               executes it there.
-
-                              Docs: https://syself.com/docs/caph/developers/custom-provisioner
                             minLength: 1
                             type: string
                           url:
@@ -460,8 +454,6 @@ spec:
                               A Kubernetes event will be created in both (success, failure) cases containing the output
                               (stdout and stderr) of the script. If the script takes longer than 20 minutes, the
                               controller cancels the provisioning.
-
-                              Docs: https://syself.com/docs/caph/developers/custom-provisioner
                             minLength: 1
                             type: string
                         required:

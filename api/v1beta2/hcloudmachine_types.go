@@ -94,16 +94,12 @@ type HCloudCustomProvisioner struct {
 	// A Kubernetes event will be created in both (success, failure) cases containing the output
 	// (stdout and stderr) of the script. If the script takes longer than 20 minutes, the
 	// controller cancels the provisioning.
-	//
-	// Docs: https://syself.com/docs/caph/developers/custom-provisioner
 	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url"`
 
 	// Command is the basename of a command file below /shared on the controller pod which
 	// provisions a machine from URL. CAPH copies that command into the rescue system and
 	// executes it there.
-	//
-	// Docs: https://syself.com/docs/caph/developers/custom-provisioner
 	// +kubebuilder:validation:MinLength=1
 	Command string `json:"command"`
 }
