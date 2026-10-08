@@ -975,7 +975,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		eMsg = strings.TrimSpace(eMsg)
 		if eMsg != "" {
 			log("  Error: " + eMsg)
-			if hbmh.Status.ErrorType == infrav2.PermanentError {
+			if hbmh.Status.ErrorType == infrav2.ErrorTypePermanent {
 				allErrors = append(allErrors, fmt.Errorf("%w on HetznerBareMetalHost (stopping e2e test now) %q: %s", errPermanentHBMH, hbmh.Name, eMsg))
 			}
 		}
