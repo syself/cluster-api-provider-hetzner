@@ -298,7 +298,7 @@ var _ = Describe("SetError and ClearError", func() {
 	})
 })
 
-var _ = Describe("actionImageInstalling (image-url-command)", func() {
+var _ = Describe("actionImageInstalling (customProvisioner)", func() {
 	ctx := context.Background()
 
 	// newBaseHost returns the host and the custom provisioner of the consuming
@@ -306,12 +306,12 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 	// HetznerBareMetalMachine of the scope after newTestService.
 	newBaseHost := func() (*infrav2.HetznerBareMetalHost, *infrav2.CustomProvisioner) {
 		commandDir := GinkgoT().TempDir()
-		commandPath := filepath.Join(commandDir, "image-url-command-test.sh")
+		commandPath := filepath.Join(commandDir, "custom-provisioner-test.sh")
 		Expect(os.WriteFile(commandPath, []byte("#!/usr/bin/env bash\n"), 0o600)).To(Succeed())
-		oldCommandDir := baremetalImageURLCommandDir
-		baremetalImageURLCommandDir = commandDir
+		oldCommandDir := baremetalCustomProvisionerDir
+		baremetalCustomProvisionerDir = commandDir
 		DeferCleanup(func() {
-			baremetalImageURLCommandDir = oldCommandDir
+			baremetalCustomProvisionerDir = oldCommandDir
 		})
 
 		host := helpers.BareMetalHost(
@@ -321,7 +321,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 			helpers.WithConsumerRef(),
 			helpers.WithSSHStatus(),
 		)
-		// Custom provisioner (image-url-command) mode.
+		// Custom provisioner mode.
 		customProvisioner := &infrav2.CustomProvisioner{
 			Command: filepath.Base(commandPath),
 			URL:     "https://example.com/foo/image",
@@ -344,14 +344,14 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
 		// The installimage path checks GetInstallImageState; the custom-provisioner path is not taken.
 		sshMock.AssertCalled(GinkgoT(), "GetInstallImageState", mock.Anything)
-		sshMock.AssertNotCalled(GinkgoT(), "StateOfImageURLCommand", mock.Anything)
+		sshMock.AssertNotCalled(GinkgoT(), "StateOfCustomProvisioner", mock.Anything)
 	})
 
 	It("returns continue when command is running", func() {
 		host, customProvisioner := newBaseHost()
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
-		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateRunning, "", nil)
+		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateRunning, "", nil)
 		sshMock.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
@@ -370,7 +370,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		host, customProvisioner := newBaseHost()
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
-		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
+		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
 		sshMock.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
 		sshMock.On("Reboot", mock.Anything).Return(sshclient.Output{})
 
@@ -396,7 +396,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		host, customProvisioner := newBaseHost()
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
-		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
+		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
 		sshMock.On("ReadOutputJSON", mock.Anything).Return("", fmt.Errorf("ssh connection lost")).Once()
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
@@ -410,7 +410,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		host, customProvisioner := newBaseHost()
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
-		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFailed, "some logs", nil)
+		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateFailed, "some logs", nil)
 		sshMock.On("ReadOutputJSON", mock.Anything).Return("", nil).Once()
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
@@ -424,11 +424,11 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(cV1Beta1.Message).To(ContainSubstring("custom provisioner failed"))
 	})
 
-	It("completes successfully when ImageURLCommandStateFinishedSuccessfully", func() {
+	It("completes successfully when CustomProvisionerStateFinishedSuccessfully", func() {
 		host, customProvisioner := newBaseHost()
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
-		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
+		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
 		sshMock.On("ReadOutputJSON", mock.Anything).Return(`{"status":"Succeeded"}`, nil).Once()
 		sshMock.On("Reboot", mock.Anything).Return(sshclient.Output{})
 
@@ -455,12 +455,12 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		// Build service with fake client containing the bootstrap secret
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
-		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
+		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateNotStarted, "", nil)
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = customProvisioner
-		commandPath := filepath.Join(baremetalImageURLCommandDir, customProvisioner.Command)
-		sshMock.On("StartImageURLCommand", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(0, "", nil)
+		commandPath := filepath.Join(baremetalCustomProvisionerDir, customProvisioner.Command)
+		sshMock.On("StartCustomProvisioner", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(0, "", nil)
 		// Create the bootstrap secret referenced by the CAPI Machine in the fake client with key 'value'
 		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "bootstrap-secret", Namespace: host.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
 		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
@@ -472,19 +472,21 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
-		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
+		Expect(sshMock.AssertCalled(GinkgoT(), "StartCustomProvisioner", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring(`imageURLCommand started`))
+		Expect(c.Message).To(ContainSubstring(`custom provisioner started`))
+		Expect(c.Reason).To(Equal("CustomProvisionerStarted"))
 		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
-		Expect(cV1Beta1.Message).To(ContainSubstring(`imageURLCommand started`))
+		Expect(cV1Beta1.Message).To(ContainSubstring(`custom provisioner started`))
+		Expect(cV1Beta1.Reason).To(Equal("CustomProvisionerStarted"))
 	})
 
-	It("passes WWN to StartImageURLCommand when DeviceStringType is wwn", func() {
+	It("passes WWN to StartCustomProvisioner when DeviceStringType is wwn", func() {
 		host, customProvisioner := newBaseHost()
 
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
-		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
+		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateNotStarted, "", nil)
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = customProvisioner
@@ -493,19 +495,21 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 			WWN: "eui.0025388801b4dff2",
 		}
 
-		commandPath := filepath.Join(baremetalImageURLCommandDir, customProvisioner.Command)
-		sshMock.On("StartImageURLCommand", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"eui.0025388801b4dff2"}).Return(0, "", nil)
+		commandPath := filepath.Join(baremetalCustomProvisionerDir, customProvisioner.Command)
+		sshMock.On("StartCustomProvisioner", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"eui.0025388801b4dff2"}).Return(0, "", nil)
 
 		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "bootstrap-secret", Namespace: host.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
 		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
-		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"eui.0025388801b4dff2"})).To(BeTrue())
+		Expect(sshMock.AssertCalled(GinkgoT(), "StartCustomProvisioner", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"eui.0025388801b4dff2"})).To(BeTrue())
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring(`imageURLCommand started`))
+		Expect(c.Message).To(ContainSubstring(`custom provisioner started`))
+		Expect(c.Reason).To(Equal("CustomProvisionerStarted"))
 		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
-		Expect(cV1Beta1.Message).To(ContainSubstring(`imageURLCommand started`))
+		Expect(cV1Beta1.Message).To(ContainSubstring(`custom provisioner started`))
+		Expect(cV1Beta1.Reason).To(Equal("CustomProvisionerStarted"))
 	})
 
 	It("returns error when DeviceStringType is wwn but no WWN is configured in rootDeviceHints", func() {
@@ -513,7 +517,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
-		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
+		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateNotStarted, "", nil)
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = customProvisioner
@@ -529,17 +533,17 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(res.(actionError).err.Error()).To(ContainSubstring("no WWN is configured in rootDeviceHints"))
 	})
 
-	It("records failure when StartImageURLCommand returns non-zero exit", func() {
+	It("records failure when StartCustomProvisioner returns non-zero exit", func() {
 		host, customProvisioner := newBaseHost()
 
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
-		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
+		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateNotStarted, "", nil)
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = customProvisioner
-		commandPath := filepath.Join(baremetalImageURLCommandDir, customProvisioner.Command)
-		sshMock.On("StartImageURLCommand", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(7, "boom", nil)
+		commandPath := filepath.Join(baremetalCustomProvisionerDir, customProvisioner.Command)
+		sshMock.On("StartCustomProvisioner", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(7, "boom", nil)
 
 		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "bootstrap-secret", Namespace: host.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
 		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
@@ -556,9 +560,11 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(host.Status.ErrorType).To(BeEmpty())
 		Expect(conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
+		Expect(c.Message).To(ContainSubstring("StartCustomProvisioner failed with non-zero exit status. Deleting machine"))
+		Expect(c.Reason).To(Equal("CustomProvisionerFailedToStart"))
 		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
-		Expect(cV1Beta1.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
+		Expect(cV1Beta1.Message).To(ContainSubstring("StartCustomProvisioner failed with non-zero exit status. Deleting machine"))
+		Expect(cV1Beta1.Reason).To(Equal("CustomProvisionerFailedToStart"))
 	})
 
 	It("times out after 20 minutes", func() {
@@ -570,7 +576,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
-		sshMock.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateRunning, "", nil)
+		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateRunning, "", nil)
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = customProvisioner
@@ -579,9 +585,11 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(res).To(BeAssignableToTypeOf(actionStop{}))
 		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring("ImageURLCommand timed out"))
+		Expect(c.Message).To(ContainSubstring("custom provisioner timed out"))
+		Expect(c.Reason).To(Equal("CustomProvisionerTimedOut"))
 		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
-		Expect(cV1Beta1.Message).To(ContainSubstring("ImageURLCommand timed out"))
+		Expect(cV1Beta1.Message).To(ContainSubstring("custom provisioner timed out"))
+		Expect(cV1Beta1.Reason).To(Equal("CustomProvisionerTimedOut"))
 	})
 })
 

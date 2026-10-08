@@ -423,7 +423,7 @@ const (
 	HCloudMachineServerCreationFailedReason = "CreationFailed"
 
 	// HCloudMachineSSHPrivateKeyAvailableCondition reports whether the SSH private key used to connect to
-	// the rescue system is available. It is only evaluated for the imageURL flow, which installs the image
+	// the rescue system is available. It is only evaluated for the customProvisioner flow, which installs the image
 	// over SSH in the rescue system, both before creating the server and while provisioning it.
 	HCloudMachineSSHPrivateKeyAvailableCondition = "SSHPrivateKeyAvailable"
 	// HCloudMachineSSHPrivateKeyAvailableReason indicates the SSH private key is available.
@@ -492,18 +492,14 @@ const (
 	// HCloudMachineBootingToRescueTimedOutReason indicates booting to rescue mode timed out.
 	HCloudMachineBootingToRescueTimedOutReason = "BootingToRescueTimedOut"
 
-	// HCloudMachineImageURLCommandNotAccessibleReason indicates the image URL command is not accessible.
-	HCloudMachineImageURLCommandNotAccessibleReason = "ImageURLCommandNotAccessible"
-	// HCloudMachineStartImageURLCommandFailedReason indicates starting the image URL command failed.
-	HCloudMachineStartImageURLCommandFailedReason = "StartImageURLCommandFailed"
-	// HCloudMachineStartImageURLCommandNonZeroExitCodeReason indicates the image URL command returned a non-zero exit code.
-	HCloudMachineStartImageURLCommandNonZeroExitCodeReason = "StartImageURLCommandNonZeroExitCode"
-	// HCloudMachineHCloudImageURLCommandRunningReason indicates the image URL command is running.
-	HCloudMachineHCloudImageURLCommandRunningReason = "HCloudImageURLCommandRunning"
-	// HCloudMachineRunningImageURLCommandTimedOutReason indicates the running image command timed out.
-	HCloudMachineRunningImageURLCommandTimedOutReason = "RunningImageURLCommandTimedOut"
-	// HCloudMachineImageURLCommandFailedReason indicates the image command failed.
-	HCloudMachineImageURLCommandFailedReason = "ImageURLCommandFailed"
+	// HCloudMachineCustomProvisionerCommandNotAccessibleReason indicates the custom provisioner command is not accessible.
+	HCloudMachineCustomProvisionerCommandNotAccessibleReason = "CustomProvisionerCommandNotAccessible"
+	// HCloudMachineCustomProvisionerFailedToStartReason indicates starting the custom provisioner failed.
+	HCloudMachineCustomProvisionerFailedToStartReason = "CustomProvisionerFailedToStart"
+	// HCloudMachineStartCustomProvisionerNonZeroExitCodeReason indicates the custom provisioner returned a non-zero exit code.
+	HCloudMachineStartCustomProvisionerNonZeroExitCodeReason = "StartCustomProvisionerNonZeroExitCode"
+	// HCloudMachineRunningCustomProvisionerTimedOutReason indicates the running custom provisioner timed out.
+	HCloudMachineRunningCustomProvisionerTimedOutReason = "RunningCustomProvisionerTimedOut"
 	// HCloudMachineBootingToRealOSReason indicates the server is booting to the real OS.
 	HCloudMachineBootingToRealOSReason = "BootingToRealOS"
 	// HCloudMachineBootingToRealOSTimedOutReason indicates booting to the real OS timed out.

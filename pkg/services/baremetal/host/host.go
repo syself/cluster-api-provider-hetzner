@@ -46,7 +46,7 @@ import (
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/imageurlcommand"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/customprovisioner"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -73,7 +73,7 @@ const (
 )
 
 var (
-	baremetalImageURLCommandDir = "/shared"
+	baremetalCustomProvisionerDir = "/shared"
 
 	errNilSSHSecret         = fmt.Errorf("ssh secret is nil")
 	errWrongSSHKey          = fmt.Errorf("wrong ssh key")
@@ -1343,7 +1343,7 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	// A HetznerBareMetalMachine sets exactly one of customProvisioner or installImage. When
 	// customProvisioner is set, provision with the custom command instead of installimage.
 	if s.scope.HetznerBareMetalMachine.Spec.CustomProvisioner != nil {
-		return s.actionImageInstallingImageURLCommand(ctx, sshClient)
+		return s.actionImageInstallingCustomProvisioner(ctx, sshClient)
 	}
 	state, err := sshClient.GetInstallImageState(ctx)
 	if err != nil {
@@ -1365,12 +1365,12 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	}
 }
 
-func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshClient sshclient.Client) actionResult {
+func (s *Service) actionImageInstallingCustomProvisioner(ctx context.Context, sshClient sshclient.Client) actionResult {
 	host := s.scope.HetznerBareMetalHost
 
-	state, logFile, err := sshClient.StateOfImageURLCommand(ctx)
+	state, logFile, err := sshClient.StateOfCustomProvisioner(ctx)
 	if err != nil {
-		return actionError{err: fmt.Errorf("StateOfImageURLCommand failed: %w", err)}
+		return actionError{err: fmt.Errorf("StateOfCustomProvisioner failed: %w", err)}
 	}
 
 	var duration time.Duration
@@ -1378,26 +1378,26 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		duration = time.Since(host.Status.OngoingReboot.TriggeredAt.Time)
 	}
 
-	// Please keep the number (20) in sync with the docstring of ImageURL.
+	// Please keep the number (20) in sync with the docstring of CustomProvisioner.URL.
 	if duration > 20*time.Minute {
 		// timeout. Something has failed.
-		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
+		msg := fmt.Sprintf("custom provisioner timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
 		s.scope.Error(nil, msg, "logFile", logFile)
 		s.scope.EventRecorder.Event(
 			s.scope.HetznerBareMetalHost,
 			corev1.EventTypeWarning,
-			"ImageURLCommandTimedOut",
+			"CustomProvisionerTimedOut",
 			msg,
 		)
 
 		deprecatedv1beta1conditions.MarkFalse(host, infrav2.ProvisionSucceededV1Beta1Condition,
-			"ImageURLCommandTimedOut", clusterv1.ConditionSeverityWarning,
+			"CustomProvisionerTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		conditions.Set(host, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostProvisionSucceededCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "ImageURLCommandTimedOut",
+			Reason:  "CustomProvisionerTimedOut",
 			Message: msg,
 		})
 		s.scope.SetHostError(infrav2.ErrorTypeFatal, msg)
@@ -1405,7 +1405,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 	}
 
 	switch state {
-	case sshclient.ImageURLCommandStateRunning:
+	case sshclient.CustomProvisionerStateRunning:
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
 			s.scope.Error(err, "failed to read output.json")
@@ -1413,12 +1413,12 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		}
 		msg := "custom provisioner running"
 
-		// If outputJSON is empty, imageURLCommand is still running and output.json was
+		// If outputJSON is empty, the custom provisioner is still running and output.json was
 		// either not created yet, or the command does not create it at all.
 		if outputJSON != "" {
-			output, err := imageurlcommand.Parse(outputJSON)
+			output, err := customprovisioner.Parse(outputJSON)
 			if err != nil {
-				s.scope.Error(err, "failed to parse image URL command output")
+				s.scope.Error(err, "failed to parse custom provisioner output")
 				return actionContinue{delay: 10 * time.Second}
 			}
 
@@ -1437,7 +1437,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		})
 		return actionContinue{delay: 10 * time.Second}
 
-	case sshclient.ImageURLCommandStateFinishedSuccessfully:
+	case sshclient.CustomProvisionerStateFinishedSuccessfully:
 		// IMAGE_URL_DONE was found in the stdout.
 		s.scope.Info("CustomProvisionerOutput", "logFile", logFile)
 
@@ -1472,7 +1472,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			return actionError{err: err}
 		}
 
-		msg := "machine image and cloud-init data got installed (via image-url-command)"
+		msg := "machine image and cloud-init data got installed (via custom provisioner)"
 		s.createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
 
 		// clear potential errors, then record the reboot we just sent
@@ -1480,7 +1480,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		setOngoingReboot(s.scope.HetznerBareMetalHost, infrav2.RebootTypeSSH, msg)
 		return actionComplete{}
 
-	case sshclient.ImageURLCommandStateFailed:
+	case sshclient.CustomProvisionerStateFailed:
 		s.scope.Error(nil, "custom provisioner failed", "logFile", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
@@ -1491,7 +1491,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 		msg := "custom provisioner failed"
 		if outputJSON != "" {
-			output, err := imageurlcommand.Parse(outputJSON)
+			output, err := customprovisioner.Parse(outputJSON)
 			if err != nil {
 				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
 				return actionError{err: fmt.Errorf("failed to parse: %w", err)}
@@ -1519,7 +1519,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		s.scope.SetHostError(infrav2.ErrorTypeFatal, msg)
 		return actionStop{}
 
-	case sshclient.ImageURLCommandStateNotStarted:
+	case sshclient.CustomProvisionerStateNotStarted:
 		data, err := s.scope.GetRawBootstrapData(ctx)
 		if err != nil {
 			return actionError{err: fmt.Errorf("baremetal GetRawBootstrapData failed: %w", err)}
@@ -1527,25 +1527,25 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 
 		command := s.scope.HetznerBareMetalMachine.Spec.CustomProvisioner.Command
 
-		commandPath, err := utils.ResolveImageURLCommandPath(baremetalImageURLCommandDir, command)
+		commandPath, err := utils.ResolveCustomProvisionerCommandPath(baremetalCustomProvisionerDir, command)
 		if err != nil {
-			err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", command, err)
+			err = fmt.Errorf("custom provisioner command %q is invalid or not accessible by the controller pod: %w", command, err)
 			s.scope.Error(err, "")
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
-				"ImageURLCommandNotAccessible",
+				"CustomProvisionerCommandNotAccessible",
 				err.Error(),
 			)
 
 			deprecatedv1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav2.ProvisionSucceededV1Beta1Condition,
-				"ImageURLCommandNotAccessible",
+				"CustomProvisionerCommandNotAccessible",
 				clusterv1.ConditionSeverityWarning,
 				"%s", err.Error())
 			conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav2.HetznerBareMetalHostProvisionSucceededCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  "ImageURLCommandNotAccessible",
+				Reason:  "CustomProvisionerCommandNotAccessible",
 				Message: err.Error(),
 			})
 			return actionStop{}
@@ -1572,75 +1572,75 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 			deviceNames = getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storage)
 		}
 
-		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, commandPath, s.scope.HetznerBareMetalMachine.Spec.CustomProvisioner.URL, data, s.scope.Hostname(), deviceNames)
+		exitStatus, stdoutStderr, err := sshClient.StartCustomProvisioner(ctx, commandPath, s.scope.HetznerBareMetalMachine.Spec.CustomProvisioner.URL, data, s.scope.Hostname(), deviceNames)
 		if err != nil {
-			err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
+			err := fmt.Errorf("StartCustomProvisioner failed (retrying): %w", err)
 			// This could be a temporary network error. Retry.
 			s.scope.Error(err, "",
-				"ImageURLCommand", command,
+				"customProvisionerCommand", command,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
-				"ImageURLCommandFailedToStart",
+				"CustomProvisionerFailedToStart",
 				err.Error(),
 			)
 
 			deprecatedv1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav2.ProvisionSucceededV1Beta1Condition,
-				"ImageURLCommandFailedToStart",
+				"CustomProvisionerFailedToStart",
 				clusterv1.ConditionSeverityWarning,
 				"%s", err.Error())
 			conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav2.HetznerBareMetalHostProvisionSucceededCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  "ImageURLCommandFailedToStart",
+				Reason:  "CustomProvisionerFailedToStart",
 				Message: err.Error(),
 			})
 			return actionError{err: err}
 		}
 
 		if exitStatus != 0 {
-			msg := "StartImageURLCommand failed with non-zero exit status. Deleting machine"
+			msg := "StartCustomProvisioner failed with non-zero exit status. Deleting machine"
 			s.scope.Error(nil, msg,
-				"ImageURLCommand", command,
+				"customProvisionerCommand", command,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
-				"StartImageURLCommandFailed",
+				"CustomProvisionerFailedToStart",
 				msg,
 			)
 
 			deprecatedv1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav2.ProvisionSucceededV1Beta1Condition,
-				"StartImageURLCommandFailed",
+				"CustomProvisionerFailedToStart",
 				clusterv1.ConditionSeverityWarning,
 				"%s", msg)
 			conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav2.HetznerBareMetalHostProvisionSucceededCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  "StartImageURLCommandFailed",
+				Reason:  "CustomProvisionerFailedToStart",
 				Message: msg,
 			})
 			return actionContinue{delay: time.Minute}
 		}
 
 		deprecatedv1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav2.ProvisionSucceededV1Beta1Condition,
-			"ImageURLCommandStarted",
+			"CustomProvisionerStarted",
 			clusterv1.ConditionSeverityInfo,
-			"imageURLCommand started")
+			"custom provisioner started")
 		conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostProvisionSucceededCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "ImageURLCommandStarted",
-			Message: "imageURLCommand started",
+			Reason:  "CustomProvisionerStarted",
+			Message: "custom provisioner started",
 		})
 
 		return actionContinue{delay: 55 * time.Second}
 
 	default:
-		return actionError{err: fmt.Errorf("unknown ImageURLCommandState: %q", state)}
+		return actionError{err: fmt.Errorf("unknown CustomProvisionerState: %q", state)}
 	}
 }
 
@@ -2035,8 +2035,8 @@ func (s *Service) createAutoSetupInput(ctx context.Context, sshClient sshclient.
 	}
 	if needsDownload {
 		// DownloadImage is a synchronous process. This means the controller waits until the
-		// download is finished. Note: We should use StartImageURLCommand(), similar to the handling
-		// of ImageURLCommand.
+		// download is finished. Note: We should use StartCustomProvisioner(), similar to the handling
+		// of the custom provisioner.
 		out := sshClient.DownloadImage(ctx, imagePath, image.URL)
 		if err := handleSSHError(out); err != nil {
 			err := fmt.Errorf("failed to download image: %s %s %w", out.StdOut, out.StdErr, err)
