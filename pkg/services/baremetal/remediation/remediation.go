@@ -118,7 +118,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	// Only evaluated on a fresh CR (Phase is empty) to avoid interrupting in-progress remediations.
 	if s.scope.BareMetalRemediation.Status.Phase == "" {
 		cooldown := s.scope.BareMetalRemediation.Spec.Strategy.EffectiveCooldown()
-		if cooldown > 0 && s.scope.BareMetalMachine.Status.LastRemediatedAt != nil {
+		if cooldown > 0 && !s.scope.BareMetalMachine.Status.LastRemediatedAt.IsZero() {
 			since := time.Since(s.scope.BareMetalMachine.Status.LastRemediatedAt.Time)
 			if since < cooldown {
 				err := s.markRemediationSkipped(ctx,
@@ -291,7 +291,7 @@ func (s *Service) retireHost(ctx context.Context, host *infrav2.HetznerBareMetal
 			reason = fmt.Sprintf("node still unhealthy after %d failed reboot(s)", retryCount)
 		}
 	}
-	if permanentErrorSet, message := host.SetError(infrav2.PermanentError, reason); permanentErrorSet {
+	if permanentErrorSet, message := host.SetError(infrav2.ErrorTypePermanent, reason); permanentErrorSet {
 		s.scope.EventRecorder.Event(
 			host,
 			corev1.EventTypeWarning,
@@ -424,8 +424,7 @@ func (s *Service) markRemediationSucceeded(ctx context.Context, capiMachine *clu
 		return fmt.Errorf("failed to init patch helper for baremetal machine: %w", err)
 	}
 
-	now := metav1.Now()
-	s.scope.BareMetalMachine.Status.LastRemediatedAt = &now
+	s.scope.BareMetalMachine.Status.LastRemediatedAt = metav1.Now()
 
 	if err := bareMetalMachinePatchHelper.Patch(ctx, s.scope.BareMetalMachine); err != nil {
 		return fmt.Errorf("failed to patch baremetal machine: %w", err)

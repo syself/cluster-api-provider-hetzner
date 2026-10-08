@@ -83,6 +83,10 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 	}()
 
 	if hsm.checkInitiateDelete() {
+		// Deletion aborts provisioning early, possibly while the host is still in
+		// the rescue system. Evict any pooled SSH connection to it now rather than
+		// waiting for the idle-timeout sweep.
+		hsm.reconciler.scope.SSHClientFactory.EvictConnectionsForIP(hsm.host.Status.GetIPAddress())
 		return actionComplete{}
 	}
 
@@ -131,6 +135,7 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 		// Continue deprovisioning.
 		return false
 	}
+
 	return true
 }
 
@@ -181,8 +186,21 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 				"SSHSecretUnexpectedlyModified",
 				errMessage,
 			)
+			deprecatedv1beta1conditions.MarkFalse(
+				hsm.host,
+				infrav2.CredentialsAvailableV1Beta1Condition,
+				infrav2.SSHSecretModifiedV1Beta1Reason,
+				clusterv1.ConditionSeverityError,
+				"%s",
+				errMessage,
+			)
+			conditions.Set(hsm.host, metav1.Condition{
+				Type:    infrav2.HetznerBareMetalHostSSHKeysAvailableCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav2.HetznerBareMetalHostSSHSecretModifiedReason,
+				Message: errMessage,
+			})
 			// The user has to fix the secret. Check again in five minutes.
-			hsm.reconciler.scope.SetHostError(infrav2.RegistrationError, errMessage)
 			return actionContinue{delay: 5 * time.Minute}
 		}
 		if err := hsm.host.UpdateOSSSHStatus(*osSSHSecret); err != nil {
@@ -213,7 +231,6 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 			msg,
 		)
 		// The user has to fix the secret. Check again in five minutes.
-		hsm.reconciler.scope.SetHostError(infrav2.PreparationError, infrav2.ErrorMessageMissingOrInvalidSecretData)
 		return actionContinue{delay: 5 * time.Minute}
 	}
 	return nil
@@ -262,7 +279,6 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 			Message: msg,
 		})
 		// The user has to fix the secret. Check again in five minutes.
-		hsm.reconciler.scope.SetHostError(infrav2.PreparationError, infrav2.ErrorMessageMissingOrInvalidSecretData)
 		return actionContinue{delay: 5 * time.Minute}
 	}
 	return nil
@@ -352,6 +368,9 @@ func (hsm *hostStateMachine) handleImageInstalling(ctx context.Context) actionRe
 	switch actResult.(type) {
 	case actionComplete:
 		hsm.nextState = infrav2.StateEnsureProvisioned
+		// The host is leaving the rescue system for good: evict its pooled SSH
+		// connection now instead of waiting for the idle-timeout sweep.
+		hsm.reconciler.scope.SSHClientFactory.EvictConnectionsForIP(hsm.host.Status.GetIPAddress())
 	case actionError:
 		// re-enable rescue system. If installimage failed, then it is likely, that
 		// the next run (without reboot) fails with this error:
@@ -390,6 +409,9 @@ func (hsm *hostStateMachine) handleDeprovisioning(ctx context.Context) actionRes
 	actResult := hsm.reconciler.actionDeprovisioning(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav2.StateNone
+		// Deprovisioning is done: evict any pooled SSH connection to this host now
+		// instead of waiting for the idle-timeout sweep.
+		hsm.reconciler.scope.SSHClientFactory.EvictConnectionsForIP(hsm.host.Status.GetIPAddress())
 		return actionComplete{}
 	}
 	return actResult

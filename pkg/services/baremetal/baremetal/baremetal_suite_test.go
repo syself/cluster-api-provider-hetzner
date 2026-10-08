@@ -25,7 +25,7 @@ import (
 	"k8s.io/klog/v2/textlogger"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 )
 
@@ -37,7 +37,7 @@ func TestBaremetal(t *testing.T) {
 }
 
 func newTestService(
-	bmMachine *infrav1.HetznerBareMetalMachine,
+	bmMachine *infrav2.HetznerBareMetalMachine,
 	client client.Client,
 ) *Service {
 	return &Service{

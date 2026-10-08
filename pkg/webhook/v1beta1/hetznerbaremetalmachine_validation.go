@@ -61,7 +61,7 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav1.HetznerBareMetalMach
 			)
 		}
 
-		if err := utils.ValidateImageURLCommandName(installImage.ImageURLCommand); err != nil {
+		if err := utils.ValidateCustomProvisionerCommandName(installImage.ImageURLCommand); err != nil {
 			allErrs = append(allErrs,
 				field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), installImage.ImageURLCommand,
 					err.Error()),
