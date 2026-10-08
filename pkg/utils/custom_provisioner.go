@@ -27,11 +27,11 @@ import (
 	"strings"
 )
 
-var imageURLCommandNameRegex = regexp.MustCompile(`^[a-z][a-z0-9._-]*$`)
+var customProvisionerCommandNameRegex = regexp.MustCompile(`^[a-z][a-z0-9._-]*$`)
 
-// ValidateImageURLCommandName validates the user-provided command name. The name must be a
+// ValidateCustomProvisionerCommandName validates the user-provided command name. The name must be a
 // basename, must not contain "..", and must match the pattern ^[a-z][a-z0-9._-]*$.
-func ValidateImageURLCommandName(name string) error {
+func ValidateCustomProvisionerCommandName(name string) error {
 	if name != filepath.Base(name) {
 		return fmt.Errorf("must be a basename without slashes")
 	}
@@ -40,16 +40,16 @@ func ValidateImageURLCommandName(name string) error {
 		return fmt.Errorf("must not contain '..'")
 	}
 
-	if !imageURLCommandNameRegex.MatchString(name) {
-		return fmt.Errorf("must match the regex %s", imageURLCommandNameRegex.String())
+	if !customProvisionerCommandNameRegex.MatchString(name) {
+		return fmt.Errorf("must match the regex %s", customProvisionerCommandNameRegex.String())
 	}
 
 	return nil
 }
 
-// ResolveImageURLCommandPath resolves a command name below the given directory.
-func ResolveImageURLCommandPath(commandDir, name string) (string, error) {
-	if err := ValidateImageURLCommandName(name); err != nil {
+// ResolveCustomProvisionerCommandPath resolves a command name below the given directory.
+func ResolveCustomProvisionerCommandPath(commandDir, name string) (string, error) {
+	if err := ValidateCustomProvisionerCommandName(name); err != nil {
 		return "", err
 	}
 

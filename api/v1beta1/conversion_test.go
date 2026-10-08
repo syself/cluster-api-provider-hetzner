@@ -611,6 +611,35 @@ func TestConvertHetznerBareMetalMachineCustomProvisioner(t *testing.T) {
 	}
 }
 
+// TestConvertHCloudMachineCustomProvisioner verifies that v1beta1 imageURL and imageURLCommand
+// convert to a v1beta2 customProvisioner and back to the same flat fields.
+func TestConvertHCloudMachineCustomProvisioner(t *testing.T) {
+	src := HCloudMachineSpec{
+		ImageURL:        "oci://ghcr.io/example/ubuntu:v1",
+		ImageURLCommand: "image-url-command-hcloud-test.sh",
+	}
+
+	var hub infrav2.HCloudMachineSpec
+	if err := Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(&src, &hub, nil); err != nil {
+		t.Fatalf("convert to v1beta2 failed: %v", err)
+	}
+	wantCustom := &infrav2.HCloudCustomProvisioner{
+		URL:     "oci://ghcr.io/example/ubuntu:v1",
+		Command: "image-url-command-hcloud-test.sh",
+	}
+	if !reflect.DeepEqual(hub.CustomProvisioner, wantCustom) {
+		t.Fatalf("customProvisioner mismatch:\n got: %#v\nwant: %#v", hub.CustomProvisioner, wantCustom)
+	}
+
+	var back HCloudMachineSpec
+	if err := Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(&hub, &back, nil); err != nil {
+		t.Fatalf("convert back to v1beta1 failed: %v", err)
+	}
+	if !reflect.DeepEqual(back, src) {
+		t.Fatalf("round trip mismatch:\n got: %#v\nwant: %#v", back, src)
+	}
+}
+
 // TestHetznerBareMetalMachineConvertToPromoteV1Beta2Shape verifies that converting a v1beta1
 // HetznerBareMetalMachine to v1beta2 promotes the staged v1beta2 conditions, demotes the old
 // v1beta1 conditions, maps status.ready to status.initialization.provisioned, and moves the
@@ -1692,6 +1721,15 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 				}
 			case in.InstallImage == nil:
 				in.InstallImage = &infrav2.InstallImage{}
+			}
+		},
+		// HCloudMachine v1beta2 spec (hub side): an empty customProvisioner flattens to empty v1beta1
+		// imageURL and imageURLCommand, which convert back to no customProvisioner. The CRD requires both
+		// fields to be non-empty, so collapse the empty struct to nil.
+		func(in *infrav2.HCloudMachineSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.CustomProvisioner != nil && *in.CustomProvisioner == (infrav2.HCloudCustomProvisioner{}) {
+				in.CustomProvisioner = nil
 			}
 		},
 		// HCloudRemediation v1beta1 status: keep retryCount in the non-negative v1beta2 int32 range,
