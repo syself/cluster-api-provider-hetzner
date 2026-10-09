@@ -22,7 +22,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 // HetznerBareMetalMachineWebhook implements admission webhooks for HetznerBareMetalMachine.
@@ -30,7 +30,7 @@ type HetznerBareMetalMachineWebhook struct{}
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalMachine.
 func (webhook *HetznerBareMetalMachineWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HetznerBareMetalMachine{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1beta1.HetznerBareMetalMachine{}).
 		WithValidator(webhook).
 		WithDefaulter(webhook).
 		Complete()
@@ -38,32 +38,32 @@ func (webhook *HetznerBareMetalMachineWebhook) SetupWebhookWithManager(mgr ctrl.
 
 //+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=create;update,versions=v1beta1,name=mutation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Defaulter[*infrav1.HetznerBareMetalMachine] = &HetznerBareMetalMachineWebhook{}
+var _ admission.Defaulter[*infrav1beta1.HetznerBareMetalMachine] = &HetznerBareMetalMachineWebhook{}
 
 // Default implements admission.Defaulter so a webhook will be registered for HetznerBareMetalMachine.
-func (*HetznerBareMetalMachineWebhook) Default(context.Context, *infrav1.HetznerBareMetalMachine) error {
+func (*HetznerBareMetalMachineWebhook) Default(context.Context, *infrav1beta1.HetznerBareMetalMachine) error {
 	return nil
 }
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Validator[*infrav1.HetznerBareMetalMachine] = &HetznerBareMetalMachineWebhook{}
+var _ admission.Validator[*infrav1beta1.HetznerBareMetalMachine] = &HetznerBareMetalMachineWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HetznerBareMetalMachine.
-func (*HetznerBareMetalMachineWebhook) ValidateCreate(_ context.Context, r *infrav1.HetznerBareMetalMachine) (admission.Warnings, error) {
+func (*HetznerBareMetalMachineWebhook) ValidateCreate(_ context.Context, r *infrav1beta1.HetznerBareMetalMachine) (admission.Warnings, error) {
 	allErrs := validateHetznerBareMetalMachineSpecCreate(r.Spec)
 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HetznerBareMetalMachine.
-func (*HetznerBareMetalMachineWebhook) ValidateUpdate(_ context.Context, oldHetznerBareMetalMachine *infrav1.HetznerBareMetalMachine, r *infrav1.HetznerBareMetalMachine) (admission.Warnings, error) {
+func (*HetznerBareMetalMachineWebhook) ValidateUpdate(_ context.Context, oldHetznerBareMetalMachine *infrav1beta1.HetznerBareMetalMachine, r *infrav1beta1.HetznerBareMetalMachine) (admission.Warnings, error) {
 	allErrs := validateHetznerBareMetalMachineSpecUpdate(oldHetznerBareMetalMachine.Spec, r.Spec)
 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HetznerBareMetalMachine.
-func (*HetznerBareMetalMachineWebhook) ValidateDelete(context.Context, *infrav1.HetznerBareMetalMachine) (admission.Warnings, error) {
+func (*HetznerBareMetalMachineWebhook) ValidateDelete(context.Context, *infrav1beta1.HetznerBareMetalMachine) (admission.Warnings, error) {
 	return nil, nil
 }

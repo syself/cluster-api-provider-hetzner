@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 )
 
@@ -57,9 +57,9 @@ var _ = Describe("Test TimeUntilNextRemediation", func() {
 
 	DescribeTable("Test TimeUntilNextRemediation",
 		func(tc testCaseTimeUntilNextRemediation) {
-			var bmRemediation infrav2.HetznerBareMetalRemediation
+			var bmRemediation infrav1.HetznerBareMetalRemediation
 
-			bmRemediation.Spec.Strategy = &infrav2.BareMetalRemediationStrategy{RemediationStrategy: infrav2.RemediationStrategy{TimeoutSeconds: 60}}
+			bmRemediation.Spec.Strategy = &infrav1.BareMetalRemediationStrategy{RemediationStrategy: infrav1.RemediationStrategy{TimeoutSeconds: 60}}
 
 			if tc.lastRemediated != nullTime {
 				bmRemediation.Status.LastRemediated = metav1.Time{Time: tc.lastRemediated}
@@ -94,7 +94,7 @@ var _ = Describe("Test AddRebootAnnotation", func() {
 		expectAnnotations map[string]string
 	}
 
-	rebootAnnotationArguments := infrav2.RebootAnnotationArguments{Type: infrav2.RebootTypeHardware}
+	rebootAnnotationArguments := infrav1.RebootAnnotationArguments{Type: infrav1.RebootTypeHardware}
 
 	b, err := json.Marshal(rebootAnnotationArguments)
 	Expect(err).To(BeNil())
@@ -110,15 +110,15 @@ var _ = Describe("Test AddRebootAnnotation", func() {
 		},
 		Entry("nil annotations", testCaseAddRebootAnnotation{
 			annotations:       nil,
-			expectAnnotations: map[string]string{infrav2.RebootAnnotation: rebootAnnotationString},
+			expectAnnotations: map[string]string{infrav1.RebootAnnotation: rebootAnnotationString},
 		}),
 		Entry("existing annotations", testCaseAddRebootAnnotation{
 			annotations:       map[string]string{"key": "value"},
-			expectAnnotations: map[string]string{"key": "value", infrav2.RebootAnnotation: rebootAnnotationString},
+			expectAnnotations: map[string]string{"key": "value", infrav1.RebootAnnotation: rebootAnnotationString},
 		}),
 		Entry("reboot annotation already present", testCaseAddRebootAnnotation{
-			annotations:       map[string]string{"key": "value", infrav2.RebootAnnotation: rebootAnnotationString},
-			expectAnnotations: map[string]string{"key": "value", infrav2.RebootAnnotation: rebootAnnotationString},
+			annotations:       map[string]string{"key": "value", infrav1.RebootAnnotation: rebootAnnotationString},
+			expectAnnotations: map[string]string{"key": "value", infrav1.RebootAnnotation: rebootAnnotationString},
 		}),
 	)
 })
@@ -129,12 +129,12 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 	// used up and the node is still unhealthy, so handlePhaseWaiting decides whether
 	// to reuse or retire the host.
 	scheme := runtime.NewScheme()
-	utilruntime.Must(infrav2.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 
 	type testCaseOnExhaustion struct {
-		onExhaustion             infrav2.OnExhaustionAction
+		onExhaustion             infrav1.OnExhaustionAction
 		retryCount               int
 		healthCheckMessage       string
 		expectHostPermanentError bool
@@ -148,13 +148,13 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			machine := &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-machine", Namespace: "default", UID: "machine-uid"},
 			}
-			host := &infrav2.HetznerBareMetalHost{
+			host := &infrav1.HetznerBareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-host", Namespace: "default"},
-				Status: infrav2.HetznerBareMetalHostStatus{
-					ProvisioningState: infrav2.StateProvisioned,
+				Status: infrav1.HetznerBareMetalHostStatus{
+					ProvisioningState: infrav1.StateProvisioned,
 				},
 			}
-			remediation := &infrav2.HetznerBareMetalRemediation{
+			remediation := &infrav1.HetznerBareMetalRemediation{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-remediation",
 					Namespace: "default",
@@ -165,18 +165,18 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 						UID:        machine.UID,
 					}},
 				},
-				Spec: infrav2.HetznerBareMetalRemediationSpec{
-					Strategy: &infrav2.BareMetalRemediationStrategy{
-						RemediationStrategy: infrav2.RemediationStrategy{
-							Type:           infrav2.RemediationTypeReboot,
+				Spec: infrav1.HetznerBareMetalRemediationSpec{
+					Strategy: &infrav1.BareMetalRemediationStrategy{
+						RemediationStrategy: infrav1.RemediationStrategy{
+							Type:           infrav1.RemediationTypeReboot,
 							RetryLimit:     ptr.To(int32(1)),
 							TimeoutSeconds: 1,
 						},
 						OnExhaustion: tc.onExhaustion,
 					},
 				},
-				Status: infrav2.HetznerBareMetalRemediationStatus{
-					Phase:          infrav2.PhaseWaiting,
+				Status: infrav1.HetznerBareMetalRemediationStatus{
+					Phase:          infrav1.PhaseWaiting,
 					RetryCount:     ptr.To(int32(tc.retryCount)),
 					LastRemediated: metav1.Time{Time: time.Now().Add(-2 * time.Second)},
 				},
@@ -215,30 +215,30 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			Expect(res.RequeueAfter).To(BeZero())
 
 			// Either way, remediation stops.
-			Expect(remediation.Status.Phase).To(Equal(infrav2.PhaseDeleting))
+			Expect(remediation.Status.Phase).To(Equal(infrav1.PhaseDeleting))
 
-			updatedHost := &infrav2.HetznerBareMetalHost{}
+			updatedHost := &infrav1.HetznerBareMetalHost{}
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost)).To(Succeed())
 			if tc.expectHostPermanentError {
-				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.ErrorTypePermanent))
+				Expect(updatedHost.Status.ErrorType).To(Equal(infrav1.ErrorTypePermanent))
 				// The retire reason is recorded on the ActionCompleted condition. Its wording
 				// differs for 0 reboots (retryLimit 0) versus one or more failed reboots, and
 				// SetError appends the annotation an operator has to remove.
 				wantMessage := fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
-					tc.expectErrorMessage, infrav2.PermanentErrorAnnotation)
-				ac := conditions.Get(updatedHost, infrav2.HetznerBareMetalHostActionCompletedCondition)
+					tc.expectErrorMessage, infrav1.PermanentErrorAnnotation)
+				ac := conditions.Get(updatedHost, infrav1.HetznerBareMetalHostActionCompletedCondition)
 				Expect(ac).NotTo(BeNil())
-				Expect(ac.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedPermanentErrorReason))
+				Expect(ac.Reason).To(Equal(infrav1.HetznerBareMetalHostActionCompletedPermanentErrorReason))
 				Expect(ac.Message).To(Equal(wantMessage))
 
-				acV1Beta1 := deprecatedv1beta1conditions.Get(updatedHost, infrav2.ActionCompletedV1Beta1Condition)
+				acV1Beta1 := deprecatedv1beta1conditions.Get(updatedHost, infrav1.ActionCompletedV1Beta1Condition)
 				Expect(acV1Beta1).NotTo(BeNil())
-				Expect(acV1Beta1.Reason).To(Equal(infrav2.ActionCompletedPermanentErrorV1Beta1Reason))
+				Expect(acV1Beta1.Reason).To(Equal(infrav1.ActionCompletedPermanentErrorV1Beta1Reason))
 				Expect(acV1Beta1.Message).To(Equal(wantMessage))
-				Expect(updatedHost.Annotations).To(HaveKey(infrav2.PermanentErrorAnnotation))
+				Expect(updatedHost.Annotations).To(HaveKey(infrav1.PermanentErrorAnnotation))
 			} else {
 				Expect(updatedHost.Status.ErrorType).To(BeEmpty())
-				Expect(updatedHost.Annotations).NotTo(HaveKey(infrav2.PermanentErrorAnnotation))
+				Expect(updatedHost.Annotations).NotTo(HaveKey(infrav1.PermanentErrorAnnotation))
 
 				updatedMachine := &clusterv1.Machine{}
 				Expect(c.Get(ctx, client.ObjectKeyFromObject(machine), updatedMachine)).To(Succeed())
@@ -255,19 +255,19 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			}
 		},
 		Entry("Retire after failed reboots", testCaseOnExhaustion{
-			onExhaustion:             infrav2.OnExhaustionRetire,
+			onExhaustion:             infrav1.OnExhaustionRetire,
 			retryCount:               1,
 			expectHostPermanentError: true,
 			expectErrorMessage:       "node still unhealthy after 1 failed reboot(s)",
 		}),
 		Entry("Retire with no reboots (retryLimit 0)", testCaseOnExhaustion{
-			onExhaustion:             infrav2.OnExhaustionRetire,
+			onExhaustion:             infrav1.OnExhaustionRetire,
 			retryCount:               0,
 			expectHostPermanentError: true,
 			expectErrorMessage:       "retryLimit is 0, node retired without a reboot attempt",
 		}),
 		Entry("Reuse deletes the machine without retiring the host", testCaseOnExhaustion{
-			onExhaustion:             infrav2.OnExhaustionReuse,
+			onExhaustion:             infrav1.OnExhaustionReuse,
 			retryCount:               1,
 			expectHostPermanentError: false,
 		}),
@@ -277,7 +277,7 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			expectHostPermanentError: false,
 		}),
 		Entry("Retire uses the MachineHealthCheck reason when the condition is set", testCaseOnExhaustion{
-			onExhaustion:             infrav2.OnExhaustionRetire,
+			onExhaustion:             infrav1.OnExhaustionRetire,
 			retryCount:               1,
 			healthCheckMessage:       "Health check failed: Condition Ready on Node is reporting status Unknown for more than 5m0s",
 			expectHostPermanentError: true,
@@ -291,12 +291,12 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 	// missing Node: reboot is skipped, but OnExhaustion must still decide Reuse vs Retire,
 	// same as the exhausted-retries path in handlePhaseWaiting above.
 	scheme := runtime.NewScheme()
-	utilruntime.Must(infrav2.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 
 	type testCaseNodeDeleted struct {
-		onExhaustion             infrav2.OnExhaustionAction
+		onExhaustion             infrav1.OnExhaustionAction
 		expectHostPermanentError bool
 	}
 
@@ -314,24 +314,24 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 				Message: "Node has been deleted",
 			})
 
-			host := &infrav2.HetznerBareMetalHost{
+			host := &infrav1.HetznerBareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-host", Namespace: "default"},
-				Status: infrav2.HetznerBareMetalHostStatus{
-					ProvisioningState: infrav2.StateProvisioned,
+				Status: infrav1.HetznerBareMetalHostStatus{
+					ProvisioningState: infrav1.StateProvisioned,
 				},
 			}
 
-			bareMetalMachine := &infrav2.HetznerBareMetalMachine{
+			bareMetalMachine := &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-bm-machine",
 					Namespace: "default",
 					Annotations: map[string]string{
-						infrav2.HostAnnotation: "default/test-host",
+						infrav1.HostAnnotation: "default/test-host",
 					},
 				},
 			}
 
-			remediation := &infrav2.HetznerBareMetalRemediation{
+			remediation := &infrav1.HetznerBareMetalRemediation{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-remediation",
 					Namespace: "default",
@@ -342,10 +342,10 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 						UID:        machine.UID,
 					}},
 				},
-				Spec: infrav2.HetznerBareMetalRemediationSpec{
-					Strategy: &infrav2.BareMetalRemediationStrategy{
-						RemediationStrategy: infrav2.RemediationStrategy{
-							Type:           infrav2.RemediationTypeReboot,
+				Spec: infrav1.HetznerBareMetalRemediationSpec{
+					Strategy: &infrav1.BareMetalRemediationStrategy{
+						RemediationStrategy: infrav1.RemediationStrategy{
+							Type:           infrav1.RemediationTypeReboot,
 							RetryLimit:     ptr.To(int32(1)),
 							TimeoutSeconds: 60,
 						},
@@ -373,31 +373,31 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 			Expect(res.RequeueAfter).To(BeZero())
 
 			// Either way, no reboot annotation was added and remediation stops.
-			Expect(host.Annotations).NotTo(HaveKey(infrav2.RebootAnnotation))
-			Expect(remediation.Status.Phase).To(Equal(infrav2.PhaseDeleting))
+			Expect(host.Annotations).NotTo(HaveKey(infrav1.RebootAnnotation))
+			Expect(remediation.Status.Phase).To(Equal(infrav1.PhaseDeleting))
 
-			updatedHost := &infrav2.HetznerBareMetalHost{}
+			updatedHost := &infrav1.HetznerBareMetalHost{}
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost)).To(Succeed())
 			if tc.expectHostPermanentError {
-				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.ErrorTypePermanent))
-				Expect(updatedHost.Annotations).To(HaveKey(infrav2.PermanentErrorAnnotation))
+				Expect(updatedHost.Status.ErrorType).To(Equal(infrav1.ErrorTypePermanent))
+				Expect(updatedHost.Annotations).To(HaveKey(infrav1.PermanentErrorAnnotation))
 
 				// retireHost passes the MachineHealthCheck message on, and SetError appends the
 				// annotation an operator has to remove.
 				wantMessage := fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
-					"Node has been deleted", infrav2.PermanentErrorAnnotation)
-				ac := conditions.Get(updatedHost, infrav2.HetznerBareMetalHostActionCompletedCondition)
+					"Node has been deleted", infrav1.PermanentErrorAnnotation)
+				ac := conditions.Get(updatedHost, infrav1.HetznerBareMetalHostActionCompletedCondition)
 				Expect(ac).NotTo(BeNil())
-				Expect(ac.Reason).To(Equal(infrav2.HetznerBareMetalHostActionCompletedPermanentErrorReason))
+				Expect(ac.Reason).To(Equal(infrav1.HetznerBareMetalHostActionCompletedPermanentErrorReason))
 				Expect(ac.Message).To(Equal(wantMessage))
 
-				acV1Beta1 := deprecatedv1beta1conditions.Get(updatedHost, infrav2.ActionCompletedV1Beta1Condition)
+				acV1Beta1 := deprecatedv1beta1conditions.Get(updatedHost, infrav1.ActionCompletedV1Beta1Condition)
 				Expect(acV1Beta1).NotTo(BeNil())
-				Expect(acV1Beta1.Reason).To(Equal(infrav2.ActionCompletedPermanentErrorV1Beta1Reason))
+				Expect(acV1Beta1.Reason).To(Equal(infrav1.ActionCompletedPermanentErrorV1Beta1Reason))
 				Expect(acV1Beta1.Message).To(Equal(wantMessage))
 			} else {
 				Expect(updatedHost.Status.ErrorType).To(BeEmpty())
-				Expect(updatedHost.Annotations).NotTo(HaveKey(infrav2.PermanentErrorAnnotation))
+				Expect(updatedHost.Annotations).NotTo(HaveKey(infrav1.PermanentErrorAnnotation))
 
 				updatedMachine := &clusterv1.Machine{}
 				Expect(c.Get(ctx, client.ObjectKeyFromObject(machine), updatedMachine)).To(Succeed())
@@ -414,11 +414,11 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 			}
 		},
 		Entry("Retire retires the host without a reboot", testCaseNodeDeleted{
-			onExhaustion:             infrav2.OnExhaustionRetire,
+			onExhaustion:             infrav1.OnExhaustionRetire,
 			expectHostPermanentError: true,
 		}),
 		Entry("Reuse deletes the machine without retiring the host", testCaseNodeDeleted{
-			onExhaustion:             infrav2.OnExhaustionReuse,
+			onExhaustion:             infrav1.OnExhaustionReuse,
 			expectHostPermanentError: false,
 		}),
 		Entry("empty behaves like Reuse", testCaseNodeDeleted{

@@ -22,7 +22,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 // HetznerBareMetalRemediationWebhook implements admission webhooks for HetznerBareMetalRemediation.
@@ -30,7 +30,7 @@ type HetznerBareMetalRemediationWebhook struct{}
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalRemediation.
 func (webhook *HetznerBareMetalRemediationWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HetznerBareMetalRemediation{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1beta1.HetznerBareMetalRemediation{}).
 		WithValidator(webhook).
 		WithDefaulter(webhook).
 		Complete()
@@ -38,28 +38,28 @@ func (webhook *HetznerBareMetalRemediationWebhook) SetupWebhookWithManager(mgr c
 
 //+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediation,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalremediations,verbs=create;update,versions=v1beta1,name=mutation.hetznerbaremetalremediation.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Defaulter[*infrav1.HetznerBareMetalRemediation] = &HetznerBareMetalRemediationWebhook{}
+var _ admission.Defaulter[*infrav1beta1.HetznerBareMetalRemediation] = &HetznerBareMetalRemediationWebhook{}
 
 // Default implements admission.Defaulter so a webhook will be registered for HetznerBareMetalRemediation.
-func (*HetznerBareMetalRemediationWebhook) Default(context.Context, *infrav1.HetznerBareMetalRemediation) error {
+func (*HetznerBareMetalRemediationWebhook) Default(context.Context, *infrav1beta1.HetznerBareMetalRemediation) error {
 	return nil
 }
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediation,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalremediations,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalremediation.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Validator[*infrav1.HetznerBareMetalRemediation] = &HetznerBareMetalRemediationWebhook{}
+var _ admission.Validator[*infrav1beta1.HetznerBareMetalRemediation] = &HetznerBareMetalRemediationWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HetznerBareMetalRemediation.
-func (*HetznerBareMetalRemediationWebhook) ValidateCreate(context.Context, *infrav1.HetznerBareMetalRemediation) (admission.Warnings, error) {
+func (*HetznerBareMetalRemediationWebhook) ValidateCreate(context.Context, *infrav1beta1.HetznerBareMetalRemediation) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HetznerBareMetalRemediation.
-func (*HetznerBareMetalRemediationWebhook) ValidateUpdate(_ context.Context, _, _ *infrav1.HetznerBareMetalRemediation) (admission.Warnings, error) {
+func (*HetznerBareMetalRemediationWebhook) ValidateUpdate(_ context.Context, _, _ *infrav1beta1.HetznerBareMetalRemediation) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HetznerBareMetalRemediation.
-func (*HetznerBareMetalRemediationWebhook) ValidateDelete(context.Context, *infrav1.HetznerBareMetalRemediation) (admission.Warnings, error) {
+func (*HetznerBareMetalRemediationWebhook) ValidateDelete(context.Context, *infrav1beta1.HetznerBareMetalRemediation) (admission.Warnings, error) {
 	return nil, nil
 }

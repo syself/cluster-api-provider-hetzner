@@ -22,11 +22,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
-func validateHCloudMachineSpecUpdate(oldSpec, newSpec infrav2.HCloudMachineSpec) field.ErrorList {
+func validateHCloudMachineSpecUpdate(oldSpec, newSpec infrav1.HCloudMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	// Type is immutable
 	if !reflect.DeepEqual(oldSpec.Type, newSpec.Type) {
@@ -68,7 +68,7 @@ func validateHCloudMachineSpecUpdate(oldSpec, newSpec infrav2.HCloudMachineSpec)
 	return allErrs
 }
 
-func validateHCloudMachineSpec(spec infrav2.HCloudMachineSpec) field.ErrorList {
+func validateHCloudMachineSpec(spec infrav1.HCloudMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	if spec.ImageName != "" && spec.CustomProvisioner != nil {
 		allErrs = append(allErrs,
@@ -87,7 +87,7 @@ func validateHCloudMachineSpec(spec infrav2.HCloudMachineSpec) field.ErrorList {
 	return allErrs
 }
 
-func validateHCloudCustomProvisioner(customProvisioner infrav2.HCloudCustomProvisioner) field.ErrorList {
+func validateHCloudCustomProvisioner(customProvisioner infrav1.HCloudCustomProvisioner) field.ErrorList {
 	var allErrs field.ErrorList
 	base := field.NewPath("spec", "customProvisioner")
 

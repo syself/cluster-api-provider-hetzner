@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 )
@@ -42,9 +42,9 @@ type HCloudRemediationScopeParams struct {
 	Client            client.Client
 	HCloudClient      hcloudclient.Client
 	Machine           *clusterv1.Machine
-	HCloudMachine     *infrav2.HCloudMachine
-	HetznerCluster    *infrav2.HetznerCluster
-	HCloudRemediation *infrav2.HCloudRemediation
+	HCloudMachine     *infrav1.HCloudMachine
+	HetznerCluster    *infrav1.HetznerCluster
+	HCloudRemediation *infrav1.HCloudRemediation
 	EventRecorder     record.EventRecorder
 }
 
@@ -99,8 +99,8 @@ type HCloudRemediationScope struct {
 	patchHelper       *patch.Helper
 	HCloudClient      hcloudclient.Client
 	Machine           *clusterv1.Machine
-	HCloudMachine     *infrav2.HCloudMachine
-	HCloudRemediation *infrav2.HCloudRemediation
+	HCloudMachine     *infrav1.HCloudMachine
+	HCloudRemediation *infrav1.HCloudRemediation
 	EventRecorder     record.EventRecorder
 }
 
@@ -115,7 +115,7 @@ func (m *HCloudRemediationScope) Close(ctx context.Context, opts ...patch.Option
 	readyCondition, err := conditions.NewSummaryCondition(
 		m.HCloudRemediation,
 		clusterv1.ReadyCondition,
-		infrav2.HCloudRemediationSummaryOpts()...,
+		infrav1.HCloudRemediationSummaryOpts()...,
 	)
 	if err != nil {
 		// Note, this could only happen if we hit edge cases in computing the summary, which should not happen due to the fact
@@ -173,16 +173,16 @@ func HCloudRemediationPatchOpts() []patch.Option {
 		// owned deprecated v1beta1 conditions.
 		patch.WithOwnedV1Beta1Conditions{Conditions: []clusterv1.ConditionType{
 			clusterv1.ReadyV1Beta1Condition,
-			infrav2.HCloudTokenAvailableV1Beta1Condition,
-			infrav2.HetznerAPIReachableV1Beta1Condition,
-			infrav2.RemediationSkippedV1Beta1Condition,
+			infrav1.HCloudTokenAvailableV1Beta1Condition,
+			infrav1.HetznerAPIReachableV1Beta1Condition,
+			infrav1.RemediationSkippedV1Beta1Condition,
 		}},
 		// owned conditions.
 		patch.WithOwnedConditions{Conditions: []string{
 			clusterv1.ReadyCondition,
-			infrav2.HCloudTokenAvailableCondition,
-			infrav2.HCloudRateLimitExceededCondition,
-			infrav2.HCloudRemediationSkippedCondition,
+			infrav1.HCloudTokenAvailableCondition,
+			infrav1.HCloudRateLimitExceededCondition,
+			infrav1.HCloudRemediationSkippedCondition,
 		}},
 	}
 }

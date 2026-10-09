@@ -27,7 +27,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 // HCloudMachineTemplateWebhook implements a custom validation webhook for HCloudMachineTemplate.
@@ -36,31 +36,31 @@ type HCloudMachineTemplateWebhook struct{}
 
 // SetupWebhookWithManager initializes webhook manager for HCloudMachineTemplate.
 func (webhook *HCloudMachineTemplateWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HCloudMachineTemplate{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1beta1.HCloudMachineTemplate{}).
 		WithValidator(webhook).
 		WithDefaulter(webhook).
 		Complete()
 }
 
-var _ admission.Defaulter[*infrav1.HCloudMachineTemplate] = &HCloudMachineTemplateWebhook{}
+var _ admission.Defaulter[*infrav1beta1.HCloudMachineTemplate] = &HCloudMachineTemplateWebhook{}
 
 // Default implements admission.CustomDefaulter.
-func (*HCloudMachineTemplateWebhook) Default(context.Context, *infrav1.HCloudMachineTemplate) error {
+func (*HCloudMachineTemplateWebhook) Default(context.Context, *infrav1beta1.HCloudMachineTemplate) error {
 	return nil
 }
 
 // +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachinetemplate,mutating=false,sideEffects=None,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates,verbs=create;update,versions=v1beta1,name=validation.hcloudmachinetemplate.infrastructure.x-k8s.io,admissionReviewVersions=v1;v1beta1
 
-var _ admission.Validator[*infrav1.HCloudMachineTemplate] = &HCloudMachineTemplateWebhook{}
+var _ admission.Validator[*infrav1beta1.HCloudMachineTemplate] = &HCloudMachineTemplateWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HCloudMachineTemplate.
-func (*HCloudMachineTemplateWebhook) ValidateCreate(_ context.Context, r *infrav1.HCloudMachineTemplate) (admission.Warnings, error) {
+func (*HCloudMachineTemplateWebhook) ValidateCreate(_ context.Context, r *infrav1beta1.HCloudMachineTemplate) (admission.Warnings, error) {
 	allErrs := validateHCloudMachineSpec(r.Spec.Template.Spec)
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HCloudMachineTemplate.
-func (*HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHCloudMachineTemplate *infrav1.HCloudMachineTemplate, newHCloudMachineTemplate *infrav1.HCloudMachineTemplate) (admission.Warnings, error) {
+func (*HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHCloudMachineTemplate *infrav1beta1.HCloudMachineTemplate, newHCloudMachineTemplate *infrav1beta1.HCloudMachineTemplate) (admission.Warnings, error) {
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a admission.Request inside context: %v", err))
@@ -75,6 +75,6 @@ func (*HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHClo
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HCloudMachineTemplate.
-func (*HCloudMachineTemplateWebhook) ValidateDelete(context.Context, *infrav1.HCloudMachineTemplate) (admission.Warnings, error) {
+func (*HCloudMachineTemplateWebhook) ValidateDelete(context.Context, *infrav1beta1.HCloudMachineTemplate) (admission.Warnings, error) {
 	return nil, nil
 }

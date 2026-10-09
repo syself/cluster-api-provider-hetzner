@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 func Test_shouldSkipReconciliationForNamespace(t *testing.T) {
@@ -57,7 +57,7 @@ func Test_shouldSkipReconciliationForNamespace(t *testing.T) {
 			namespace: "default",
 			createNS:  true,
 			nsAnnotations: map[string]string{
-				infrav2.SkipNamespaceAnnotation: "true",
+				infrav1.SkipNamespaceAnnotation: "true",
 			},
 			wantSkip: true,
 		},
@@ -66,7 +66,7 @@ func Test_shouldSkipReconciliationForNamespace(t *testing.T) {
 			namespace: "default",
 			createNS:  true,
 			nsAnnotations: map[string]string{
-				infrav2.SkipNamespaceAnnotation: "false",
+				infrav1.SkipNamespaceAnnotation: "false",
 			},
 			wantSkip: false,
 		},

@@ -30,7 +30,7 @@ import (
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 const providerIDPrefix = "hcloud://"
@@ -91,16 +91,16 @@ func HandleRateLimitExceeded(obj conditionsObject, recorder record.EventRecorder
 
 	deprecatedv1beta1conditions.MarkFalse(
 		obj,
-		infrav2.HetznerAPIReachableV1Beta1Condition,
-		infrav2.RateLimitExceededV1Beta1Reason,
+		infrav1.HetznerAPIReachableV1Beta1Condition,
+		infrav1.RateLimitExceededV1Beta1Reason,
 		clusterv1.ConditionSeverityWarning,
 		"%s",
 		msg,
 	)
 	conditions.Set(obj, metav1.Condition{
-		Type:    infrav2.HCloudRateLimitExceededCondition,
+		Type:    infrav1.HCloudRateLimitExceededCondition,
 		Status:  metav1.ConditionTrue,
-		Reason:  infrav2.HCloudRateLimitExceededReason,
+		Reason:  infrav1.HCloudRateLimitExceededReason,
 		Message: msg,
 	})
 

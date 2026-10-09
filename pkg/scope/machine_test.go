@@ -28,13 +28,13 @@ import (
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
 
 var _ = Describe("Test ServerIDFromProviderID", func() {
 	It("gives error on nil providerID", func() {
-		hcloudMachine := infrav2.HCloudMachine{}
+		hcloudMachine := infrav1.HCloudMachine{}
 		machineScope := MachineScope{HCloudMachine: &hcloudMachine}
 
 		serverID, err := machineScope.ServerIDFromProviderID()
@@ -51,7 +51,7 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 
 	DescribeTable("Test ServerIDFromProviderID",
 		func(tc testCaseServerIDFromProviderID) {
-			hcloudMachine := infrav2.HCloudMachine{}
+			hcloudMachine := infrav1.HCloudMachine{}
 			hcloudMachine.Spec.ProviderID = &tc.providerID
 
 			machineScope := MachineScope{HCloudMachine: &hcloudMachine}
@@ -100,26 +100,26 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 
 var _ = Describe("HCloudMachineSummaryOpts", func() {
 	It("lists all unhealthy conditions in priority order in the summary message", func() {
-		hcloudMachine := &infrav2.HCloudMachine{}
+		hcloudMachine := &infrav1.HCloudMachine{}
 
 		hcloudMachine.SetConditions([]metav1.Condition{
 			// ServerAvailable=False (lowest priority issue).
 			{
-				Type:    infrav2.HCloudMachineServerAvailableCondition,
+				Type:    infrav1.HCloudMachineServerAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HCloudMachineServerNotFoundReason,
+				Reason:  infrav1.HCloudMachineServerNotFoundReason,
 				Message: "server is not available",
 			},
 			// HCloudTokenAvailable=False (highest priority issue).
 			{
-				Type:    infrav2.HCloudTokenAvailableCondition,
+				Type:    infrav1.HCloudTokenAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HCloudTokenInvalidReason,
+				Reason:  infrav1.HCloudTokenInvalidReason,
 				Message: "token is invalid",
 			},
 		})
 
-		readyCondition, err := conditions.NewSummaryCondition(hcloudMachine, clusterv1.ReadyCondition, infrav2.HCloudMachineSummaryOpts()...)
+		readyCondition, err := conditions.NewSummaryCondition(hcloudMachine, clusterv1.ReadyCondition, infrav1.HCloudMachineSummaryOpts()...)
 		Expect(err).To(BeNil())
 		Expect(readyCondition).ToNot(BeNil())
 		Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
@@ -130,26 +130,26 @@ var _ = Describe("HCloudMachineSummaryOpts", func() {
 	})
 
 	It("surfaces RateLimitExceeded before ServerAvailable when both are unhealthy", func() {
-		hcloudMachine := &infrav2.HCloudMachine{}
+		hcloudMachine := &infrav1.HCloudMachine{}
 
 		hcloudMachine.SetConditions([]metav1.Condition{
 			// HCloudRateLimitExceeded=True (negative polarity, priority 2).
 			{
-				Type:    infrav2.HCloudRateLimitExceededCondition,
+				Type:    infrav1.HCloudRateLimitExceededCondition,
 				Status:  metav1.ConditionTrue,
-				Reason:  infrav2.HCloudRateLimitExceededReason,
+				Reason:  infrav1.HCloudRateLimitExceededReason,
 				Message: "rate limit exceeded",
 			},
 			// ServerAvailable=False with Deleting reason (priority 5).
 			{
-				Type:    infrav2.HCloudMachineServerAvailableCondition,
+				Type:    infrav1.HCloudMachineServerAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HCloudMachineDeletingReason,
+				Reason:  infrav1.HCloudMachineDeletingReason,
 				Message: "machine is deleting",
 			},
 		})
 
-		readyCondition, err := conditions.NewSummaryCondition(hcloudMachine, clusterv1.ReadyCondition, infrav2.HCloudMachineSummaryOpts()...)
+		readyCondition, err := conditions.NewSummaryCondition(hcloudMachine, clusterv1.ReadyCondition, infrav1.HCloudMachineSummaryOpts()...)
 		Expect(err).To(BeNil())
 		Expect(readyCondition).ToNot(BeNil())
 
@@ -159,10 +159,10 @@ var _ = Describe("HCloudMachineSummaryOpts", func() {
 })
 
 var _ = Describe("NewMachineScope with a missing owner Machine", func() {
-	newParams := func(hcloudMachine *infrav2.HCloudMachine) MachineScopeParams {
+	newParams := func(hcloudMachine *infrav1.HCloudMachine) MachineScopeParams {
 		scheme := runtime.NewScheme()
 		utilruntime.Must(clusterv1.AddToScheme(scheme))
-		utilruntime.Must(infrav2.AddToScheme(scheme))
+		utilruntime.Must(infrav1.AddToScheme(scheme))
 		crClient := fakeclient.NewClientBuilder().WithScheme(scheme).Build()
 
 		return MachineScopeParams{
@@ -172,13 +172,13 @@ var _ = Describe("NewMachineScope with a missing owner Machine", func() {
 			HCloudClient:   fakehcloudclient.NewHCloudClientFactory().NewClient(""),
 			EventRecorder:  record.NewFakeRecorder(10),
 			Cluster:        &clusterv1.Cluster{},
-			HetznerCluster: &infrav2.HetznerCluster{},
+			HetznerCluster: &infrav1.HetznerCluster{},
 			HCloudMachine:  hcloudMachine,
 		}
 	}
 
 	It("fails when the HCloudMachine is not being deleted", func() {
-		hcloudMachine := &infrav2.HCloudMachine{}
+		hcloudMachine := &infrav1.HCloudMachine{}
 
 		_, err := NewMachineScope(newParams(hcloudMachine))
 		Expect(err).To(HaveOccurred())
@@ -187,12 +187,12 @@ var _ = Describe("NewMachineScope with a missing owner Machine", func() {
 
 	It("succeeds when the HCloudMachine is being deleted", func() {
 		now := metav1.Now()
-		hcloudMachine := &infrav2.HCloudMachine{
+		hcloudMachine := &infrav1.HCloudMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "hcloud-machine",
 				Namespace:         "default",
 				DeletionTimestamp: &now,
-				Finalizers:        []string{infrav2.HCloudMachineFinalizer},
+				Finalizers:        []string{infrav1.HCloudMachineFinalizer},
 			},
 		}
 
@@ -206,14 +206,14 @@ var _ = Describe("IsControlPlane", func() {
 	controlPlaneLabels := map[string]string{clusterv1.MachineControlPlaneLabel: ""}
 
 	It("is true when the HCloudMachine has the label", func() {
-		hcloudMachine := &infrav2.HCloudMachine{ObjectMeta: metav1.ObjectMeta{Labels: controlPlaneLabels}}
+		hcloudMachine := &infrav1.HCloudMachine{ObjectMeta: metav1.ObjectMeta{Labels: controlPlaneLabels}}
 		machineScope := MachineScope{HCloudMachine: hcloudMachine}
 
 		Expect(machineScope.IsControlPlane()).To(BeTrue())
 	})
 
 	It("is false when the HCloudMachine has no label", func() {
-		machineScope := MachineScope{HCloudMachine: &infrav2.HCloudMachine{}}
+		machineScope := MachineScope{HCloudMachine: &infrav1.HCloudMachine{}}
 
 		Expect(machineScope.IsControlPlane()).To(BeFalse())
 	})

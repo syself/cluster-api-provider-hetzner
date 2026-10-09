@@ -26,7 +26,7 @@ import (
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
@@ -34,9 +34,9 @@ var _ = Describe("updateSSHKey", func() {
 	type testCaseUpdateSSHKey struct {
 		osSecretData             map[string][]byte
 		rescueSecretData         map[string][]byte
-		currentState             infrav2.ProvisioningState
+		currentState             infrav1.ProvisioningState
 		expectedActionResult     actionResult
-		expectedNextState        infrav2.ProvisioningState
+		expectedNextState        infrav1.ProvisioningState
 		expectedOSSecretData     map[string][]byte
 		expectedRescueSecretData map[string][]byte
 		// expectedSSHKeysAvailableReason is the reason of the SSHKeysAvailable condition when it is
@@ -55,26 +55,26 @@ var _ = Describe("updateSSHKey", func() {
 				helpers.WithSSHStatus(),
 			)
 
-			dataHashOS, err := infrav2.HashOfSecretData(tc.osSecretData)
+			dataHashOS, err := infrav1.HashOfSecretData(tc.osSecretData)
 			Expect(err).To(BeNil())
 
-			dataHashRescue, err := infrav2.HashOfSecretData(tc.rescueSecretData)
+			dataHashRescue, err := infrav1.HashOfSecretData(tc.rescueSecretData)
 			Expect(err).To(BeNil())
 
-			expectedDataHashOS, err := infrav2.HashOfSecretData(tc.expectedOSSecretData)
+			expectedDataHashOS, err := infrav1.HashOfSecretData(tc.expectedOSSecretData)
 			Expect(err).To(BeNil())
 
-			expectedDataHashRescue, err := infrav2.HashOfSecretData(tc.expectedRescueSecretData)
+			expectedDataHashRescue, err := infrav1.HashOfSecretData(tc.expectedRescueSecretData)
 			Expect(err).To(BeNil())
 
-			host.Status.SSHStatus.CurrentOS = &infrav2.SecretStatus{
+			host.Status.SSHStatus.CurrentOS = &infrav1.SecretStatus{
 				Reference: &corev1.SecretReference{
 					Name:      osSSHKeyName,
 					Namespace: "default",
 				},
 				DataHash: dataHashOS,
 			}
-			host.Status.SSHStatus.CurrentRescue = &infrav2.SecretStatus{
+			host.Status.SSHStatus.CurrentRescue = &infrav1.SecretStatus{
 				Reference: &corev1.SecretReference{
 					Name:      rescueSSHKeyName,
 					Namespace: "default",
@@ -95,14 +95,14 @@ var _ = Describe("updateSSHKey", func() {
 			actResult := hsm.updateSSHKey()
 
 			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
-			Expect(*host.Status.SSHStatus.CurrentRescue).Should(Equal(infrav2.SecretStatus{
+			Expect(*host.Status.SSHStatus.CurrentRescue).Should(Equal(infrav1.SecretStatus{
 				Reference: &corev1.SecretReference{
 					Name:      rescueSSHKeyName,
 					Namespace: "default",
 				},
 				DataHash: expectedDataHashRescue,
 			}))
-			Expect(*host.Status.SSHStatus.CurrentOS).Should(Equal(infrav2.SecretStatus{
+			Expect(*host.Status.SSHStatus.CurrentOS).Should(Equal(infrav1.SecretStatus{
 				Reference: &corev1.SecretReference{
 					Name:      osSSHKeyName,
 					Namespace: "default",
@@ -111,15 +111,15 @@ var _ = Describe("updateSSHKey", func() {
 			}))
 			Expect(hsm.nextState).Should(Equal(tc.expectedNextState))
 			if tc.expectedSSHKeysAvailableReason != "" {
-				sshKeysAvailable := conditions.Get(host, infrav2.HetznerBareMetalHostSSHKeysAvailableCondition)
+				sshKeysAvailable := conditions.Get(host, infrav1.HetznerBareMetalHostSSHKeysAvailableCondition)
 				Expect(sshKeysAvailable).ToNot(BeNil())
 				Expect(sshKeysAvailable.Status).To(Equal(metav1.ConditionFalse))
 				Expect(sshKeysAvailable.Reason).To(Equal(tc.expectedSSHKeysAvailableReason))
-				credentialsAvailableV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.CredentialsAvailableV1Beta1Condition)
+				credentialsAvailableV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav1.CredentialsAvailableV1Beta1Condition)
 				Expect(credentialsAvailableV1Beta1).ToNot(BeNil())
 				Expect(credentialsAvailableV1Beta1.Status).To(Equal(corev1.ConditionFalse))
 				Expect(credentialsAvailableV1Beta1.Reason).To(Equal(tc.expectedCredentialsAvailableV1Beta1Reason))
-				Expect(conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
+				Expect(conditions.Get(host, infrav1.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
 			}
 		},
 		Entry("nothing changed", testCaseUpdateSSHKey{
@@ -133,9 +133,9 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-name"),
 				"public-key":  []byte("my-public-key"),
 			},
-			currentState:         infrav2.StateRegistering,
+			currentState:         infrav1.StateRegistering,
 			expectedActionResult: actionComplete{},
-			expectedNextState:    infrav2.StateRegistering,
+			expectedNextState:    infrav1.StateRegistering,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-name"),
@@ -158,9 +158,9 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-name"),
 				"public-key":  []byte("my-public-key"),
 			},
-			currentState:         infrav2.StateRegistering,
+			currentState:         infrav1.StateRegistering,
 			expectedActionResult: actionComplete{},
-			expectedNextState:    infrav2.StateRegistering,
+			expectedNextState:    infrav1.StateRegistering,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-name"),
@@ -183,11 +183,11 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-name"),
 				"public-key":  []byte("my-public-key"),
 			},
-			currentState:                              infrav2.StateProvisioned,
+			currentState:                              infrav1.StateProvisioned,
 			expectedActionResult:                      actionContinue{},
-			expectedNextState:                         infrav2.StateProvisioned,
-			expectedSSHKeysAvailableReason:            infrav2.HetznerBareMetalHostSSHSecretModifiedReason,
-			expectedCredentialsAvailableV1Beta1Reason: infrav2.SSHSecretModifiedV1Beta1Reason,
+			expectedNextState:                         infrav1.StateProvisioned,
+			expectedSSHKeysAvailableReason:            infrav1.HetznerBareMetalHostSSHSecretModifiedReason,
+			expectedCredentialsAvailableV1Beta1Reason: infrav1.SSHSecretModifiedV1Beta1Reason,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-old-name"),
@@ -210,9 +210,9 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-name"),
 				"public-key":  []byte("my-public-key"),
 			},
-			currentState:         infrav2.StateImageInstalling,
+			currentState:         infrav1.StateImageInstalling,
 			expectedActionResult: actionComplete{},
-			expectedNextState:    infrav2.StateImageInstalling,
+			expectedNextState:    infrav1.StateImageInstalling,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-name"),
@@ -235,9 +235,9 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-old-name"),
 				"public-key":  []byte("my-old-public-key"),
 			},
-			currentState:         infrav2.StateRegistering,
+			currentState:         infrav1.StateRegistering,
 			expectedActionResult: actionComplete{},
-			expectedNextState:    infrav2.StateNone,
+			expectedNextState:    infrav1.StateNone,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-name"),

@@ -45,7 +45,7 @@ import (
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
 )
@@ -53,10 +53,10 @@ import (
 var _ = Describe("chooseHost", func() {
 	const defaultNamespace = "default"
 
-	bmMachine := &infrav2.HetznerBareMetalMachine{
+	bmMachine := &infrav1.HetznerBareMetalMachine{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "HetznerBareMetalMachine",
-			APIVersion: infrav2.GroupVersion.String(),
+			APIVersion: infrav1.GroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "bm-machine",
@@ -64,186 +64,186 @@ var _ = Describe("chooseHost", func() {
 		},
 	}
 
-	hostWithCorrectConsumerRef := infrav2.HetznerBareMetalHost{
+	hostWithCorrectConsumerRef := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithCorrectConsumerRef",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav2.HetznerBareMetalHostSpec{
-			ConsumerRef: &infrav2.HetznerBareMetalHostConsumerReference{
+		Spec: infrav1.HetznerBareMetalHostSpec{
+			ConsumerRef: &infrav1.HetznerBareMetalHostConsumerReference{
 				Name:     "bm-machine",
 				Kind:     "HetznerBareMetalMachine",
-				APIGroup: infrav2.GroupVersion.Group,
+				APIGroup: infrav1.GroupVersion.Group,
 			},
 		},
-		Status: infrav2.HetznerBareMetalHostStatus{
-			ProvisioningState: infrav2.StateNone,
+		Status: infrav1.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav1.StateNone,
 		},
 	}
 
-	hostWithIncorrectConsumerRef := infrav2.HetznerBareMetalHost{
+	hostWithIncorrectConsumerRef := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithIncorrectConsumerRef",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav2.HetznerBareMetalHostSpec{
-			ConsumerRef: &infrav2.HetznerBareMetalHostConsumerReference{
+		Spec: infrav1.HetznerBareMetalHostSpec{
+			ConsumerRef: &infrav1.HetznerBareMetalHostConsumerReference{
 				Name:     "bm-machine-other",
 				Kind:     "HetznerBareMetalMachine",
-				APIGroup: infrav2.GroupVersion.Group,
+				APIGroup: infrav1.GroupVersion.Group,
 			},
 		},
-		Status: infrav2.HetznerBareMetalHostStatus{
-			ProvisioningState: infrav2.StateNone,
+		Status: infrav1.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav1.StateNone,
 		},
 	}
 
 	maintenanceMode := true
-	hostInMaintenanceMode := infrav2.HetznerBareMetalHost{
+	hostInMaintenanceMode := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostInMaintenanceMode",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav2.HetznerBareMetalHostSpec{
+		Spec: infrav1.HetznerBareMetalHostSpec{
 			MaintenanceMode: &maintenanceMode,
 		},
-		Status: infrav2.HetznerBareMetalHostStatus{
-			ProvisioningState: infrav2.StateNone,
+		Status: infrav1.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav1.StateNone,
 		},
 	}
 
 	now := metav1.Now()
-	hostWithDeletionTimeStamp := infrav2.HetznerBareMetalHost{
+	hostWithDeletionTimeStamp := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "hostWithDeletionTimeStamp",
 			Namespace:         defaultNamespace,
 			DeletionTimestamp: &now,
 			Finalizers:        []string{"finalizer"},
 		},
-		Status: infrav2.HetznerBareMetalHostStatus{
-			ProvisioningState: infrav2.StateNone,
+		Status: infrav1.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav1.StateNone,
 		},
 	}
 
-	hostWithError := infrav2.HetznerBareMetalHost{
+	hostWithError := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithError",
 			Namespace: defaultNamespace,
 		},
-		Status: infrav2.HetznerBareMetalHostStatus{
-			ProvisioningState: infrav2.StateNone,
+		Status: infrav1.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav1.StateNone,
 		},
 	}
-	hostWithError.SetError(infrav2.ErrorTypePermanent, "")
+	hostWithError.SetError(infrav1.ErrorTypePermanent, "")
 
-	hostWithStateRegistering := infrav2.HetznerBareMetalHost{
+	hostWithStateRegistering := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithStateRegistering",
 			Namespace: defaultNamespace,
 		},
-		Status: infrav2.HetznerBareMetalHostStatus{
-			ProvisioningState: infrav2.StateRegistering,
+		Status: infrav1.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav1.StateRegistering,
 		},
 	}
 
-	hostWithOtherLabel := infrav2.HetznerBareMetalHost{
+	hostWithOtherLabel := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithOtherLabel",
 			Namespace: defaultNamespace,
 			Labels:    map[string]string{"wrong": "label"},
 		},
-		Status: infrav2.HetznerBareMetalHostStatus{
-			ProvisioningState: infrav2.StateNone,
+		Status: infrav1.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav1.StateNone,
 		},
 	}
 
-	hostWithOtherNamespace := infrav2.HetznerBareMetalHost{
+	hostWithOtherNamespace := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithOtherNamespace",
 			Namespace: "other-ns",
 		},
-		Status: infrav2.HetznerBareMetalHostStatus{
-			ProvisioningState: infrav2.StateNone,
+		Status: infrav1.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav1.StateNone,
 		},
 	}
 
-	host := infrav2.HetznerBareMetalHost{
+	host := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "host",
 			Namespace: defaultNamespace,
 		},
-		Status: infrav2.HetznerBareMetalHostStatus{
-			ProvisioningState: infrav2.StateNone,
+		Status: infrav1.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav1.StateNone,
 		},
 	}
 
-	hostWithRaidWwnConfig := infrav2.HetznerBareMetalHost{
+	hostWithRaidWwnConfig := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithRaidWwnConfig",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav2.HetznerBareMetalHostSpec{
-			RootDeviceHints: &infrav2.RootDeviceHints{
+		Spec: infrav1.HetznerBareMetalHostSpec{
+			RootDeviceHints: &infrav1.RootDeviceHints{
 				WWN: "",
-				Raid: infrav2.Raid{
+				Raid: infrav1.Raid{
 					WWN: []string{"wwnRaid1", "wwnRaid2"},
 				},
 			},
 		},
 	}
-	hostWithNonRaidWwnConfig := infrav2.HetznerBareMetalHost{
+	hostWithNonRaidWwnConfig := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithNonRaidWwnConfig",
 			Namespace: defaultNamespace,
 		},
-		Spec: infrav2.HetznerBareMetalHostSpec{
-			RootDeviceHints: &infrav2.RootDeviceHints{
+		Spec: infrav1.HetznerBareMetalHostSpec{
+			RootDeviceHints: &infrav1.RootDeviceHints{
 				WWN: "wwnNoRaid",
 			},
 		},
 	}
 
-	hostWithLabel := infrav2.HetznerBareMetalHost{
+	hostWithLabel := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithLabel",
 			Namespace: defaultNamespace,
 			Labels:    map[string]string{"key": "value"},
 		},
-		Status: infrav2.HetznerBareMetalHostStatus{
-			ProvisioningState: infrav2.StateNone,
+		Status: infrav1.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav1.StateNone,
 		},
 	}
 
-	hostWithLabelAndMaintenanceMode := infrav2.HetznerBareMetalHost{
+	hostWithLabelAndMaintenanceMode := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithLabelAndMaintenanceMode",
 			Namespace: defaultNamespace,
 			Labels:    map[string]string{"key": "value"},
 		},
-		Spec: infrav2.HetznerBareMetalHostSpec{
+		Spec: infrav1.HetznerBareMetalHostSpec{
 			MaintenanceMode: &maintenanceMode,
 		},
-		Status: infrav2.HetznerBareMetalHostStatus{
-			ProvisioningState: infrav2.StateNone,
+		Status: infrav1.HetznerBareMetalHostStatus{
+			ProvisioningState: infrav1.StateNone,
 		},
 	}
 
 	type testCaseChooseHost struct {
 		Hosts            []client.Object
-		HostSelector     infrav2.HostSelector
+		HostSelector     infrav1.HostSelector
 		ExpectedHostName string
-		RootDeviceHints  infrav2.RootDeviceHints
+		RootDeviceHints  infrav1.RootDeviceHints
 	}
 	DescribeTable(
 		"chooseHost",
 		func(tc testCaseChooseHost) {
 			scheme := runtime.NewScheme()
-			utilruntime.Must(infrav2.AddToScheme(scheme))
+			utilruntime.Must(infrav1.AddToScheme(scheme))
 			c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(tc.Hosts...).Build()
 			bmMachine.Spec.HostSelector = tc.HostSelector
 			service := newTestService(bmMachine, c)
 
-			hosts := &infrav2.HetznerBareMetalHostList{}
+			hosts := &infrav1.HetznerBareMetalHostList{}
 			err := service.scope.Client.List(context.TODO(), hosts,
 				client.InNamespace(service.scope.BareMetalMachine.Namespace))
 			Expect(err).To(Succeed())
@@ -296,13 +296,13 @@ var _ = Describe("chooseHost", func() {
 		Entry("Choosing host with right label",
 			testCaseChooseHost{
 				Hosts:            []client.Object{&hostWithLabel, &hostWithOtherLabel, &hostWithLabelAndMaintenanceMode, &host},
-				HostSelector:     infrav2.HostSelector{MatchLabels: map[string]string{"key": "value"}},
+				HostSelector:     infrav1.HostSelector{MatchLabels: map[string]string{"key": "value"}},
 				ExpectedHostName: "hostWithLabel",
 			}),
 		Entry("Choosing host with right label through MatchExpressions",
 			testCaseChooseHost{
 				Hosts: []client.Object{&hostWithLabel, &hostWithOtherLabel, &hostWithLabelAndMaintenanceMode, &host},
-				HostSelector: infrav2.HostSelector{MatchExpressions: []infrav2.HostSelectorRequirement{
+				HostSelector: infrav1.HostSelector{MatchExpressions: []infrav1.HostSelectorRequirement{
 					{Key: "key", Operator: selection.In, Values: []string{"value", "value2"}},
 				}},
 				ExpectedHostName: "hostWithLabel",
@@ -311,14 +311,14 @@ var _ = Describe("chooseHost", func() {
 
 	DescribeTable("chooseHost(): customProvisioner uses its swraid setting",
 		func(swraid int, expectedHostName string) {
-			bmMachine := &infrav2.HetznerBareMetalMachine{
+			bmMachine := &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "bmMachine", Namespace: defaultNamespace},
-				Spec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{Swraid: swraid},
+				Spec: infrav1.HetznerBareMetalMachineSpec{
+					CustomProvisioner: &infrav1.CustomProvisioner{Swraid: swraid},
 				},
 			}
 
-			host, reason, err := ChooseHost(bmMachine, []infrav2.HetznerBareMetalHost{hostWithNonRaidWwnConfig, hostWithRaidWwnConfig})
+			host, reason, err := ChooseHost(bmMachine, []infrav1.HetznerBareMetalHost{hostWithNonRaidWwnConfig, hostWithRaidWwnConfig})
 			Expect(err).To(Succeed())
 			Expect(reason).To(BeEmpty())
 			Expect(host).ToNot(BeNil())
@@ -339,20 +339,20 @@ var _ = Describe("chooseHost", func() {
 		"chooseHost(): Test with reason, because RAID config does not match.",
 		func(tc testCaseChooseHostWithReason) {
 			scheme := runtime.NewScheme()
-			utilruntime.Must(infrav2.AddToScheme(scheme))
+			utilruntime.Must(infrav1.AddToScheme(scheme))
 			c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(tc.hosts...).Build()
-			bmMachine := &infrav2.HetznerBareMetalMachine{
+			bmMachine := &infrav1.HetznerBareMetalMachine{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{Name: "bmMachine", Namespace: defaultNamespace},
-				Spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
+				Spec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: &infrav1.InstallImage{
 						Swraid: tc.swraid,
 					},
 				},
 			}
 			service := newTestService(bmMachine, c)
 
-			hosts := &infrav2.HetznerBareMetalHostList{}
+			hosts := &infrav1.HetznerBareMetalHostList{}
 			err := service.scope.Client.List(context.TODO(), hosts,
 				client.InNamespace(service.scope.BareMetalMachine.Namespace))
 			Expect(err).To(Succeed())
@@ -380,15 +380,15 @@ var _ = Describe("chooseHost", func() {
 })
 
 var _ = Describe("Test NodeAddresses", func() {
-	nic1 := infrav2.NIC{
+	nic1 := infrav1.NIC{
 		IP: "192.168.1.1",
 	}
 
-	nic2 := infrav2.NIC{
+	nic2 := infrav1.NIC{
 		IP: "172.0.20.2",
 	}
 
-	nic3 := infrav2.NIC{
+	nic3 := infrav1.NIC{
 		IP: "203.0.113.5/26",
 	}
 
@@ -424,8 +424,8 @@ var _ = Describe("Test NodeAddresses", func() {
 
 	type testCaseNodeAddress struct {
 		Machine               clusterv1.Machine
-		BareMetalMachine      infrav2.HetznerBareMetalMachine
-		Host                  *infrav2.HetznerBareMetalHost
+		BareMetalMachine      infrav1.HetznerBareMetalMachine
+		Host                  *infrav1.HetznerBareMetalHost
 		HasOldStyle           bool
 		ExpectedNodeAddresses []clusterv1.MachineAddress
 	}
@@ -439,10 +439,10 @@ var _ = Describe("Test NodeAddresses", func() {
 			}
 		},
 		Entry("One NIC", testCaseNodeAddress{
-			Host: &infrav2.HetznerBareMetalHost{
-				Status: infrav2.HetznerBareMetalHostStatus{
-					HardwareDetails: &infrav2.HardwareDetails{
-						NIC: []infrav2.NIC{nic1},
+			Host: &infrav1.HetznerBareMetalHost{
+				Status: infrav1.HetznerBareMetalHostStatus{
+					HardwareDetails: &infrav1.HardwareDetails{
+						NIC: []infrav1.NIC{nic1},
 					},
 				},
 			},
@@ -450,10 +450,10 @@ var _ = Describe("Test NodeAddresses", func() {
 			ExpectedNodeAddresses: []clusterv1.MachineAddress{addr1, addr3, addr4},
 		}),
 		Entry("Two NICs", testCaseNodeAddress{
-			Host: &infrav2.HetznerBareMetalHost{
-				Status: infrav2.HetznerBareMetalHostStatus{
-					HardwareDetails: &infrav2.HardwareDetails{
-						NIC: []infrav2.NIC{nic1, nic2},
+			Host: &infrav1.HetznerBareMetalHost{
+				Status: infrav1.HetznerBareMetalHostStatus{
+					HardwareDetails: &infrav1.HardwareDetails{
+						NIC: []infrav1.NIC{nic1, nic2},
 					},
 				},
 			},
@@ -461,10 +461,10 @@ var _ = Describe("Test NodeAddresses", func() {
 			ExpectedNodeAddresses: []clusterv1.MachineAddress{addr1, addr2, addr3, addr4},
 		}),
 		Entry("existing machine (hasOldStyle=true) keeps CIDR suffix and always reports InternalIP", testCaseNodeAddress{
-			Host: &infrav2.HetznerBareMetalHost{
-				Status: infrav2.HetznerBareMetalHostStatus{
-					HardwareDetails: &infrav2.HardwareDetails{
-						NIC: []infrav2.NIC{nic3},
+			Host: &infrav1.HetznerBareMetalHost{
+				Status: infrav1.HetznerBareMetalHostStatus{
+					HardwareDetails: &infrav1.HardwareDetails{
+						NIC: []infrav1.NIC{nic3},
 					},
 				},
 			},
@@ -472,10 +472,10 @@ var _ = Describe("Test NodeAddresses", func() {
 			ExpectedNodeAddresses: []clusterv1.MachineAddress{addr6, addr3, addr4},
 		}),
 		Entry("new machine (hasOldStyle=false) strips CIDR suffix and reports public IP as ExternalIP", testCaseNodeAddress{
-			Host: &infrav2.HetznerBareMetalHost{
-				Status: infrav2.HetznerBareMetalHostStatus{
-					HardwareDetails: &infrav2.HardwareDetails{
-						NIC: []infrav2.NIC{nic3},
+			Host: &infrav1.HetznerBareMetalHost{
+				Status: infrav1.HetznerBareMetalHostStatus{
+					HardwareDetails: &infrav1.HardwareDetails{
+						NIC: []infrav1.NIC{nic3},
 					},
 				},
 			},
@@ -483,10 +483,10 @@ var _ = Describe("Test NodeAddresses", func() {
 			ExpectedNodeAddresses: []clusterv1.MachineAddress{addr5, addr3, addr4},
 		}),
 		Entry("new machine (hasOldStyle=false) keeps private IP as InternalIP", testCaseNodeAddress{
-			Host: &infrav2.HetznerBareMetalHost{
-				Status: infrav2.HetznerBareMetalHostStatus{
-					HardwareDetails: &infrav2.HardwareDetails{
-						NIC: []infrav2.NIC{nic1},
+			Host: &infrav1.HetznerBareMetalHost{
+				Status: infrav1.HetznerBareMetalHostStatus{
+					HardwareDetails: &infrav1.HardwareDetails{
+						NIC: []infrav1.NIC{nic1},
 					},
 				},
 			},
@@ -523,20 +523,20 @@ var _ = Describe("Test hasOldStyleIPAddress", func() {
 })
 
 var _ = Describe("Test updateMachineAddresses", func() {
-	newHostWithNIC := func(ip string) *infrav2.HetznerBareMetalHost {
-		return &infrav2.HetznerBareMetalHost{
-			Status: infrav2.HetznerBareMetalHostStatus{
-				HardwareDetails: &infrav2.HardwareDetails{
-					NIC: []infrav2.NIC{{IP: ip}},
+	newHostWithNIC := func(ip string) *infrav1.HetznerBareMetalHost {
+		return &infrav1.HetznerBareMetalHost{
+			Status: infrav1.HetznerBareMetalHostStatus{
+				HardwareDetails: &infrav1.HardwareDetails{
+					NIC: []infrav1.NIC{{IP: ip}},
 				},
 			},
 		}
 	}
 
 	It("keeps computing addresses the old way for a machine that already reported InternalIP", func() {
-		bmMachine := &infrav2.HetznerBareMetalMachine{
+		bmMachine := &infrav1.HetznerBareMetalMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "bm-machine", Namespace: "default"},
-			Status: infrav2.HetznerBareMetalMachineStatus{
+			Status: infrav1.HetznerBareMetalMachineStatus{
 				Addresses: []clusterv1.MachineAddress{
 					{Type: clusterv1.MachineInternalIP, Address: "203.0.113.5/26"},
 				},
@@ -553,7 +553,7 @@ var _ = Describe("Test updateMachineAddresses", func() {
 	})
 
 	It("uses the corrected classification for a machine that never reported an IP-type address", func() {
-		bmMachine := &infrav2.HetznerBareMetalMachine{
+		bmMachine := &infrav1.HetznerBareMetalMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "bm-machine", Namespace: "default"},
 		}
 		s := &Service{scope: &scope.BareMetalMachineScope{BareMetalMachine: bmMachine}}
@@ -570,7 +570,7 @@ var _ = Describe("Test updateMachineAddresses", func() {
 		// Regression test: checking merely "does status.addresses already have an
 		// InternalIP/ExternalIP entry" would flip back to the old logic as soon as the
 		// corrected logic wrote its first result, since that result IS such an entry.
-		bmMachine := &infrav2.HetznerBareMetalMachine{
+		bmMachine := &infrav1.HetznerBareMetalMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "bm-machine", Namespace: "default"},
 		}
 		s := &Service{scope: &scope.BareMetalMachineScope{BareMetalMachine: bmMachine}}
@@ -588,18 +588,18 @@ var _ = Describe("Test updateMachineAddresses", func() {
 
 var _ = Describe("Test consumerRefMatches", func() {
 	type testCaseConsumerRefMatches struct {
-		Consumer       *infrav2.HetznerBareMetalHostConsumerReference
+		Consumer       *infrav1.HetznerBareMetalHostConsumerReference
 		ExpectedResult bool
 	}
 
-	bmMachine := &infrav2.HetznerBareMetalMachine{
+	bmMachine := &infrav1.HetznerBareMetalMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "bm-machine",
 			Namespace: "default",
 		},
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "HetznerBareMetalMachine",
-			APIVersion: infrav2.GroupVersion.String(),
+			APIVersion: infrav1.GroupVersion.String(),
 		},
 	}
 
@@ -611,31 +611,31 @@ var _ = Describe("Test consumerRefMatches", func() {
 			Expect(consumerRefMatches(tc.Consumer, bmMachine)).To(Equal(tc.ExpectedResult))
 		},
 		Entry("Matching consumer", testCaseConsumerRefMatches{
-			Consumer: &infrav2.HetznerBareMetalHostConsumerReference{
+			Consumer: &infrav1.HetznerBareMetalHostConsumerReference{
 				Name:     "bm-machine",
 				Kind:     "HetznerBareMetalMachine",
-				APIGroup: infrav2.GroupVersion.Group,
+				APIGroup: infrav1.GroupVersion.Group,
 			},
 			ExpectedResult: true,
 		}),
 		Entry("No matching name", testCaseConsumerRefMatches{
-			Consumer: &infrav2.HetznerBareMetalHostConsumerReference{
+			Consumer: &infrav1.HetznerBareMetalHostConsumerReference{
 				Name:     "other-bm-machine",
 				Kind:     "HetznerBareMetalMachine",
-				APIGroup: infrav2.GroupVersion.Group,
+				APIGroup: infrav1.GroupVersion.Group,
 			},
 			ExpectedResult: false,
 		}),
 		Entry("No matching kind", testCaseConsumerRefMatches{
-			Consumer: &infrav2.HetznerBareMetalHostConsumerReference{
+			Consumer: &infrav1.HetznerBareMetalHostConsumerReference{
 				Name:     "bm-machine",
 				Kind:     "OtherBareMetalMachine",
-				APIGroup: infrav2.GroupVersion.Group,
+				APIGroup: infrav1.GroupVersion.Group,
 			},
 			ExpectedResult: false,
 		}),
 		Entry("No matching API group", testCaseConsumerRefMatches{
-			Consumer: &infrav2.HetznerBareMetalHostConsumerReference{
+			Consumer: &infrav1.HetznerBareMetalHostConsumerReference{
 				Name:     "bm-machine",
 				Kind:     "HetznerBareMetalMachine",
 				APIGroup: "other-group.example.com",
@@ -749,7 +749,7 @@ var _ = Describe("Test ensureMachineAnnotation", func() {
 	DescribeTable(
 		"Test ensureMachineAnnotation",
 		func(tc testCaseEnsureMachineyyAnnotation) {
-			bmMachine := &infrav2.HetznerBareMetalMachine{
+			bmMachine := &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "bm-machine",
 					Namespace:   "default",
@@ -758,7 +758,7 @@ var _ = Describe("Test ensureMachineAnnotation", func() {
 			}
 			service := newTestService(bmMachine, nil)
 
-			host := infrav2.HetznerBareMetalHost{
+			host := infrav1.HetznerBareMetalHost{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "hostName",
 					Namespace: "default",
@@ -770,19 +770,19 @@ var _ = Describe("Test ensureMachineAnnotation", func() {
 		},
 		Entry("List of one non-matching entry", testCaseEnsureMachineyyAnnotation{
 			Annotations:         map[string]string{"key1": "val1"},
-			ExpectedAnnotations: map[string]string{"key1": "val1", infrav2.HostAnnotation: "default/hostName"},
+			ExpectedAnnotations: map[string]string{"key1": "val1", infrav1.HostAnnotation: "default/hostName"},
 		}),
 		Entry("Empty list", testCaseEnsureMachineyyAnnotation{
 			Annotations:         map[string]string{},
-			ExpectedAnnotations: map[string]string{infrav2.HostAnnotation: "default/hostName"},
+			ExpectedAnnotations: map[string]string{infrav1.HostAnnotation: "default/hostName"},
 		}),
 		Entry("Nil list", testCaseEnsureMachineyyAnnotation{
 			Annotations:         nil,
-			ExpectedAnnotations: map[string]string{infrav2.HostAnnotation: "default/hostName"},
+			ExpectedAnnotations: map[string]string{infrav1.HostAnnotation: "default/hostName"},
 		}),
 		Entry("List of one non-matching and one matching entry", testCaseEnsureMachineyyAnnotation{
-			Annotations:         map[string]string{"key1": "val1", infrav2.HostAnnotation: "default/hostName"},
-			ExpectedAnnotations: map[string]string{"key1": "val1", infrav2.HostAnnotation: "default/hostName"},
+			Annotations:         map[string]string{"key1": "val1", infrav1.HostAnnotation: "default/hostName"},
+			ExpectedAnnotations: map[string]string{"key1": "val1", infrav1.HostAnnotation: "default/hostName"},
 		}),
 	)
 })
@@ -803,19 +803,19 @@ var _ = Describe("Test updateHostAnnotation", func() {
 		},
 		Entry("List of one non-matching entry", testCaseUpdateHostAnnotation{
 			Annotations:         map[string]string{"key1": "val1"},
-			ExpectedAnnotations: map[string]string{"key1": "val1", infrav2.HostAnnotation: hostKey},
+			ExpectedAnnotations: map[string]string{"key1": "val1", infrav1.HostAnnotation: hostKey},
 		}),
 		Entry("Empty list", testCaseUpdateHostAnnotation{
 			Annotations:         map[string]string{},
-			ExpectedAnnotations: map[string]string{infrav2.HostAnnotation: hostKey},
+			ExpectedAnnotations: map[string]string{infrav1.HostAnnotation: hostKey},
 		}),
 		Entry("Nil list", testCaseUpdateHostAnnotation{
 			Annotations:         nil,
-			ExpectedAnnotations: map[string]string{infrav2.HostAnnotation: hostKey},
+			ExpectedAnnotations: map[string]string{infrav1.HostAnnotation: hostKey},
 		}),
 		Entry("List of one non-matching and one matching entry", testCaseUpdateHostAnnotation{
-			Annotations:         map[string]string{"key1": "val1", infrav2.HostAnnotation: hostKey},
-			ExpectedAnnotations: map[string]string{"key1": "val1", infrav2.HostAnnotation: hostKey},
+			Annotations:         map[string]string{"key1": "val1", infrav1.HostAnnotation: hostKey},
+			ExpectedAnnotations: map[string]string{"key1": "val1", infrav1.HostAnnotation: hostKey},
 		}),
 	)
 })
@@ -831,7 +831,7 @@ var _ = Describe("Test ensureClusterLabel", func() {
 	DescribeTable(
 		"Test ensureClusterLabel",
 		func(tc testCaseEnsureClusterLabel) {
-			host := &infrav2.HetznerBareMetalHost{}
+			host := &infrav1.HetznerBareMetalHost{}
 			host.Labels = tc.labels
 
 			ensureClusterLabel(host, clusterName)
@@ -854,7 +854,7 @@ var _ = Describe("Test ensureClusterLabel", func() {
 })
 
 var _ = Describe("Test hostKey", func() {
-	host := &infrav2.HetznerBareMetalHost{}
+	host := &infrav1.HetznerBareMetalHost{}
 	host.Namespace = "namespace"
 	host.Name = "name"
 
@@ -952,13 +952,13 @@ var _ = Describe("Test analyzePatchError", func() {
 
 var _ = Describe("Test GenerateProviderID", func() {
 	type testCaseGenerateProviderID struct {
-		hetznerCluster     *infrav2.HetznerCluster
+		hetznerCluster     *infrav1.HetznerCluster
 		serverNumber       int
 		expectedProviderID string
 	}
 
-	newHetznerCluster := func() *infrav2.HetznerCluster {
-		return &infrav2.HetznerCluster{
+	newHetznerCluster := func() *infrav1.HetznerCluster {
+		return &infrav1.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "test-hetzner-cluster",
 				Annotations: map[string]string{},
@@ -979,10 +979,10 @@ var _ = Describe("Test GenerateProviderID", func() {
 			expectedProviderID: "hcloud://bm-7",
 		}),
 		Entry("Uses annotation prefix", testCaseGenerateProviderID{
-			hetznerCluster: func() *infrav2.HetznerCluster {
+			hetznerCluster: func() *infrav1.HetznerCluster {
 				hetznerCluster := newHetznerCluster()
 				hetznerCluster.Annotations = map[string]string{
-					infrav2.UseHrobotProviderIDForBaremetalAnnotation: "true",
+					infrav1.UseHrobotProviderIDForBaremetalAnnotation: "true",
 				}
 				return hetznerCluster
 			}(),
@@ -990,10 +990,10 @@ var _ = Describe("Test GenerateProviderID", func() {
 			expectedProviderID: "hrobot://11",
 		}),
 		Entry("Uses legacy prefix for non-true annotation value", testCaseGenerateProviderID{
-			hetznerCluster: func() *infrav2.HetznerCluster {
+			hetznerCluster: func() *infrav1.HetznerCluster {
 				hetznerCluster := newHetznerCluster()
 				hetznerCluster.Annotations = map[string]string{
-					infrav2.UseHrobotProviderIDForBaremetalAnnotation: "invalid",
+					infrav1.UseHrobotProviderIDForBaremetalAnnotation: "invalid",
 				}
 				return hetznerCluster
 			}(),
@@ -1006,9 +1006,9 @@ var _ = Describe("Test GenerateProviderID", func() {
 var _ = Describe("reconcileLoadBalancerAttachment", func() {
 	newServiceForLoadBalancerAttachment := func(
 		machine *clusterv1.Machine,
-		bareMetalMachine *infrav2.HetznerBareMetalMachine,
+		bareMetalMachine *infrav1.HetznerBareMetalMachine,
 		cluster *clusterv1.Cluster,
-		hetznerCluster *infrav2.HetznerCluster,
+		hetznerCluster *infrav1.HetznerCluster,
 		hcloudClient *mocks.Client,
 	) *Service {
 		return &Service{
@@ -1031,19 +1031,19 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		}
 	}
 
-	newHostWithIPs := func(ipv4, ipv6 string) *infrav2.HetznerBareMetalHost {
-		return &infrav2.HetznerBareMetalHost{
-			Spec: infrav2.HetznerBareMetalHostSpec{
+	newHostWithIPs := func(ipv4, ipv6 string) *infrav1.HetznerBareMetalHost {
+		return &infrav1.HetznerBareMetalHost{
+			Spec: infrav1.HetznerBareMetalHostSpec{
 				ServerID: 42,
 			},
-			Status: infrav2.HetznerBareMetalHostStatus{
+			Status: infrav1.HetznerBareMetalHostStatus{
 				IPv4: ipv4,
 				IPv6: ipv6,
 			},
 		}
 	}
 
-	newHost := func(ipv4 string) *infrav2.HetznerBareMetalHost {
+	newHost := func(ipv4 string) *infrav1.HetznerBareMetalHost {
 		return newHostWithIPs(ipv4, "")
 	}
 
@@ -1057,17 +1057,17 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 	// newClusterForAddressFamily returns a cluster whose load balancer already exists and
 	// has the given targets, so that reconcileLoadBalancerAttachment reads them from the
 	// status instead of calling the HCloud API.
-	newClusterForAddressFamily := func(family infrav2.LoadBalancerTargetAddressFamily, attached ...string) *infrav2.HetznerCluster {
-		targets := make([]infrav2.LoadBalancerTarget, 0, len(attached))
+	newClusterForAddressFamily := func(family infrav1.LoadBalancerTargetAddressFamily, attached ...string) *infrav1.HetznerCluster {
+		targets := make([]infrav1.LoadBalancerTarget, 0, len(attached))
 		for _, ip := range attached {
-			targets = append(targets, infrav2.LoadBalancerTarget{Type: infrav2.LoadBalancerTargetTypeIP, IP: ip})
+			targets = append(targets, infrav1.LoadBalancerTarget{Type: infrav1.LoadBalancerTargetTypeIP, IP: ip})
 		}
-		return &infrav2.HetznerCluster{
-			Spec: infrav2.HetznerClusterSpec{
-				ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{TargetAddressFamily: family},
+		return &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{TargetAddressFamily: family},
 			},
-			Status: infrav2.HetznerClusterStatus{
-				ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{ID: 123, Target: targets},
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{ID: 123, Target: targets},
 			},
 		}
 	}
@@ -1086,13 +1086,13 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 
 	// newAvailableBareMetalMachine returns a machine that makes the reconcile read the
 	// attached targets from the cluster status rather than from the HCloud API.
-	newAvailableBareMetalMachine := func() *infrav2.HetznerBareMetalMachine {
-		bareMetalMachine := &infrav2.HetznerBareMetalMachine{}
-		deprecatedv1beta1conditions.MarkTrue(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)
+	newAvailableBareMetalMachine := func() *infrav1.HetznerBareMetalMachine {
+		bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
+		deprecatedv1beta1conditions.MarkTrue(bareMetalMachine, infrav1.ServerAvailableV1Beta1Condition)
 		conditions.Set(bareMetalMachine, metav1.Condition{
-			Type:   infrav2.HetznerBareMetalMachineServerAvailableCondition,
+			Type:   infrav1.HetznerBareMetalMachineServerAvailableCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav2.HetznerBareMetalMachineServerAvailableReason,
+			Reason: infrav1.HetznerBareMetalMachineServerAvailableReason,
 		})
 		return bareMetalMachine
 	}
@@ -1127,13 +1127,13 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 			Message: "kube-apiserver is still starting",
 		})
 
-		bareMetalMachine := &infrav2.HetznerBareMetalMachine{}
-		hetznerCluster := &infrav2.HetznerCluster{
-			Status: infrav2.HetznerClusterStatus{
-				ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{
+		bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
+		hetznerCluster := &infrav1.HetznerCluster{
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
 					ID: 123,
-					Target: []infrav2.LoadBalancerTarget{
-						{Type: infrav2.LoadBalancerTargetTypeIP, IP: "192.0.2.9"},
+					Target: []infrav1.LoadBalancerTarget{
+						{Type: infrav1.LoadBalancerTargetTypeIP, IP: "192.0.2.9"},
 					},
 				},
 			},
@@ -1157,10 +1157,10 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		var requeueErr *scope.RequeueAfterError
 		Expect(errors.As(err, &requeueErr)).To(BeTrue())
 		Expect(requeueErr.GetRequeueAfter()).To(Equal(requeueAfter))
-		Expect(deprecatedv1beta1conditions.IsFalse(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(BeTrue())
-		Expect(deprecatedv1beta1conditions.GetReason(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(Equal("WaitingForAPIServer"))
-		Expect(conditions.IsFalse(bareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
-		Expect(conditions.GetReason(bareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition)).To(Equal(infrav2.HetznerBareMetalMachineWaitingForAPIServerReason))
+		Expect(deprecatedv1beta1conditions.IsFalse(bareMetalMachine, infrav1.ServerAvailableV1Beta1Condition)).To(BeTrue())
+		Expect(deprecatedv1beta1conditions.GetReason(bareMetalMachine, infrav1.ServerAvailableV1Beta1Condition)).To(Equal("WaitingForAPIServer"))
+		Expect(conditions.IsFalse(bareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
+		Expect(conditions.GetReason(bareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableCondition)).To(Equal(infrav1.HetznerBareMetalMachineWaitingForAPIServerReason))
 		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "AddIPTargetToLoadBalancer", mock.Anything, mock.Anything, mock.Anything)).To(BeTrue())
 	})
 
@@ -1174,10 +1174,10 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 			Message: "kube-apiserver is still starting",
 		})
 
-		bareMetalMachine := &infrav2.HetznerBareMetalMachine{}
-		hetznerCluster := &infrav2.HetznerCluster{
-			Status: infrav2.HetznerClusterStatus{
-				ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{
+		bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
+		hetznerCluster := &infrav1.HetznerCluster{
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
 					ID: 123,
 				},
 			},
@@ -1227,7 +1227,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 
 		service := newServiceForLoadBalancerAttachment(
 			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
-			newClusterForAddressFamily(infrav2.LoadBalancerTargetAddressFamilyIPv6), hcloudClient,
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv6), hcloudClient,
 		)
 
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
@@ -1241,7 +1241,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 
 		service := newServiceForLoadBalancerAttachment(
 			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
-			newClusterForAddressFamily(infrav2.LoadBalancerTargetAddressFamilyDualStack), hcloudClient,
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyDualStack), hcloudClient,
 		)
 
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
@@ -1255,7 +1255,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		// Both addresses are attached but the family is ipv4, so the IPv6 target is stale.
 		service := newServiceForLoadBalancerAttachment(
 			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
-			newClusterForAddressFamily(infrav2.LoadBalancerTargetAddressFamilyIPv4, hostIPv4, hostIPv6), hcloudClient,
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, hostIPv4, hostIPv6), hcloudClient,
 		)
 
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
@@ -1280,7 +1280,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		// but a target that cannot serve traffic is removed right away.
 		service := newServiceForLoadBalancerAttachment(
 			machine, newAvailableBareMetalMachine(), newControlPlaneCluster(),
-			newClusterForAddressFamily(infrav2.LoadBalancerTargetAddressFamilyIPv4, "192.0.2.9", hostIPv6), hcloudClient,
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, "192.0.2.9", hostIPv6), hcloudClient,
 		)
 
 		err := service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))
@@ -1298,7 +1298,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		// as a target is attached.
 		service := newServiceForLoadBalancerAttachment(
 			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
-			newClusterForAddressFamily(infrav2.LoadBalancerTargetAddressFamilyDualStack), hcloudClient,
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyDualStack), hcloudClient,
 		)
 
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, "not-an-address"))).To(Succeed())
@@ -1310,7 +1310,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 
 		service := newServiceForLoadBalancerAttachment(
 			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
-			newClusterForAddressFamily(infrav2.LoadBalancerTargetAddressFamilyIPv4, hostIPv4), hcloudClient,
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, hostIPv4), hcloudClient,
 		)
 
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
@@ -1335,7 +1335,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 
 		service := newServiceForLoadBalancerAttachment(
 			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
-			newClusterForAddressFamily(infrav2.LoadBalancerTargetAddressFamilyDualStack), hcloudClient,
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyDualStack), hcloudClient,
 		)
 
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
@@ -1356,7 +1356,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 
 		service := newServiceForLoadBalancerAttachment(
 			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
-			newClusterForAddressFamily(infrav2.LoadBalancerTargetAddressFamilyIPv4, hostIPv4, hostIPv6), hcloudClient,
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, hostIPv4, hostIPv6), hcloudClient,
 		)
 
 		err := service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))
@@ -1379,7 +1379,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 
 		service := newServiceForLoadBalancerAttachment(
 			newHealthyMachine(), newAvailableBareMetalMachine(), newControlPlaneCluster(),
-			newClusterForAddressFamily(infrav2.LoadBalancerTargetAddressFamilyIPv4, hostIPv4, hostIPv6), hcloudClient,
+			newClusterForAddressFamily(infrav1.LoadBalancerTargetAddressFamilyIPv4, hostIPv4, hostIPv6), hcloudClient,
 		)
 
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHostWithIPs(hostIPv4, hostIPv6))).To(Succeed())
@@ -1396,16 +1396,16 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 			Message: "kube-apiserver is still starting",
 		})
 
-		bareMetalMachine := &infrav2.HetznerBareMetalMachine{}
+		bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
 		conditions.Set(bareMetalMachine, metav1.Condition{
-			Type:   infrav2.HetznerBareMetalMachineServerAvailableCondition,
+			Type:   infrav1.HetznerBareMetalMachineServerAvailableCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav2.HetznerBareMetalMachineServerAvailableReason,
+			Reason: infrav1.HetznerBareMetalMachineServerAvailableReason,
 		})
 
-		hetznerCluster := &infrav2.HetznerCluster{
-			Status: infrav2.HetznerClusterStatus{
-				ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{
+		hetznerCluster := &infrav1.HetznerCluster{
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
 					ID: 123,
 				},
 			},
@@ -1441,31 +1441,31 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		testCluster   = "test-cluster"
 	)
 
-	buildService := func(lbTargets []infrav2.LoadBalancerTarget, apiServerHealthy, isControlPlane bool) (
-		*Service, *infrav2.HetznerBareMetalMachine, *mocks.Client,
+	buildService := func(lbTargets []infrav1.LoadBalancerTarget, apiServerHealthy, isControlPlane bool) (
+		*Service, *infrav1.HetznerBareMetalMachine, *mocks.Client,
 	) {
 		scheme := runtime.NewScheme()
-		utilruntime.Must(infrav2.AddToScheme(scheme))
+		utilruntime.Must(infrav1.AddToScheme(scheme))
 		utilruntime.Must(clusterv1.AddToScheme(scheme))
 		utilruntime.Must(corev1.AddToScheme(scheme))
 
-		host := &infrav2.HetznerBareMetalHost{
+		host := &infrav1.HetznerBareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{Name: testHostName, Namespace: testNamespace},
-			Spec: infrav2.HetznerBareMetalHostSpec{
+			Spec: infrav1.HetznerBareMetalHostSpec{
 				ServerID: 42,
 			},
-			Status: infrav2.HetznerBareMetalHostStatus{
+			Status: infrav1.HetznerBareMetalHostStatus{
 				IPv4:              "192.0.2.10",
-				ProvisioningState: infrav2.StateProvisioned,
+				ProvisioningState: infrav1.StateProvisioned,
 			},
 		}
 
-		bareMetalMachine := &infrav2.HetznerBareMetalMachine{
+		bareMetalMachine := &infrav1.HetznerBareMetalMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testBMMName,
 				Namespace: testNamespace,
 				Annotations: map[string]string{
-					infrav2.HostAnnotation: testNamespace + "/" + testHostName,
+					infrav1.HostAnnotation: testNamespace + "/" + testHostName,
 				},
 			},
 		}
@@ -1509,10 +1509,10 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 			},
 		}
 
-		hetznerCluster := &infrav2.HetznerCluster{
+		hetznerCluster := &infrav1.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{Name: testCluster, Namespace: testNamespace},
-			Status: infrav2.HetznerClusterStatus{
-				ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
 					ID:     123,
 					Target: lbTargets,
 				},
@@ -1548,8 +1548,8 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		// Reconcile must still set initialization.provisioned and ProviderID. See the comment
 		// in Reconcile.
 		service, bareMetalMachine, hcloudClient := buildService(
-			[]infrav2.LoadBalancerTarget{
-				{Type: infrav2.LoadBalancerTargetTypeIP, IP: "192.0.2.9"},
+			[]infrav1.LoadBalancerTarget{
+				{Type: infrav1.LoadBalancerTargetTypeIP, IP: "192.0.2.9"},
 			},
 			false,
 			true,
@@ -1574,10 +1574,10 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		Expect(ptr.Deref(bareMetalMachine.Status.Initialization.Provisioned, false)).To(BeTrue())
 		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
 		Expect(*bareMetalMachine.Spec.ProviderID).NotTo(BeEmpty())
-		Expect(deprecatedv1beta1conditions.IsFalse(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(BeTrue())
-		Expect(deprecatedv1beta1conditions.GetReason(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(Equal("WaitingForAPIServer"))
-		Expect(conditions.IsFalse(bareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
-		Expect(conditions.GetReason(bareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition)).To(Equal(infrav2.HetznerBareMetalMachineWaitingForAPIServerReason))
+		Expect(deprecatedv1beta1conditions.IsFalse(bareMetalMachine, infrav1.ServerAvailableV1Beta1Condition)).To(BeTrue())
+		Expect(deprecatedv1beta1conditions.GetReason(bareMetalMachine, infrav1.ServerAvailableV1Beta1Condition)).To(Equal("WaitingForAPIServer"))
+		Expect(conditions.IsFalse(bareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
+		Expect(conditions.GetReason(bareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableCondition)).To(Equal(infrav1.HetznerBareMetalMachineWaitingForAPIServerReason))
 	})
 
 	It("does not requeue on the happy path and marks ServerAvailableCondition=True", func() {
@@ -1585,8 +1585,8 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		// reconcileLoadBalancerAttachment returns no requeue and Reconcile
 		// marks the condition true.
 		service, bareMetalMachine, hcloudClient := buildService(
-			[]infrav2.LoadBalancerTarget{
-				{Type: infrav2.LoadBalancerTargetTypeIP, IP: "192.0.2.10"},
+			[]infrav1.LoadBalancerTarget{
+				{Type: infrav1.LoadBalancerTargetTypeIP, IP: "192.0.2.10"},
 			},
 			true,
 			true,
@@ -1610,8 +1610,8 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 
 		Expect(ptr.Deref(bareMetalMachine.Status.Initialization.Provisioned, false)).To(BeTrue())
 		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
-		Expect(deprecatedv1beta1conditions.IsTrue(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(BeTrue())
-		Expect(conditions.IsTrue(bareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
+		Expect(deprecatedv1beta1conditions.IsTrue(bareMetalMachine, infrav1.ServerAvailableV1Beta1Condition)).To(BeTrue())
+		Expect(conditions.IsTrue(bareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
 	})
 
 	It("marks ServerAvailableCondition=True for worker nodes without touching the load balancer", func() {
@@ -1626,8 +1626,8 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 
 		Expect(ptr.Deref(bareMetalMachine.Status.Initialization.Provisioned, false)).To(BeTrue())
 		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
-		Expect(deprecatedv1beta1conditions.IsTrue(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(BeTrue())
-		Expect(conditions.IsTrue(bareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
+		Expect(deprecatedv1beta1conditions.IsTrue(bareMetalMachine, infrav1.ServerAvailableV1Beta1Condition)).To(BeTrue())
+		Expect(conditions.IsTrue(bareMetalMachine, infrav1.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
 	})
 })
 
@@ -1635,31 +1635,31 @@ var _ = Describe("Delete", func() {
 	It("sets the Deleting condition and requeues while the host is still provisioned", func() {
 		const ns = "default"
 		scheme := runtime.NewScheme()
-		utilruntime.Must(infrav2.AddToScheme(scheme))
+		utilruntime.Must(infrav1.AddToScheme(scheme))
 		utilruntime.Must(clusterv1.AddToScheme(scheme))
 
-		host := &infrav2.HetznerBareMetalHost{
+		host := &infrav1.HetznerBareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{Name: "bm-host", Namespace: ns},
-			Spec: infrav2.HetznerBareMetalHostSpec{
-				ConsumerRef: &infrav2.HetznerBareMetalHostConsumerReference{
+			Spec: infrav1.HetznerBareMetalHostSpec{
+				ConsumerRef: &infrav1.HetznerBareMetalHostConsumerReference{
 					Name:     "bm-machine",
 					Kind:     "HetznerBareMetalMachine",
-					APIGroup: infrav2.GroupVersion.Group,
+					APIGroup: infrav1.GroupVersion.Group,
 				},
 			},
-			Status: infrav2.HetznerBareMetalHostStatus{
-				ProvisioningState: infrav2.StateProvisioned,
+			Status: infrav1.HetznerBareMetalHostStatus{
+				ProvisioningState: infrav1.StateProvisioned,
 			},
 		}
-		bareMetalMachine := &infrav2.HetznerBareMetalMachine{
+		bareMetalMachine := &infrav1.HetznerBareMetalMachine{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "HetznerBareMetalMachine",
-				APIVersion: infrav2.GroupVersion.String(),
+				APIVersion: infrav1.GroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "bm-machine",
 				Namespace:   ns,
-				Annotations: map[string]string{infrav2.HostAnnotation: ns + "/bm-host"},
+				Annotations: map[string]string{infrav1.HostAnnotation: ns + "/bm-host"},
 			},
 		}
 		machine := &clusterv1.Machine{
@@ -1680,8 +1680,8 @@ var _ = Describe("Delete", func() {
 		Expect(err).To(BeNil())
 		Expect(res.RequeueAfter).To(Equal(requeueAfter))
 
-		Expect(conditions.IsTrue(bareMetalMachine, infrav2.HetznerBareMetalMachineDeletingCondition)).To(BeTrue())
-		Expect(conditions.GetReason(bareMetalMachine, infrav2.HetznerBareMetalMachineDeletingCondition)).To(Equal(infrav2.HetznerBareMetalMachineDeletingReason))
+		Expect(conditions.IsTrue(bareMetalMachine, infrav1.HetznerBareMetalMachineDeletingCondition)).To(BeTrue())
+		Expect(conditions.GetReason(bareMetalMachine, infrav1.HetznerBareMetalMachineDeletingCondition)).To(Equal(infrav1.HetznerBareMetalMachineDeletingReason))
 		Expect(bareMetalMachine.Status.Phase).To(Equal(clusterv1.MachinePhaseDeleting))
 	})
 })
