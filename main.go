@@ -173,6 +173,8 @@ func main() {
 			ByObject:          secretutil.AddSecretSelector(),
 			SyncPeriod:        &syncPeriod,
 			DefaultNamespaces: watchNamespaces,
+			// Strip managedFields from cached objects to reduce memory usage.
+			DefaultTransform: cache.TransformStripManagedFields(),
 		},
 	}
 
@@ -367,53 +369,42 @@ func setUpWebhookWithManager(mgr ctrl.Manager) {
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates/status;hcloudmachines/status;hcloudremediationtemplates/status;hcloudremediations/status;hetznerbaremetalhosts/status;hetznerbaremetalmachines/status;hetznerbaremetalremediationtemplates/status;hetznerbaremetalremediations/status;hetznerclusters/status,verbs=get;patch;update
 
 func setupCRDMigrator(ctx context.Context, mgr *strictManager) error {
+	// UseCache is false for all types below: the manager cache strips managedFields (see
+	// DefaultTransform above), but the CleanupManagedFields phase needs them, so CRDMigrator
+	// must always read these objects live from the API server instead of the cache.
 	crdMigratorConfig := map[client.Object]crdmigrator.ByObjectConfig{
 		&infrastructurev1beta1.HCloudMachineTemplate{}: {
-			// UseCache should be set to true only if an informer already exists for the API type
-			// (i.e. there is a controller watching this resource).
-			UseCache: true,
-
 			// UseStatusForStorageVersionMigration should be enabled only if the CRD defines a status subresource.
 			UseStatusForStorageVersionMigration: true,
 		},
 		&infrastructurev1beta1.HCloudMachine{}: {
-			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
 		&infrastructurev1beta1.HCloudRemediationTemplate{}: {
-			UseCache:                            false,
 			UseStatusForStorageVersionMigration: true,
 		},
 		&infrastructurev1beta1.HCloudRemediation{}: {
-			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
 		&infrastructurev1beta1.HetznerBareMetalHost{}: {
-			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
 		&infrastructurev1beta1.HetznerBareMetalMachineTemplate{}: {
-			UseCache:                            false,
 			UseStatusForStorageVersionMigration: false,
 		},
 		&infrastructurev1beta1.HetznerBareMetalMachine{}: {
-			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
 		&infrastructurev1beta1.HetznerBareMetalRemediationTemplate{}: {
-			UseCache:                            false,
 			UseStatusForStorageVersionMigration: true,
 		},
 		&infrastructurev1beta1.HetznerBareMetalRemediation{}: {
-			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
 		&infrastructurev1beta1.HetznerClusterTemplate{}: {
-			UseCache:                            false,
 			UseStatusForStorageVersionMigration: false,
 		},
 		&infrastructurev1beta1.HetznerCluster{}: {
-			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
 	}
