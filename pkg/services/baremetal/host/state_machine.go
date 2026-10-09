@@ -27,7 +27,6 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -84,6 +83,10 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 	}()
 
 	if hsm.checkInitiateDelete() {
+		// Deletion aborts provisioning early, possibly while the host is still in
+		// the rescue system. Evict any pooled SSH connection to it now rather than
+		// waiting for the idle-timeout sweep.
+		hsm.reconciler.scope.SSHClientFactory.EvictConnectionsForIP(hsm.host.Status.GetIPAddress())
 		return actionComplete{}
 	}
 
@@ -132,6 +135,7 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 		// Continue deprovisioning.
 		return false
 	}
+
 	return true
 }
 
@@ -176,9 +180,27 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 			hsm.nextState = infrav2.StateImageInstalling
 		case infrav2.StateProvisioned:
 			errMessage := "secret has been modified although a provisioned machine uses it"
-			record.Event(hsm.host, "SSHSecretUnexpectedlyModified", errMessage)
+			hsm.reconciler.scope.EventRecorder.Event(
+				hsm.host,
+				corev1.EventTypeWarning,
+				"SSHSecretUnexpectedlyModified",
+				errMessage,
+			)
+			deprecatedv1beta1conditions.MarkFalse(
+				hsm.host,
+				infrav2.CredentialsAvailableV1Beta1Condition,
+				infrav2.SSHSecretModifiedV1Beta1Reason,
+				clusterv1.ConditionSeverityError,
+				"%s",
+				errMessage,
+			)
+			conditions.Set(hsm.host, metav1.Condition{
+				Type:    infrav2.HetznerBareMetalHostSSHKeysAvailableCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav2.HetznerBareMetalHostSSHSecretModifiedReason,
+				Message: errMessage,
+			})
 			// The user has to fix the secret. Check again in five minutes.
-			hsm.reconciler.scope.SetHostError(infrav2.RegistrationError, errMessage)
 			return actionContinue{delay: 5 * time.Minute}
 		}
 		if err := hsm.host.UpdateOSSSHStatus(*osSSHSecret); err != nil {
@@ -202,9 +224,13 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 			Message: msg,
 		})
 
-		record.Warnf(hsm.host, "SSHKeyInvalid", msg)
+		hsm.reconciler.scope.EventRecorder.Event(
+			hsm.host,
+			corev1.EventTypeWarning,
+			"SSHKeyInvalid",
+			msg,
+		)
 		// The user has to fix the secret. Check again in five minutes.
-		hsm.reconciler.scope.SetHostError(infrav2.PreparationError, infrav2.ErrorMessageMissingOrInvalidSecretData)
 		return actionContinue{delay: 5 * time.Minute}
 	}
 	return nil
@@ -223,7 +249,12 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 		switch hsm.nextState {
 		case infrav2.StatePreparing, infrav2.StateRegistering, infrav2.StateImageInstalling:
 			msg := "stopped provisioning host as rescue ssh secret was updated"
-			record.Warn(hsm.host, "HostProvisioningStopped", msg)
+			hsm.reconciler.scope.EventRecorder.Event(
+				hsm.host,
+				corev1.EventTypeWarning,
+				"HostProvisioningStopped",
+				msg,
+			)
 			hsm.log.V(1).Info(msg, "state", hsm.nextState)
 			hsm.nextState = infrav2.StateNone
 		}
@@ -248,7 +279,6 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 			Message: msg,
 		})
 		// The user has to fix the secret. Check again in five minutes.
-		hsm.reconciler.scope.SetHostError(infrav2.PreparationError, infrav2.ErrorMessageMissingOrInvalidSecretData)
 		return actionContinue{delay: 5 * time.Minute}
 	}
 	return nil
@@ -275,7 +305,14 @@ func (hsm *hostStateMachine) handlePreparing(ctx context.Context) actionResult {
 		return actionComplete{}
 	}
 
-	record.Eventf(hsm.host, "PreparingForProvisioning", "ServerID %d %s", hsm.host.Spec.ServerID, hsm.host.Spec.Description)
+	hsm.reconciler.scope.EventRecorder.Eventf(
+		hsm.host,
+		corev1.EventTypeNormal,
+		"PreparingForProvisioning",
+		"ServerID %d %s",
+		hsm.host.Spec.ServerID,
+		hsm.host.Spec.Description,
+	)
 
 	actResult := hsm.reconciler.actionPreparing(ctx)
 	if _, ok := actResult.(actionComplete); ok {
@@ -331,6 +368,9 @@ func (hsm *hostStateMachine) handleImageInstalling(ctx context.Context) actionRe
 	switch actResult.(type) {
 	case actionComplete:
 		hsm.nextState = infrav2.StateEnsureProvisioned
+		// The host is leaving the rescue system for good: evict its pooled SSH
+		// connection now instead of waiting for the idle-timeout sweep.
+		hsm.reconciler.scope.SSHClientFactory.EvictConnectionsForIP(hsm.host.Status.GetIPAddress())
 	case actionError:
 		// re-enable rescue system. If installimage failed, then it is likely, that
 		// the next run (without reboot) fails with this error:
@@ -369,6 +409,9 @@ func (hsm *hostStateMachine) handleDeprovisioning(ctx context.Context) actionRes
 	actResult := hsm.reconciler.actionDeprovisioning(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav2.StateNone
+		// Deprovisioning is done: evict any pooled SSH connection to this host now
+		// instead of waiting for the idle-timeout sweep.
+		hsm.reconciler.scope.SSHClientFactory.EvictConnectionsForIP(hsm.host.Status.GetIPAddress())
 		return actionComplete{}
 	}
 	return actResult

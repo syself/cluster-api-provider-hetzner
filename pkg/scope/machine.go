@@ -29,13 +29,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	"sigs.k8s.io/cluster-api/util"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
-	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
@@ -46,16 +45,23 @@ import (
 
 // MachineScopeParams defines the input parameters used to create a new Scope.
 type MachineScopeParams struct {
-	Client           client.Client
-	APIReader        client.Reader
-	Logger           logr.Logger
-	HetznerSecret    *corev1.Secret
-	HCloudClient     hcloudclient.Client
-	Cluster          *clusterv1.Cluster
-	HetznerCluster   *infrav2.HetznerCluster
-	Machine          *clusterv1.Machine
+	Client         client.Client
+	APIReader      client.Reader
+	Logger         logr.Logger
+	HetznerSecret  *corev1.Secret
+	HCloudClient   hcloudclient.Client
+	Cluster        *clusterv1.Cluster
+	HetznerCluster *infrav2.HetznerCluster
+
+	// Machine is the CAPI Machine that owns the HCloudMachine. It is nil only if the
+	// HCloudMachine is being deleted and has no owner CAPI Machine, for example after the
+	// CAPI Machine was force deleted. Only the code that deletes the HCloudMachine has to
+	// handle a nil Machine.
+	Machine *clusterv1.Machine
+
 	HCloudMachine    *infrav2.HCloudMachine
 	SSHClientFactory sshclient.Factory
+	EventRecorder    record.EventRecorder
 }
 
 var (
@@ -74,11 +80,11 @@ var (
 // NewMachineScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
 func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
-	if params.Machine == nil {
-		return nil, errors.New("failed to generate new scope from nil Machine")
-	}
 	if params.HCloudMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudMachine")
+	}
+	if params.Machine == nil && params.HCloudMachine.DeletionTimestamp.IsZero() {
+		return nil, errors.New("failed to generate new scope from nil Machine")
 	}
 	if params.Cluster == nil {
 		return nil, errors.New("failed to generate new scope from nil Cluster")
@@ -91,6 +97,9 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 	}
 	if params.APIReader == nil {
 		return nil, errors.New("failed to generate new scope from nil APIReader")
+	}
+	if params.EventRecorder == nil {
+		return nil, errors.New("failed to generate new scope from nil EventRecorder")
 	}
 
 	emptyLogger := logr.Logger{}
@@ -115,6 +124,7 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 		Machine:          params.Machine,
 		HCloudMachine:    params.HCloudMachine,
 		SSHClientFactory: params.SSHClientFactory,
+		EventRecorder:    params.EventRecorder,
 	}, nil
 }
 
@@ -133,9 +143,13 @@ type MachineScope struct {
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav2.HetznerCluster
 
-	Machine          *clusterv1.Machine
+	// Machine is the CAPI Machine that owns the HCloudMachine. See
+	// MachineScopeParams.Machine for when it is nil.
+	Machine *clusterv1.Machine
+
 	HCloudMachine    *infrav2.HCloudMachine
 	SSHClientFactory sshclient.Factory
+	EventRecorder    record.EventRecorder
 }
 
 // Close closes the current scope persisting the machine configuration and status.
@@ -170,9 +184,10 @@ func (m *MachineScope) Close(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
 }
 
-// IsControlPlane returns true if the machine is a control plane.
+// IsControlPlane returns true if the HCloudMachine has the control plane label.
 func (m *MachineScope) IsControlPlane() bool {
-	return util.IsControlPlaneMachine(m.Machine)
+	_, ok := m.HCloudMachine.Labels[clusterv1.MachineControlPlaneLabel]
+	return ok
 }
 
 // Name returns the HCloudMachine name.
@@ -228,7 +243,7 @@ func machinePatchOpts() []patch.Option {
 // gets used, when a not-recoverable error happens. Example: hcloud server was deleted by hand in
 // the hcloud UI.
 func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
-	return SetRemediateMachineAnnotationToDeleteMachine(ctx, m.Client, m.Machine, m.HCloudMachine, message)
+	return m.SetRemediateMachineAnnotationToDeleteMachine(ctx, message)
 }
 
 // SetRemediateMachineAnnotationToDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation
@@ -238,26 +253,30 @@ func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string)
 //
 // Background: the hcloudmachine controller has no permission to delete a capi machine. That's why
 // this extra step (via remediate-machine annotation) is needed.
-func SetRemediateMachineAnnotationToDeleteMachine(ctx context.Context, crClient client.Client, capiMachine *clusterv1.Machine, hcloudMachine *infrav2.HCloudMachine, message string) error {
+func (m *MachineScope) SetRemediateMachineAnnotationToDeleteMachine(ctx context.Context, message string) error {
 	// Create a patch base
-	patch := client.MergeFrom(capiMachine.DeepCopy())
+	patch := client.MergeFrom(m.Machine.DeepCopy())
 
 	// Modify only annotations on the in-memory copy
-	if capiMachine.Annotations == nil {
-		capiMachine.Annotations = map[string]string{}
+	if m.Machine.Annotations == nil {
+		m.Machine.Annotations = map[string]string{}
 	}
-	capiMachine.Annotations[clusterv1.RemediateMachineAnnotation] = ""
+	m.Machine.Annotations[clusterv1.RemediateMachineAnnotation] = ""
 
 	// Apply patch – only the diff (annotations) is sent to the API server
-	if err := crClient.Patch(ctx, capiMachine, patch); err != nil {
+	if err := m.Client.Patch(ctx, m.Machine, patch); err != nil {
 		return fmt.Errorf("patch failed in SetErrorAndRemediate: %w", err)
 	}
 
-	record.Warnf(hcloudMachine,
+	m.EventRecorder.Eventf(
+		m.HCloudMachine,
+		corev1.EventTypeWarning,
 		"HCloudMachineWillBeRemediated",
-		"HCloudMachine will be remediated: %s", message)
+		"HCloudMachine will be remediated: %s",
+		message,
+	)
 
-	hcloudMachine.SetBootState(infrav2.HCloudBootStateProvisioningFailed)
+	m.HCloudMachine.SetBootState(infrav2.HCloudBootStateProvisioningFailed)
 
 	return nil
 }

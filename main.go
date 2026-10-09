@@ -38,7 +38,6 @@ import (
 	bootstrapv1 "sigs.k8s.io/cluster-api/api/bootstrap/kubeadm/v1beta2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/controllers/crdmigrator"
-	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -194,9 +193,6 @@ func main() {
 		strictClient: client.WithFieldValidation(origManager.GetClient(), metav1.FieldValidationStrict),
 	}
 
-	// Initialize event recorder.
-	record.InitFromRecorder(mgr.GetEventRecorderFor("hetzner-controller"))
-
 	// Setup the context that's going to be used in controllers and for the manager.
 	ctx := ctrl.SetupSignalHandler()
 
@@ -223,7 +219,7 @@ func main() {
 		APIReader:           mgr.GetAPIReader(),
 		RateLimitWaitTime:   rateLimitWaitTime,
 		HCloudClientFactory: hcloudClientFactory,
-		SSHClientFactory:    sshclient.NewFactory(),
+		SSHClientFactory:    sshclient.NewFactory(ctx),
 		WatchFilterValue:    watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hcloudMachineConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")
@@ -244,7 +240,7 @@ func main() {
 	if err = (&controllers.HetznerBareMetalHostReconciler{
 		Client:              mgr.GetClient(),
 		RobotClientFactory:  robotclient.NewFactory(),
-		SSHClientFactory:    sshclient.NewFactory(),
+		SSHClientFactory:    sshclient.NewFactory(ctx),
 		APIReader:           mgr.GetAPIReader(),
 		RateLimitWaitTime:   rateLimitWaitTime,
 		WatchFilterValue:    watchFilterValue,

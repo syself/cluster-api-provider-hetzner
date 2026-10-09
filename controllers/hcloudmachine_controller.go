@@ -32,12 +32,14 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	capilabels "sigs.k8s.io/cluster-api/util/labels"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -49,6 +51,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -66,6 +69,7 @@ type HCloudMachineReconciler struct {
 	HCloudClientFactory hcloudclient.Factory
 	SSHClientFactory    sshclient.Factory
 	WatchFilterValue    string
+	EventRecorder       record.EventRecorder
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -115,22 +119,28 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
 
-	// Fetch the Machine.
+	// Fetch the CAPI Machine. It is nil if the owner reference is not set yet, or if
+	// the CAPI Machine does not exist anymore.
 	machine, err := util.GetOwnerMachine(ctx, r, hcloudMachine.ObjectMeta)
-	if err != nil {
-		return reconcile.Result{}, client.IgnoreNotFound(err)
+	if client.IgnoreNotFound(err) != nil {
+		return reconcile.Result{}, err
 	}
 	if machine == nil {
-		log.Info("Machine Controller has not yet set OwnerRef")
-		return reconcile.Result{}, nil
+		if hcloudMachine.DeletionTimestamp.IsZero() {
+			log.Info("HCloudMachine has no owner CAPI Machine")
+			return reconcile.Result{}, nil
+		}
+		// Continue without the CAPI Machine, so that we delete the server and remove the
+		// finalizer.
+		log.Info("HCloudMachine has no owner CAPI Machine, continuing to delete it")
 	}
 
 	log = log.WithValues("Machine", klog.KObj(machine))
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r, machine.ObjectMeta)
+	cluster, err := util.GetClusterFromMetadata(ctx, r, hcloudMachine.ObjectMeta)
 	if err != nil {
-		log.Info("Machine is missing cluster label or cluster does not exist")
+		log.Info("HCloudMachine is missing cluster label or cluster does not exist")
 		return reconcile.Result{}, nil
 	}
 
@@ -187,6 +197,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		Machine:          machine,
 		HCloudMachine:    hcloudMachine,
 		SSHClientFactory: r.SSHClientFactory,
+		EventRecorder:    r.EventRecorder,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %+v", err)
@@ -344,16 +355,22 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
 			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(mgr.GetScheme(), log)),
 		).
-		Watches(
+		// Watches runs the WithEventFilter predicates above on the Secret. When
+		// --watch-filter is set, one of these predicates rejects objects without the
+		// watch filter label. The Hetzner Secret does not have this label. Therefore,
+		// we use WatchesRawSource because it skips these predicates.
+		WatchesRawSource(source.Kind[client.Object](
+			mgr.GetCache(),
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.SecretToHCloudMachines(ctx)),
-			builder.WithPredicates(IgnoreInsignificantSecretUpdates(log)),
-		).
+			IgnoreInsignificantSecretUpdates(log),
+		)).
 		Complete(r)
 	if err != nil {
 		return fmt.Errorf("error creating controller: %w", err)
 	}
 
+	r.EventRecorder = mgr.GetEventRecorderFor("hcloudmachine-controller")
 	return nil
 }
 
@@ -465,14 +482,20 @@ func (r *HCloudMachineReconciler) SecretToHCloudMachines(_ context.Context) hand
 			if hc.Spec.HetznerSecret.Name != secret.Name && hc.Spec.SSHKeys.RescueSecretRef.Name != secret.Name {
 				continue
 			}
+			// With --watch-filter set, this controller only needs to reconcile objects that have the
+			// watch filter label. The Secret watch does not check this label (see
+			// SetupWithManager). Therefore, we check the label of the HetznerCluster here.
+			if r.WatchFilterValue != "" && !capilabels.HasWatchLabel(hc, r.WatchFilterValue) {
+				continue
+			}
 			result = append(result, toRequests(ctx, hc)...)
 		}
 		return result
 	}
 }
 
-// IgnoreInsignificantSecretUpdates is a predicate that only fires when the Secret's Data
-// actually changes, so HCloudMachines do not reconcile for ManagedFields or metadata-only
+// IgnoreInsignificantSecretUpdates is a predicate that fires on updates only when the Secret's
+// Data actually changes, so controllers do not reconcile for ManagedFields or metadata-only
 // Secret updates.
 func IgnoreInsignificantSecretUpdates(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
@@ -488,7 +511,7 @@ func IgnoreInsignificantSecretUpdates(logger logr.Logger) predicate.Funcs {
 			if reflect.DeepEqual(oldSecret.Data, newSecret.Data) {
 				return false
 			}
-			logger.V(1).Info("Secret data changed, will enqueue HCloudMachines",
+			logger.V(1).Info("Secret data changed",
 				"namespace", newSecret.GetNamespace(), "name", newSecret.GetName())
 			return true
 		},

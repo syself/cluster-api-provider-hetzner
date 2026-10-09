@@ -184,8 +184,6 @@ spec:
                               provisions a machine from Image.URL. CAPH copies that command into the rescue system and
                               executes it there.
 
-                              Docs: https://syself.com/docs/caph/developers/image-url-command
-
                               ImageURLCommand must be set if the machine should be provisioned from Image.URL without
                               installimage.
                             type: string
@@ -435,8 +433,6 @@ spec:
                             description: |-
                               Command is the basename of a command file below /shared on the controller pod. CAPH copies
                               that command into the rescue system and executes it there to provision the machine from URL.
-
-                              Docs: https://syself.com/docs/caph/developers/image-url-command
                             minLength: 1
                             type: string
                           deviceStringType:
@@ -449,6 +445,15 @@ spec:
                             - short
                             - wwn
                             type: string
+                          swraid:
+                            default: 0
+                            description: |-
+                              Swraid defines whether Command sets up a RAID. Set 1 to enable. CAPH then uses a
+                              HetznerBareMetalHost with spec.rootDeviceHints.raid.wwn and passes all these disks to Command.
+                            enum:
+                            - 0
+                            - 1
+                            type: integer
                           url:
                             description: |-
                               URL is the location of the image that Command provisions the machine from. CAPH passes it to

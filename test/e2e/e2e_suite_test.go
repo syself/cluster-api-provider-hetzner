@@ -51,7 +51,6 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/cluster-api/test/framework/ginkgoextensions"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -976,7 +975,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		eMsg = strings.TrimSpace(eMsg)
 		if eMsg != "" {
 			log("  Error: " + eMsg)
-			if hbmh.Status.ErrorType == infrav2.PermanentError {
+			if hbmh.Status.ErrorType == infrav2.ErrorTypePermanent {
 				allErrors = append(allErrors, fmt.Errorf("%w on HetznerBareMetalHost (stopping e2e test now) %q: %s", errPermanentHBMH, hbmh.Name, eMsg))
 			}
 		}
@@ -996,7 +995,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 }
 
 func checkBareMetalMachineNoAvailableHost(ctx context.Context, c client.Client) error {
-	machineList := &infrav1.HetznerBareMetalMachineList{}
+	machineList := &infrav2.HetznerBareMetalMachineList{}
 	if err := c.List(ctx, machineList); err != nil {
 		return fmt.Errorf("failed to list HetznerBareMetalMachines: %w", err)
 	}
@@ -1004,8 +1003,8 @@ func checkBareMetalMachineNoAvailableHost(ctx context.Context, c client.Client) 
 		if machine.DeletionTimestamp != nil {
 			continue
 		}
-		cond := v1beta1conditions.Get(&machine, infrav1.HostAssociateSucceededCondition)
-		if cond != nil && cond.Status == corev1.ConditionFalse && cond.Reason == string(infrav1.NoAvailableHostReason) {
+		cond := conditions.Get(&machine, infrav2.HetznerBareMetalMachineHostAssociatedCondition)
+		if cond != nil && cond.Status == metav1.ConditionFalse && cond.Reason == infrav2.HetznerBareMetalMachineNoAvailableHostReason {
 			return fmt.Errorf("%w: HetznerBareMetalMachine %s/%s: %s", errNoAvailableHost, machine.Namespace, machine.Name, cond.Message)
 		}
 	}

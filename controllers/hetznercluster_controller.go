@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -43,8 +44,8 @@ import (
 	"sigs.k8s.io/cluster-api/util/annotations"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	capilabels "sigs.k8s.io/cluster-api/util/labels"
 	"sigs.k8s.io/cluster-api/util/predicates"
-	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,8 +58,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -81,6 +82,7 @@ type HetznerClusterReconciler struct {
 	TargetClusterManagersWaitGroup *sync.WaitGroup
 	WatchFilterValue               string
 	DisableCSRApproval             bool
+	EventRecorder                  record.EventRecorder
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -155,6 +157,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		HetznerCluster: hetznerCluster,
 		HCloudClient:   hcloudClient,
 		HetznerSecret:  hetznerSecret,
+		EventRecorder:  r.EventRecorder,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
@@ -225,35 +228,27 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	// set failure domains in status using information in spec
 	clusterScope.SetStatusFailureDomain(clusterScope.GetSpecRegion())
 
-	// reconcile the network
-	if err := network.NewService(clusterScope).Reconcile(ctx); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile network for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
-	}
-
 	emptyResult := reconcile.Result{}
 
-	// reconcile the load balancers
-	res, err := loadbalancer.NewService(clusterScope).Reconcile(ctx)
-	if res != emptyResult {
-		return res, nil
-	}
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancers for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	infraRes, infraErr := reconcileInfrastructure(ctx, clusterScope)
+
+	// The target cluster manager runs the CSR controller (unless DisableCSRApproval is set),
+	// which approves the certificate requests of new nodes. Start it even when
+	// reconcileInfrastructure failed or asked for a requeue.
+	tcmRes, tcmErr := r.reconcileTargetClusterManager(ctx, clusterScope)
+	if tcmErr != nil {
+		tcmErr = fmt.Errorf("failed to reconcile target cluster manager: %w", tcmErr)
 	}
 
-	// reconcile the placement groups
-	if err := placementgroup.NewService(clusterScope).Reconcile(ctx); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	// Return errors first, because controller-runtime ignores the result when an error is returned.
+	if infraErr != nil || tcmErr != nil {
+		return reconcile.Result{}, errors.Join(infraErr, tcmErr)
 	}
-
-	processControlPlaneEndpoint(hetznerCluster)
-
-	result, err := r.reconcileTargetClusterManager(ctx, clusterScope)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile target cluster manager: %w", err)
+	if infraRes != emptyResult {
+		return infraRes, nil
 	}
-	if result != emptyResult {
-		return result, nil
+	if tcmRes != emptyResult {
+		return tcmRes, nil
 	}
 
 	// target cluster is ready
@@ -265,7 +260,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		Reason: string(infrav2.HetznerClusterTargetClusterReadyReason),
 	})
 
-	result, err = reconcileWorkloadClusterSecrets(ctx, clusterScope)
+	result, err := reconcileWorkloadClusterSecrets(ctx, clusterScope)
 	if err != nil {
 		reterr := fmt.Errorf("failed to reconcile target secret: %w", err)
 		deprecatedv1beta1conditions.MarkFalse(
@@ -298,6 +293,37 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		Status: metav1.ConditionTrue,
 		Reason: string(infrav2.HetznerClusterTargetClusterSecretReadyReason),
 	})
+
+	return reconcile.Result{}, nil
+}
+
+// reconcileInfrastructure reconciles the network, the load balancers and the placement groups, and
+// sets the control plane endpoint. It returns as soon as one step fails or asks for a requeue.
+func reconcileInfrastructure(ctx context.Context, clusterScope *scope.ClusterScope) (reconcile.Result, error) {
+	hetznerCluster := clusterScope.HetznerCluster
+
+	// reconcile the network
+	if err := network.NewService(clusterScope).Reconcile(ctx); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile network for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	}
+
+	emptyResult := reconcile.Result{}
+
+	// reconcile the load balancers
+	res, err := loadbalancer.NewService(clusterScope).Reconcile(ctx)
+	if res != emptyResult {
+		return res, nil
+	}
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancers for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	}
+
+	// reconcile the placement groups
+	if err := placementgroup.NewService(clusterScope).Reconcile(ctx); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	}
+
+	processControlPlaneEndpoint(hetznerCluster)
 
 	return reconcile.Result{}, nil
 }
@@ -380,8 +406,9 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 		for i, m := range machines {
 			names[i] = fmt.Sprintf("machine/%s", m.Name)
 		}
-		record.Eventf(
+		r.EventRecorder.Eventf(
 			hetznerCluster,
+			corev1.EventTypeNormal,
 			"WaitingForMachineDeletion",
 			"Machines %s still running, waiting with deletion of HetznerCluster",
 			strings.Join(names, ", "),
@@ -856,6 +883,16 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		WithEventFilter(predicates.ResourceIsNotExternallyManaged(mgr.GetScheme(), log)).
 		WithEventFilter(IgnoreInsignificantHetznerClusterStatusUpdates(log)).
 		Owns(&corev1.Secret{}).
+		// Watches runs the WithEventFilter predicates above on the Secret. When
+		// --watch-filter is set, one of these predicates rejects objects without the
+		// watch filter label. The Hetzner Secret does not have this label. Therefore,
+		// we use WatchesRawSource because it skips these predicates.
+		WatchesRawSource(source.Kind[client.Object](
+			mgr.GetCache(),
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.hetznerSecretToHetznerClusters),
+			IgnoreInsignificantSecretUpdates(log),
+		)).
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(r.clusterToHetznerCluster),
@@ -876,7 +913,45 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		return fmt.Errorf("error creating controller: %w", err)
 	}
 
+	r.EventRecorder = mgr.GetEventRecorderFor("hetznercluster-controller")
+
 	return nil
+}
+
+func (r *HetznerClusterReconciler) hetznerSecretToHetznerClusters(ctx context.Context, o client.Object) []reconcile.Request {
+	log := log.FromContext(ctx)
+
+	secret, ok := o.(*corev1.Secret)
+	if !ok {
+		log.Error(fmt.Errorf("expected a Secret but got a %T", o), "failed to get HetznerCluster for Secret")
+		return nil
+	}
+
+	log = log.WithValues("objectMapper", "hetznerSecretToHetznerCluster", "namespace", secret.Namespace, "secret", secret.Name)
+
+	hetznerClusterList := &infrav2.HetznerClusterList{}
+	if err := r.List(ctx, hetznerClusterList, client.InNamespace(secret.Namespace)); err != nil {
+		log.Error(err, "failed to list HetznerClusters, skipping mapping")
+		return nil
+	}
+
+	result := []reconcile.Request{}
+	for i := range hetznerClusterList.Items {
+		hetznerCluster := &hetznerClusterList.Items[i]
+		if hetznerCluster.Spec.HetznerSecret.Name != secret.Name {
+			continue
+		}
+		if annotations.IsExternallyManaged(hetznerCluster) {
+			continue
+		}
+		// WatchesRawSource ignores WithEventFilter predicates,
+		// therefore the watch filter is needed here.
+		if r.WatchFilterValue != "" && !capilabels.HasWatchLabel(hetznerCluster, r.WatchFilterValue) {
+			continue
+		}
+		result = append(result, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(hetznerCluster)})
+	}
+	return result
 }
 
 func (r *HetznerClusterReconciler) clusterToHetznerCluster(ctx context.Context, o client.Object) []reconcile.Request {
@@ -1081,9 +1156,9 @@ func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 				return false
 			}
 
-			conditionType := string(infrav2.HCloudMachineServerAvailableCondition)
+			conditionType := infrav2.HCloudMachineServerAvailableCondition
 			if _, ok := e.ObjectNew.(*infrav2.HetznerBareMetalMachine); ok {
-				conditionType = string(infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition)
+				conditionType = infrav2.HetznerBareMetalMachineServerAvailableCondition
 			}
 
 			wasTrue := conditions.IsTrue(oldGetter, conditionType)

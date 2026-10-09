@@ -29,22 +29,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -412,12 +415,116 @@ func TestControlPlaneMachineToHetznerClusterPredicate(t *testing.T) {
 		}
 		newObj := oldObj.DeepCopy()
 		conditions.Set(newObj, metav1.Condition{
-			Type:   string(infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition),
+			Type:   infrav2.HetznerBareMetalMachineServerAvailableCondition,
 			Status: metav1.ConditionTrue,
 			Reason: "reason",
 		})
 		require.True(t, predicate.Update(event.UpdateEvent{ObjectOld: oldObj, ObjectNew: newObj}))
 	})
+}
+
+func TestHetznerSecretToHetznerClusters(t *testing.T) {
+	ctx := context.Background()
+
+	testScheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(testScheme))
+	utilruntime.Must(infrav2.AddToScheme(testScheme))
+
+	const (
+		namespace      = "default"
+		otherNamespace = "other"
+		secretName     = "hetzner"
+	)
+
+	newHetznerCluster := func(clusterNamespace, name, referencedSecret string, deleting bool) *infrav2.HetznerCluster {
+		cluster := &infrav2.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: clusterNamespace},
+			Spec: infrav2.HetznerClusterSpec{
+				HetznerSecret: infrav2.HetznerSecretRef{Name: referencedSecret},
+			},
+		}
+		if deleting {
+			deletionTime := metav1.Now()
+			cluster.DeletionTimestamp = &deletionTime
+			cluster.Finalizers = []string{"test-finalizer"}
+		}
+		return cluster
+	}
+
+	matchingA := newHetznerCluster(namespace, "cluster-a", secretName, false)
+	matchingB := newHetznerCluster(namespace, "cluster-b", secretName, false)
+	unrelated := newHetznerCluster(namespace, "unrelated", "other-secret", false)
+	deleting := newHetznerCluster(namespace, "deleting", secretName, true)
+	crossNamespace := newHetznerCluster(otherNamespace, "cross-namespace", secretName, false)
+	externallyManaged := newHetznerCluster(namespace, "externally-managed", secretName, false)
+	externallyManaged.Annotations = map[string]string{clusterv1.ManagedByAnnotation: "other-controller"}
+
+	c := fakeclient.NewClientBuilder().
+		WithScheme(testScheme).
+		WithObjects(matchingA, matchingB, unrelated, deleting, crossNamespace, externallyManaged).
+		Build()
+
+	r := &HetznerClusterReconciler{Client: c}
+
+	got := r.hetznerSecretToHetznerClusters(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: namespace}})
+	require.ElementsMatch(t, []reconcile.Request{
+		{NamespacedName: client.ObjectKey{Namespace: namespace, Name: matchingA.Name}},
+		{NamespacedName: client.ObjectKey{Namespace: namespace, Name: matchingB.Name}},
+		{NamespacedName: client.ObjectKey{Namespace: namespace, Name: deleting.Name}},
+	}, got)
+
+	require.Empty(t, r.hetznerSecretToHetznerClusters(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "unreferenced", Namespace: namespace}}))
+}
+
+func TestHetznerSecretToHetznerClustersRespectsWatchFilter(t *testing.T) {
+	ctx := context.Background()
+
+	testScheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(testScheme))
+	utilruntime.Must(infrav2.AddToScheme(testScheme))
+
+	const (
+		namespace  = "default"
+		secretName = "hetzner"
+		filterFoo  = "foo"
+		filterBar  = "bar"
+	)
+
+	newHetznerCluster := func(name, referencedSecret, watchFilterLabel string) *infrav2.HetznerCluster {
+		cluster := &infrav2.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Spec: infrav2.HetznerClusterSpec{
+				HetznerSecret: infrav2.HetznerSecretRef{Name: referencedSecret},
+			},
+		}
+		if watchFilterLabel != "" {
+			cluster.Labels = map[string]string{clusterv1.WatchLabel: watchFilterLabel}
+		}
+		return cluster
+	}
+
+	ownedByFoo := newHetznerCluster("owned-by-foo", secretName, filterFoo)
+	ownedByBar := newHetznerCluster("owned-by-bar", secretName, filterBar)
+	unlabelled := newHetznerCluster("unlabelled", secretName, "")
+
+	c := fakeclient.NewClientBuilder().
+		WithScheme(testScheme).
+		WithObjects(ownedByFoo, ownedByBar, unlabelled).
+		Build()
+
+	fooReconciler := &HetznerClusterReconciler{Client: c, WatchFilterValue: filterFoo}
+	got := fooReconciler.hetznerSecretToHetznerClusters(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: namespace}})
+	require.ElementsMatch(t, []reconcile.Request{
+		{NamespacedName: client.ObjectKey{Namespace: namespace, Name: ownedByFoo.Name}},
+	}, got, "a reconciler with --watch-filter=foo must only enqueue HetznerClusters labelled foo")
+
+	emptyFilterReconciler := &HetznerClusterReconciler{Client: c, WatchFilterValue: ""}
+	got = emptyFilterReconciler.hetznerSecretToHetznerClusters(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretName, Namespace: namespace}})
+	require.ElementsMatch(t, []reconcile.Request{
+		{NamespacedName: client.ObjectKey{Namespace: namespace, Name: ownedByFoo.Name}},
+		{NamespacedName: client.ObjectKey{Namespace: namespace, Name: ownedByBar.Name}},
+		{NamespacedName: client.ObjectKey{Namespace: namespace, Name: unlabelled.Name}},
+	}, got, "an empty --watch-filter must still enqueue every matching HetznerCluster regardless of label")
 }
 
 func TestWorkloadClusterSecretNames(t *testing.T) {
@@ -713,6 +820,80 @@ func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing
 			require.Equal(t, "my-password", string(secret.Data["custom-robot-password"]))
 			require.Equal(t, "my-user", string(secret.Data["robot-user"]))
 			require.Equal(t, "my-password", string(secret.Data["robot-password"]))
+		}
+	}
+}
+
+func TestReconcileAllWorkloadClusterSecretsUpdatesRotatedCredentials(t *testing.T) {
+	ctx := context.Background()
+
+	testScheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(testScheme))
+	utilruntime.Must(infrav2.AddToScheme(testScheme))
+
+	hetznerCluster := &infrav2.HetznerCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "test-ns",
+			UID:       "test-cluster-uid",
+		},
+		Spec: getDefaultHetznerClusterSpec(),
+	}
+	hetznerCluster.Spec.HetznerSecret.Name = "hetzner"
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = "custom-robot-user"
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = "custom-robot-password"
+	hetznerCluster.Spec.HCloudNetwork.Enabled = false
+	hetznerCluster.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{
+		Host: "198.51.100.10",
+		Port: 6443,
+	}
+
+	mgtSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hetznerCluster.Spec.HetznerSecret.Name,
+			Namespace: hetznerCluster.Namespace,
+		},
+		Data: map[string][]byte{
+			"hcloud":                []byte("my-token"),
+			"custom-robot-user":     []byte("my-user"),
+			"custom-robot-password": []byte("my-password"),
+		},
+	}
+
+	mgtClient := fakeclient.NewClientBuilder().
+		WithScheme(testScheme).
+		WithObjects(hetznerCluster.DeepCopy(), mgtSecret.DeepCopy()).
+		Build()
+	wlClient := fakeclient.NewClientBuilder().
+		WithScheme(testScheme).
+		Build()
+
+	clusterScope := &scope.ClusterScope{
+		Logger:         klog.Background(),
+		Client:         mgtClient,
+		APIReader:      mgtClient,
+		HetznerCluster: hetznerCluster,
+	}
+
+	require.NoError(t, reconcileAllWorkloadClusterSecrets(ctx, clusterScope, wlClient))
+
+	require.NoError(t, mgtClient.Get(ctx, client.ObjectKeyFromObject(mgtSecret), mgtSecret))
+	mgtSecret.Data["hcloud"] = []byte("rotated-token")
+	mgtSecret.Data["custom-robot-user"] = []byte("rotated-user")
+	mgtSecret.Data["custom-robot-password"] = []byte("rotated-password")
+	require.NoError(t, mgtClient.Update(ctx, mgtSecret))
+	require.NoError(t, reconcileAllWorkloadClusterSecrets(ctx, clusterScope, wlClient))
+
+	for _, name := range []string{"hetzner", "hcloud"} {
+		secret := &corev1.Secret{}
+		require.NoError(t, wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: name}, secret))
+		require.Equal(t, "rotated-token", string(secret.Data["hcloud"]))
+		require.Equal(t, "rotated-user", string(secret.Data["custom-robot-user"]))
+		require.Equal(t, "rotated-password", string(secret.Data["custom-robot-password"]))
+		if name == "hcloud" {
+			require.Equal(t, "rotated-token", string(secret.Data["token"]))
+			require.Equal(t, "rotated-user", string(secret.Data["robot-user"]))
+			require.Equal(t, "rotated-password", string(secret.Data["robot-password"]))
 		}
 	}
 }
@@ -1050,6 +1231,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				By("making sure LoadBalancerReady condition is not set")
 				Expect(isAbsent(key, instance, infrav2.HetznerClusterLoadBalancerReadyCondition)).To(BeTrue())
+				Expect(deprecatedv1beta1conditions.Has(instance, infrav2.LoadBalancerReadyV1Beta1Condition)).To(BeFalse())
 			})
 
 			It("should take over an existing load balancer with correct name", func() {
@@ -1091,7 +1273,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					}
 					if c.Status == corev1.ConditionTrue {
 						GinkgoLogr.Info("LoadBalancerReadyCondition is True now")
-						return true
+						return conditions.IsTrue(instance, infrav2.HetznerClusterLoadBalancerReadyCondition)
 					}
 					GinkgoLogr.Info("LoadBalancerReadyCondition is not True yet.",
 						"reason", c.Reason,
@@ -1275,6 +1457,44 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 					return isPresentAndTrueDeprecatedV1Beta1(key, instance, infrav2.ControlPlaneEndpointSetV1Beta1Condition) &&
 						isPresentAndTrueWithReason(key, instance, infrav2.HetznerClusterControlPlaneEndpointSetCondition, infrav2.HetznerClusterControlPlaneEndpointSetReason)
+				}, timeout, time.Second).Should(BeTrue())
+			})
+
+			It("should run the target cluster manager step while the load balancer waits to enable proxy protocol", func() {
+				By("creating a load balancer whose kube-API service does not have proxy protocol yet")
+				lb, err := hcloudClient.CreateLoadBalancer(ctx, hcloud.LoadBalancerCreateOpts{
+					Name:             lbName,
+					Algorithm:        &hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeLeastConnections},
+					LoadBalancerType: &hcloud.LoadBalancerType{Name: "mytype"},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(hcloudClient.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
+					Protocol:        hcloud.LoadBalancerServiceProtocolTCP,
+					ListenPort:      ptr.To(6443),
+					DestinationPort: ptr.To(6443),
+					Proxyprotocol:   ptr.To(false),
+				})).To(Succeed())
+
+				By("creating a HetznerCluster that enables proxy protocol on this load balancer")
+				instance.Spec.ControlPlaneLoadBalancer.Name = &lbName
+				instance.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+				instance.Spec.ControlPlaneEndpoint = infrav2.APIEndpoint{
+					Host: "localhost",
+					Port: 6443,
+				}
+				Expect(testEnv.Create(ctx, instance)).To(Succeed())
+
+				By("checking that the load balancer step waits and asks for a requeue")
+				Eventually(func() bool {
+					return isPresentAndFalseWithReason(key, instance, infrav2.HetznerClusterLoadBalancerReadyCondition, infrav2.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason)
+				}, timeout, time.Second).Should(BeTrue())
+
+				By("checking that the target cluster manager step ran anyway")
+				// The target cluster manager step should set TargetClusterReady to False, because the
+				// kubeconfig secret does not exist.
+				Eventually(func() bool {
+					return isPresentAndFalseWithReason(key, instance, infrav2.HetznerClusterTargetClusterReadyCondition, infrav2.HetznerClusterTargetClusterCreationFailedReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 		})
@@ -1587,6 +1807,127 @@ var _ = Describe("Hetzner secret", func() {
 	)
 })
 
+var _ = Describe("Hetzner secret watch with a non-empty watch filter", func() {
+	It("reconciles Secret creation and credential rotation without a watch-filter label on the Secret", func() {
+		const watchFilterValue = "hetznercluster-secret-watch-filter-test"
+
+		// Move the suite's shared reconcilers to an unused namespace, so that only
+		// the manager configured below handles this test's objects.
+		_, finish, err := testEnv.ResetAndCreateNamespace(ctx, "watch-filter-unused")
+		defer finish()
+		Expect(err).NotTo(HaveOccurred())
+		testNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "watch-filter-secret-"}}
+		Expect(testEnv.Create(ctx, testNs)).To(Succeed())
+
+		// Prevent retries from masking whether Secret events trigger reconciliation.
+		originalSecretErrorRetryDelay := secretErrorRetryDelay
+		secretErrorRetryDelay = time.Hour
+		DeferCleanup(func() { secretErrorRetryDelay = originalSecretErrorRetryDelay })
+
+		mgr, err := ctrl.NewManager(testEnv.Config, ctrl.Options{
+			Scheme: testEnv.GetScheme(),
+			Cache: cache.Options{
+				DefaultNamespaces: map[string]cache.Config{testNs.Name: {}},
+				ByObject:          secretutil.AddSecretSelector(),
+			},
+			Metrics: metricsserver.Options{BindAddress: "0"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		filteredReconciler := &HetznerClusterReconciler{
+			Client:              mgr.GetClient(),
+			APIReader:           mgr.GetAPIReader(),
+			WatchFilterValue:    watchFilterValue,
+			Namespace:           testNs.Name,
+			HCloudClientFactory: testEnv.HCloudClientFactory,
+		}
+		Expect(filteredReconciler.SetupWithManager(ctx, mgr, controller.Options{
+			SkipNameValidation: ptr.To(true),
+			// Prevent error retries from masking the Secret event.
+			RateLimiter: workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](time.Hour, time.Hour),
+		})).To(Succeed())
+
+		hetznerSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "hetzner-secret",
+				Namespace: testNs.Name,
+			},
+		}
+
+		hetznerClusterName := utils.GenerateName(nil, "hetzner-cluster-test")
+		capiCluster := &clusterv1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test1-",
+				Namespace:    testNs.Name,
+				Finalizers:   []string{clusterv1.ClusterFinalizer},
+			},
+			Spec: clusterv1.ClusterSpec{
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav2.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
+				},
+			},
+		}
+		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+
+		hetznerCluster := &infrav2.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      hetznerClusterName,
+				Namespace: testNs.Name,
+				Labels:    map[string]string{clusterv1.WatchLabel: watchFilterValue},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: clusterv1.GroupVersion.String(),
+						Kind:       "Cluster",
+						Name:       capiCluster.Name,
+						UID:        capiCluster.UID,
+					},
+				},
+			},
+			Spec: getDefaultHetznerClusterSpec(),
+		}
+		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(testEnv.Cleanup(ctx, hetznerCluster, capiCluster, hetznerSecret)).To(Succeed())
+		})
+		managerCtx, cancelManager := context.WithCancel(ctx)
+		managerDone := make(chan error, 1)
+		go func() { managerDone <- mgr.Start(managerCtx) }()
+		DeferCleanup(func() {
+			cancelManager()
+			Eventually(managerDone, timeout).Should(Receive(Succeed()))
+		})
+		key := client.ObjectKeyFromObject(hetznerCluster)
+
+		By("establishing a stable baseline failure from the missing Secret, via the HetznerCluster's own (labelled) create event")
+		Eventually(func() bool {
+			return isPresentAndFalseWithReason(key, hetznerCluster, infrav2.HCloudTokenAvailableCondition, infrav2.HCloudTokenSecretUnreachableReason)
+		}, timeout, interval).Should(BeTrue())
+
+		By("creating the Secret without ever adding the watch-filter label")
+		// Add the label normally applied by AcquireSecret so the filtered cache can observe this
+		// event; retries are disabled, so no reconcile can add it first.
+		hetznerSecret.Labels = map[string]string{secretutil.LabelEnvironmentName: secretutil.LabelEnvironmentValue}
+		hetznerSecret.Data = map[string][]byte{"hcloud": []byte("")}
+		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+
+		By("expecting the HetznerCluster to be reconciled again as a result of that Secret event")
+		Eventually(func() bool {
+			return isPresentAndFalseWithReason(key, hetznerCluster, infrav2.HCloudTokenAvailableCondition, infrav2.HCloudTokenInvalidReason)
+		}, timeout, interval).Should(BeTrue())
+
+		By("updating the credential data on the existing Secret")
+		Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(hetznerSecret), hetznerSecret)).To(Succeed())
+		hetznerSecret.Data["hcloud"] = []byte("rotated-token")
+		Expect(testEnv.Update(ctx, hetznerSecret)).To(Succeed())
+
+		By("reconciling the rotated credentials before the error retry is due")
+		Eventually(func() bool {
+			return isPresentAndTrueWithReason(key, hetznerCluster, infrav2.HCloudTokenAvailableCondition, infrav2.HCloudTokenAvailableReason)
+		}, timeout, interval).Should(BeTrue())
+	})
+})
+
 var _ = Describe("HetznerCluster validation", func() {
 	var (
 		hetznerCluster *infrav2.HetznerCluster
@@ -1697,6 +2038,7 @@ var _ = Describe("reconcileRateLimit", func() {
 			LastTransitionTime: metav1.Now(),
 		})
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeTrue())
+		Expect(conditions.IsTrue(hetznerCluster, infrav2.HCloudRateLimitExceededCondition)).To(BeTrue())
 		Expect(deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeNil())
 	})
 
@@ -1712,55 +2054,6 @@ var _ = Describe("reconcileRateLimit", func() {
 		Expect(deprecatedv1beta1conditions.IsTrue(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeTrue())
 	})
 
-	It("returns wait==true if HCloudRateLimitExceeded condition is True and time is not over (v1beta2)", func() {
-		// A still-v1beta1 object is used to exercise the v1beta1 rate-limit helper.
-		// HetznerBareMetalMachine is one of the resources still on v1beta1 and carries the same staged
-		// v1beta2 conditions.
-		// TODO: remove this test once reconcileRateLimitV1Beta1 is gone (every resource on v1beta2, only
-		// reconcileRateLimit left).
-		bmMachine := &infrav1.HetznerBareMetalMachine{}
-		v1beta1conditions.MarkFalse(bmMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
-		v1beta2conditions.Set(bmMachine, metav1.Condition{
-			Type:               infrav1.HCloudRateLimitExceededV1Beta2Condition,
-			Status:             metav1.ConditionTrue,
-			Reason:             infrav1.HCloudRateLimitExceededV1Beta2Reason,
-			LastTransitionTime: metav1.Now(),
-		})
-		Expect(reconcileRateLimitV1Beta1(bmMachine, testEnv.RateLimitWaitTime)).To(BeTrue())
-		rateLimitCond := v1beta2conditions.Get(bmMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)
-		Expect(rateLimitCond).NotTo(BeNil())
-		Expect(rateLimitCond.Status).To(Equal(metav1.ConditionTrue))
-		Expect(rateLimitCond.Reason).To(Equal(infrav1.HCloudRateLimitExceededV1Beta2Reason))
-		reachable := v1beta1conditions.Get(bmMachine, infrav1.HetznerAPIReachableCondition)
-		Expect(reachable).NotTo(BeNil())
-		Expect(reachable.Status).To(Equal(corev1.ConditionFalse))
-	})
-
-	It("removes HCloudRateLimitExceeded condition and returns wait==false when wait time is over (v1beta2)", func() {
-		// A still-v1beta1 object is used to exercise the v1beta1 rate-limit helper.
-		// HetznerBareMetalMachine is one of the resources still on v1beta1 and carries the same staged
-		// v1beta2 conditions.
-		// TODO: remove this test once reconcileRateLimitV1Beta1 is gone (every resource on v1beta2, only
-		// reconcileRateLimit left).
-		bmMachine := &infrav1.HetznerBareMetalMachine{}
-		v1beta1conditions.MarkFalse(bmMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1beta1.ConditionSeverityWarning, "")
-		conditionList := bmMachine.GetConditions()
-		conditionList[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
-		v1beta2conditions.Set(bmMachine, metav1.Condition{
-			Type:               infrav1.HCloudRateLimitExceededV1Beta2Condition,
-			Status:             metav1.ConditionTrue,
-			Reason:             infrav1.HCloudRateLimitExceededV1Beta2Reason,
-			LastTransitionTime: metav1.NewTime(time.Now().Add(-time.Hour)),
-		})
-		Expect(reconcileRateLimitV1Beta1(bmMachine, testEnv.RateLimitWaitTime)).To(BeFalse())
-		// Condition must be deleted (not just set to False) so the next API call
-		// determines the real rate-limit status instead of assuming it is gone.
-		Expect(v1beta2conditions.Has(bmMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition)).To(BeFalse())
-		reachable := v1beta1conditions.Get(bmMachine, infrav1.HetznerAPIReachableCondition)
-		Expect(reachable).NotTo(BeNil())
-		Expect(reachable.Status).To(Equal(corev1.ConditionTrue))
-	})
-
 	It("returns wait==false if rate limit condition is present but not exceeded", func() {
 		conditions.Set(hetznerCluster, metav1.Condition{
 			Type:               infrav2.HCloudRateLimitExceededCondition,
@@ -1769,11 +2062,13 @@ var _ = Describe("reconcileRateLimit", func() {
 			LastTransitionTime: metav1.Now(),
 		})
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(conditions.IsFalse(hetznerCluster, infrav2.HCloudRateLimitExceededCondition)).To(BeTrue())
 		Expect(deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeNil())
 	})
 
 	It("returns wait==false if rate limit condition is not set", func() {
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(conditions.Has(hetznerCluster, infrav2.HCloudRateLimitExceededCondition)).To(BeFalse())
 		Expect(deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.HetznerAPIReachableV1Beta1Condition)).To(BeNil())
 	})
 
@@ -1895,6 +2190,11 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		condition := deprecatedv1beta1conditions.Get(hetznerCluster, infrav2.ControlPlaneEndpointSetV1Beta1Condition)
 		if condition.Status != corev1.ConditionFalse {
 			t.Fatalf("condition status should be false")
+		}
+
+		if !conditions.IsFalse(hetznerCluster, infrav2.HetznerClusterControlPlaneEndpointSetCondition) ||
+			conditions.GetReason(hetznerCluster, infrav2.HetznerClusterControlPlaneEndpointSetCondition) != infrav2.HetznerClusterControlPlaneEndpointNotSetReason {
+			t.Fatalf("ControlPlaneEndpointSet should be False with reason %s", infrav2.HetznerClusterControlPlaneEndpointNotSetReason)
 		}
 	})
 

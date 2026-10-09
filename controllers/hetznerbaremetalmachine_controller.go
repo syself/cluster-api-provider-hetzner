@@ -26,13 +26,13 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -42,7 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -57,6 +56,7 @@ type HetznerBareMetalMachineReconciler struct {
 	RateLimitWaitTime   time.Duration
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+	EventRecorder       record.EventRecorder
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -79,12 +79,12 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		return ctrl.Result{}, err
 	}
 	if skipReconciliation {
-		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav2.SkipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 
 	// Fetch the Hetzner bare metal instance.
-	hbmMachine := &infrav1.HetznerBareMetalMachine{}
+	hbmMachine := &infrav2.HetznerBareMetalMachine{}
 	err = r.Get(ctx, req.NamespacedName, hbmMachine)
 	if err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
@@ -93,10 +93,10 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hbmMachine))
 
 	if !hbmMachine.DeletionTimestamp.IsZero() {
-		v1beta2conditions.Set(hbmMachine, metav1.Condition{
-			Type:   infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
+		conditions.Set(hbmMachine, metav1.Condition{
+			Type:   infrav2.HetznerBareMetalMachineDeletingCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
+			Reason: infrav2.HetznerBareMetalMachineDeletingReason,
 		})
 	}
 
@@ -126,7 +126,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
 
-	hetznerCluster := &infrav1.HetznerCluster{}
+	hetznerCluster := &infrav2.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
 		Namespace: hbmMachine.Namespace,
@@ -141,9 +141,9 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
-	hcloudToken, err := getAndValidateHCloudTokenV1Beta1(ctx, req.Namespace, hetznerCluster, secretManager)
+	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResultV1Beta1(ctx, err, hbmMachine, r, infrav1.HetznerBareMetalMachineV1Beta2SummaryOpts())
+		return hcloudTokenErrorResult(ctx, err, hbmMachine, r, infrav2.HetznerBareMetalMachineSummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
@@ -157,6 +157,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		BareMetalMachine: hbmMachine,
 		HetznerCluster:   hetznerCluster,
 		HCloudClient:     hcc,
+		EventRecorder:    r.EventRecorder,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
@@ -165,23 +166,23 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	// Always close the scope when exiting this function so we can persist any HetznerBareMetalMachine changes.
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
-			v1beta1conditions.MarkFalse(hbmMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1beta1.ConditionSeverityError, "wrong hcloud token")
-			v1beta2conditions.Set(hbmMachine, metav1.Condition{
-				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
+			deprecatedv1beta1conditions.MarkFalse(hbmMachine, infrav2.HCloudTokenAvailableV1Beta1Condition, infrav2.HCloudCredentialsInvalidV1Beta1Reason, clusterv1.ConditionSeverityError, "wrong hcloud token")
+			conditions.Set(hbmMachine, metav1.Condition{
+				Type:    infrav2.HCloudTokenAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
+				Reason:  infrav2.HCloudTokenInvalidReason,
 				Message: "wrong hcloud token",
 			})
 		} else {
-			v1beta1conditions.MarkTrue(hbmMachine, infrav1.HCloudTokenAvailableCondition)
-			v1beta2conditions.Set(hbmMachine, metav1.Condition{
-				Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
+			deprecatedv1beta1conditions.MarkTrue(hbmMachine, infrav2.HCloudTokenAvailableV1Beta1Condition)
+			conditions.Set(hbmMachine, metav1.Condition{
+				Type:   infrav2.HCloudTokenAvailableCondition,
 				Status: metav1.ConditionTrue,
-				Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
+				Reason: infrav2.HCloudTokenAvailableReason,
 			})
 		}
 
-		v1beta1conditions.SetSummary(hbmMachine)
+		deprecatedv1beta1conditions.SetSummary(hbmMachine)
 
 		if err := machineScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
@@ -190,7 +191,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	}()
 
 	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimitV1Beta1(hbmMachine, r.RateLimitWaitTime); wait {
+	if wait := reconcileRateLimit(hbmMachine, r.RateLimitWaitTime); wait {
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -217,14 +218,14 @@ func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context,
 		return result, nil
 	}
 	// Machine is deleted so remove the finalizer.
-	controllerutil.RemoveFinalizer(machineScope.BareMetalMachine, infrav1.HetznerBareMetalMachineFinalizer)
+	controllerutil.RemoveFinalizer(machineScope.BareMetalMachine, infrav2.HetznerBareMetalMachineFinalizer)
 
 	return result, nil
 }
 
 func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context, machineScope *scope.BareMetalMachineScope) (reconcile.Result, error) {
 	// If the HetznerBareMetalMachine doesn't have our finalizer, add it.
-	controllerutil.AddFinalizer(machineScope.BareMetalMachine, infrav1.HetznerBareMetalMachineFinalizer)
+	controllerutil.AddFinalizer(machineScope.BareMetalMachine, infrav2.HetznerBareMetalMachineFinalizer)
 
 	// Register the finalizer immediately to avoid orphaning HetznerBareMetal resources on delete
 	if err := machineScope.PatchObject(ctx); err != nil {
@@ -245,20 +246,20 @@ func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context,
 func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r, &infrav1.HetznerBareMetalMachineList{}, mgr.GetScheme())
+	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r, &infrav2.HetznerBareMetalMachineList{}, mgr.GetScheme())
 	if err != nil {
 		return fmt.Errorf("failed to create mapper for Cluster to BareMetalMachines: %w", err)
 	}
 	err = ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
-		For(&infrav1.HetznerBareMetalMachine{}).
+		For(&infrav2.HetznerBareMetalMachine{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
 		Watches(
 			&clusterv1.Machine{},
-			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infrav1.GroupVersion.WithKind("HetznerBareMetalMachine"))),
+			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infrav2.GroupVersion.WithKind("HetznerBareMetalMachine"))),
 		).
 		Watches(
-			&infrav1.HetznerCluster{},
+			&infrav2.HetznerCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.HetznerClusterToBareMetalMachines(ctx, log)),
 		).
 		Watches(
@@ -279,6 +280,8 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 		return fmt.Errorf("error creating controller: %w", err)
 	}
 
+	r.EventRecorder = mgr.GetEventRecorderFor("hetznerbaremetalmachine-controller")
+
 	return nil
 }
 
@@ -288,7 +291,7 @@ func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ct
 	return func(_ context.Context, o client.Object) []reconcile.Request {
 		result := []reconcile.Request{}
 
-		c, ok := o.(*infrav1.HetznerCluster)
+		c, ok := o.(*infrav2.HetznerCluster)
 		if !ok {
 			log.Error(fmt.Errorf("expected a HetznerCluster but got a %T", o),
 				"failed to get BareMetalMachine for HetznerCluster")
@@ -397,7 +400,7 @@ func BareMetalHostToBareMetalMachines(c client.Client, log logr.Logger) handler.
 		}
 
 		// We have a free host. Trigger a matching HetznerBareMetalMachine to be reconciled.
-		hbmmList := infrav1.HetznerBareMetalMachineList{}
+		hbmmList := infrav2.HetznerBareMetalMachineList{}
 		err := c.List(ctx, &hbmmList, client.InNamespace(host.Namespace))
 		if err != nil {
 			log.Error(err, "failed to list HetznerBareMetalMachines")

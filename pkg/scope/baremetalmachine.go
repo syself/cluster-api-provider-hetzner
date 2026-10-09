@@ -21,17 +21,17 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	"k8s.io/client-go/tools/record"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
-	"sigs.k8s.io/cluster-api/util/record"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
@@ -41,9 +41,10 @@ type BareMetalMachineScopeParams struct {
 	Client           client.Client
 	Cluster          *clusterv1.Cluster
 	Machine          *clusterv1.Machine
-	BareMetalMachine *infrav1.HetznerBareMetalMachine
-	HetznerCluster   *infrav1.HetznerCluster
+	BareMetalMachine *infrav2.HetznerBareMetalMachine
+	HetznerCluster   *infrav2.HetznerCluster
 	HCloudClient     hcloudclient.Client
+	EventRecorder    record.EventRecorder
 }
 
 // NewBareMetalMachineScope creates a new Scope from the supplied parameters.
@@ -51,6 +52,9 @@ type BareMetalMachineScopeParams struct {
 func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMachineScope, error) {
 	if params.Client == nil {
 		return nil, fmt.Errorf("cannot create baremetal machine scope without client")
+	}
+	if params.EventRecorder == nil {
+		return nil, fmt.Errorf("cannot create baremetal machine scope without EventRecorder")
 	}
 	if params.Cluster == nil {
 		return nil, fmt.Errorf("failed to generate new scope from nil Cluster")
@@ -73,7 +77,7 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 		return nil, fmt.Errorf("failed to generate new scope from nil Logger")
 	}
 
-	patchHelper, err := v1beta1patch.NewHelper(params.BareMetalMachine, params.Client)
+	patchHelper, err := patch.NewHelper(params.BareMetalMachine, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
@@ -87,6 +91,7 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 		BareMetalMachine: params.BareMetalMachine,
 		HetznerCluster:   params.HetznerCluster,
 		HCloudClient:     params.HCloudClient,
+		EventRecorder:    params.EventRecorder,
 	}, nil
 }
 
@@ -94,66 +99,67 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 type BareMetalMachineScope struct {
 	logr.Logger
 	Client           client.Client
-	patchHelper      *v1beta1patch.Helper
+	patchHelper      *patch.Helper
 	Cluster          *clusterv1.Cluster
 	Machine          *clusterv1.Machine
-	BareMetalMachine *infrav1.HetznerBareMetalMachine
-	HetznerCluster   *infrav1.HetznerCluster
+	BareMetalMachine *infrav2.HetznerBareMetalMachine
+	HetznerCluster   *infrav2.HetznerCluster
 
-	HCloudClient hcloudclient.Client
+	HCloudClient  hcloudclient.Client
+	EventRecorder record.EventRecorder
 }
 
 // Close closes the current scope persisting the machine configuration and status.
 func (m *BareMetalMachineScope) Close(ctx context.Context) error {
-	v1beta1conditions.SetSummary(m.BareMetalMachine)
-	SetHetznerBareMetalMachineV1Beta2ReadySummary(m.BareMetalMachine)
+	deprecatedv1beta1conditions.SetSummary(m.BareMetalMachine)
+	SetHetznerBareMetalMachineReadySummary(m.BareMetalMachine)
 
 	return m.patchHelper.Patch(ctx, m.BareMetalMachine, bareMetalMachinePatchOpts()...)
 }
 
-// SetHetznerBareMetalMachineV1Beta2ReadySummary computes and sets the Ready v1beta2 summary
-// condition on the HetznerBareMetalMachine. It is the single source of truth for computing
-// the summary and is called from both BareMetalMachineScope.Close() and controller early-exit
-// paths that bypass the scope (e.g. token validation failures).
+// SetHetznerBareMetalMachineReadySummary computes and sets the Ready summary condition on the
+// HetznerBareMetalMachine.
 //
-// If the summary cannot be computed, Ready is set to Unknown with InternalError reason so the
-// summary is never silently omitted.
-func SetHetznerBareMetalMachineV1Beta2ReadySummary(hbmm *infrav1.HetznerBareMetalMachine) {
-	readyCondition, err := v1beta2conditions.NewSummaryCondition(
-		hbmm, clusterv1beta1.ReadyV1Beta2Condition,
-		infrav1.HetznerBareMetalMachineV1Beta2SummaryOpts()...,
+// If the summary cannot be computed, Ready is set to Unknown with the InternalError reason and the
+// error message.
+func SetHetznerBareMetalMachineReadySummary(hbmm *infrav2.HetznerBareMetalMachine) {
+	readyCondition, err := conditions.NewSummaryCondition(
+		hbmm, clusterv1.ReadyCondition,
+		infrav2.HetznerBareMetalMachineSummaryOpts()...,
 	)
 	if err != nil {
-		v1beta2conditions.Set(hbmm, metav1.Condition{
-			Type:    clusterv1beta1.ReadyV1Beta2Condition,
+		conditions.Set(hbmm, metav1.Condition{
+			Type:    clusterv1.ReadyCondition,
 			Status:  metav1.ConditionUnknown,
-			Reason:  infrav1.InternalErrorV1Beta2Reason,
+			Reason:  clusterv1.InternalErrorReason,
 			Message: err.Error(),
 		})
 		return
 	}
-	v1beta2conditions.Set(hbmm, *readyCondition)
+	conditions.Set(hbmm, *readyCondition)
 }
 
-func bareMetalMachinePatchOpts() []v1beta1patch.Option {
-	return []v1beta1patch.Option{
-		v1beta1patch.WithOwnedConditions{Conditions: []clusterv1beta1.ConditionType{
-			clusterv1beta1.ReadyCondition,
-			infrav1.BootstrapReadyCondition,
-			infrav1.HCloudTokenAvailableCondition,
-			infrav1.HetznerAPIReachableCondition,
-			infrav1.HostAssociateSucceededCondition,
-			infrav1.HostReadyCondition,
-			infrav1.ServerAvailableCondition,
+func bareMetalMachinePatchOpts() []patch.Option {
+	return []patch.Option{
+		// owned deprecated v1beta1 conditions.
+		patch.WithOwnedV1Beta1Conditions{Conditions: []clusterv1.ConditionType{
+			clusterv1.ReadyV1Beta1Condition,
+			infrav2.BootstrapReadyV1Beta1Condition,
+			infrav2.HCloudTokenAvailableV1Beta1Condition,
+			infrav2.HetznerAPIReachableV1Beta1Condition,
+			infrav2.HostAssociateSucceededV1Beta1Condition,
+			infrav2.HostReadyV1Beta1Condition,
+			infrav2.ServerAvailableV1Beta1Condition,
 		}},
-		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
-			clusterv1beta1.ReadyV1Beta2Condition,
-			infrav1.HCloudTokenAvailableV1Beta2Condition,
-			infrav1.HCloudRateLimitExceededV1Beta2Condition,
-			infrav1.HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
-			infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
-			infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
-			infrav1.HetznerBareMetalMachineServerAvailableV1Beta2Condition,
+		// owned conditions.
+		patch.WithOwnedConditions{Conditions: []string{
+			clusterv1.ReadyCondition,
+			infrav2.HCloudTokenAvailableCondition,
+			infrav2.HCloudRateLimitExceededCondition,
+			infrav2.HetznerBareMetalMachineHostAssociatedCondition,
+			infrav2.HetznerBareMetalMachineDeletingCondition,
+			infrav2.HetznerBareMetalMachineHostReadyCondition,
+			infrav2.HetznerBareMetalMachineServerAvailableCondition,
 		}},
 	}
 }
@@ -169,7 +175,7 @@ func (m *BareMetalMachineScope) Namespace() string {
 }
 
 // PatchObject persists the machine spec and status.
-func (m *BareMetalMachineScope) PatchObject(ctx context.Context, opts ...v1beta1patch.Option) error {
+func (m *BareMetalMachineScope) PatchObject(ctx context.Context, opts ...patch.Option) error {
 	allOpts := append(bareMetalMachinePatchOpts(), opts...)
 	return m.patchHelper.Patch(ctx, m.BareMetalMachine, allOpts...)
 }
@@ -208,6 +214,12 @@ func (m *BareMetalMachineScope) SetRemediateMachineAnnotationToDeleteMachine(ctx
 		return err
 	}
 
-	record.Warnf(m.BareMetalMachine, "MachineWillBeDeleted", "Machine will be deleted: %s", message)
+	m.EventRecorder.Eventf(
+		m.BareMetalMachine,
+		corev1.EventTypeWarning,
+		"MachineWillBeDeleted",
+		"Machine will be deleted: %s",
+		message,
+	)
 	return nil
 }

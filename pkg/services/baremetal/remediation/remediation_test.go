@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
@@ -36,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 )
@@ -129,7 +129,6 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 	// used up and the node is still unhealthy, so handlePhaseWaiting decides whether
 	// to reuse or retire the host.
 	scheme := runtime.NewScheme()
-	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(infrav2.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
@@ -204,6 +203,7 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 				Client:               c,
 				Machine:              machine,
 				BareMetalRemediation: remediation,
+				EventRecorder:        record.NewFakeRecorder(10),
 			}}
 
 			// handlePhaseWaiting decides the node is healthy by checking the MachineNodeHealthy
@@ -220,7 +220,7 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			updatedHost := &infrav2.HetznerBareMetalHost{}
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost)).To(Succeed())
 			if tc.expectHostPermanentError {
-				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.PermanentError))
+				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.ErrorTypePermanent))
 				// The retire reason is recorded on the ActionCompleted condition. Its wording
 				// differs for 0 reboots (retryLimit 0) versus one or more failed reboots, and
 				// SetError appends the annotation an operator has to remove.
@@ -291,7 +291,6 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 	// missing Node: reboot is skipped, but OnExhaustion must still decide Reuse vs Retire,
 	// same as the exhausted-retries path in handlePhaseWaiting above.
 	scheme := runtime.NewScheme()
-	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(infrav2.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
@@ -322,7 +321,7 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 				},
 			}
 
-			bareMetalMachine := &infrav1.HetznerBareMetalMachine{
+			bareMetalMachine := &infrav2.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-bm-machine",
 					Namespace: "default",
@@ -366,6 +365,7 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 				Machine:              machine,
 				BareMetalMachine:     bareMetalMachine,
 				BareMetalRemediation: remediation,
+				EventRecorder:        record.NewFakeRecorder(10),
 			}}
 
 			res, err := service.Reconcile(ctx)
@@ -379,7 +379,7 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 			updatedHost := &infrav2.HetznerBareMetalHost{}
 			Expect(c.Get(ctx, client.ObjectKeyFromObject(host), updatedHost)).To(Succeed())
 			if tc.expectHostPermanentError {
-				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.PermanentError))
+				Expect(updatedHost.Status.ErrorType).To(Equal(infrav2.ErrorTypePermanent))
 				Expect(updatedHost.Annotations).To(HaveKey(infrav2.PermanentErrorAnnotation))
 
 				// retireHost passes the MachineHealthCheck message on, and SetError appends the
