@@ -119,22 +119,28 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
 
-	// Fetch the Machine.
+	// Fetch the CAPI Machine. It is nil if the owner reference is not set yet, or if
+	// the CAPI Machine does not exist anymore.
 	machine, err := util.GetOwnerMachine(ctx, r, hcloudMachine.ObjectMeta)
-	if err != nil {
-		return reconcile.Result{}, client.IgnoreNotFound(err)
+	if client.IgnoreNotFound(err) != nil {
+		return reconcile.Result{}, err
 	}
 	if machine == nil {
-		log.Info("Machine Controller has not yet set OwnerRef")
-		return reconcile.Result{}, nil
+		if hcloudMachine.DeletionTimestamp.IsZero() {
+			log.Info("HCloudMachine has no owner CAPI Machine")
+			return reconcile.Result{}, nil
+		}
+		// Continue without the CAPI Machine, so that we delete the server and remove the
+		// finalizer.
+		log.Info("HCloudMachine has no owner CAPI Machine, continuing to delete it")
 	}
 
 	log = log.WithValues("Machine", klog.KObj(machine))
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r, machine.ObjectMeta)
+	cluster, err := util.GetClusterFromMetadata(ctx, r, hcloudMachine.ObjectMeta)
 	if err != nil {
-		log.Info("Machine is missing cluster label or cluster does not exist")
+		log.Info("HCloudMachine is missing cluster label or cluster does not exist")
 		return reconcile.Result{}, nil
 	}
 
@@ -488,8 +494,8 @@ func (r *HCloudMachineReconciler) HetznerSecretToHCloudMachines(_ context.Contex
 	}
 }
 
-// IgnoreInsignificantSecretUpdates is a predicate that only fires when the Secret's Data
-// actually changes, so HCloudMachines do not reconcile for ManagedFields or metadata-only
+// IgnoreInsignificantSecretUpdates is a predicate that fires on updates only when the Secret's
+// Data actually changes, so controllers do not reconcile for ManagedFields or metadata-only
 // Secret updates.
 func IgnoreInsignificantSecretUpdates(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
@@ -505,7 +511,7 @@ func IgnoreInsignificantSecretUpdates(logger logr.Logger) predicate.Funcs {
 			if reflect.DeepEqual(oldSecret.Data, newSecret.Data) {
 				return false
 			}
-			logger.V(1).Info("Secret data changed, will enqueue HCloudMachines",
+			logger.V(1).Info("Secret data changed",
 				"namespace", newSecret.GetNamespace(), "name", newSecret.GetName())
 			return true
 		},
