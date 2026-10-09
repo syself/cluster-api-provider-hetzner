@@ -4,6 +4,7 @@ package mocks
 
 import (
 	context "context"
+	time "time"
 
 	mock "github.com/stretchr/testify/mock"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -1223,6 +1224,62 @@ func (_c *Client_GetResultOfInstallImage_Call) Return(_a0 string, _a1 error) *Cl
 }
 
 func (_c *Client_GetResultOfInstallImage_Call) RunAndReturn(run func(context.Context) (string, error)) *Client_GetResultOfInstallImage_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetUptime provides a mock function with given fields: ctx
+func (_m *Client) GetUptime(ctx context.Context) (time.Duration, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUptime")
+	}
+
+	var r0 time.Duration
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (time.Duration, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) time.Duration); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Client_GetUptime_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUptime'
+type Client_GetUptime_Call struct {
+	*mock.Call
+}
+
+// GetUptime is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *Client_Expecter) GetUptime(ctx interface{}) *Client_GetUptime_Call {
+	return &Client_GetUptime_Call{Call: _e.mock.On("GetUptime", ctx)}
+}
+
+func (_c *Client_GetUptime_Call) Run(run func(ctx context.Context)) *Client_GetUptime_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Client_GetUptime_Call) Return(_a0 time.Duration, _a1 error) *Client_GetUptime_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_GetUptime_Call) RunAndReturn(run func(context.Context) (time.Duration, error)) *Client_GetUptime_Call {
 	_c.Call.Return(run)
 	return _c
 }
