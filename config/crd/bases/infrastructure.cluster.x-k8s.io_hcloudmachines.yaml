@@ -558,8 +558,8 @@ spec:
 
                   N is a number, and V is the version of this machine type. Example: cpx32.
 
-                  The list of valid machine types gets changed by Hetzner from time to time. CAPH no longer
-                  validates this string. It is up to you to use a valid type. Not all types are available in all
+                  The list of valid machine types gets changed by Hetzner from time to time. CAPH does not
+                  validate this string. It is up to you to use a valid type. Not all types are available in all
                   locations.
                 type: string
             required:
@@ -607,7 +607,7 @@ spec:
               conditions:
                 description: |-
                   conditions represents the observations of an HCloudMachine's current state.
-                  Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded, ServerCreated, ServerProvisioned and ServerAvailable.
+                  Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded, ServerCreated, SSHPrivateKeyAvailable, ServerProvisioned and ServerAvailable.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

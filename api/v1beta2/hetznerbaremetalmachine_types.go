@@ -347,7 +347,7 @@ type LVMDefinition struct {
 // HetznerBareMetalMachineStatus defines the observed state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineStatus struct {
 	// conditions represents the observations of a HetznerBareMetalMachine's current state.
-	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady and ServerAvailable.
+	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady, ServerAvailable and Deleting.
 	// +optional
 	// +listType=map
 	// +listMapKey=type
@@ -366,7 +366,7 @@ type HetznerBareMetalMachineStatus struct {
 	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
 
 	// Phase represents the current phase of HetznerBareMetalMachineStatus actuation.
-	// E.g. Pending, Running, Terminating, Failed, etc.
+	// One of Pending, Provisioning, Running, Deleting or Deleted.
 	// +optional
 	Phase clusterv1.MachinePhase `json:"phase,omitempty"`
 
