@@ -160,12 +160,12 @@ spec:
       jsonPath: .spec.strategy.retryLimit
       name: Retry limit
       priority: 1
-      type: string
+      type: integer
     - description: Timeout for the remediation
       jsonPath: .spec.strategy.timeoutSeconds
       name: Timeout
       priority: 1
-      type: string
+      type: integer
     - description: Timestamp of the last remediation attempt
       jsonPath: .status.lastRemediated
       name: Last Remediated
@@ -176,7 +176,7 @@ spec:
       jsonPath: .status.retryCount
       name: Retry count
       priority: 1
-      type: string
+      type: integer
     name: v1beta2
     schema:
       openAPIV3Schema:

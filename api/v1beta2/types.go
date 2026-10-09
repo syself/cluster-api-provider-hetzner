@@ -26,10 +26,11 @@ type LoadBalancerAlgorithmType string
 
 const (
 
-	// LoadBalancerAlgorithmTypeRoundRobin default for the Kubernetes Api Server load balancer.
+	// LoadBalancerAlgorithmTypeRoundRobin sends requests to the targets in turn. It is the default for the
+	// control plane load balancer.
 	LoadBalancerAlgorithmTypeRoundRobin = LoadBalancerAlgorithmType("round_robin")
 
-	// LoadBalancerAlgorithmTypeLeastConnections default for load balancer.
+	// LoadBalancerAlgorithmTypeLeastConnections sends requests to the target with the fewest open connections.
 	LoadBalancerAlgorithmTypeLeastConnections = LoadBalancerAlgorithmType("least_connections")
 )
 
@@ -39,10 +40,10 @@ type LoadBalancerTargetType string
 
 const (
 
-	// LoadBalancerTargetTypeServer default for the Kubernetes Api Server load balancer.
+	// LoadBalancerTargetTypeServer adds an HCloud server as a load balancer target.
 	LoadBalancerTargetTypeServer = LoadBalancerTargetType("server")
 
-	// LoadBalancerTargetTypeIP default for load balancer.
+	// LoadBalancerTargetTypeIP adds an IP address as a load balancer target. CAPH uses it for bare metal servers.
 	LoadBalancerTargetTypeIP = LoadBalancerTargetType("ip")
 )
 
@@ -146,12 +147,10 @@ type HetznerSecretRef struct {
 	Name string `json:"name"`
 
 	// key defines the keys that are used in the secret.
-	// Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
 	Key HetznerSecretKeyRef `json:"key"`
 }
 
 // HetznerSecretKeyRef defines the key name of the HetznerSecret.
-// Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
 type HetznerSecretKeyRef struct {
 	// hcloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
 	// The controller reads the token from the management-cluster secret using this key and writes
@@ -160,9 +159,10 @@ type HetznerSecretKeyRef struct {
 	// secret remains untouched. CAPH only adds the compatibility key "token" inside the
 	// workload-cluster secret named "hcloud", and only if this field is not already "token". If
 	// the configured secret name is already "hcloud", the same token value is stored under both
-	// keys in that single secret. We recommend to use "token".
+	// keys in that single secret. It defaults to "token".
 	//
-	// +optional +kubebuilder:default=hcloud-token
+	// +optional
+	// +kubebuilder:default=token
 	HCloudToken string `json:"hcloudToken"`
 
 	// hetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
@@ -215,7 +215,7 @@ type LoadBalancerSpec struct {
 	// +optional
 	Name *string `json:"name,omitempty"`
 
-	// algorithm defines the type of load balancer algorithm. It could be round_robin or least_connection. The default value is "round_robin".
+	// algorithm defines the type of load balancer algorithm. It could be round_robin or least_connections. The default value is "round_robin".
 	// +optional
 	// +kubebuilder:validation:Enum=round_robin;least_connections
 	// +kubebuilder:default=round_robin
@@ -476,7 +476,7 @@ type HCloudNetworkSpec struct {
 	SubnetCIDRBlock string `json:"subnetCidrBlock,omitempty"`
 
 	// networkZone specifies the HCloud network zone of the private network.
-	// The zones must be one of eu-central, us-east, or us-west. The default is eu-central.
+	// The zones must be one of eu-central, us-east, us-west or ap-southeast. The default is eu-central.
 	// +kubebuilder:validation:Enum=eu-central;us-east;us-west;ap-southeast
 	// +kubebuilder:default=eu-central
 	// +optional
@@ -485,8 +485,7 @@ type HCloudNetworkSpec struct {
 
 // NetworkStatus defines the observed state of the HCloud Private Network.
 type NetworkStatus struct {
-	ID     int64             `json:"id,omitempty"`
-	Labels map[string]string `json:"-"`
+	ID int64 `json:"id,omitempty"`
 	// +optional
 	// +listType=set
 	AttachedServers []int64 `json:"attachedServers,omitempty"`
@@ -498,17 +497,6 @@ type Region string
 
 // HCloudNetworkZone describes the Network zone.
 type HCloudNetworkZone string
-
-// IsZero returns true if a private Network is set.
-func (s *HCloudNetworkSpec) IsZero() bool {
-	if s.CIDRBlock != "" {
-		return false
-	}
-	if s.SubnetCIDRBlock != "" {
-		return false
-	}
-	return true
-}
 
 // HCloudBootState defines the boot state of an HCloud server.
 type HCloudBootState string

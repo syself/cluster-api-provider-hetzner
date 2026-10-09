@@ -157,11 +157,11 @@ spec:
         the host
       jsonPath: .spec.template.spec.strategy.retryLimit
       name: Retry limit
-      type: string
+      type: integer
     - description: Timeout for the remediation
       jsonPath: .spec.template.spec.strategy.timeoutSeconds
       name: Timeout
-      type: string
+      type: integer
     name: v1beta2
     schema:
       openAPIV3Schema:

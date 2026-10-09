@@ -269,7 +269,7 @@ spec:
       jsonPath: .spec.strategy.timeoutSeconds
       name: Timeout
       priority: 1
-      type: string
+      type: integer
     - description: Timestamp of the last remediation attempt
       jsonPath: .status.lastRemediated
       name: Last Remediated
@@ -280,13 +280,13 @@ spec:
       jsonPath: .status.retryCount
       name: Retry count
       priority: 1
-      type: string
+      type: integer
     - description: How many times remediation controller should attempt to remediate
         the node
       jsonPath: .spec.strategy.retryLimit
       name: Retry limit
       priority: 1
-      type: string
+      type: integer
     name: v1beta2
     schema:
       openAPIV3Schema:
@@ -353,7 +353,7 @@ spec:
               conditions:
                 description: |-
                   conditions represents the observations of a HCloudRemediation's current state.
-                  Known condition types are Ready, HCloudTokenAvailable and HCloudRateLimitExceeded.
+                  Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded and RemediationSkipped.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -493,7 +493,7 @@ spec:
               phase:
                 description: |-
                   phase represents the current phase of machine remediation.
-                  E.g. Pending, Running, Done etc.
+                  One of Running, Waiting, Deleting machine or Succeeded.
                 type: string
               retryCount:
                 description: |-

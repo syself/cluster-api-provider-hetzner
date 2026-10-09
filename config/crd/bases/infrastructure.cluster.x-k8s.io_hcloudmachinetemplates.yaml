@@ -397,7 +397,7 @@ spec:
             properties:
               template:
                 description: HCloudMachineTemplateResource describes the data needed
-                  to create am HCloudMachine from a template.
+                  to create an HCloudMachine from a template.
                 properties:
                   metadata:
                     description: metadata is the standard object's metadata.
@@ -524,8 +524,8 @@ spec:
 
                           N is a number, and V is the version of this machine type. Example: cpx32.
 
-                          The list of valid machine types gets changed by Hetzner from time to time. CAPH no longer
-                          validates this string. It is up to you to use a valid type. Not all types are available in all
+                          The list of valid machine types gets changed by Hetzner from time to time. CAPH does not
+                          validate this string. It is up to you to use a valid type. Not all types are available in all
                           locations.
                         type: string
                     required:

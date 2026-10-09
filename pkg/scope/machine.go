@@ -237,11 +237,10 @@ func machinePatchOpts() []patch.Option {
 	}
 }
 
-// SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
-// CAPI machine. CAPI will remediate that machine. Additionally, an event of type Warning will be
-// created, and the DeleteMachineSucceededCondition will be set to False on the hcloud-machine. It
-// gets used, when a not-recoverable error happens. Example: hcloud server was deleted by hand in
-// the hcloud UI.
+// SetErrorAndRemediate sets the "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
+// CAPI Machine, so that CAPI remediates it. See SetRemediateMachineAnnotationToDeleteMachine. It gets
+// used when an error happens that CAPH cannot recover from. Example: the hcloud server was deleted by
+// hand in the hcloud UI.
 func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
 	return m.SetRemediateMachineAnnotationToDeleteMachine(ctx, message)
 }
@@ -265,7 +264,7 @@ func (m *MachineScope) SetRemediateMachineAnnotationToDeleteMachine(ctx context.
 
 	// Apply patch – only the diff (annotations) is sent to the API server
 	if err := m.Client.Patch(ctx, m.Machine, patch); err != nil {
-		return fmt.Errorf("patch failed in SetErrorAndRemediate: %w", err)
+		return fmt.Errorf("patch failed in SetRemediateMachineAnnotationToDeleteMachine: %w", err)
 	}
 
 	m.EventRecorder.Eventf(

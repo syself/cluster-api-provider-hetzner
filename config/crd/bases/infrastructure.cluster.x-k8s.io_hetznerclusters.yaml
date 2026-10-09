@@ -763,7 +763,7 @@ spec:
       name: Age
       type: date
     - description: API Endpoint
-      jsonPath: .spec.controlPlaneEndpoint
+      jsonPath: .spec.controlPlaneEndpoint.host
       name: Endpoint
       priority: 1
       type: string
@@ -841,7 +841,7 @@ spec:
                       - least_connections
                     default: round_robin
                     description: algorithm defines the type of load balancer algorithm.
-                      It could be round_robin or least_connection. The default value
+                      It could be round_robin or least_connections. The default value
                       is "round_robin".
                     type: string
                   enableProxyProtocol:
@@ -1093,7 +1093,7 @@ spec:
                     default: eu-central
                     description: |-
                       networkZone specifies the HCloud network zone of the private network.
-                      The zones must be one of eu-central, us-east, or us-west. The default is eu-central.
+                      The zones must be one of eu-central, us-east, us-west or ap-southeast. The default is eu-central.
                     enum:
                     - eu-central
                     - us-east
@@ -1134,11 +1134,10 @@ spec:
                   This is generated in the security section under API TOKENS. Read & write is necessary.
                 properties:
                   key:
-                    description: |-
-                      key defines the keys that are used in the secret.
-                      Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
+                    description: key defines the keys that are used in the secret.
                     properties:
                       hcloudToken:
+                        default: token
                         description: |-
                           hcloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
                           The controller reads the token from the management-cluster secret using this key and writes
@@ -1147,7 +1146,7 @@ spec:
                           secret remains untouched. CAPH only adds the compatibility key "token" inside the
                           workload-cluster secret named "hcloud", and only if this field is not already "token". If
                           the configured secret name is already "hcloud", the same token value is stored under both
-                          keys in that single secret. We recommend to use "token".
+                          keys in that single secret. It defaults to "token".
                         type: string
                       hetznerRobotPassword:
                         default: hetzner-robot-password
@@ -1171,8 +1170,6 @@ spec:
                           sshKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
                           to the wl-cluster.
                         type: string
-                    required:
-                    - hcloudToken
                     type: object
                   name:
                     default: hetzner
@@ -1200,7 +1197,7 @@ spec:
                   skipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be
                   created in the workload cluster. By default the secret gets created, so that the ccm (running
                   in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
-                  wl-cluster, you can set this to value to false, so that the secret is not created. Be sure to
+                  wl-cluster, you can set this to true, so that the secret is not created. Be sure to
                   run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
                 type: boolean
               sshKeys:
