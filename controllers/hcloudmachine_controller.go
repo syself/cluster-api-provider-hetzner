@@ -494,8 +494,8 @@ func (r *HCloudMachineReconciler) HetznerSecretToHCloudMachines(_ context.Contex
 	}
 }
 
-// IgnoreInsignificantSecretUpdates is a predicate that only fires when the Secret's Data
-// actually changes, so HCloudMachines do not reconcile for ManagedFields or metadata-only
+// IgnoreInsignificantSecretUpdates is a predicate that fires on updates only when the Secret's
+// Data actually changes, so controllers do not reconcile for ManagedFields or metadata-only
 // Secret updates.
 func IgnoreInsignificantSecretUpdates(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
@@ -511,7 +511,7 @@ func IgnoreInsignificantSecretUpdates(logger logr.Logger) predicate.Funcs {
 			if reflect.DeepEqual(oldSecret.Data, newSecret.Data) {
 				return false
 			}
-			logger.V(1).Info("Secret data changed, will enqueue HCloudMachines",
+			logger.V(1).Info("Secret data changed",
 				"namespace", newSecret.GetNamespace(), "name", newSecret.GetName())
 			return true
 		},
