@@ -14,15 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package imageurlcommand contains shared logic for the image-url-command protocol.
-package imageurlcommand
+// Package customprovisioner contains shared logic for the custom provisioner protocol.
+package customprovisioner
 
 import (
 	"encoding/json"
 	"fmt"
 )
 
-// Output is the format of /root/output.json written by the image-url-command binary. Written
+// Output is the format of /root/output.json written by the custom provisioner command. Written
 // continuously during execution; presence and content are optional from CAPH's perspective. On
 // completion (success or failure) CAPH writes the full JSON to the controller log at key
 // "outputJSON". CAPH reads only the top level field "message" to write it to the corresponding
