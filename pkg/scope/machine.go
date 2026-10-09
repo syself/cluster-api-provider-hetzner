@@ -32,7 +32,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	"sigs.k8s.io/cluster-api/util"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -46,14 +45,20 @@ import (
 
 // MachineScopeParams defines the input parameters used to create a new Scope.
 type MachineScopeParams struct {
-	Client           client.Client
-	APIReader        client.Reader
-	Logger           logr.Logger
-	HetznerSecret    *corev1.Secret
-	HCloudClient     hcloudclient.Client
-	Cluster          *clusterv1.Cluster
-	HetznerCluster   *infrav2.HetznerCluster
-	Machine          *clusterv1.Machine
+	Client         client.Client
+	APIReader      client.Reader
+	Logger         logr.Logger
+	HetznerSecret  *corev1.Secret
+	HCloudClient   hcloudclient.Client
+	Cluster        *clusterv1.Cluster
+	HetznerCluster *infrav2.HetznerCluster
+
+	// Machine is the CAPI Machine that owns the HCloudMachine. It is nil only if the
+	// HCloudMachine is being deleted and has no owner CAPI Machine, for example after the
+	// CAPI Machine was force deleted. Only the code that deletes the HCloudMachine has to
+	// handle a nil Machine.
+	Machine *clusterv1.Machine
+
 	HCloudMachine    *infrav2.HCloudMachine
 	SSHClientFactory sshclient.Factory
 	EventRecorder    record.EventRecorder
@@ -75,11 +80,11 @@ var (
 // NewMachineScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
 func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
-	if params.Machine == nil {
-		return nil, errors.New("failed to generate new scope from nil Machine")
-	}
 	if params.HCloudMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudMachine")
+	}
+	if params.Machine == nil && params.HCloudMachine.DeletionTimestamp.IsZero() {
+		return nil, errors.New("failed to generate new scope from nil Machine")
 	}
 	if params.Cluster == nil {
 		return nil, errors.New("failed to generate new scope from nil Cluster")
@@ -138,7 +143,10 @@ type MachineScope struct {
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav2.HetznerCluster
 
-	Machine          *clusterv1.Machine
+	// Machine is the CAPI Machine that owns the HCloudMachine. See
+	// MachineScopeParams.Machine for when it is nil.
+	Machine *clusterv1.Machine
+
 	HCloudMachine    *infrav2.HCloudMachine
 	SSHClientFactory sshclient.Factory
 	EventRecorder    record.EventRecorder
@@ -176,9 +184,10 @@ func (m *MachineScope) Close(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
 }
 
-// IsControlPlane returns true if the machine is a control plane.
+// IsControlPlane returns true if the HCloudMachine has the control plane label.
 func (m *MachineScope) IsControlPlane() bool {
-	return util.IsControlPlaneMachine(m.Machine)
+	_, ok := m.HCloudMachine.Labels[clusterv1.MachineControlPlaneLabel]
+	return ok
 }
 
 // Name returns the HCloudMachine name.

@@ -291,7 +291,7 @@ func (s *Service) retireHost(ctx context.Context, host *infrav2.HetznerBareMetal
 			reason = fmt.Sprintf("node still unhealthy after %d failed reboot(s)", retryCount)
 		}
 	}
-	if permanentErrorSet, message := host.SetError(infrav2.PermanentError, reason); permanentErrorSet {
+	if permanentErrorSet, message := host.SetError(infrav2.ErrorTypePermanent, reason); permanentErrorSet {
 		s.scope.EventRecorder.Event(
 			host,
 			corev1.EventTypeWarning,

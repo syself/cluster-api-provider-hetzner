@@ -720,7 +720,7 @@ func hetznerBareMetalMachineToHetznerBareMetalHost(_ context.Context, obj client
 // the permanent-error annotation.
 func (r *HetznerBareMetalHostReconciler) removePermanentErrorIfAnnotationIsGone(bmHost *infrav2.HetznerBareMetalHost,
 ) (removed bool) {
-	if bmHost.Status.ErrorType != infrav2.PermanentError {
+	if bmHost.Status.ErrorType != infrav2.ErrorTypePermanent {
 		// PermanentError not set. Do nothing.
 		return false
 	}

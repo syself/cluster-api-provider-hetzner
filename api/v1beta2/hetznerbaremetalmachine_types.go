@@ -226,8 +226,6 @@ type CustomProvisioner struct {
 
 	// command is the basename of a command file below /shared on the controller pod. CAPH copies
 	// that command into the rescue system and executes it there to provision the machine from URL.
-	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
 	// +kubebuilder:validation:MinLength=1
 	Command string `json:"command"`
 

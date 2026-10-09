@@ -42,9 +42,9 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/customprovisioner"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/imageurlcommand"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -60,7 +60,7 @@ const (
 	preRescueOSImage = "ubuntu-24.04"
 )
 
-var hcloudImageURLCommandDir = "/shared"
+var hcloudCustomProvisionerDir = "/shared"
 
 var errServerCreateNotPossible = errors.New("server create not possible - need action")
 
@@ -164,7 +164,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	}
 }
 
-// handleBootStateUnset is first state for both ways (imageName/snapshot and imageURL).
+// handleBootStateUnset is first state for both ways (imageName/snapshot and customProvisioner).
 func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
@@ -212,7 +212,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{}, nil
 	}
 
-	if hm.Spec.ProviderID != nil && *hm.Spec.ProviderID != "" && hm.Spec.ImageURL == "" {
+	if hm.Spec.ProviderID != nil && *hm.Spec.ProviderID != "" && hm.Spec.CustomProvisioner == nil {
 		// This machine seems to be an existing machine which was created before introducing
 		// Status.BootState.
 
@@ -237,11 +237,11 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
-	// The imageURL flow installs the image via SSH in the rescue system, so it needs a valid
+	// The customProvisioner flow installs the image via SSH in the rescue system, so it needs a valid
 	// SSH private key. Check that before creating the server, so that no server gets created
 	// when the key is misconfigured. Other failures could also mean a network failure while
 	// trying to access the api-server, so they get retried.
-	if hm.Spec.ImageURL != "" {
+	if hm.Spec.CustomProvisioner != nil {
 		_, err := s.getSSHPrivateKey(ctx)
 		if err != nil {
 			s.scope.Error(err, "")
@@ -258,7 +258,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		})
 	}
 
-	server, image, err := s.createServerFromImageNameOrURL(ctx)
+	server, image, err := s.createServerFromImageNameOrCustomProvisioner(ctx)
 	if err != nil {
 		// If it is an unauthorized error i.e. wrong HCloudToken do not return an error.
 		// As there is no point retrying with invalid credentials.
@@ -315,13 +315,13 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			return reconcile.Result{}, nil
 		}
 		if errors.Is(err, errServerCreateNotPossible) {
-			err = fmt.Errorf("createServerFromImageNameOrURL failed: %w", err)
+			err = fmt.Errorf("createServerFromImageNameOrCustomProvisioner failed: %w", err)
 			s.scope.Error(err, "")
 			return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 		}
 
 		if errors.Is(err, errServerCreateStopReconcile) {
-			err = fmt.Errorf("createServerFromImageNameOrURL failed: %w", err)
+			err = fmt.Errorf("createServerFromImageNameOrCustomProvisioner failed: %w", err)
 			s.scope.Error(err, "")
 			return reconcile.Result{}, nil
 		}
@@ -362,7 +362,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			requeueAfter = 10 * time.Second
 		}
 	} else {
-		// The imageURL flow created the server powered off. Only the server create action needs
+		// The customProvisioner flow created the server powered off. Only the server create action needs
 		// to finish before the rescue system can be enabled.
 		requeueAfter = 15 * time.Second
 	}
@@ -378,7 +378,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
-// handleBootStateInitializing is for provisioning with imageURL and image-url-command.
+// handleBootStateInitializing is for the customProvisioner flow.
 func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcile.Result, reterr error) {
 	hm := s.scope.HCloudMachine
 
@@ -422,7 +422,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcil
 		return reconcile.Result{}, nil
 	}
 
-	// ActionIDCreateServer gets stored by createServerFromImageURL before the boot state becomes
+	// ActionIDCreateServer gets stored by createServerFromCustomProvisioner before the boot state becomes
 	// Initializing. This guard catches it early if that behavior ever changes.
 	if hm.Status.ExternalIDs.ActionIDCreateServer == 0 {
 		msg := "ActionIDCreateServer is missing in the status.externalIDs, cannot check whether the server is provisioned. Machine will be remediated"
@@ -570,7 +570,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcil
 	return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 }
 
-// handleBootStateEnablingRescue is for provisioning with imageURL and image-url-command.
+// handleBootStateEnablingRescue is for the customProvisioner flow.
 func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
@@ -758,7 +758,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.
 	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
-// handleBootStateBootingToRescue is for provisioning with imageURL and image-url-command.
+// handleBootStateBootingToRescue is for the customProvisioner flow.
 func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
@@ -873,42 +873,43 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 	}
 
 	// Now we know that we are inside a rescue system.
-	// image-url-command has not started yet. Start it.
+	// The custom provisioner has not started yet. Start it.
 
 	data, err := s.scope.GetRawBootstrapData(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("hcloud GetRawBootstrapData failed: %w", err)
 	}
 
-	imageURLCommandPath, err := utils.ResolveImageURLCommandPath(hcloudImageURLCommandDir, hm.Spec.ImageURLCommand)
+	commandName := hm.Spec.CustomProvisioner.Command
+	commandPath, err := utils.ResolveCustomProvisionerCommandPath(hcloudCustomProvisionerDir, commandName)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("resolving imageURLCommand failed: %w", err)
+		return reconcile.Result{}, fmt.Errorf("resolving custom provisioner command failed: %w", err)
 	}
 
-	exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, imageURLCommandPath, hm.Spec.ImageURL, data, s.scope.Name(), []string{"sda"})
+	exitStatus, stdoutStderr, err := sshClient.StartCustomProvisioner(ctx, commandPath, hm.Spec.CustomProvisioner.URL, data, s.scope.Name(), []string{"sda"})
 	if err != nil {
-		err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
+		err := fmt.Errorf("StartCustomProvisioner failed (retrying): %w", err)
 		// This could be a temporary network error. Retry.
 		s.scope.Error(err, "",
-			"ImageURLCommand", hm.Spec.ImageURLCommand,
+			"customProvisionerCommand", commandName,
 			"exitStatus", exitStatus,
 			"stdoutStderr", stdoutStderr)
 		deprecatedv1beta1conditions.MarkFalse(hm, infrav2.ServerProvisionedV1Beta1Condition,
-			"StartImageURLCommandFailed", clusterv1.ConditionSeverityWarning,
+			"CustomProvisionerFailedToStart", clusterv1.ConditionSeverityWarning,
 			"%s", err.Error())
 		conditions.Set(hm, metav1.Condition{
 			Type:    infrav2.HCloudMachineServerProvisionedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HCloudMachineStartImageURLCommandFailedReason,
+			Reason:  infrav2.HCloudMachineCustomProvisionerFailedToStartReason,
 			Message: err.Error(),
 		})
 		return reconcile.Result{}, err
 	}
 
 	if exitStatus != 0 {
-		msg := "StartImageURLCommand failed with non-zero exit status. Deleting machine"
+		msg := "StartCustomProvisioner failed with non-zero exit status. Deleting machine"
 		s.scope.Error(nil, msg,
-			"ImageURLCommand", hm.Spec.ImageURLCommand,
+			"customProvisionerCommand", commandName,
 			"exitStatus", exitStatus,
 			"stdoutStderr", stdoutStderr)
 		err := s.scope.SetErrorAndRemediate(ctx, msg)
@@ -916,12 +917,12 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 			return reconcile.Result{}, err
 		}
 		deprecatedv1beta1conditions.MarkFalse(hm, infrav2.ServerProvisionedV1Beta1Condition,
-			"StartImageURLCommandNoZeroExitCode", clusterv1.ConditionSeverityWarning,
+			"StartCustomProvisionerNonZeroExitCode", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		conditions.Set(hm, metav1.Condition{
 			Type:    infrav2.HCloudMachineServerProvisionedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HCloudMachineStartImageURLCommandNonZeroExitCodeReason,
+			Reason:  infrav2.HCloudMachineStartCustomProvisionerNonZeroExitCodeReason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -943,15 +944,15 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context) (reconcile
 	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
-// handleBootStateRunningImageCommand is for provisioning with imageURL and image-url-command.
+// handleBootStateRunningImageCommand is for the customProvisioner flow.
 func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
-	// Please keep the number (20) in sync with the docstring of ImageURL.
+	// Please keep the number (20) in sync with the docstring of HCloudCustomProvisioner.URL.
 	if durationOfState > 20*time.Minute {
 		// timeout. Something has failed.
-		timeoutMsg := fmt.Sprintf("image URL command timed out, in this state since %s", durationOfState.Round(time.Second).String())
+		timeoutMsg := fmt.Sprintf("custom provisioner timed out, in this state since %s", durationOfState.Round(time.Second).String())
 
 		v1beta1Reason := "RunningImageCommandTimedOut"
 		v1beta1Msg := timeoutMsg
@@ -962,7 +963,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 			}
 		}
 
-		v1beta2Reason := infrav2.HCloudMachineRunningImageURLCommandTimedOutReason
+		v1beta2Reason := infrav2.HCloudMachineRunningCustomProvisionerTimedOutReason
 		v1beta2Msg := timeoutMsg
 		if existing := conditions.Get(hm, infrav2.HCloudMachineServerProvisionedCondition); existing != nil {
 			v1beta2Reason = existing.Reason
@@ -979,7 +980,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		s.scope.EventRecorder.Event(
 			hm,
 			corev1.EventTypeWarning,
-			"ImageURLCommandFailed",
+			"CustomProvisionerFailed",
 			v1beta2Msg,
 		)
 		deprecatedv1beta1conditions.MarkFalse(hm, infrav2.ServerProvisionedV1Beta1Condition,
@@ -994,20 +995,20 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		return reconcile.Result{}, nil
 	}
 
-	// Not timed out yet. Read the current image-url-command state over SSH.
+	// Not timed out yet. Read the current custom provisioner state over SSH.
 	hcloudSSHClient, err := s.getSSHClient(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (wait for image-url-command): %w", err)
+		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (wait for custom provisioner): %w", err)
 	}
 
-	state, logFile, err := hcloudSSHClient.StateOfImageURLCommand(ctx)
+	state, logFile, err := hcloudSSHClient.StateOfCustomProvisioner(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("StateOfImageURLCommand failed: %w", err)
+		return reconcile.Result{}, fmt.Errorf("StateOfCustomProvisioner failed: %w", err)
 	}
 
 	sshClient := hcloudSSHClient
 	switch state {
-	case sshclient.ImageURLCommandStateRunning:
+	case sshclient.CustomProvisionerStateRunning:
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
 		if err != nil {
 			s.scope.Error(err, "failed to read output.json")
@@ -1016,12 +1017,12 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		}
 		msg := "custom provisioner running"
 
-		// If outputJSON is empty, imageURLCommand is still running and output.json was
+		// If outputJSON is empty, the custom provisioner is still running and output.json was
 		// either not created yet, or the command does not create it at all.
 		if outputJSON != "" {
-			output, err := imageurlcommand.Parse(outputJSON)
+			output, err := customprovisioner.Parse(outputJSON)
 			if err != nil {
-				s.scope.Error(err, "failed to parse image URL command output")
+				s.scope.Error(err, "failed to parse custom provisioner output")
 				return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 			}
 
@@ -1040,7 +1041,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		})
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
-	case sshclient.ImageURLCommandStateFinishedSuccessfully:
+	case sshclient.CustomProvisionerStateFinishedSuccessfully:
 		// IMAGE_URL_DONE was found in the stdout.
 		s.scope.Info("CustomProvisionerOutput", "logFile", logFile)
 
@@ -1059,7 +1060,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		// That is fine: the machine only becomes ready once the node has joined the
 		// cluster, which CAPI checks, so nothing is gated on the reboot being finished.
 		if rebootErr := hcloudSSHClient.Reboot(ctx).Err; rebootErr != nil {
-			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w", rebootErr)
+			return reconcile.Result{}, fmt.Errorf("reboot after custom provisioner failed: %w", rebootErr)
 		}
 
 		// The custom provisioner is done. Evict the pooled SSH connection now
@@ -1082,7 +1083,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
-	case sshclient.ImageURLCommandStateFailed:
+	case sshclient.CustomProvisionerStateFailed:
 		s.scope.Error(nil, "custom provisioner failed", "logFile", logFile)
 
 		outputJSON, err := sshClient.ReadOutputJSON(ctx)
@@ -1093,7 +1094,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 
 		msg := "custom provisioner failed"
 		if outputJSON != "" {
-			output, err := imageurlcommand.Parse(outputJSON)
+			output, err := customprovisioner.Parse(outputJSON)
 			if err != nil {
 				s.scope.Error(err, "failed to parse output.json", "outputJSON", outputJSON)
 				return reconcile.Result{}, fmt.Errorf("failed to parse: %w", err)
@@ -1133,16 +1134,16 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		})
 		return reconcile.Result{}, nil
 
-	case sshclient.ImageURLCommandStateNotStarted:
-		return reconcile.Result{}, fmt.Errorf("image-url-command not started in BootState %q? Should not happen",
+	case sshclient.CustomProvisionerStateNotStarted:
+		return reconcile.Result{}, fmt.Errorf("custom provisioner not started in BootState %q? Should not happen",
 			state)
 
 	default:
-		return reconcile.Result{}, fmt.Errorf("unknown ImageURLCommandState: %q", state)
+		return reconcile.Result{}, fmt.Errorf("unknown CustomProvisionerState: %q", state)
 	}
 }
 
-// handleBootingToRealOS is used for both ways (imageName/snapshot and imageURL).
+// handleBootingToRealOS is used for both ways (imageName/snapshot and customProvisioner).
 func (s *Service) handleBootingToRealOS(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 
@@ -1242,7 +1243,7 @@ func (s *Service) handleBootingToRealOS(ctx context.Context) (res reconcile.Resu
 	}
 }
 
-// handleOperatingSystemRunning is the final state. It is used for both ways (imageName/snapshot and imageURL).
+// handleOperatingSystemRunning is the final state. It is used for both ways (imageName/snapshot and customProvisioner).
 func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 
@@ -1667,31 +1668,31 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	return reconcile.Result{}, nil
 }
 
-func (s *Service) createServerFromImageNameOrURL(ctx context.Context) (*hcloud.Server, *hcloud.Image, error) {
+func (s *Service) createServerFromImageNameOrCustomProvisioner(ctx context.Context) (*hcloud.Server, *hcloud.Image, error) {
 	if s.scope.HCloudMachine.Spec.ImageName != "" {
 		return s.createServerFromImageName(ctx)
 	}
-	return s.createServerFromImageURL(ctx)
+	return s.createServerFromCustomProvisioner(ctx)
 }
 
-func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server, *hcloud.Image, error) {
+func (s *Service) createServerFromCustomProvisioner(ctx context.Context) (*hcloud.Server, *hcloud.Image, error) {
 	hm := s.scope.HCloudMachine
 
-	// This is a new machine with imageURL. The webhook validates that ImageURLCommand is set
-	// when ImageURL is set, and rejects any name that does not match the basename pattern. We
-	// still resolve the path at runtime so an empty or invalid name (for example, if the webhook
-	// has been disabled temporarily) is rejected before we copy anything into the rescue system.
-	imageURLCommandName := hm.Spec.ImageURLCommand
-	if _, err := utils.ResolveImageURLCommandPath(hcloudImageURLCommandDir, imageURLCommandName); err != nil {
-		err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", imageURLCommandName, err)
+	// This is a new machine with customProvisioner. The webhook validates that customProvisioner.command
+	// is set and rejects any name that does not match the basename pattern. We still resolve the path
+	// at runtime so an empty or invalid name (for example, if the webhook has been disabled temporarily)
+	// is rejected before we copy anything into the rescue system.
+	commandName := hm.Spec.CustomProvisioner.Command
+	if _, err := utils.ResolveCustomProvisionerCommandPath(hcloudCustomProvisionerDir, commandName); err != nil {
+		err = fmt.Errorf("custom provisioner command %q is invalid or not accessible by the controller pod: %w", commandName, err)
 		s.scope.Error(err, "")
 		deprecatedv1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav2.ServerProvisionedV1Beta1Condition,
-			"ImageURLCommandNotAccessible", clusterv1.ConditionSeverityWarning,
+			"CustomProvisionerCommandNotAccessible", clusterv1.ConditionSeverityWarning,
 			"%s", err.Error())
 		conditions.Set(s.scope.HCloudMachine, metav1.Condition{
 			Type:    infrav2.HCloudMachineServerProvisionedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HCloudMachineImageURLCommandNotAccessibleReason,
+			Reason:  infrav2.HCloudMachineCustomProvisionerCommandNotAccessibleReason,
 			Message: err.Error(),
 		})
 		return nil, nil, errServerCreateStopReconcile

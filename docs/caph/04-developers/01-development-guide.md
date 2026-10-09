@@ -74,7 +74,7 @@ The buttons are defined in
 [Tiltfile](https://github.com/syself/cluster-api-provider-hetzner/blob/main/Tiltfile). There you see
 the corresponding makefile targets, if you prefer to use the command line.
 
-You can use `make watch` to get an overview. It shows continously:
+You can use `make watch` to get an overview. It shows continuously:
 
 - infrastructure resources in your mgt-cluster
 - logs of caph and capi controller
