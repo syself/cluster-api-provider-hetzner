@@ -302,6 +302,45 @@ var _ = Describe("handleBootStateUnset", func() {
 		Expect(isPresentAndFalseWithReasonDeprecatedV1Beta1(hcloudMachine, infrav2.SSHPrivateKeyAvailableV1Beta1Condition, infrav2.SSHPrivateKeySecretRefNotConfiguredV1Beta1Reason)).To(BeTrue())
 		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav2.HCloudMachineSSHPrivateKeyAvailableCondition, metav1.ConditionFalse, infrav2.HCloudMachineSSHPrivateKeySecretRefNotConfiguredReason)).To(BeTrue())
 	})
+
+	It("marks SSHPrivateKeyAvailableCondition false and polls slowly when the SSH private key secret does not exist", func() {
+		machine := &clusterv1.Machine{
+			ObjectMeta: metav1.ObjectMeta{Name: hcloudMachine.Name, Namespace: hcloudMachine.Namespace},
+		}
+
+		machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
+			Client:    testEnv.GetClient(),
+			APIReader: testEnv.GetAPIReader(),
+
+			HCloudClient:  mocks.NewClient(GinkgoT()),
+			Logger:        GinkgoLogr,
+			EventRecorder: record.NewFakeRecorder(10),
+
+			Cluster: &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "clustername", Namespace: "default"}},
+			HetznerCluster: &infrav2.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{Name: "clustername", Namespace: "default"},
+				Spec: infrav2.HetznerClusterSpec{
+					SSHKeys: infrav2.HetznerSSHKeys{
+						RescueSecretRef: infrav2.SSHSecretRef{
+							Name: "does-not-exist", // no such secret
+						},
+					},
+				},
+			},
+			HCloudMachine: hcloudMachine,
+			Machine:       machine,
+		})
+		Expect(err).To(BeNil())
+
+		service := &Service{scope: machineScope}
+
+		res, err := service.handleBootStateUnset(context.Background())
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Minute})) // no watch for a not-yet-existing secret, so poll
+
+		Expect(isPresentAndFalseWithReasonDeprecatedV1Beta1(hcloudMachine, infrav2.SSHPrivateKeyAvailableV1Beta1Condition, infrav2.SSHPrivateKeySecretNotFoundV1Beta1Reason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav2.HCloudMachineSSHPrivateKeyAvailableCondition, metav1.ConditionFalse, infrav2.HCloudMachineSSHPrivateKeySecretNotFoundReason)).To(BeTrue())
+	})
 })
 
 var _ = Describe("Delete", func() {
