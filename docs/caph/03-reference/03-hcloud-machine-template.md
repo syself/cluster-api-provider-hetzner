@@ -1,49 +1,65 @@
 ---
 title: HCloudMachineTemplate
 description: In HCloudMachineTemplate you can define all important properties for HCloudMachines, which are reconciled by the `HCloudMachineController`, responsible for creating and deleting servers in Hetzner Cloud.
-metatitle: HCloudMachineController Object Reference
+metatitle: HCloudMachineTemplate Object Reference
 ---
 
 In `HCloudMachineTemplate` you can define all important properties for `HCloudMachines`. `HCloudMachines` are reconciled by the `HCloudMachineController`, which creates and deletes servers in Hetzner Cloud.
 
 ## Overview of HCloudMachineTemplate.Spec
 
+<PropField name="template.metadata" type="object" required={false}>
+
+Labels and annotations for the HCloudMachines that are created from this template.
+
+<Collapsible title="properties">
+
+<PropField name="template.metadata.labels" type="map[string]string" required={false}>
+Labels for the HCloudMachines.
+</PropField>
+
+<PropField name="template.metadata.annotations" type="map[string]string" required={false}>
+Annotations for the HCloudMachines.
+</PropField>
+
+</Collapsible>
+
+</PropField>
+
 <PropField name="template.spec.providerID" type="string" required={false}>
 ProviderID set by controller.
 </PropField>
 
 <PropField name="template.spec.type" type="string" required={true}>
-Desired server type of server in Hetzner's Cloud API. Example: cpx11.
+Desired server type of server in Hetzner's Cloud API. Example: cpx32.
 </PropField>
 
-<PropField name="template.spec.imageName" type="string" required={true}>
+<PropField name="template.spec.imageName" type="string" required={false}>
 
-Specifies desired image of server. ImageName can reference an image uploaded to Hetzner API in two ways: either directly as name of an image, or as label of an image (see [here](/docs/caph/02-topics/03-node-image.md) for more details).
+Specifies desired image of server. ImageName can reference an image uploaded to Hetzner API in two ways: either directly as name of an image, or as label of an image (see [here](/docs/caph/02-topics/03-node-image.md) for more details). Set either `template.spec.imageName` or `template.spec.imageURL`.
 
 </PropField>
 
-<PropField name="template.spec.sshKeys" type="object" required={false}>
+<PropField name="template.spec.imageURL" type="string" required={false}>
+Custom node image URL. When this is set, CAPH provisions the server via the rescue system instead of creating it directly from an HCloud image. Set either `template.spec.imageName` or `template.spec.imageURL`.
+</PropField>
 
-SSHKeys that are scoped to this machine.
+<PropField name="template.spec.imageURLCommand" type="string" required={false}>
+Basename of a command below `/shared` on the controller pod that CAPH copies into the rescue system and executes for `template.spec.imageURL`. Required when `template.spec.imageURL` is set.
+</PropField>
+
+<PropField name="template.spec.sshKeys" type="[]object" required={false}>
+
+SSH keys of the HCloudMachine. If set, CAPH uses them instead of `sshKeys.hcloud` of the HetznerCluster.
 
 <Collapsible title="properties">
 
-<PropField name="template.spec.sshKeys.hcloud" type="[]object" required={false}>
-
-SSH keys for HCloud.
-
-<Collapsible title="properties">
-
-<PropField name="template.spec.sshKeys.hcloud.name" type="string" required={true}>
+<PropField name="template.spec.sshKeys.name" type="string" required={true}>
 Name of SSH key.
 </PropField>
 
-<PropField name="template.spec.sshKeys.hcloud.fingerprint" type="string" required={false}>
+<PropField name="template.spec.sshKeys.fingerprint" type="string" required={false}>
 Fingerprint of SSH key - used by the controller.
-</PropField>
-
-</Collapsible>
-
 </PropField>
 
 </Collapsible>
@@ -54,7 +70,7 @@ Fingerprint of SSH key - used by the controller.
 Placement group of the machine in HCloud API, must be referencing an existing placement group.
 </PropField>
 
-<PropField name="template.spec.publicNetwork" type="object" defaultValue={"{enableIPv4: true, enabledIPv6: true}"} required={false}>
+<PropField name="template.spec.publicNetwork" type="object" defaultValue={"{enableIPv4: true, enableIPv6: true}"} required={false}>
 
 Specs about primary IP address of server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled.
 

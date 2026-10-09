@@ -35,9 +35,27 @@ When the port is changed in cloud-init, then we additionally need to use the fol
 
 ## Choosing the right host
 
-Via MatchLabels you can specify a certain label (key and value) that identifies the host. You get more flexibility with MatchExpressions. This allows decisions like "take any host that has the key "mykey" and let this key have either one of the values "val1", "val2", and "val3".
+Via MatchLabels you can specify a certain label (key and value) that identifies the host. You get more flexibility with MatchExpressions. This allows decisions like "take any host that has the key `mykey` and let this key have either one of the values `val1`, `val2`, and `val3`".
 
 ## Overview of HetznerBareMetalMachineTemplate.Spec
+
+<PropField name="template.metadata" type="object" required={false}>
+
+Labels and annotations for the HetznerBareMetalMachines that are created from this template.
+
+<Collapsible title="properties">
+
+<PropField name="template.metadata.labels" type="map[string]string" required={false}>
+Labels for the HetznerBareMetalMachines.
+</PropField>
+
+<PropField name="template.metadata.annotations" type="map[string]string" required={false}>
+Annotations for the HetznerBareMetalMachines.
+</PropField>
+
+</Collapsible>
+
+</PropField>
 
 <PropField name="template.spec.providerID" type="string" required={false}>
 Provider ID set by controller.
@@ -75,6 +93,10 @@ Local path of a pre-installed image.
 
 </Collapsible>
 
+</PropField>
+
+<PropField name="template.spec.installImage.deviceStringType" type="string" required={false}>
+Which device name CAPH passes to the command in `template.spec.installImage.imageURLCommand`. `short` or empty passes the short name, for example `sda`. `wwn` passes the WWN, for example `eui.00253885910c8cec`.
 </PropField>
 
 <PropField name="template.spec.installImage.postInstallScript" type="string" required={false}>
@@ -129,7 +151,7 @@ Defines the volume name.
 Defines the mount path.
 </PropField>
 
-<PropField name="template.spec.installImage.logicalVolumeDefinitions.fileSystem" type="string" required={true}>
+<PropField name="template.spec.installImage.logicalVolumeDefinitions.filesystem" type="string" required={true}>
 Defines the file system.
 </PropField>
 
@@ -173,7 +195,7 @@ Options to select hosts with.
 
 <Collapsible title="properties">
 
-<PropField name="template.spec.hostSelector.matchLabels" type="map[string][string]" required={false}>
+<PropField name="template.spec.hostSelector.matchLabels" type="map[string]string" required={false}>
 Specify labels as key-value pairs that should be there in host object to select it.
 </PropField>
 
@@ -247,6 +269,10 @@ PrivateKey is the key in the secret's data where the SSH key's private key is st
 
 </PropField>
 
+<PropField name="template.spec.sshSpec.noSSHAfterInstallImage" type="bool" defaultValue="false" required={false}>
+If true, CAPH does not connect to the server via SSH after installimage finished. CAPH then skips the SSH check at the end of provisioning and reboots the server through the Robot API.
+</PropField>
+
 <PropField name="template.spec.sshSpec.portAfterInstallImage" type="int" defaultValue="22" required={false}>
 PortAfterInstallImage specifies the port that can be used to reach the server via SSH after install image completed successfully.
 </PropField>
@@ -257,6 +283,10 @@ PortAfterCloudInit specifies the port that can be used to reach the server via S
 
 </Collapsible>
 
+</PropField>
+
+<PropField name="template.spec.skipCheckDisk" type="bool" defaultValue="false" required={false}>
+If true, provisioning continues when the check-disk step finds a faulty disk. This has the same effect as the annotation `capi.syself.com/ignore-check-disk` on the HetznerBareMetalHost.
 </PropField>
 
 ## installImage.image
@@ -271,7 +301,7 @@ Example of an image provided by Hetzner via NFS:
 
 ```yaml
 image:
-  path: /root/.oldroot/nfs//images/Ubuntu-2404-noble-amd64-base.tar.zst
+  path: /root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.zst
 ```
 
 Example of an image provided by you via https. The script installimage of Hetzner parses the name to detect the version. It is

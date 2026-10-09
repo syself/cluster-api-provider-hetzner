@@ -18,9 +18,9 @@ Create a new [HCloud project](https://console.hetzner.cloud/projects).
 
 Generate an API token with read and write access. You'll find this if you click on the project and go to "security".
 
-<Step>Add an SSH key (optional)</Step>
+<Step>Add an SSH key</Step>
 
-If you want to use it, generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. Read more about [Managing SSH Keys](/docs/caph/02-topics/01-managing-ssh-keys.md).
+Generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. The cluster templates need this name in `SSH_KEY_NAME`. Read more about [Managing SSH Keys](/docs/caph/02-topics/01-managing-ssh-keys.md).
 
 </Steps>
 
@@ -94,9 +94,9 @@ export CLUSTER_NAME="my-cluster"
 export HCLOUD_REGION="fsn1"
 export CONTROL_PLANE_MACHINE_COUNT=3
 export WORKER_MACHINE_COUNT=3
-export KUBERNETES_VERSION=1.31.6
-export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31
-export HCLOUD_WORKER_MACHINE_TYPE=cpx31
+export KUBERNETES_VERSION=v1.36.0
+export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx32
+export HCLOUD_WORKER_MACHINE_TYPE=cpx32
 ```
 
 - SSH_KEY_NAME: The SSH Key name you loaded in HCloud.
@@ -110,14 +110,14 @@ $ clusterctl generate cluster --infrastructure hetzner:<caph-version> --list-var
 Required Variables:
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE
   - HCLOUD_REGION
-  - SSH_KEY_NAME
   - HCLOUD_WORKER_MACHINE_TYPE
+  - KUBERNETES_VERSION
+  - SSH_KEY_NAME
 
 Optional Variables:
   - CLUSTER_NAME                 (defaults to hetzner-cluster)
-  - CONTROL_PLANE_MACHINE_COUNT  (defaults to 3)
-  - KUBERNETES_VERSION           (defaults to 1.31.6)
-  - WORKER_MACHINE_COUNT         (defaults to 3)
+  - CONTROL_PLANE_MACHINE_COUNT  (defaults to 1)
+  - WORKER_MACHINE_COUNT         (defaults to 0)
 ```
 
 ### Create a secret for hcloud only
@@ -129,10 +129,10 @@ In order for the provider integration hetzner to communicate with the Hetzner AP
 - HCLOUD_TOKEN: The project where your cluster will be placed. You have to get a token from your HCloud Project.
 
 ```shell
-kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN
+kubectl create secret generic hcloud --from-literal=hcloud=$HCLOUD_TOKEN
 
 # Patch the created secret so it is automatically moved to the target cluster later.
-kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
+kubectl patch secret hcloud -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 ```
 
 The secret name and the tokens can also be customized in the cluster template.
@@ -156,12 +156,12 @@ export HETZNER_SSH_PRIV_PATH="<YOUR-SSH-PRIVATE-PATH>"
 - HETZNER_SSH_PRIV_PATH: The Path to your generated Private SSH Key. This is needed because CAPH uses this key to provision the node in Hetzner Dedicated.
 
 ```shell
-kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN --from-literal=robot-user=$HETZNER_ROBOT_USER --from-literal=robot-password=$HETZNER_ROBOT_PASSWORD
+kubectl create secret generic hcloud --from-literal=hcloud=$HCLOUD_TOKEN --from-literal=robot-user=$HETZNER_ROBOT_USER --from-literal=robot-password=$HETZNER_ROBOT_PASSWORD
 
 kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=$HETZNER_SSH_PRIV_PATH --from-file=ssh-publickey=$HETZNER_SSH_PUB_PATH
 
 # Patch the created secrets so that they get automatically moved to the target cluster later.
-kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
+kubectl patch secret hcloud -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 kubectl patch secret robot-ssh -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 ```
 
