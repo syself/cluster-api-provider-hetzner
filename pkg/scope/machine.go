@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -51,7 +51,7 @@ type MachineScopeParams struct {
 	HetznerSecret  *corev1.Secret
 	HCloudClient   hcloudclient.Client
 	Cluster        *clusterv1.Cluster
-	HetznerCluster *infrav2.HetznerCluster
+	HetznerCluster *infrav1.HetznerCluster
 
 	// Machine is the CAPI Machine that owns the HCloudMachine. It is nil only if the
 	// HCloudMachine is being deleted and has no owner CAPI Machine, for example after the
@@ -59,7 +59,7 @@ type MachineScopeParams struct {
 	// handle a nil Machine.
 	Machine *clusterv1.Machine
 
-	HCloudMachine    *infrav2.HCloudMachine
+	HCloudMachine    *infrav1.HCloudMachine
 	SSHClientFactory sshclient.Factory
 	EventRecorder    record.EventRecorder
 }
@@ -141,13 +141,13 @@ type MachineScope struct {
 	HCloudClient hcloudclient.Client
 
 	Cluster        *clusterv1.Cluster
-	HetznerCluster *infrav2.HetznerCluster
+	HetznerCluster *infrav1.HetznerCluster
 
 	// Machine is the CAPI Machine that owns the HCloudMachine. See
 	// MachineScopeParams.Machine for when it is nil.
 	Machine *clusterv1.Machine
 
-	HCloudMachine    *infrav2.HCloudMachine
+	HCloudMachine    *infrav1.HCloudMachine
 	SSHClientFactory sshclient.Factory
 	EventRecorder    record.EventRecorder
 }
@@ -161,7 +161,7 @@ func (m *MachineScope) Close(ctx context.Context) error {
 	readyCondition, err := conditions.NewSummaryCondition(
 		m.HCloudMachine,
 		clusterv1.ReadyCondition,
-		infrav2.HCloudMachineSummaryOpts()...,
+		infrav1.HCloudMachineSummaryOpts()...,
 	)
 	if err != nil {
 		// Note, this could only happen if we hit edge cases in computing the summary, which should not happen due to the fact
@@ -216,23 +216,23 @@ func machinePatchOpts() []patch.Option {
 		// owned deprecated v1beta1 conditions.
 		patch.WithOwnedV1Beta1Conditions{Conditions: []clusterv1.ConditionType{
 			clusterv1.ReadyV1Beta1Condition,
-			infrav2.BootstrapReadyV1Beta1Condition,
-			infrav2.HCloudTokenAvailableV1Beta1Condition,
-			infrav2.HetznerAPIReachableV1Beta1Condition,
-			infrav2.SSHPrivateKeyAvailableV1Beta1Condition,
-			infrav2.ServerCreateSucceededV1Beta1Condition,
-			infrav2.ServerProvisionedV1Beta1Condition,
-			infrav2.ServerAvailableV1Beta1Condition,
+			infrav1.BootstrapReadyV1Beta1Condition,
+			infrav1.HCloudTokenAvailableV1Beta1Condition,
+			infrav1.HetznerAPIReachableV1Beta1Condition,
+			infrav1.SSHPrivateKeyAvailableV1Beta1Condition,
+			infrav1.ServerCreateSucceededV1Beta1Condition,
+			infrav1.ServerProvisionedV1Beta1Condition,
+			infrav1.ServerAvailableV1Beta1Condition,
 		}},
 		// owned conditions.
 		patch.WithOwnedConditions{Conditions: []string{
 			clusterv1.ReadyCondition,
-			infrav2.HCloudTokenAvailableCondition,
-			infrav2.HCloudRateLimitExceededCondition,
-			infrav2.HCloudMachineSSHPrivateKeyAvailableCondition,
-			infrav2.HCloudMachineServerCreatedCondition,
-			infrav2.HCloudMachineServerProvisionedCondition,
-			infrav2.HCloudMachineServerAvailableCondition,
+			infrav1.HCloudTokenAvailableCondition,
+			infrav1.HCloudRateLimitExceededCondition,
+			infrav1.HCloudMachineSSHPrivateKeyAvailableCondition,
+			infrav1.HCloudMachineServerCreatedCondition,
+			infrav1.HCloudMachineServerProvisionedCondition,
+			infrav1.HCloudMachineServerAvailableCondition,
 		}},
 	}
 }
@@ -275,14 +275,14 @@ func (m *MachineScope) SetRemediateMachineAnnotationToDeleteMachine(ctx context.
 		message,
 	)
 
-	m.HCloudMachine.SetBootState(infrav2.HCloudBootStateProvisioningFailed)
+	m.HCloudMachine.SetBootState(infrav1.HCloudBootStateProvisioningFailed)
 
 	return nil
 }
 
 // SetRegion sets the region field on the machine.
 func (m *MachineScope) SetRegion(region string) {
-	m.HCloudMachine.Status.Region = infrav2.Region(region)
+	m.HCloudMachine.Status.Region = infrav1.Region(region)
 }
 
 // SetProviderID sets the providerID field on the machine.
@@ -322,7 +322,7 @@ func (m *MachineScope) SetProvisioned() {
 // the server instead of shutting it down again. For this to work, Delete() must not set
 // ServerAvailable to False before this gate runs, otherwise the graceful shutdown would be skipped.
 func (m *MachineScope) HasServerAvailableCondition() bool {
-	return conditions.IsTrue(m.HCloudMachine, infrav2.HCloudMachineServerAvailableCondition)
+	return conditions.IsTrue(m.HCloudMachine, infrav1.HCloudMachineServerAvailableCondition)
 }
 
 // IsBootstrapDataReady checks the readiness of a capi machine's bootstrap data.

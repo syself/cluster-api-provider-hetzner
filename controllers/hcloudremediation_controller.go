@@ -40,7 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -79,11 +79,11 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		return ctrl.Result{}, err
 	}
 	if skipReconciliation {
-		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav2.SkipNamespaceAnnotation)
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 
-	hcloudRemediation := &infrav2.HCloudRemediation{}
+	hcloudRemediation := &infrav1.HCloudRemediation{}
 	err = r.Get(ctx, req.NamespacedName, hcloudRemediation)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -110,7 +110,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		// The object changed. Wait until the new version is in the local cache
 
 		// Get the latest version from the apiserver.
-		apiserverHCloudRemediation := &infrav2.HCloudRemediation{}
+		apiserverHCloudRemediation := &infrav1.HCloudRemediation{}
 
 		// Use uncached APIReader
 		err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(hcloudRemediation), apiserverHCloudRemediation)
@@ -130,7 +130,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 
 		err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 3*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			// new resource, read from local cache
-			latestFromLocalCache := &infrav2.HCloudRemediation{}
+			latestFromLocalCache := &infrav1.HCloudRemediation{}
 			getErr := r.Get(ctx, client.ObjectKeyFromObject(apiserverHCloudRemediation), latestFromLocalCache)
 			if apierrors.IsNotFound(getErr) {
 				// the object was deleted. All is fine.
@@ -163,7 +163,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	log = log.WithValues("Machine", klog.KObj(machine))
 
 	// Fetch the HCloudMachine instance.
-	hcloudMachine := &infrav2.HCloudMachine{}
+	hcloudMachine := &infrav1.HCloudMachine{}
 
 	key := client.ObjectKey{
 		Name:      machine.Spec.InfrastructureRef.Name,
@@ -182,9 +182,9 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	// Skip remediation for machines that failed to create with irrecoverable errors (e.g. invalid_input, resource_unavailable).
 	// These errors cannot be fixed by rebooting or replacing the machine.
 	// We return without error so the MHC does not keep retrying remediation.
-	if conditions.IsFalse(hcloudMachine, infrav2.HCloudMachineServerCreatedCondition) &&
-		conditions.GetReason(hcloudMachine, infrav2.HCloudMachineServerCreatedCondition) == infrav2.HCloudMachineServerCreationFailedIrrecoverablyReason {
-		irrecoverableMsg := conditions.GetMessage(hcloudMachine, infrav2.HCloudMachineServerCreatedCondition)
+	if conditions.IsFalse(hcloudMachine, infrav1.HCloudMachineServerCreatedCondition) &&
+		conditions.GetReason(hcloudMachine, infrav1.HCloudMachineServerCreatedCondition) == infrav1.HCloudMachineServerCreationFailedIrrecoverablyReason {
+		irrecoverableMsg := conditions.GetMessage(hcloudMachine, infrav1.HCloudMachineServerCreatedCondition)
 		log.Info("Skipping remediation for machine with irrecoverable creation failure",
 			"reason", irrecoverableMsg,
 		)
@@ -199,17 +199,17 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		)
 		deprecatedv1beta1conditions.MarkFalse(
 			hcloudRemediation,
-			infrav2.RemediationSkippedV1Beta1Condition,
-			infrav2.IrrecoverableServerCreateFailureV1Beta1Reason,
+			infrav1.RemediationSkippedV1Beta1Condition,
+			infrav1.IrrecoverableServerCreateFailureV1Beta1Reason,
 			clusterv1.ConditionSeverityWarning,
 			"%s",
 			skippedMsg,
 		)
 		// negative polarity: status=True means remediation IS skipped.
 		conditions.Set(hcloudRemediation, metav1.Condition{
-			Type:    infrav2.HCloudRemediationSkippedCondition,
+			Type:    infrav1.HCloudRemediationSkippedCondition,
 			Status:  metav1.ConditionTrue,
-			Reason:  infrav2.HCloudRemediationServerCreationFailedIrrecoverablyReason,
+			Reason:  infrav1.HCloudRemediationServerCreationFailedIrrecoverablyReason,
 			Message: skippedMsg,
 		})
 
@@ -218,7 +218,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		if readyCondition, err := conditions.NewSummaryCondition(
 			hcloudRemediation,
 			clusterv1.ReadyCondition,
-			infrav2.HCloudRemediationSummaryOpts()...,
+			infrav1.HCloudRemediationSummaryOpts()...,
 		); err == nil {
 			conditions.Set(hcloudRemediation, *readyCondition)
 		} else {
@@ -251,7 +251,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
 
-	hetznerCluster := &infrav2.HetznerCluster{}
+	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
 		Namespace: hcloudMachine.Namespace,
@@ -268,7 +268,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hcloudRemediation, r, infrav2.HCloudRemediationSummaryOpts())
+		return hcloudTokenErrorResult(ctx, err, hcloudRemediation, r, infrav1.HCloudRemediationSummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
@@ -329,7 +329,7 @@ func (r *HCloudRemediationReconciler) reconcileNormal(ctx context.Context, remed
 // SetupWithManager sets up the controller with the Manager.
 func (r *HCloudRemediationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&infrav2.HCloudRemediation{}).
+		For(&infrav1.HCloudRemediation{}).
 		WithOptions(options).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)

@@ -60,7 +60,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -106,12 +106,12 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 	if skipReconciliation {
-		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav2.SkipNamespaceAnnotation)
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 
 	// Fetch the HetznerCluster instance
-	hetznerCluster := &infrav2.HetznerCluster{}
+	hetznerCluster := &infrav1.HetznerCluster{}
 	err = r.Get(ctx, req.NamespacedName, hetznerCluster)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -145,7 +145,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hetznerCluster, r.Client, infrav2.HetznerClusterSummaryOpts())
+		return hcloudTokenErrorResult(ctx, err, hetznerCluster, r.Client, infrav1.HetznerClusterSummaryOpts())
 	}
 	hcloudClient := r.HCloudClientFactory.NewClient(hcloudToken)
 
@@ -181,15 +181,15 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Handle deleted clusters
 	if !hetznerCluster.DeletionTimestamp.IsZero() {
 		conditions.Set(hetznerCluster, metav1.Condition{
-			Type:   infrav2.HetznerClusterDeletingCondition,
+			Type:   infrav1.HetznerClusterDeletingCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav2.HetznerClusterDeletingReason,
+			Reason: infrav1.HetznerClusterDeletingReason,
 		})
 
 		return r.reconcileDelete(ctx, clusterScope)
 	}
 
-	conditions.Delete(hetznerCluster, infrav2.HetznerClusterDeletingCondition)
+	conditions.Delete(hetznerCluster, infrav1.HetznerClusterDeletingCondition)
 
 	// Handle non-deleted clusters
 	return r.reconcileNormal(ctx, clusterScope)
@@ -199,7 +199,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	hetznerCluster := clusterScope.HetznerCluster
 
 	// If the HetznerCluster doesn't have our finalizer, add it.
-	controllerutil.AddFinalizer(hetznerCluster, infrav2.HetznerClusterFinalizer)
+	controllerutil.AddFinalizer(hetznerCluster, infrav1.HetznerClusterFinalizer)
 
 	if err := clusterScope.PatchObject(ctx); err != nil {
 		return reconcile.Result{}, err
@@ -232,12 +232,12 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	}
 
 	// target cluster is ready
-	deprecatedv1beta1conditions.MarkTrue(hetznerCluster, infrav2.TargetClusterReadyV1Beta1Condition)
+	deprecatedv1beta1conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterReadyV1Beta1Condition)
 
 	conditions.Set(hetznerCluster, metav1.Condition{
-		Type:   infrav2.HetznerClusterTargetClusterReadyCondition,
+		Type:   infrav1.HetznerClusterTargetClusterReadyCondition,
 		Status: metav1.ConditionTrue,
-		Reason: string(infrav2.HetznerClusterTargetClusterReadyReason),
+		Reason: string(infrav1.HetznerClusterTargetClusterReadyReason),
 	})
 
 	result, err := reconcileWorkloadClusterSecrets(ctx, clusterScope)
@@ -245,17 +245,17 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		reterr := fmt.Errorf("failed to reconcile target secret: %w", err)
 		deprecatedv1beta1conditions.MarkFalse(
 			clusterScope.HetznerCluster,
-			infrav2.TargetClusterSecretReadyV1Beta1Condition,
-			infrav2.TargetSecretSyncFailedV1Beta1Reason,
+			infrav1.TargetClusterSecretReadyV1Beta1Condition,
+			infrav1.TargetSecretSyncFailedV1Beta1Reason,
 			clusterv1.ConditionSeverityError,
 			"%s",
 			reterr.Error(),
 		)
 
 		conditions.Set(hetznerCluster, metav1.Condition{
-			Type:    infrav2.HetznerClusterTargetClusterSecretReadyCondition,
+			Type:    infrav1.HetznerClusterTargetClusterSecretReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerClusterTargetClusterSyncingSecretFailedReason,
+			Reason:  infrav1.HetznerClusterTargetClusterSyncingSecretFailedReason,
 			Message: reterr.Error(),
 		})
 
@@ -266,12 +266,12 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	}
 
 	// target cluster secret is ready
-	deprecatedv1beta1conditions.MarkTrue(hetznerCluster, infrav2.TargetClusterSecretReadyV1Beta1Condition)
+	deprecatedv1beta1conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterSecretReadyV1Beta1Condition)
 
 	conditions.Set(hetznerCluster, metav1.Condition{
-		Type:   infrav2.HetznerClusterTargetClusterSecretReadyCondition,
+		Type:   infrav1.HetznerClusterTargetClusterSecretReadyCondition,
 		Status: metav1.ConditionTrue,
-		Reason: string(infrav2.HetznerClusterTargetClusterSecretReadyReason),
+		Reason: string(infrav1.HetznerClusterTargetClusterSecretReadyReason),
 	})
 
 	return reconcile.Result{}, nil
@@ -308,7 +308,7 @@ func reconcileInfrastructure(ctx context.Context, clusterScope *scope.ClusterSco
 	return reconcile.Result{}, nil
 }
 
-func processControlPlaneEndpoint(hetznerCluster *infrav2.HetznerCluster) {
+func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if hetznerCluster.Status.ControlPlaneLoadBalancer != nil && hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
@@ -320,53 +320,53 @@ func processControlPlaneEndpoint(hetznerCluster *infrav2.HetznerCluster) {
 			if hetznerCluster.Spec.ControlPlaneEndpoint.Port == 0 {
 				hetznerCluster.Spec.ControlPlaneEndpoint.Port = defaultPort
 			}
-			deprecatedv1beta1conditions.MarkTrue(hetznerCluster, infrav2.ControlPlaneEndpointSetV1Beta1Condition)
+			deprecatedv1beta1conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetV1Beta1Condition)
 
 			conditions.Set(hetznerCluster, metav1.Condition{
-				Type:   infrav2.HetznerClusterControlPlaneEndpointSetCondition,
+				Type:   infrav1.HetznerClusterControlPlaneEndpointSetCondition,
 				Status: metav1.ConditionTrue,
-				Reason: infrav2.HetznerClusterControlPlaneEndpointSetReason,
+				Reason: infrav1.HetznerClusterControlPlaneEndpointSetReason,
 			})
 
 			hetznerCluster.Status.Initialization.Provisioned = ptr.To(true)
 		} else {
 			const msg = "enabled LoadBalancer but load balancer not ready yet"
 			deprecatedv1beta1conditions.MarkFalse(hetznerCluster,
-				infrav2.ControlPlaneEndpointSetV1Beta1Condition,
-				infrav2.ControlPlaneEndpointNotSetV1Beta1Reason,
+				infrav1.ControlPlaneEndpointSetV1Beta1Condition,
+				infrav1.ControlPlaneEndpointNotSetV1Beta1Reason,
 				clusterv1.ConditionSeverityWarning,
 				msg)
 
 			conditions.Set(hetznerCluster, metav1.Condition{
-				Type:    infrav2.HetznerClusterControlPlaneEndpointSetCondition,
+				Type:    infrav1.HetznerClusterControlPlaneEndpointSetCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HetznerClusterControlPlaneEndpointNotSetReason,
+				Reason:  infrav1.HetznerClusterControlPlaneEndpointNotSetReason,
 				Message: msg,
 			})
 		}
 	} else {
 		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != "" && hetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
-			deprecatedv1beta1conditions.MarkTrue(hetznerCluster, infrav2.ControlPlaneEndpointSetV1Beta1Condition)
+			deprecatedv1beta1conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetV1Beta1Condition)
 
 			conditions.Set(hetznerCluster, metav1.Condition{
-				Type:   infrav2.HetznerClusterControlPlaneEndpointSetCondition,
+				Type:   infrav1.HetznerClusterControlPlaneEndpointSetCondition,
 				Status: metav1.ConditionTrue,
-				Reason: infrav2.HetznerClusterControlPlaneEndpointSetReason,
+				Reason: infrav1.HetznerClusterControlPlaneEndpointSetReason,
 			})
 
 			hetznerCluster.Status.Initialization.Provisioned = ptr.To(true)
 		} else {
 			const msg = "disabled LoadBalancer and not yet provided ControlPlane endpoint"
 			deprecatedv1beta1conditions.MarkFalse(hetznerCluster,
-				infrav2.ControlPlaneEndpointSetV1Beta1Condition,
-				infrav2.ControlPlaneEndpointNotSetV1Beta1Reason,
+				infrav1.ControlPlaneEndpointSetV1Beta1Condition,
+				infrav1.ControlPlaneEndpointNotSetV1Beta1Reason,
 				clusterv1.ConditionSeverityWarning,
 				msg)
 
 			conditions.Set(hetznerCluster, metav1.Condition{
-				Type:    infrav2.HetznerClusterControlPlaneEndpointSetCondition,
+				Type:    infrav1.HetznerClusterControlPlaneEndpointSetCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HetznerClusterControlPlaneEndpointNotSetReason,
+				Reason:  infrav1.HetznerClusterControlPlaneEndpointNotSetReason,
 				Message: msg,
 			})
 		}
@@ -466,7 +466,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	}
 
 	// Cluster is deleted so remove the finalizer.
-	controllerutil.RemoveFinalizer(clusterScope.HetznerCluster, infrav2.HetznerClusterFinalizer)
+	controllerutil.RemoveFinalizer(clusterScope.HetznerCluster, infrav1.HetznerClusterFinalizer)
 
 	return reconcile.Result{}, nil
 }
@@ -493,16 +493,16 @@ func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.Cl
 	if err := scope.IsControlPlaneReady(ctx, wlClientConfig); err != nil {
 		deprecatedv1beta1conditions.MarkFalse(
 			clusterScope.HetznerCluster,
-			infrav2.TargetClusterSecretReadyV1Beta1Condition,
-			infrav2.TargetClusterControlPlaneNotReadyV1Beta1Reason,
+			infrav1.TargetClusterSecretReadyV1Beta1Condition,
+			infrav1.TargetClusterControlPlaneNotReadyV1Beta1Reason,
 			clusterv1.ConditionSeverityInfo,
 			"target cluster not ready",
 		)
 
 		conditions.Set(clusterScope.HetznerCluster, metav1.Condition{
-			Type:    infrav2.HetznerClusterTargetClusterSecretReadyCondition,
+			Type:    infrav1.HetznerClusterTargetClusterSecretReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerClusterTargetClusterControlPlaneNotReadyReason,
+			Reason:  infrav1.HetznerClusterTargetClusterControlPlaneNotReadyReason,
 			Message: "target cluster not ready",
 		})
 
@@ -644,17 +644,17 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 		if err != nil {
 			deprecatedv1beta1conditions.MarkFalse(
 				clusterScope.HetznerCluster,
-				infrav2.TargetClusterReadyV1Beta1Condition,
-				infrav2.TargetClusterCreateFailedV1Beta1Reason,
+				infrav1.TargetClusterReadyV1Beta1Condition,
+				infrav1.TargetClusterCreateFailedV1Beta1Reason,
 				clusterv1.ConditionSeverityError,
 				"%s",
 				err.Error(),
 			)
 
 			conditions.Set(clusterScope.HetznerCluster, metav1.Condition{
-				Type:    infrav2.HetznerClusterTargetClusterReadyCondition,
+				Type:    infrav1.HetznerClusterTargetClusterReadyCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HetznerClusterTargetClusterCreationFailedReason,
+				Reason:  infrav1.HetznerClusterTargetClusterCreationFailedReason,
 				Message: err.Error(),
 			})
 
@@ -687,17 +687,17 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 
 				deprecatedv1beta1conditions.MarkFalse(
 					clusterScope.HetznerCluster,
-					infrav2.TargetClusterReadyV1Beta1Condition,
-					infrav2.TargetClusterCreateFailedV1Beta1Reason,
+					infrav1.TargetClusterReadyV1Beta1Condition,
+					infrav1.TargetClusterCreateFailedV1Beta1Reason,
 					clusterv1.ConditionSeverityError,
 					"%s",
 					msg,
 				)
 
 				conditions.Set(clusterScope.HetznerCluster, metav1.Condition{
-					Type:    infrav2.HetznerClusterTargetClusterReadyCondition,
+					Type:    infrav1.HetznerClusterTargetClusterReadyCondition,
 					Status:  metav1.ConditionFalse,
-					Reason:  infrav2.HetznerClusterTargetClusterCreationFailedReason,
+					Reason:  infrav1.HetznerClusterTargetClusterCreationFailedReason,
 					Message: msg,
 				})
 			} else {
@@ -721,7 +721,7 @@ var _ ManagementCluster = &managementCluster{}
 
 type managementCluster struct {
 	client.Client
-	hetznerCluster *infrav2.HetznerCluster
+	hetznerCluster *infrav1.HetznerCluster
 }
 
 func (c *managementCluster) Namespace() string {
@@ -736,15 +736,15 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 		if apierrors.IsNotFound(err) {
 			deprecatedv1beta1conditions.MarkFalse(
 				hetznerCluster,
-				infrav2.TargetClusterReadyV1Beta1Condition,
-				infrav2.KubeConfigNotFoundV1Beta1Reason,
+				infrav1.TargetClusterReadyV1Beta1Condition,
+				infrav1.KubeConfigNotFoundV1Beta1Reason,
 				clusterv1.ConditionSeverityInfo,
 				"kubeconfig not found (yet)",
 			)
 			conditions.Set(hetznerCluster, metav1.Condition{
-				Type:    infrav2.HetznerClusterTargetClusterReadyCondition,
+				Type:    infrav1.HetznerClusterTargetClusterReadyCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HetznerClusterTargetClusterCreationFailedReason,
+				Reason:  infrav1.HetznerClusterTargetClusterCreationFailedReason,
 				Message: "kubeconfig not found (yet)",
 			})
 			return nil, nil
@@ -755,15 +755,15 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 	if err := scope.IsControlPlaneReady(ctx, clientConfig); err != nil {
 		deprecatedv1beta1conditions.MarkFalse(
 			clusterScope.HetznerCluster,
-			infrav2.TargetClusterReadyV1Beta1Condition,
-			infrav2.TargetClusterControlPlaneNotReadyV1Beta1Reason,
+			infrav1.TargetClusterReadyV1Beta1Condition,
+			infrav1.TargetClusterControlPlaneNotReadyV1Beta1Reason,
 			clusterv1.ConditionSeverityInfo,
 			"target cluster not ready",
 		)
 		conditions.Set(clusterScope.HetznerCluster, metav1.Condition{
-			Type:    infrav2.HetznerClusterTargetClusterReadyCondition,
+			Type:    infrav1.HetznerClusterTargetClusterReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerClusterTargetClusterCreationFailedReason,
+			Reason:  infrav1.HetznerClusterTargetClusterCreationFailedReason,
 			Message: "target cluster not ready",
 		})
 		return nil, nil //nolint:nilerr
@@ -781,7 +781,7 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 
 	scheme := runtime.NewScheme()
 	_ = certificatesv1.AddToScheme(scheme)
-	_ = infrav2.AddToScheme(scheme)
+	_ = infrav1.AddToScheme(scheme)
 
 	httpClient, err := rest.HTTPClientFor(restConfig)
 	if err != nil {
@@ -792,15 +792,15 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 	if _, err := apiutil.NewDynamicRESTMapper(restConfig, httpClient); err != nil {
 		deprecatedv1beta1conditions.MarkFalse(
 			hetznerCluster,
-			infrav2.TargetClusterReadyV1Beta1Condition,
-			infrav2.KubeAPIServerNotRespondingV1Beta1Reason,
+			infrav1.TargetClusterReadyV1Beta1Condition,
+			infrav1.KubeAPIServerNotRespondingV1Beta1Reason,
 			clusterv1.ConditionSeverityInfo,
 			"kubeapi server not responding (yet)",
 		)
 		conditions.Set(hetznerCluster, metav1.Condition{
-			Type:    infrav2.HetznerClusterTargetClusterReadyCondition,
+			Type:    infrav1.HetznerClusterTargetClusterReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerClusterTargetClusterCreationFailedReason,
+			Reason:  infrav1.HetznerClusterTargetClusterCreationFailedReason,
 			Message: "kubeapi server not responding (yet)",
 		})
 		return nil, nil //nolint:nilerr
@@ -858,7 +858,7 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 
 	err := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
-		For(&infrav2.HetznerCluster{}).
+		For(&infrav1.HetznerCluster{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
 		WithEventFilter(predicates.ResourceIsNotExternallyManaged(mgr.GetScheme(), log)).
 		WithEventFilter(IgnoreInsignificantHetznerClusterStatusUpdates(log)).
@@ -879,12 +879,12 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 			builder.WithPredicates(IgnoreInsignificantClusterStatusUpdates(log)),
 		).
 		Watches(
-			&infrav2.HetznerBareMetalMachine{},
+			&infrav1.HetznerBareMetalMachine{},
 			handler.EnqueueRequestsFromMapFunc(r.machineToHetznerCluster),
 			builder.WithPredicates(controlPlaneMachineToHetznerClusterPredicate()),
 		).
 		Watches(
-			&infrav2.HCloudMachine{},
+			&infrav1.HCloudMachine{},
 			handler.EnqueueRequestsFromMapFunc(r.machineToHetznerCluster),
 			builder.WithPredicates(controlPlaneMachineToHetznerClusterPredicate()),
 		).
@@ -909,7 +909,7 @@ func (r *HetznerClusterReconciler) hetznerSecretToHetznerClusters(ctx context.Co
 
 	log = log.WithValues("objectMapper", "hetznerSecretToHetznerCluster", "namespace", secret.Namespace, "secret", secret.Name)
 
-	hetznerClusterList := &infrav2.HetznerClusterList{}
+	hetznerClusterList := &infrav1.HetznerClusterList{}
 	if err := r.List(ctx, hetznerClusterList, client.InNamespace(secret.Namespace)); err != nil {
 		log.Error(err, "failed to list HetznerClusters, skipping mapping")
 		return nil
@@ -954,7 +954,7 @@ func (r *HetznerClusterReconciler) clusterToHetznerCluster(ctx context.Context, 
 		return nil
 	}
 
-	hetznerCluster := &infrav2.HetznerCluster{}
+	hetznerCluster := &infrav1.HetznerCluster{}
 	key := types.NamespacedName{Namespace: c.Namespace, Name: c.Spec.InfrastructureRef.Name}
 
 	if err := r.Get(ctx, key, hetznerCluster); err != nil {
@@ -1035,13 +1035,13 @@ func IgnoreInsignificantHetznerClusterStatusUpdates(logger logr.Logger) predicat
 				"name", e.ObjectNew.GetName(),
 			)
 
-			var oldHetznerCluster, newHetznerCluster *infrav2.HetznerCluster
+			var oldHetznerCluster, newHetznerCluster *infrav1.HetznerCluster
 			var ok bool
 			// This predicate only looks at HetznerCluster objects
-			if oldHetznerCluster, ok = e.ObjectOld.(*infrav2.HetznerCluster); !ok {
+			if oldHetznerCluster, ok = e.ObjectOld.(*infrav1.HetznerCluster); !ok {
 				return true
 			}
-			if newHetznerCluster, ok = e.ObjectNew.(*infrav2.HetznerCluster); !ok {
+			if newHetznerCluster, ok = e.ObjectNew.(*infrav1.HetznerCluster); !ok {
 				// Something weird happened, and we received two different kinds of objects
 				return true
 			}
@@ -1051,7 +1051,7 @@ func IgnoreInsignificantHetznerClusterStatusUpdates(logger logr.Logger) predicat
 			newHetznerCluster = newHetznerCluster.DeepCopy()
 
 			// check if status is empty - if so, it should be restored
-			emptyStatus := infrav2.HetznerClusterStatus{}
+			emptyStatus := infrav1.HetznerClusterStatus{}
 			if reflect.DeepEqual(newHetznerCluster.Status, emptyStatus) {
 				return true
 			}
@@ -1064,8 +1064,8 @@ func IgnoreInsignificantHetznerClusterStatusUpdates(logger logr.Logger) predicat
 			oldHetznerCluster.ResourceVersion = ""
 			newHetznerCluster.ResourceVersion = ""
 
-			oldHetznerCluster.Status = infrav2.HetznerClusterStatus{}
-			newHetznerCluster.Status = infrav2.HetznerClusterStatus{}
+			oldHetznerCluster.Status = infrav1.HetznerClusterStatus{}
+			newHetznerCluster.Status = infrav1.HetznerClusterStatus{}
 
 			if reflect.DeepEqual(oldHetznerCluster, newHetznerCluster) {
 				// Only insignificant fields changed, no need to reconcile
@@ -1136,9 +1136,9 @@ func controlPlaneMachineToHetznerClusterPredicate() predicate.Funcs {
 				return false
 			}
 
-			conditionType := infrav2.HCloudMachineServerAvailableCondition
-			if _, ok := e.ObjectNew.(*infrav2.HetznerBareMetalMachine); ok {
-				conditionType = infrav2.HetznerBareMetalMachineServerAvailableCondition
+			conditionType := infrav1.HCloudMachineServerAvailableCondition
+			if _, ok := e.ObjectNew.(*infrav1.HetznerBareMetalMachine); ok {
+				conditionType = infrav1.HetznerBareMetalMachineServerAvailableCondition
 			}
 
 			wasTrue := conditions.IsTrue(oldGetter, conditionType)

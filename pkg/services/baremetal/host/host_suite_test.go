@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
@@ -77,21 +77,21 @@ var (
 	timeout    = timeoutError{errTimeout}
 )
 
-func newTestHostStateMachine(host *infrav2.HetznerBareMetalHost, service *Service) *hostStateMachine {
+func newTestHostStateMachine(host *infrav1.HetznerBareMetalHost, service *Service) *hostStateMachine {
 	return newHostStateMachine(host, service, log)
 }
 
 var fakeBootID = "1234321"
 
 func newTestService(
-	host *infrav2.HetznerBareMetalHost,
+	host *infrav1.HetznerBareMetalHost,
 	robotClient robotclient.Client,
 	sshClientFactory sshclient.Factory,
 	osSSHSecret *corev1.Secret,
 	rescueSSHSecret *corev1.Secret,
 ) *Service {
 	scheme := runtime.NewScheme()
-	utilruntime.Must(infrav2.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(host).Build()
@@ -135,12 +135,12 @@ func newTestService(
 		panic(err)
 	}
 
-	hbmm := &infrav2.HetznerBareMetalMachine{
+	hbmm := &infrav1.HetznerBareMetalMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      host.Name,
 			Namespace: host.Namespace,
 		},
-		Spec: infrav2.HetznerBareMetalMachineSpec{
+		Spec: infrav1.HetznerBareMetalMachineSpec{
 			SSHSpec: helpers.BareMetalMachineSSHSpec(22),
 		},
 	}
@@ -169,7 +169,7 @@ func newTestService(
 			HetznerBareMetalHost:    host,
 			HetznerBareMetalMachine: hbmm,
 			Machine:                 capiMachine,
-			HetznerCluster: &infrav2.HetznerCluster{
+			HetznerCluster: &infrav1.HetznerCluster{
 				Spec: helpers.GetDefaultHetznerClusterSpec(),
 			},
 			// Attention: this doesn't make sense if we test with constant node names

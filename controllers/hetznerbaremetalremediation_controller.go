@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/remediation"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -70,12 +70,12 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		return ctrl.Result{}, err
 	}
 	if skipReconciliation {
-		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav2.SkipNamespaceAnnotation)
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 
 	// Fetch the Hetzner bare metal host instance.
-	bareMetalRemediation := &infrav2.HetznerBareMetalRemediation{}
+	bareMetalRemediation := &infrav1.HetznerBareMetalRemediation{}
 	err = r.Get(ctx, req.NamespacedName, bareMetalRemediation)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -102,7 +102,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		// The object changed. Wait until the new version is in the local cache
 
 		// Get the latest version from the apiserver.
-		apiserverBareMetalRemediation := &infrav2.HetznerBareMetalRemediation{}
+		apiserverBareMetalRemediation := &infrav1.HetznerBareMetalRemediation{}
 
 		// Use uncached APIReader
 		err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(bareMetalRemediation), apiserverBareMetalRemediation)
@@ -122,7 +122,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 
 		err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 3*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			// new resource, read from local cache
-			latestFromLocalCache := &infrav2.HetznerBareMetalRemediation{}
+			latestFromLocalCache := &infrav1.HetznerBareMetalRemediation{}
 			getErr := r.Get(ctx, client.ObjectKeyFromObject(apiserverBareMetalRemediation), latestFromLocalCache)
 			if apierrors.IsNotFound(getErr) {
 				// the object was deleted. All is fine.
@@ -155,7 +155,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	log = log.WithValues("Machine", klog.KObj(machine))
 
 	// Fetch the BareMetalMachine instance.
-	bareMetalMachine := &infrav2.HetznerBareMetalMachine{}
+	bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
 
 	key := client.ObjectKey{
 		Name:      machine.Spec.InfrastructureRef.Name,
@@ -185,7 +185,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
 
-	hetznerCluster := &infrav2.HetznerCluster{}
+	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
 		Namespace: bareMetalMachine.Namespace,
@@ -244,7 +244,7 @@ func (r *HetznerBareMetalRemediationReconciler) reconcileNormal(ctx context.Cont
 // SetupWithManager sets up the controller with the Manager.
 func (r *HetznerBareMetalRemediationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&infrav2.HetznerBareMetalRemediation{}).
+		For(&infrav1.HetznerBareMetalRemediation{}).
 		WithOptions(options).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)

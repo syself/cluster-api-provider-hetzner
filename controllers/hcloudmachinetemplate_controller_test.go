@@ -24,14 +24,14 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/machinetemplate"
 )
 
 var _ = Describe("HCloudMachineTemplateReconciler", func() {
 	var (
-		hcloudMachineTemplate *infrav2.HCloudMachineTemplate
+		hcloudMachineTemplate *infrav1.HCloudMachineTemplate
 		testNs                *corev1.Namespace
 		hetznerSecret         *corev1.Secret
 		key                   client.ObjectKey
@@ -90,7 +90,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				}
 				Expect(testEnv.Create(ctx, capiClusterClass)).To(Succeed())
 
-				hcloudMachineTemplate = &infrav2.HCloudMachineTemplate{
+				hcloudMachineTemplate = &infrav1.HCloudMachineTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "hcloud-machine-template",
 						Namespace: testNs.Name,
@@ -103,9 +103,9 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 							},
 						},
 					},
-					Spec: infrav2.HCloudMachineTemplateSpec{
-						Template: infrav2.HCloudMachineTemplateResource{
-							Spec: infrav2.HCloudMachineSpec{
+					Spec: infrav1.HCloudMachineTemplateSpec{
+						Template: infrav1.HCloudMachineTemplateResource{
+							Spec: infrav1.HCloudMachineSpec{
 								ImageName:          "my-control-plane",
 								Type:               "cpx32",
 								PlacementGroupName: &defaultPlacementGroupName,
@@ -129,14 +129,14 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 					testEnv.GetLogger().Info("found the machine template", "OwnerType", hcloudMachineTemplate.Status.OwnerType)
 					return hcloudMachineTemplate.Status.OwnerType == "ClusterClass" &&
-						isPresentAndTrueWithReason(key, hcloudMachineTemplate, infrav2.HCloudMachineTemplateAvailableCondition, infrav2.HCloudMachineTemplateOwnedByClusterClassReason)
+						isPresentAndTrueWithReason(key, hcloudMachineTemplate, infrav1.HCloudMachineTemplateAvailableCondition, infrav1.HCloudMachineTemplateOwnedByClusterClassReason)
 				}, timeout).Should(BeTrue())
 			})
 		})
 
 		Context("missing owner Cluster", func() {
 			BeforeEach(func() {
-				hcloudMachineTemplate = &infrav2.HCloudMachineTemplate{
+				hcloudMachineTemplate = &infrav1.HCloudMachineTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "hcloud-machine-template",
 						Namespace: testNs.Name,
@@ -149,9 +149,9 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 							},
 						},
 					},
-					Spec: infrav2.HCloudMachineTemplateSpec{
-						Template: infrav2.HCloudMachineTemplateResource{
-							Spec: infrav2.HCloudMachineSpec{
+					Spec: infrav1.HCloudMachineTemplateSpec{
+						Template: infrav1.HCloudMachineTemplateResource{
+							Spec: infrav1.HCloudMachineSpec{
 								ImageName:          "my-control-plane",
 								Type:               "cpx32",
 								PlacementGroupName: &defaultPlacementGroupName,
@@ -167,9 +167,9 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 					return isConditionWithStatusAndReason(
 						key,
 						hcloudMachineTemplate,
-						infrav2.HCloudMachineTemplateAvailableCondition,
+						infrav1.HCloudMachineTemplateAvailableCondition,
 						metav1.ConditionUnknown,
-						infrav2.HCloudMachineTemplateWaitingForOwnerClusterReason,
+						infrav1.HCloudMachineTemplateWaitingForOwnerClusterReason,
 					)
 				}, timeout).Should(BeTrue())
 			})
@@ -193,7 +193,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				}
 				Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
 
-				hcloudMachineTemplate = &infrav2.HCloudMachineTemplate{
+				hcloudMachineTemplate = &infrav1.HCloudMachineTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "hcloud-machine-template",
 						Namespace: testNs.Name,
@@ -206,9 +206,9 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 							},
 						},
 					},
-					Spec: infrav2.HCloudMachineTemplateSpec{
-						Template: infrav2.HCloudMachineTemplateResource{
-							Spec: infrav2.HCloudMachineSpec{
+					Spec: infrav1.HCloudMachineTemplateSpec{
+						Template: infrav1.HCloudMachineTemplateResource{
+							Spec: infrav1.HCloudMachineSpec{
 								ImageName:          "my-control-plane",
 								Type:               "cpx32",
 								PlacementGroupName: &defaultPlacementGroupName,
@@ -221,7 +221,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 			It("sets Available to false when the infrastructure ref is missing", func() {
 				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachineTemplate, infrav2.HCloudMachineTemplateAvailableCondition, infrav2.HCloudMachineTemplateMissingInfrastructureRefReason)
+					return isPresentAndFalseWithReason(key, hcloudMachineTemplate, infrav1.HCloudMachineTemplateAvailableCondition, infrav1.HCloudMachineTemplateMissingInfrastructureRefReason)
 				}, timeout).Should(BeTrue())
 			})
 		})
@@ -229,7 +229,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 		Context("Cluster test", func() {
 			var (
 				capiCluster    *clusterv1.Cluster
-				hetznerCluster *infrav2.HetznerCluster
+				hetznerCluster *infrav1.HetznerCluster
 			)
 
 			BeforeEach(func() {
@@ -249,7 +249,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				}
 				Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
 
-				hetznerCluster = &infrav2.HetznerCluster{
+				hetznerCluster = &infrav1.HetznerCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "hetzner-test",
 						Namespace: testNs.Name,
@@ -266,15 +266,15 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				}
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
-				hcloudMachineTemplate = &infrav2.HCloudMachineTemplate{
+				hcloudMachineTemplate = &infrav1.HCloudMachineTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "hcloud-machine-template",
 						Namespace:       testNs.Name,
 						OwnerReferences: hetznerCluster.OwnerReferences,
 					},
-					Spec: infrav2.HCloudMachineTemplateSpec{
-						Template: infrav2.HCloudMachineTemplateResource{
-							Spec: infrav2.HCloudMachineSpec{
+					Spec: infrav1.HCloudMachineTemplateSpec{
+						Template: infrav1.HCloudMachineTemplateResource{
+							Spec: infrav1.HCloudMachineSpec{
 								ImageName:          "my-control-plane",
 								Type:               "cpx32",
 								PlacementGroupName: &defaultPlacementGroupName,
@@ -328,14 +328,14 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 						return false
 					}
 
-					return isPresentAndTrueWithReason(key, hcloudMachineTemplate, infrav2.HCloudMachineTemplateAvailableCondition, infrav2.HCloudMachineTemplateAvailableReason)
+					return isPresentAndTrueWithReason(key, hcloudMachineTemplate, infrav1.HCloudMachineTemplateAvailableCondition, infrav1.HCloudMachineTemplateAvailableReason)
 				}, timeout, interval).Should(BeTrue())
 			})
 
 			It("sets HCloudTokenAvailable and the Ready summary on both condition surfaces", func() {
 				Eventually(func() bool {
-					return isPresentAndTrueWithReason(key, hcloudMachineTemplate, infrav2.HCloudTokenAvailableCondition, infrav2.HCloudTokenAvailableReason) &&
-						isPresentAndTrueDeprecatedV1Beta1(key, hcloudMachineTemplate, infrav2.HCloudTokenAvailableV1Beta1Condition) &&
+					return isPresentAndTrueWithReason(key, hcloudMachineTemplate, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudTokenAvailableReason) &&
+						isPresentAndTrueDeprecatedV1Beta1(key, hcloudMachineTemplate, infrav1.HCloudTokenAvailableV1Beta1Condition) &&
 						isPresentAndTrueWithReason(key, hcloudMachineTemplate, clusterv1.ReadyCondition, clusterv1.ReadyReason) &&
 						isPresentAndTrueDeprecatedV1Beta1(key, hcloudMachineTemplate, clusterv1.ReadyV1Beta1Condition)
 				}, timeout, interval).Should(BeTrue())
@@ -344,7 +344,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 		Context("HCloudMachineTemplate Webhook Validation", func() {
 			var (
-				hcloudMachineTemplate *infrav2.HCloudMachineTemplate
+				hcloudMachineTemplate *infrav1.HCloudMachineTemplate
 				testNs                *corev1.Namespace
 			)
 			BeforeEach(func() {
@@ -354,14 +354,14 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				defer finish()
 				Expect(err).NotTo(HaveOccurred())
 
-				hcloudMachineTemplate = &infrav2.HCloudMachineTemplate{
+				hcloudMachineTemplate = &infrav1.HCloudMachineTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "hcloud-validation-machine",
 						Namespace: testNs.Name,
 					},
-					Spec: infrav2.HCloudMachineTemplateSpec{
-						Template: infrav2.HCloudMachineTemplateResource{
-							Spec: infrav2.HCloudMachineSpec{
+					Spec: infrav1.HCloudMachineTemplateSpec{
+						Template: infrav1.HCloudMachineTemplateResource{
+							Spec: infrav1.HCloudMachineSpec{
 								Type:      "cx43",
 								ImageName: "my-hcloud-image",
 							},
@@ -396,7 +396,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 			It("should prevent updating SSHKey", func() {
 				Expect(testEnv.Get(ctx, key, hcloudMachineTemplate)).To(Succeed())
 
-				hcloudMachineTemplate.Spec.Template.Spec.SSHKeys = []infrav2.SSHKey{{Name: "ssh-key-1"}}
+				hcloudMachineTemplate.Spec.Template.Spec.SSHKeys = []infrav1.SSHKey{{Name: "ssh-key-1"}}
 				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).ToNot(Succeed())
 			})
 

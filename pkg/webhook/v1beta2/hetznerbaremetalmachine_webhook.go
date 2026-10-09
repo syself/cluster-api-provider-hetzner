@@ -22,7 +22,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // HetznerBareMetalMachineWebhook implements admission webhooks for HetznerBareMetalMachine.
@@ -30,36 +30,36 @@ type HetznerBareMetalMachineWebhook struct{}
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalMachine.
 func (webhook *HetznerBareMetalMachineWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav2.HetznerBareMetalMachine{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HetznerBareMetalMachine{}).
 		WithValidator(webhook).
 		WithDefaulter(webhook).
 		Complete()
 }
 
-var _ admission.Defaulter[*infrav2.HetznerBareMetalMachine] = &HetznerBareMetalMachineWebhook{}
+var _ admission.Defaulter[*infrav1.HetznerBareMetalMachine] = &HetznerBareMetalMachineWebhook{}
 
 // Default implements admission.Defaulter so a webhook will be registered for HetznerBareMetalMachine.
-func (*HetznerBareMetalMachineWebhook) Default(context.Context, *infrav2.HetznerBareMetalMachine) error {
+func (*HetznerBareMetalMachineWebhook) Default(context.Context, *infrav1.HetznerBareMetalMachine) error {
 	return nil
 }
 
-var _ admission.Validator[*infrav2.HetznerBareMetalMachine] = &HetznerBareMetalMachineWebhook{}
+var _ admission.Validator[*infrav1.HetznerBareMetalMachine] = &HetznerBareMetalMachineWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HetznerBareMetalMachine.
-func (*HetznerBareMetalMachineWebhook) ValidateCreate(_ context.Context, r *infrav2.HetznerBareMetalMachine) (admission.Warnings, error) {
+func (*HetznerBareMetalMachineWebhook) ValidateCreate(_ context.Context, r *infrav1.HetznerBareMetalMachine) (admission.Warnings, error) {
 	allErrs := validateHetznerBareMetalMachineSpecCreate(r.Spec)
 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HetznerBareMetalMachine.
-func (*HetznerBareMetalMachineWebhook) ValidateUpdate(_ context.Context, oldHetznerBareMetalMachine *infrav2.HetznerBareMetalMachine, r *infrav2.HetznerBareMetalMachine) (admission.Warnings, error) {
+func (*HetznerBareMetalMachineWebhook) ValidateUpdate(_ context.Context, oldHetznerBareMetalMachine *infrav1.HetznerBareMetalMachine, r *infrav1.HetznerBareMetalMachine) (admission.Warnings, error) {
 	allErrs := validateHetznerBareMetalMachineSpecUpdate(oldHetznerBareMetalMachine.Spec, r.Spec)
 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HetznerBareMetalMachine.
-func (*HetznerBareMetalMachineWebhook) ValidateDelete(context.Context, *infrav2.HetznerBareMetalMachine) (admission.Warnings, error) {
+func (*HetznerBareMetalMachineWebhook) ValidateDelete(context.Context, *infrav1.HetznerBareMetalMachine) (admission.Warnings, error) {
 	return nil, nil
 }

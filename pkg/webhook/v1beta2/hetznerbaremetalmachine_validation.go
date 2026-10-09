@@ -26,11 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
-func validateHetznerBareMetalMachineSpecCreate(spec infrav2.HetznerBareMetalMachineSpec) field.ErrorList {
+func validateHetznerBareMetalMachineSpecCreate(spec infrav1.HetznerBareMetalMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// installImage and customProvisioner are the two mutually exclusive provisioning flows.
@@ -72,7 +72,7 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav2.HetznerBareMetalMach
 	return allErrs
 }
 
-func validateInstallImage(installImage infrav2.InstallImage) field.ErrorList {
+func validateInstallImage(installImage infrav1.InstallImage) field.ErrorList {
 	var allErrs field.ErrorList
 	base := field.NewPath("spec", "installImage")
 	image := installImage.Image
@@ -84,7 +84,7 @@ func validateInstallImage(installImage infrav2.InstallImage) field.ErrorList {
 	}
 
 	if image.URL != "" {
-		if _, err := infrav2.GetImageSuffix(image.URL); err != nil {
+		if _, err := infrav1.GetImageSuffix(image.URL); err != nil {
 			allErrs = append(allErrs,
 				field.Invalid(base.Child("image", "url"), image.URL, "unknown image type in URL"),
 			)
@@ -94,7 +94,7 @@ func validateInstallImage(installImage infrav2.InstallImage) field.ErrorList {
 	return allErrs
 }
 
-func validateCustomProvisioner(customProvisioner infrav2.CustomProvisioner) field.ErrorList {
+func validateCustomProvisioner(customProvisioner infrav1.CustomProvisioner) field.ErrorList {
 	var allErrs field.ErrorList
 	base := field.NewPath("spec", "customProvisioner")
 
@@ -111,7 +111,7 @@ func validateCustomProvisioner(customProvisioner infrav2.CustomProvisioner) fiel
 	return allErrs
 }
 
-func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec infrav2.HetznerBareMetalMachineSpec) field.ErrorList {
+func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec infrav1.HetznerBareMetalMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	if !reflect.DeepEqual(newSpec.InstallImage, oldSpec.InstallImage) {
 		allErrs = append(allErrs,

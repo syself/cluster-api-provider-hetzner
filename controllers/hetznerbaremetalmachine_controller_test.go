@@ -47,7 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
@@ -58,9 +58,9 @@ import (
 
 var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 	var (
-		bmMachine      *infrav2.HetznerBareMetalMachine
+		bmMachine      *infrav1.HetznerBareMetalMachine
 		machineName    string
-		hetznerCluster *infrav2.HetznerCluster
+		hetznerCluster *infrav1.HetznerCluster
 
 		capiCluster *clusterv1.Cluster
 
@@ -97,7 +97,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			},
 			Spec: clusterv1.ClusterSpec{
 				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-					APIGroup: infrav2.GroupVersion.Group,
+					APIGroup: infrav1.GroupVersion.Group,
 					Kind:     "HetznerCluster",
 					Name:     hetznerClusterName,
 				},
@@ -118,7 +118,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		}
 		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
 
-		hetznerCluster = &infrav2.HetznerCluster{
+		hetznerCluster = &infrav1.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      hetznerClusterName,
 				Namespace: testNs.Name,
@@ -175,7 +175,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		osSSHClient.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
 		osSSHClient.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
 		osSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
-			StdOut: infrav2.BareMetalHostNamePrefix + machineName,
+			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
@@ -189,7 +189,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 	Context("Tests with host", func() {
 		var (
-			host    *infrav2.HetznerBareMetalHost
+			host    *infrav1.HetznerBareMetalHost
 			hostKey client.ObjectKey
 
 			capiMachine *clusterv1.Machine
@@ -240,7 +240,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-				bmMachine = &infrav2.HetznerBareMetalMachine{
+				bmMachine = &infrav1.HetznerBareMetalMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      machineName,
 						Namespace: testNs.Name,
@@ -269,8 +269,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			It("sets bootstrap condition on false if no bootstrap available", func() {
 				Eventually(func() bool {
-					return isPresentAndFalseWithReasonDeprecatedV1Beta1(key, bmMachine, infrav2.BootstrapReadyV1Beta1Condition, infrav2.BootstrapNotReadyV1Beta1Reason) &&
-						isPresentAndFalseWithReason(key, bmMachine, infrav2.HetznerBareMetalMachineHostAssociatedCondition, infrav2.HetznerBareMetalMachineWaitingForBootstrapDataReason)
+					return isPresentAndFalseWithReasonDeprecatedV1Beta1(key, bmMachine, infrav1.BootstrapReadyV1Beta1Condition, infrav1.BootstrapNotReadyV1Beta1Reason) &&
+						isPresentAndFalseWithReason(key, bmMachine, infrav1.HetznerBareMetalMachineHostAssociatedCondition, infrav1.HetznerBareMetalMachineWaitingForBootstrapDataReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -290,8 +290,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				By("checking that bootstrap condition is set on true")
 
 				Eventually(func() bool {
-					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav2.BootstrapReadyV1Beta1Condition) &&
-						isPresentAndTrueWithReason(key, bmMachine, infrav2.HetznerBareMetalMachineHostAssociatedCondition, infrav2.HetznerBareMetalMachineHostAssociatedReason)
+					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav1.BootstrapReadyV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, bmMachine, infrav1.HetznerBareMetalMachineHostAssociatedCondition, infrav1.HetznerBareMetalMachineHostAssociatedReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 		})
@@ -324,7 +324,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-				bmMachine = &infrav2.HetznerBareMetalMachine{
+				bmMachine = &infrav1.HetznerBareMetalMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      machineName,
 						Namespace: testNs.Name,
@@ -371,7 +371,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return false
 					}
 					for _, finalizer := range bmMachine.GetFinalizers() {
-						if finalizer == infrav2.HetznerBareMetalMachineFinalizer {
+						if finalizer == infrav1.HetznerBareMetalMachineFinalizer {
 							return true
 						}
 					}
@@ -384,7 +384,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err := testEnv.Get(ctx, hostKey, host); err != nil {
 						return false
 					}
-					if host.Status.ProvisioningState == infrav2.StateProvisioned {
+					if host.Status.ProvisioningState == infrav1.StateProvisioned {
 						return true
 					}
 					return false
@@ -401,14 +401,14 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			It("sets the appropriate conditions that a host is associated and later provisioned", func() {
 				By("checking that the host is associated")
 				Eventually(func() bool {
-					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav2.HostAssociateSucceededV1Beta1Condition) &&
-						isPresentAndTrueWithReason(key, bmMachine, infrav2.HetznerBareMetalMachineHostAssociatedCondition, infrav2.HetznerBareMetalMachineHostAssociatedReason)
+					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav1.HostAssociateSucceededV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, bmMachine, infrav1.HetznerBareMetalMachineHostAssociatedCondition, infrav1.HetznerBareMetalMachineHostAssociatedReason)
 				}, timeout).Should(BeTrue())
 
 				By("checking that the host is ready")
 				Eventually(func() bool {
-					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav2.HostReadyV1Beta1Condition) &&
-						isPresentAndTrueWithReason(key, bmMachine, infrav2.HetznerBareMetalMachineHostReadyCondition, infrav2.HetznerBareMetalMachineHostReadyReason)
+					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav1.HostReadyV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, bmMachine, infrav1.HetznerBareMetalMachineHostReadyCondition, infrav1.HetznerBareMetalMachineHostReadyReason)
 				}, timeout).Should(BeTrue())
 
 				By("checking that the bare metal machine is ready")
@@ -419,8 +419,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 				By("checking that the HCloud token is available")
 				Eventually(func() bool {
-					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav2.HCloudTokenAvailableV1Beta1Condition) &&
-						isPresentAndTrueWithReason(key, bmMachine, infrav2.HCloudTokenAvailableCondition, infrav2.HCloudTokenAvailableReason)
+					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav1.HCloudTokenAvailableV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, bmMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudTokenAvailableReason)
 				}, timeout).Should(BeTrue())
 			})
 
@@ -428,15 +428,15 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				By("Waiting until host is provisioned")
 
 				Eventually(func() bool {
-					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav2.HostReadyV1Beta1Condition) &&
-						isPresentAndTrueWithReason(key, bmMachine, infrav2.HetznerBareMetalMachineHostReadyCondition, infrav2.HetznerBareMetalMachineHostReadyReason)
+					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav1.HostReadyV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, bmMachine, infrav1.HetznerBareMetalMachineHostReadyCondition, infrav1.HetznerBareMetalMachineHostReadyReason)
 				}, timeout).Should(BeTrue())
 
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, hostKey, host); err != nil {
 						return false
 					}
-					return host.Status.ProvisioningState == infrav2.StateProvisioned
+					return host.Status.ProvisioningState == infrav1.StateProvisioned
 				}, timeout).Should(BeTrue())
 
 				By("deleting hbmm")
@@ -456,15 +456,15 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err := testEnv.Get(ctx, hostKey, host); err != nil {
 						return false
 					}
-					return host.Status.ProvisioningState == infrav2.StateNone
+					return host.Status.ProvisioningState == infrav1.StateNone
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
 			It("hbmm deletes successfully and host gets deprovisioned, even if state is 'ensure-provisioned'", func() {
 				By("checking that the host is ready")
 				Eventually(func() bool {
-					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav2.HostReadyV1Beta1Condition) &&
-						isPresentAndTrueWithReason(key, bmMachine, infrav2.HetznerBareMetalMachineHostReadyCondition, infrav2.HetznerBareMetalMachineHostReadyReason)
+					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav1.HostReadyV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, bmMachine, infrav1.HetznerBareMetalMachineHostReadyCondition, infrav1.HetznerBareMetalMachineHostReadyReason)
 				}, timeout).Should(BeTrue())
 
 				osSSHClient.On("GetHostName", mock.Anything).Unset()
@@ -479,7 +479,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err := testEnv.Get(ctx, hostKey, host); err != nil {
 						return false
 					}
-					return host.Status.ProvisioningState == infrav2.StateProvisioned
+					return host.Status.ProvisioningState == infrav1.StateProvisioned
 				}, timeout).Should(BeTrue())
 
 				By("Setting State to 'ensure-provisioned'")
@@ -489,7 +489,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return err
 					}
 
-					host.Status.ProvisioningState = infrav2.StateEnsureProvisioned
+					host.Status.ProvisioningState = infrav1.StateEnsureProvisioned
 
 					return testEnv.Status().Update(ctx, host)
 				}, timeout, time.Second).Should(Succeed())
@@ -499,7 +499,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					if host.Status.ProvisioningState != infrav2.StateEnsureProvisioned {
+					if host.Status.ProvisioningState != infrav1.StateEnsureProvisioned {
 						return fmt.Errorf("ProvisioningState=%s", host.Status.ProvisioningState)
 					}
 					return nil
@@ -522,7 +522,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err := testEnv.Get(ctx, hostKey, host); err != nil {
 						return false
 					}
-					return host.Status.ProvisioningState == infrav2.StateNone
+					return host.Status.ProvisioningState == infrav1.StateNone
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -572,7 +572,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}, timeout).Should(Succeed())
 
 				By("Do the job of CAPI: Create a HetznerBareMetalRemediation")
-				rem := &infrav2.HetznerBareMetalRemediation{
+				rem := &infrav1.HetznerBareMetalRemediation{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      bmMachine.Name,
 						Namespace: bmMachine.Namespace,
@@ -658,8 +658,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			It("checks that HostReady condition is True for hetznerBareMetalMachine", func() {
 				Eventually(func() bool {
-					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav2.HostReadyV1Beta1Condition) &&
-						isPresentAndTrueWithReason(key, bmMachine, infrav2.HetznerBareMetalMachineHostReadyCondition, infrav2.HetznerBareMetalMachineHostReadyReason)
+					return isPresentAndTrueDeprecatedV1Beta1(key, bmMachine, infrav1.HostReadyV1Beta1Condition) &&
+						isPresentAndTrueWithReason(key, bmMachine, infrav1.HetznerBareMetalMachineHostReadyCondition, infrav1.HetznerBareMetalMachineHostReadyReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
@@ -707,7 +707,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-				bmMachine = &infrav2.HetznerBareMetalMachine{
+				bmMachine = &infrav1.HetznerBareMetalMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      machineName,
 						Namespace: testNs.Name,
@@ -759,22 +759,22 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					c := deprecatedv1beta1conditions.Get(bmMachine, infrav2.HostReadyV1Beta1Condition)
+					c := deprecatedv1beta1conditions.Get(bmMachine, infrav1.HostReadyV1Beta1Condition)
 					if c == nil {
 						return fmt.Errorf("HostReadyCondition not set on hbmm")
 					}
-					if c.Reason != infrav2.OSSSHSecretMissingV1Beta1Reason {
-						return fmt.Errorf("%s not set on hbmm. is %q - Conditions: %+v", infrav2.OSSSHSecretMissingV1Beta1Reason, c.Reason, bmMachine.GetV1Beta1Conditions())
+					if c.Reason != infrav1.OSSSHSecretMissingV1Beta1Reason {
+						return fmt.Errorf("%s not set on hbmm. is %q - Conditions: %+v", infrav1.OSSSHSecretMissingV1Beta1Reason, c.Reason, bmMachine.GetV1Beta1Conditions())
 					}
 					if !strings.Contains(c.Message, magicString) {
 						return fmt.Errorf("CredentialsAvailable substring not set (on hbmm). Conditions: %+v", bmMachine.GetV1Beta1Conditions())
 					}
-					condition := conditions.Get(bmMachine, infrav2.HetznerBareMetalMachineHostReadyCondition)
+					condition := conditions.Get(bmMachine, infrav1.HetznerBareMetalMachineHostReadyCondition)
 					if condition == nil {
 						return fmt.Errorf("HostReady condition not set on hbmm")
 					}
-					if condition.Reason != infrav2.HetznerBareMetalMachineHostNotReadyReason {
-						return fmt.Errorf("%s not set on hbmm. is %q", infrav2.HetznerBareMetalMachineHostNotReadyReason, condition.Reason)
+					if condition.Reason != infrav1.HetznerBareMetalMachineHostNotReadyReason {
+						return fmt.Errorf("%s not set on hbmm. is %q", infrav1.HetznerBareMetalMachineHostNotReadyReason, condition.Reason)
 					}
 					if !strings.Contains(condition.Message, magicString) {
 						return fmt.Errorf("CredentialsAvailable substring not set on the condition. Conditions: %+v", bmMachine.Status.Conditions)
@@ -813,7 +813,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-			bmMachine = &infrav2.HetznerBareMetalMachine{
+			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      machineName,
 					Namespace: testNs.Name,
@@ -838,8 +838,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 		It("creates the bare metal machine and sets condition that no host is available", func() {
 			Eventually(func() bool {
-				return isPresentAndFalseWithReasonDeprecatedV1Beta1(key, bmMachine, infrav2.HostAssociateSucceededV1Beta1Condition, infrav2.NoAvailableHostV1Beta1Reason) &&
-					isPresentAndFalseWithReason(key, bmMachine, infrav2.HetznerBareMetalMachineHostAssociatedCondition, infrav2.HetznerBareMetalMachineNoAvailableHostReason)
+				return isPresentAndFalseWithReasonDeprecatedV1Beta1(key, bmMachine, infrav1.HostAssociateSucceededV1Beta1Condition, infrav1.NoAvailableHostV1Beta1Reason) &&
+					isPresentAndFalseWithReason(key, bmMachine, infrav1.HetznerBareMetalMachineHostAssociatedCondition, infrav1.HetznerBareMetalMachineNoAvailableHostReason)
 			}, timeout).Should(BeTrue())
 		})
 
@@ -857,7 +857,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 	Context("Tests with hosts which get deleted later", func() {
 		var (
-			host        *infrav2.HetznerBareMetalHost
+			host        *infrav1.HetznerBareMetalHost
 			hostKey     client.ObjectKey
 			capiMachine *clusterv1.Machine
 			bmmKey      client.ObjectKey
@@ -897,7 +897,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-			bmMachine = &infrav2.HetznerBareMetalMachine{
+			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      machineName,
 					Namespace: testNs.Name,
@@ -927,23 +927,23 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			By("Waiting until host is provisioned")
 
 			Eventually(func() bool {
-				return isPresentAndTrueDeprecatedV1Beta1(bmmKey, bmMachine, infrav2.HostReadyV1Beta1Condition) &&
-					isPresentAndTrueWithReason(bmmKey, bmMachine, infrav2.HetznerBareMetalMachineHostReadyCondition, infrav2.HetznerBareMetalMachineHostReadyReason)
+				return isPresentAndTrueDeprecatedV1Beta1(bmmKey, bmMachine, infrav1.HostReadyV1Beta1Condition) &&
+					isPresentAndTrueWithReason(bmmKey, bmMachine, infrav1.HetznerBareMetalMachineHostReadyCondition, infrav1.HetznerBareMetalMachineHostReadyReason)
 			}, timeout).Should(BeTrue())
 
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, hostKey, host); err != nil {
 					return false
 				}
-				return host.Status.ProvisioningState == infrav2.StateProvisioned
+				return host.Status.ProvisioningState == infrav1.StateProvisioned
 			}, timeout).Should(BeTrue())
 
 			By("Deleting the host, expect HostReady condition is set to false")
 			Expect(testEnv.Delete(ctx, host)).To(Succeed())
 
 			Eventually(func() bool {
-				return isPresentAndFalseWithReasonDeprecatedV1Beta1(bmmKey, bmMachine, infrav2.HostReadyV1Beta1Condition, infrav2.HostNotFoundV1Beta1Reason) &&
-					isPresentAndFalseWithReason(bmmKey, bmMachine, infrav2.HetznerBareMetalMachineHostReadyCondition, infrav2.HetznerBareMetalMachineHostNotFoundReason)
+				return isPresentAndFalseWithReasonDeprecatedV1Beta1(bmmKey, bmMachine, infrav1.HostReadyV1Beta1Condition, infrav1.HostNotFoundV1Beta1Reason) &&
+					isPresentAndFalseWithReason(bmmKey, bmMachine, infrav1.HetznerBareMetalMachineHostReadyCondition, infrav1.HetznerBareMetalMachineHostNotFoundReason)
 			}, timeout).Should(BeTrue())
 
 			By("ensuring remediate machine annotation is set on CAPI machine")
@@ -986,7 +986,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-			bmMachine = &infrav2.HetznerBareMetalMachine{
+			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      machineName,
 					Namespace: testNs.Name,
@@ -1045,7 +1045,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 
 			It("should fail with a wrong host selector operator", func() {
-				bmMachine.Spec.HostSelector.MatchExpressions = []infrav2.HostSelectorRequirement{
+				bmMachine.Spec.HostSelector.MatchExpressions = []infrav1.HostSelectorRequirement{
 					{
 						Key:      "Cluster",
 						Operator: selection.Operator("WrongOperator"), // Invalid operator, should be one of In, NotIn, Exists, DoesNotExist
@@ -1084,7 +1084,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		})
 		Context("validate update", func() {
 			var (
-				hbmmt  *infrav2.HetznerBareMetalMachineTemplate
+				hbmmt  *infrav1.HetznerBareMetalMachineTemplate
 				testNs *corev1.Namespace
 			)
 			BeforeEach(func() {
@@ -1094,7 +1094,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				defer finish()
 				Expect(err).NotTo(HaveOccurred())
 
-				hbmmt = &infrav2.HetznerBareMetalMachineTemplate{
+				hbmmt = &infrav1.HetznerBareMetalMachineTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      machineName,
 						Namespace: testNs.Name,
@@ -1102,8 +1102,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 							clusterv1.ClusterNameLabel: capiCluster.Name,
 						},
 					},
-					Spec: infrav2.HetznerBareMetalMachineTemplateSpec{
-						Template: infrav2.HetznerBareMetalMachineTemplateResource{
+					Spec: infrav1.HetznerBareMetalMachineTemplateSpec{
+						Template: infrav1.HetznerBareMetalMachineTemplateResource{
 							Spec: getDefaultHetznerBareMetalMachineSpec(),
 						},
 					},
@@ -1123,15 +1123,15 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			It("should not allow update of InstallImage", func() {
 				Expect(testEnv.Get(ctx, key, hbmmt)).To(Succeed())
 
-				hbmmt.Spec = infrav2.HetznerBareMetalMachineTemplateSpec{
-					Template: infrav2.HetznerBareMetalMachineTemplateResource{
-						Spec: infrav2.HetznerBareMetalMachineSpec{
-							InstallImage: &infrav2.InstallImage{
-								Image: infrav2.Image{
+				hbmmt.Spec = infrav1.HetznerBareMetalMachineTemplateSpec{
+					Template: infrav1.HetznerBareMetalMachineTemplateResource{
+						Spec: infrav1.HetznerBareMetalMachineSpec{
+							InstallImage: &infrav1.InstallImage{
+								Image: infrav1.Image{
 									Name: "ubuntu-24.04",
 									URL:  "https://example.com/ubuntu-24.04.tar.gz",
 								},
-								Partitions: []infrav2.Partition{
+								Partitions: []infrav1.Partition{
 									{
 										Mount:      "/",
 										FileSystem: "ext4",
@@ -1148,13 +1148,13 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			It("should not allow update of SSHSpec", func() {
 				Expect(testEnv.Get(ctx, key, hbmmt)).To(Succeed())
 
-				hbmmt.Spec = infrav2.HetznerBareMetalMachineTemplateSpec{
-					Template: infrav2.HetznerBareMetalMachineTemplateResource{
-						Spec: infrav2.HetznerBareMetalMachineSpec{
-							SSHSpec: infrav2.SSHSpec{
-								SecretRef: infrav2.SSHSecretRef{
+				hbmmt.Spec = infrav1.HetznerBareMetalMachineTemplateSpec{
+					Template: infrav1.HetznerBareMetalMachineTemplateResource{
+						Spec: infrav1.HetznerBareMetalMachineSpec{
+							SSHSpec: infrav1.SSHSpec{
+								SecretRef: infrav1.SSHSecretRef{
 									Name: "ssh-secret-new",
-									Key: infrav2.SSHSecretKeyRef{
+									Key: infrav1.SSHSecretKeyRef{
 										Name:       "ssh-key-name-new",
 										PublicKey:  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 										PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
@@ -1171,14 +1171,14 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			It("should not allow update of Host Selectors", func() {
 				Expect(testEnv.Get(ctx, key, hbmmt)).To(Succeed())
 
-				hbmmt.Spec = infrav2.HetznerBareMetalMachineTemplateSpec{
-					Template: infrav2.HetznerBareMetalMachineTemplateResource{
-						Spec: infrav2.HetznerBareMetalMachineSpec{
-							HostSelector: infrav2.HostSelector{
+				hbmmt.Spec = infrav1.HetznerBareMetalMachineTemplateSpec{
+					Template: infrav1.HetznerBareMetalMachineTemplateResource{
+						Spec: infrav1.HetznerBareMetalMachineSpec{
+							HostSelector: infrav1.HostSelector{
 								MatchLabels: map[string]string{
 									"key3": "value3",
 								},
-								MatchExpressions: []infrav2.HostSelectorRequirement{
+								MatchExpressions: []infrav1.HostSelectorRequirement{
 									{
 										Key:      "key4",
 										Operator: selection.In,
@@ -1232,7 +1232,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-			bmMachine = &infrav2.HetznerBareMetalMachine{
+			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      machineName,
 					Namespace: testNs.Name,
@@ -1278,7 +1278,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, capiMachine2)).To(Succeed())
 
-			bmMachine2 := &infrav2.HetznerBareMetalMachine{
+			bmMachine2 := &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      bmMachineName2,
 					Namespace: testNs.Name,
@@ -1309,8 +1309,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			Expect(testEnv.Create(ctx, host)).To(Succeed())
 
 			// Wait until bmMachine is provisioned.
-			var pickedMachine *infrav2.HetznerBareMetalMachine
-			var waitingMachine *infrav2.HetznerBareMetalMachine
+			var pickedMachine *infrav1.HetznerBareMetalMachine
+			var waitingMachine *infrav1.HetznerBareMetalMachine
 
 			// The mock should wait until we know which machine is picked.
 			w := make(chan time.Time)
@@ -1337,7 +1337,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					// machines, and we need to adapt the mock to the one that is
 					// picked.
 					osSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
-						StdOut: infrav2.BareMetalHostNamePrefix + pickedMachine.Name,
+						StdOut: infrav1.BareMetalHostNamePrefix + pickedMachine.Name,
 						StdErr: "",
 						Err:    nil,
 					})
@@ -1350,7 +1350,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					w = nil
 				}
 
-				return host.Status.ProvisioningState != infrav2.StateProvisioned
+				return host.Status.ProvisioningState != infrav1.StateProvisioned
 			}, timeout).Should(BeTrue())
 
 			// Ensure the second machine is not ready (waiting for a hbmh)
@@ -1378,36 +1378,36 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
-	utilruntime.Must(infrav2.AddToScheme(scheme))
-	host := &infrav2.HetznerBareMetalHost{
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+	host := &infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-host",
 			Namespace: "test-ns",
 		},
 	}
-	hbmm := &infrav2.HetznerBareMetalMachine{
+	hbmm := &infrav1.HetznerBareMetalMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-machine-with-label-foo",
 			Namespace: "test-ns",
 		},
-		Spec: infrav2.HetznerBareMetalMachineSpec{
-			HostSelector: infrav2.HostSelector{
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			HostSelector: infrav1.HostSelector{
 				MatchLabels: map[string]string{
 					"key": "foo",
 				},
 			},
 		},
 	}
-	hbmmWithHostAnnotation := &infrav2.HetznerBareMetalMachine{
+	hbmmWithHostAnnotation := &infrav1.HetznerBareMetalMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-machine-with-host-annotation",
 			Namespace: "test-ns",
 			Annotations: map[string]string{
-				infrav2.HostAnnotation: "test-host",
+				infrav1.HostAnnotation: "test-host",
 			},
 		},
-		Spec: infrav2.HetznerBareMetalMachineSpec{
-			HostSelector: infrav2.HostSelector{
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			HostSelector: infrav1.HostSelector{
 				MatchLabels: map[string]string{
 					"key": "foo",
 				},
@@ -1415,26 +1415,26 @@ func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
 		},
 	}
 
-	hbmmWithoutLabel := &infrav2.HetznerBareMetalMachine{
+	hbmmWithoutLabel := &infrav1.HetznerBareMetalMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-machine-with-label-bar",
 			Namespace: "test-ns",
 		},
-		Spec: infrav2.HetznerBareMetalMachineSpec{
-			HostSelector: infrav2.HostSelector{
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			HostSelector: infrav1.HostSelector{
 				MatchLabels: map[string]string{
 					"key": "bar",
 				},
 			},
 		},
 	}
-	hbmmOtherNS := &infrav2.HetznerBareMetalMachine{
+	hbmmOtherNS := &infrav1.HetznerBareMetalMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-machine-other-namespace",
 			Namespace: "test-other-namespace",
 		},
-		Spec: infrav2.HetznerBareMetalMachineSpec{
-			HostSelector: infrav2.HostSelector{
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			HostSelector: infrav1.HostSelector{
 				MatchLabels: map[string]string{
 					"key": "foo",
 				},

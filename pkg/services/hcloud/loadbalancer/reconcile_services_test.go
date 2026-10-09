@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
 )
@@ -44,7 +44,7 @@ const (
 	testLBDestPort        = 6443
 )
 
-func newTestService(t *testing.T, hetznerCluster *infrav2.HetznerCluster, mockClient *mocks.Client) *Service {
+func newTestService(t *testing.T, hetznerCluster *infrav1.HetznerCluster, mockClient *mocks.Client) *Service {
 	t.Helper()
 	return &Service{scope: &scope.ClusterScope{
 		HetznerCluster: hetznerCluster,
@@ -52,18 +52,18 @@ func newTestService(t *testing.T, hetznerCluster *infrav2.HetznerCluster, mockCl
 	}}
 }
 
-func newTestHetznerCluster() *infrav2.HetznerCluster {
-	return &infrav2.HetznerCluster{
-		Spec: infrav2.HetznerClusterSpec{
-			ControlPlaneLoadBalancer: infrav2.LoadBalancerSpec{
+func newTestHetznerCluster() *infrav1.HetznerCluster {
+	return &infrav1.HetznerCluster{
+		Spec: infrav1.HetznerClusterSpec{
+			ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
 				Port: testLBDestPort,
 			},
-			ControlPlaneEndpoint: infrav2.APIEndpoint{Port: testKubeAPIListenPort},
+			ControlPlaneEndpoint: infrav1.APIEndpoint{Port: testKubeAPIListenPort},
 		},
-		Status: infrav2.HetznerClusterStatus{
+		Status: infrav1.HetznerClusterStatus{
 			// reconcileServices is always called after Reconcile has already populated this
 			// from statusFromHCloudLB, so mirror that invariant here.
-			ControlPlaneLoadBalancer: &infrav2.LoadBalancerStatus{},
+			ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{},
 		},
 	}
 }
@@ -162,7 +162,7 @@ func TestReconcileServices_ExtraServiceMissing_AddsIt(t *testing.T) {
 	const extraDestPort = 8081
 
 	hetznerCluster := newTestHetznerCluster()
-	hetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices = []infrav2.LoadBalancerServiceSpec{
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices = []infrav1.LoadBalancerServiceSpec{
 		{Protocol: "tcp", ListenPort: extraListenPort, DestinationPort: extraDestPort},
 	}
 
@@ -231,7 +231,7 @@ func TestReconcileServices_ProxyProtocolAlreadyActive_NoChanges(t *testing.T) {
 // via reconcileServices instead of via createOptsFromSpec (e.g. taking over an existing LB).
 func TestReconcileServices_HealthCheckSet_AddsKubeAPIServiceWithHealthCheck(t *testing.T) {
 	hetznerCluster := newTestHetznerCluster()
-	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerHealthCheckSpec{
 		Protocol: "http",
 		Path:     ptr.To("/readyz"),
 	}
@@ -264,7 +264,7 @@ func TestReconcileServices_HealthCheckSet_AddsKubeAPIServiceWithHealthCheck(t *t
 // unhealthy.
 func TestReconcileServices_HealthCheckPathChange_UpdatesInPlaceWithoutGate(t *testing.T) {
 	hetznerCluster := newTestHetznerCluster()
-	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerHealthCheckSpec{
 		Protocol: "http",
 		Path:     ptr.To("/readyz"),
 	}
@@ -306,7 +306,7 @@ func TestReconcileServices_HealthCheckPathChange_UpdatesInPlaceWithoutGate(t *te
 // when the live health check already matches the fields set in spec.
 func TestReconcileServices_HealthCheckMatchesLive_NoUpdateCall(t *testing.T) {
 	hetznerCluster := newTestHetznerCluster()
-	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{Protocol: "tcp"}
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp"}
 
 	mockClient := &mocks.Client{}
 	svc := newTestService(t, hetznerCluster, mockClient)
@@ -351,12 +351,12 @@ func TestReconcileServices_HealthCheckUnset_LeavesLiveConfigAlone(t *testing.T) 
 	mockClient.AssertExpectations(t)
 }
 
-func controlPlaneMachineWithAnnotation(name, annotation string, annotated bool) *infrav2.HCloudMachine {
+func controlPlaneMachineWithAnnotation(name, annotation string, annotated bool) *infrav1.HCloudMachine {
 	annotations := map[string]string{}
 	if annotated {
 		annotations[annotation] = "true"
 	}
-	return &infrav2.HCloudMachine{
+	return &infrav1.HCloudMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metav1.NamespaceDefault,
@@ -369,19 +369,19 @@ func controlPlaneMachineWithAnnotation(name, annotation string, annotated bool) 
 	}
 }
 
-func controlPlaneMachineForProxy(name string, annotated bool) *infrav2.HCloudMachine {
-	return controlPlaneMachineWithAnnotation(name, infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation, annotated)
+func controlPlaneMachineForProxy(name string, annotated bool) *infrav1.HCloudMachine {
+	return controlPlaneMachineWithAnnotation(name, infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation, annotated)
 }
 
-func controlPlaneMachineForHTTPHealthCheck(name string, annotated bool) *infrav2.HCloudMachine {
-	return controlPlaneMachineWithAnnotation(name, infrav2.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated)
+func controlPlaneMachineForHTTPHealthCheck(name string, annotated bool) *infrav1.HCloudMachine {
+	return controlPlaneMachineWithAnnotation(name, infrav1.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated)
 }
 
 // newMigrationTestService builds a Service backed by a fake management-cluster client seeded with
 // the given control-plane infrastructure machines, for tests that gate a change on
 // AllControlPlaneInfraMachinesAnnotatedFor{ProxyProtocol,HTTPHealthCheck}. configureSpec sets
 // whatever part of the spec the test is migrating.
-func newMigrationTestService(t *testing.T, mockClient *mocks.Client, configureSpec func(*infrav2.HetznerCluster), machines ...client.Object) *Service {
+func newMigrationTestService(t *testing.T, mockClient *mocks.Client, configureSpec func(*infrav1.HetznerCluster), machines ...client.Object) *Service {
 	t.Helper()
 	hetznerCluster := newTestHetznerCluster()
 	hetznerCluster.Namespace = metav1.NamespaceDefault
@@ -389,7 +389,7 @@ func newMigrationTestService(t *testing.T, mockClient *mocks.Client, configureSp
 
 	scheme := runtime.NewScheme()
 	_ = clusterv1.AddToScheme(scheme)
-	_ = infrav2.AddToScheme(scheme)
+	_ = infrav1.AddToScheme(scheme)
 
 	svc := newTestService(t, hetznerCluster, mockClient)
 	svc.scope.Client = fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(machines...).Build()
@@ -404,7 +404,7 @@ func newMigrationTestService(t *testing.T, mockClient *mocks.Client, configureSp
 // given control-plane machines in the management cluster.
 func newProxyMigrationService(t *testing.T, mockClient *mocks.Client, machines ...client.Object) *Service {
 	t.Helper()
-	return newMigrationTestService(t, mockClient, func(hc *infrav2.HetznerCluster) {
+	return newMigrationTestService(t, mockClient, func(hc *infrav1.HetznerCluster) {
 		hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
 	}, machines...)
 }
@@ -413,8 +413,8 @@ func newProxyMigrationService(t *testing.T, mockClient *mocks.Client, machines .
 // from the given control-plane machines in the management cluster.
 func newHealthCheckMigrationService(t *testing.T, mockClient *mocks.Client, machines ...client.Object) *Service {
 	t.Helper()
-	return newMigrationTestService(t, mockClient, func(hc *infrav2.HetznerCluster) {
-		hc.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+	return newMigrationTestService(t, mockClient, func(hc *infrav1.HetznerCluster) {
+		hc.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerHealthCheckSpec{
 			Protocol: "http",
 			Path:     ptr.To("/readyz"),
 		}
@@ -439,15 +439,15 @@ func TestReconcileServices_ProxyProtocolMigration_MachinesNotReady(t *testing.T)
 	require.NoError(t, err)
 	require.Equal(t, 2*time.Minute, res.RequeueAfter, "should requeue after 2 minutes while a control-plane machine is not annotated")
 
-	cond := conditions.Get(svc.scope.HetznerCluster, infrav2.HetznerClusterLoadBalancerReadyCondition)
+	cond := conditions.Get(svc.scope.HetznerCluster, infrav1.HetznerClusterLoadBalancerReadyCondition)
 	require.NotNil(t, cond, "LoadBalancerReady condition should report the proxy protocol wait")
 	require.Equal(t, metav1.ConditionFalse, cond.Status)
-	require.Equal(t, infrav2.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason, cond.Reason)
+	require.Equal(t, infrav1.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolReason, cond.Reason)
 
-	deprecatedCond := deprecatedv1beta1conditions.Get(svc.scope.HetznerCluster, infrav2.LoadBalancerReadyV1Beta1Condition)
+	deprecatedCond := deprecatedv1beta1conditions.Get(svc.scope.HetznerCluster, infrav1.LoadBalancerReadyV1Beta1Condition)
 	require.NotNil(t, deprecatedCond, "deprecated LoadBalancerReady condition should report the same wait")
 	require.Equal(t, corev1.ConditionFalse, deprecatedCond.Status)
-	require.Equal(t, infrav2.LoadBalancerWaitingToActivateProxyProtocolV1Beta1Reason, deprecatedCond.Reason)
+	require.Equal(t, infrav1.LoadBalancerWaitingToActivateProxyProtocolV1Beta1Reason, deprecatedCond.Reason)
 
 	mockClient.AssertExpectations(t)
 }
@@ -488,7 +488,7 @@ func TestReconcileServices_ProxyProtocolMigration_MachinesNotReady_StillReconcil
 		controlPlaneMachineForProxy("cp-1", true),
 		controlPlaneMachineForProxy("cp-2", false),
 	)
-	svc.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices = []infrav2.LoadBalancerServiceSpec{
+	svc.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices = []infrav1.LoadBalancerServiceSpec{
 		{Protocol: "tcp", ListenPort: extraListenPort, DestinationPort: extraDestPort},
 	}
 	hcloudLB := &hcloud.LoadBalancer{
@@ -537,15 +537,15 @@ func TestReconcileServices_HealthCheckMigration_MachinesNotReady_Requeues(t *tes
 	require.NoError(t, err)
 	require.Equal(t, 2*time.Minute, res.RequeueAfter, "should requeue after 2 minutes while a control-plane machine is not annotated")
 
-	cond := conditions.Get(svc.scope.HetznerCluster, infrav2.HetznerClusterLoadBalancerReadyCondition)
+	cond := conditions.Get(svc.scope.HetznerCluster, infrav1.HetznerClusterLoadBalancerReadyCondition)
 	require.NotNil(t, cond, "LoadBalancerReady condition should report the http health check wait")
 	require.Equal(t, metav1.ConditionFalse, cond.Status)
-	require.Equal(t, infrav2.HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason, cond.Reason)
+	require.Equal(t, infrav1.HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckReason, cond.Reason)
 
-	deprecatedCond := deprecatedv1beta1conditions.Get(svc.scope.HetznerCluster, infrav2.LoadBalancerReadyV1Beta1Condition)
+	deprecatedCond := deprecatedv1beta1conditions.Get(svc.scope.HetznerCluster, infrav1.LoadBalancerReadyV1Beta1Condition)
 	require.NotNil(t, deprecatedCond, "deprecated LoadBalancerReady condition should report the same wait")
 	require.Equal(t, corev1.ConditionFalse, deprecatedCond.Status)
-	require.Equal(t, infrav2.LoadBalancerWaitingToActivateHTTPHealthCheckV1Beta1Reason, deprecatedCond.Reason)
+	require.Equal(t, infrav1.LoadBalancerWaitingToActivateHTTPHealthCheckV1Beta1Reason, deprecatedCond.Reason)
 
 	// No UpdateServiceOnLoadBalancer expectation was set up, so AssertExpectations fails here if
 	// the tcp check got switched to http anyway.
@@ -594,7 +594,7 @@ func TestReconcileServices_HealthCheckMigration_MachinesReady_SwitchesInPlace(t 
 // the path unhealthy.
 func TestReconcileServices_HealthCheckBackToTCP_UpdatesInPlaceWithoutGate(t *testing.T) {
 	hetznerCluster := newTestHetznerCluster()
-	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerHealthCheckSpec{
 		Protocol: "tcp",
 	}
 
@@ -643,7 +643,7 @@ func TestReconcileServices_HealthCheckMigration_MachinesNotReady_StillReconciles
 		controlPlaneMachineForHTTPHealthCheck("cp-1", true),
 		controlPlaneMachineForHTTPHealthCheck("cp-2", false),
 	)
-	svc.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices = []infrav2.LoadBalancerServiceSpec{
+	svc.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices = []infrav1.LoadBalancerServiceSpec{
 		{Protocol: "tcp", ListenPort: extraListenPort, DestinationPort: extraDestPort},
 	}
 	hcloudLB := &hcloud.LoadBalancer{
@@ -675,9 +675,9 @@ func TestReconcileServices_HealthCheckMigration_MachinesNotReady_StillReconciles
 // annotation, so one being pending must not delay the other that is already satisfied.
 func TestReconcileServices_HealthCheckMigration_MachinesNotReady_StillEnablesProxyProtocol(t *testing.T) {
 	mockClient := &mocks.Client{}
-	svc := newMigrationTestService(t, mockClient, func(hc *infrav2.HetznerCluster) {
+	svc := newMigrationTestService(t, mockClient, func(hc *infrav1.HetznerCluster) {
 		hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
-		hc.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
+		hc.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerHealthCheckSpec{
 			Protocol: "http",
 			Path:     ptr.To("/readyz"),
 		}

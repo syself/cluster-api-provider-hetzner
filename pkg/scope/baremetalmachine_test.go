@@ -25,12 +25,12 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 var _ = Describe("SetHetznerBareMetalMachineReadySummary", func() {
 	It("reports Ready=Unknown when no conditions are set yet", func() {
-		hbmm := &infrav2.HetznerBareMetalMachine{}
+		hbmm := &infrav1.HetznerBareMetalMachine{}
 
 		SetHetznerBareMetalMachineReadySummary(hbmm)
 
@@ -41,28 +41,28 @@ var _ = Describe("SetHetznerBareMetalMachineReadySummary", func() {
 	})
 
 	It("reports Ready=True once all required conditions are True", func() {
-		hbmm := &infrav2.HetznerBareMetalMachine{}
+		hbmm := &infrav1.HetznerBareMetalMachine{}
 
 		for _, c := range []metav1.Condition{
 			{
-				Type:   infrav2.HCloudTokenAvailableCondition,
+				Type:   infrav1.HCloudTokenAvailableCondition,
 				Status: metav1.ConditionTrue,
-				Reason: infrav2.HCloudTokenAvailableReason,
+				Reason: infrav1.HCloudTokenAvailableReason,
 			},
 			{
-				Type:   infrav2.HetznerBareMetalMachineHostAssociatedCondition,
+				Type:   infrav1.HetznerBareMetalMachineHostAssociatedCondition,
 				Status: metav1.ConditionTrue,
-				Reason: infrav2.HetznerBareMetalMachineHostAssociatedReason,
+				Reason: infrav1.HetznerBareMetalMachineHostAssociatedReason,
 			},
 			{
-				Type:   infrav2.HetznerBareMetalMachineHostReadyCondition,
+				Type:   infrav1.HetznerBareMetalMachineHostReadyCondition,
 				Status: metav1.ConditionTrue,
-				Reason: infrav2.HetznerBareMetalMachineHostReadyReason,
+				Reason: infrav1.HetznerBareMetalMachineHostReadyReason,
 			},
 			{
-				Type:   infrav2.HetznerBareMetalMachineServerAvailableCondition,
+				Type:   infrav1.HetznerBareMetalMachineServerAvailableCondition,
 				Status: metav1.ConditionTrue,
-				Reason: infrav2.HetznerBareMetalMachineServerAvailableReason,
+				Reason: infrav1.HetznerBareMetalMachineServerAvailableReason,
 			},
 		} {
 			conditions.Set(hbmm, c)
@@ -77,17 +77,17 @@ var _ = Describe("SetHetznerBareMetalMachineReadySummary", func() {
 	})
 
 	It("sets Ready=False with reason NotReady when a summary condition is False", func() {
-		hbmm := &infrav2.HetznerBareMetalMachine{}
+		hbmm := &infrav1.HetznerBareMetalMachine{}
 
 		conditions.Set(hbmm, metav1.Condition{
-			Type:   infrav2.HCloudTokenAvailableCondition,
+			Type:   infrav1.HCloudTokenAvailableCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav2.HCloudTokenAvailableReason,
+			Reason: infrav1.HCloudTokenAvailableReason,
 		})
 		conditions.Set(hbmm, metav1.Condition{
-			Type:    infrav2.HetznerBareMetalMachineHostReadyCondition,
+			Type:    infrav1.HetznerBareMetalMachineHostReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalMachineHostNotReadyReason,
+			Reason:  infrav1.HetznerBareMetalMachineHostNotReadyReason,
 			Message: "host is not ready",
 		})
 
@@ -101,28 +101,28 @@ var _ = Describe("SetHetznerBareMetalMachineReadySummary", func() {
 	})
 
 	It("lists Deleting ahead of a HostReady failure", func() {
-		hbmm := &infrav2.HetznerBareMetalMachine{}
+		hbmm := &infrav1.HetznerBareMetalMachine{}
 
 		conditions.Set(hbmm, metav1.Condition{
-			Type:   infrav2.HCloudTokenAvailableCondition,
+			Type:   infrav1.HCloudTokenAvailableCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav2.HCloudTokenAvailableReason,
+			Reason: infrav1.HCloudTokenAvailableReason,
 		})
 		conditions.Set(hbmm, metav1.Condition{
-			Type:   infrav2.HetznerBareMetalMachineHostAssociatedCondition,
+			Type:   infrav1.HetznerBareMetalMachineHostAssociatedCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav2.HetznerBareMetalMachineHostAssociatedReason,
+			Reason: infrav1.HetznerBareMetalMachineHostAssociatedReason,
 		})
 		conditions.Set(hbmm, metav1.Condition{
-			Type:    infrav2.HetznerBareMetalMachineHostReadyCondition,
+			Type:    infrav1.HetznerBareMetalMachineHostReadyCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalMachineHostNotReadyReason,
+			Reason:  infrav1.HetznerBareMetalMachineHostNotReadyReason,
 			Message: "host is not ready",
 		})
 		conditions.Set(hbmm, metav1.Condition{
-			Type:    infrav2.HetznerBareMetalMachineDeletingCondition,
+			Type:    infrav1.HetznerBareMetalMachineDeletingCondition,
 			Status:  metav1.ConditionTrue,
-			Reason:  infrav2.HetznerBareMetalMachineDeletingReason,
+			Reason:  infrav1.HetznerBareMetalMachineDeletingReason,
 			Message: "waiting for host to deprovision",
 		})
 

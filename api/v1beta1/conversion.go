@@ -39,19 +39,19 @@ import (
 	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // ConvertTo converts this HetznerCluster to the Hub version (v1beta2).
 func (src *HetznerCluster) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*infrav2.HetznerCluster)
+	dst := dstRaw.(*infrav1.HetznerCluster)
 	if err := Convert_v1beta1_HetznerCluster_To_v1beta2_HetznerCluster(src, dst, nil); err != nil {
 		return err
 	}
 
 	// Read back the v1beta2 object that ConvertFrom stored in the annotation, so the values v1beta1
 	// cannot represent can be restored below. This keeps the round trip lossless.
-	restored := &infrav2.HetznerCluster{}
+	restored := &infrav1.HetznerCluster{}
 	ok, err := utilconversion.UnmarshalData(src, restored)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (src *HetznerCluster) ConvertTo(dstRaw conversion.Hub) error {
 
 // ConvertFrom converts the Hub version (v1beta2) to this HetznerCluster.
 func (dst *HetznerCluster) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav2.HetznerCluster)
+	src := srcRaw.(*infrav1.HetznerCluster)
 	if err := Convert_v1beta2_HetznerCluster_To_v1beta1_HetznerCluster(src, dst, nil); err != nil {
 		return err
 	}
@@ -79,26 +79,26 @@ func (dst *HetznerCluster) ConvertFrom(srcRaw conversion.Hub) error {
 
 // ConvertTo converts this HetznerClusterTemplate to the Hub version (v1beta2).
 func (src *HetznerClusterTemplate) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*infrav2.HetznerClusterTemplate)
+	dst := dstRaw.(*infrav1.HetznerClusterTemplate)
 	return Convert_v1beta1_HetznerClusterTemplate_To_v1beta2_HetznerClusterTemplate(src, dst, nil)
 }
 
 // ConvertFrom converts the Hub version (v1beta2) to this HetznerClusterTemplate.
 func (dst *HetznerClusterTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav2.HetznerClusterTemplate)
+	src := srcRaw.(*infrav1.HetznerClusterTemplate)
 	return Convert_v1beta2_HetznerClusterTemplate_To_v1beta1_HetznerClusterTemplate(src, dst, nil)
 }
 
 // ConvertTo converts this HCloudMachine to the Hub version (v1beta2).
 func (src *HCloudMachine) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*infrav2.HCloudMachine)
+	dst := dstRaw.(*infrav1.HCloudMachine)
 	if err := Convert_v1beta1_HCloudMachine_To_v1beta2_HCloudMachine(src, dst, nil); err != nil {
 		return err
 	}
 
 	// Read back the v1beta2 object that ConvertFrom stored in the annotation, so the values v1beta1
 	// cannot represent can be restored below. This keeps the round trip lossless.
-	restored := &infrav2.HCloudMachine{}
+	restored := &infrav1.HCloudMachine{}
 	ok, err := utilconversion.UnmarshalData(src, restored)
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func (src *HCloudMachine) ConvertTo(dstRaw conversion.Hub) error {
 
 // ConvertFrom converts the Hub version (v1beta2) to this HCloudMachine.
 func (dst *HCloudMachine) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav2.HCloudMachine)
+	src := srcRaw.(*infrav1.HCloudMachine)
 	if err := Convert_v1beta2_HCloudMachine_To_v1beta1_HCloudMachine(src, dst, nil); err != nil {
 		return err
 	}
@@ -126,43 +126,43 @@ func (dst *HCloudMachine) ConvertFrom(srcRaw conversion.Hub) error {
 
 // ConvertTo converts this HCloudMachineTemplate to the Hub version (v1beta2).
 func (src *HCloudMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*infrav2.HCloudMachineTemplate)
+	dst := dstRaw.(*infrav1.HCloudMachineTemplate)
 	return Convert_v1beta1_HCloudMachineTemplate_To_v1beta2_HCloudMachineTemplate(src, dst, nil)
 }
 
 // ConvertFrom converts the Hub version (v1beta2) to this HCloudMachineTemplate.
 func (dst *HCloudMachineTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav2.HCloudMachineTemplate)
+	src := srcRaw.(*infrav1.HCloudMachineTemplate)
 	return Convert_v1beta2_HCloudMachineTemplate_To_v1beta1_HCloudMachineTemplate(src, dst, nil)
 }
 
 // ConvertTo converts this HCloudRemediation to the Hub version (v1beta2).
 func (src *HCloudRemediation) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*infrav2.HCloudRemediation)
+	dst := dstRaw.(*infrav1.HCloudRemediation)
 	return Convert_v1beta1_HCloudRemediation_To_v1beta2_HCloudRemediation(src, dst, nil)
 }
 
 // ConvertFrom converts the Hub version (v1beta2) to this HCloudRemediation.
 func (dst *HCloudRemediation) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav2.HCloudRemediation)
+	src := srcRaw.(*infrav1.HCloudRemediation)
 	return Convert_v1beta2_HCloudRemediation_To_v1beta1_HCloudRemediation(src, dst, nil)
 }
 
 // ConvertTo converts this HCloudRemediationTemplate to the Hub version (v1beta2).
 func (src *HCloudRemediationTemplate) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*infrav2.HCloudRemediationTemplate)
+	dst := dstRaw.(*infrav1.HCloudRemediationTemplate)
 	return Convert_v1beta1_HCloudRemediationTemplate_To_v1beta2_HCloudRemediationTemplate(src, dst, nil)
 }
 
 // ConvertFrom converts the Hub version (v1beta2) to this HCloudRemediationTemplate.
 func (dst *HCloudRemediationTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav2.HCloudRemediationTemplate)
+	src := srcRaw.(*infrav1.HCloudRemediationTemplate)
 	return Convert_v1beta2_HCloudRemediationTemplate_To_v1beta1_HCloudRemediationTemplate(src, dst, nil)
 }
 
 // ConvertTo converts this HetznerBareMetalHost to the Hub version (v1beta2).
 func (src *HetznerBareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*infrav2.HetznerBareMetalHost)
+	dst := dstRaw.(*infrav1.HetznerBareMetalHost)
 	if err := Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(src, dst, nil); err != nil {
 		return err
 	}
@@ -185,7 +185,7 @@ func (src *HetznerBareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
 
 // ConvertFrom converts the Hub version (v1beta2) to this HetznerBareMetalHost.
 func (dst *HetznerBareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav2.HetznerBareMetalHost)
+	src := srcRaw.(*infrav1.HetznerBareMetalHost)
 	if err := Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(src, dst, nil); err != nil {
 		return err
 	}
@@ -204,14 +204,14 @@ func (dst *HetznerBareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
 
 // ConvertTo converts this HetznerBareMetalMachine to the Hub version (v1beta2).
 func (src *HetznerBareMetalMachine) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*infrav2.HetznerBareMetalMachine)
+	dst := dstRaw.(*infrav1.HetznerBareMetalMachine)
 	if err := Convert_v1beta1_HetznerBareMetalMachine_To_v1beta2_HetznerBareMetalMachine(src, dst, nil); err != nil {
 		return err
 	}
 
 	// Read back the v1beta2 object that ConvertFrom stored in the annotation, so the values v1beta1
 	// cannot represent can be restored below. This keeps the round trip lossless.
-	restored := &infrav2.HetznerBareMetalMachine{}
+	restored := &infrav1.HetznerBareMetalMachine{}
 	ok, err := utilconversion.UnmarshalData(src, restored)
 	if err != nil {
 		return err
@@ -227,7 +227,7 @@ func (src *HetznerBareMetalMachine) ConvertTo(dstRaw conversion.Hub) error {
 
 // ConvertFrom converts the Hub version (v1beta2) to this HetznerBareMetalMachine.
 func (dst *HetznerBareMetalMachine) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav2.HetznerBareMetalMachine)
+	src := srcRaw.(*infrav1.HetznerBareMetalMachine)
 	if err := Convert_v1beta2_HetznerBareMetalMachine_To_v1beta1_HetznerBareMetalMachine(src, dst, nil); err != nil {
 		return err
 	}
@@ -239,37 +239,37 @@ func (dst *HetznerBareMetalMachine) ConvertFrom(srcRaw conversion.Hub) error {
 
 // ConvertTo converts this HetznerBareMetalMachineTemplate to the Hub version (v1beta2).
 func (src *HetznerBareMetalMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*infrav2.HetznerBareMetalMachineTemplate)
+	dst := dstRaw.(*infrav1.HetznerBareMetalMachineTemplate)
 	return Convert_v1beta1_HetznerBareMetalMachineTemplate_To_v1beta2_HetznerBareMetalMachineTemplate(src, dst, nil)
 }
 
 // ConvertFrom converts the Hub version (v1beta2) to this HetznerBareMetalMachineTemplate.
 func (dst *HetznerBareMetalMachineTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav2.HetznerBareMetalMachineTemplate)
+	src := srcRaw.(*infrav1.HetznerBareMetalMachineTemplate)
 	return Convert_v1beta2_HetznerBareMetalMachineTemplate_To_v1beta1_HetznerBareMetalMachineTemplate(src, dst, nil)
 }
 
 // ConvertTo converts this HetznerBareMetalRemediation to the Hub version (v1beta2).
 func (src *HetznerBareMetalRemediation) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*infrav2.HetznerBareMetalRemediation)
+	dst := dstRaw.(*infrav1.HetznerBareMetalRemediation)
 	return Convert_v1beta1_HetznerBareMetalRemediation_To_v1beta2_HetznerBareMetalRemediation(src, dst, nil)
 }
 
 // ConvertFrom converts the Hub version (v1beta2) to this HetznerBareMetalRemediation.
 func (dst *HetznerBareMetalRemediation) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav2.HetznerBareMetalRemediation)
+	src := srcRaw.(*infrav1.HetznerBareMetalRemediation)
 	return Convert_v1beta2_HetznerBareMetalRemediation_To_v1beta1_HetznerBareMetalRemediation(src, dst, nil)
 }
 
 // ConvertTo converts this HetznerBareMetalRemediationTemplate to the Hub version (v1beta2).
 func (src *HetznerBareMetalRemediationTemplate) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*infrav2.HetznerBareMetalRemediationTemplate)
+	dst := dstRaw.(*infrav1.HetznerBareMetalRemediationTemplate)
 	return Convert_v1beta1_HetznerBareMetalRemediationTemplate_To_v1beta2_HetznerBareMetalRemediationTemplate(src, dst, nil)
 }
 
 // ConvertFrom converts the Hub version (v1beta2) to this HetznerBareMetalRemediationTemplate.
 func (dst *HetznerBareMetalRemediationTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav2.HetznerBareMetalRemediationTemplate)
+	src := srcRaw.(*infrav1.HetznerBareMetalRemediationTemplate)
 	return Convert_v1beta2_HetznerBareMetalRemediationTemplate_To_v1beta1_HetznerBareMetalRemediationTemplate(src, dst, nil)
 }
 
@@ -289,7 +289,7 @@ func (dst *HetznerBareMetalRemediationTemplate) ConvertFrom(srcRaw conversion.Hu
 // Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost converts a v1beta1
 // HetznerBareMetalHost to v1beta2. v1beta1 keeps the controller-generated status in spec.status,
 // while v1beta2 keeps it in the status subresource, so the status is moved across that boundary here.
-func Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in *HetznerBareMetalHost, out *infrav2.HetznerBareMetalHost, s apiconversion.Scope) error {
+func Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in *HetznerBareMetalHost, out *infrav1.HetznerBareMetalHost, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in, out, s); err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ func Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(in *He
 // Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost converts a v1beta2
 // HetznerBareMetalHost to v1beta1, moving the status subresource back into spec.status and restoring
 // ConsumerRef.Namespace from the host namespace.
-func Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in *infrav2.HetznerBareMetalHost, out *HetznerBareMetalHost, s apiconversion.Scope) error {
+func Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in *infrav1.HetznerBareMetalHost, out *HetznerBareMetalHost, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in, out, s); err != nil {
 		return err
 	}
@@ -313,19 +313,19 @@ func Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in *in
 
 // Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec converts the
 // v1beta1 ObjectReference ConsumerRef to the smaller v1beta2 local reference.
-func Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in *HetznerBareMetalHostSpec, out *infrav2.HetznerBareMetalHostSpec, s apiconversion.Scope) error {
+func Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in *HetznerBareMetalHostSpec, out *infrav1.HetznerBareMetalHostSpec, s apiconversion.Scope) error {
 	return autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in, out, s)
 }
 
 // Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec converts the
 // v1beta2 ConsumerRef shape back to the v1beta1 ObjectReference shape without namespace.
-func Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in *infrav2.HetznerBareMetalHostSpec, out *HetznerBareMetalHostSpec, s apiconversion.Scope) error {
+func Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in *infrav1.HetznerBareMetalHostSpec, out *HetznerBareMetalHostSpec, s apiconversion.Scope) error {
 	return autoConvert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in, out, s)
 }
 
 // Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference converts the
 // v1beta1 ObjectReference shape to the smaller v1beta2 ConsumerRef shape.
-func Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference(in *corev1.ObjectReference, out *infrav2.HetznerBareMetalHostConsumerReference, _ apiconversion.Scope) error {
+func Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference(in *corev1.ObjectReference, out *infrav1.HetznerBareMetalHostConsumerReference, _ apiconversion.Scope) error {
 	apiGroup := ""
 	if in.APIVersion != "" {
 		gv, err := schema.ParseGroupVersion(in.APIVersion)
@@ -344,7 +344,7 @@ func Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference
 
 // Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference converts the
 // v1beta2 ConsumerRef shape back to an ObjectReference without namespace.
-func Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference(in *infrav2.HetznerBareMetalHostConsumerReference, out *corev1.ObjectReference, _ apiconversion.Scope) error {
+func Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference(in *infrav1.HetznerBareMetalHostConsumerReference, out *corev1.ObjectReference, _ apiconversion.Scope) error {
 	out.APIVersion = schema.GroupVersion{Group: in.APIGroup, Version: GroupVersion.Version}.String()
 	out.Kind = in.Kind
 	out.Name = in.Name
@@ -355,14 +355,14 @@ func Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference
 // v1beta1 status subresource carries no data, because the host stores its controller-generated status
 // in spec.status. The object-level converter moves that spec.status into the v1beta2 status
 // subresource (see Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostStatus).
-func Convert_v1beta1_HetznerBareMetalHostStatus_To_v1beta2_HetznerBareMetalHostStatus(_ *HetznerBareMetalHostStatus, _ *infrav2.HetznerBareMetalHostStatus, _ apiconversion.Scope) error {
+func Convert_v1beta1_HetznerBareMetalHostStatus_To_v1beta2_HetznerBareMetalHostStatus(_ *HetznerBareMetalHostStatus, _ *infrav1.HetznerBareMetalHostStatus, _ apiconversion.Scope) error {
 	return nil
 }
 
 // Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_HetznerBareMetalHostStatus is a no-op. The
 // v1beta1 status subresource carries no data; the object-level converter moves the v1beta2 status
 // subresource back into spec.status (see Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedStatus).
-func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_HetznerBareMetalHostStatus(_ *infrav2.HetznerBareMetalHostStatus, _ *HetznerBareMetalHostStatus, _ apiconversion.Scope) error {
+func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_HetznerBareMetalHostStatus(_ *infrav1.HetznerBareMetalHostStatus, _ *HetznerBareMetalHostStatus, _ apiconversion.Scope) error {
 	return nil
 }
 
@@ -375,7 +375,7 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_HetznerBareMetalHostS
 //   - hetznerClusterRef, userData, installImage, sshSpec, errorCount, errorMessage, lastUpdated and
 //     hardwareDetails.cpu.flags have no v1beta2 equivalent; they are dropped here and stashed in the
 //     conversion data annotation at the object level (HetznerBareMetalHost.ConvertTo).
-func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostStatus(in *ControllerGeneratedStatus, out *infrav2.HetznerBareMetalHostStatus, s apiconversion.Scope) error {
+func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostStatus(in *ControllerGeneratedStatus, out *infrav1.HetznerBareMetalHostStatus, s apiconversion.Scope) error {
 	// Promote the staged v1beta2 conditions to the v1beta2 status.conditions.
 	if in.V1Beta2 != nil {
 		out.Conditions = in.V1Beta2.Conditions
@@ -383,15 +383,15 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 
 	// Demote the old v1beta1 conditions to status.deprecated.v1beta1.conditions.
 	if len(in.Conditions) > 0 {
-		out.Deprecated = &infrav2.HetznerBareMetalHostDeprecatedStatus{
-			V1Beta1: &infrav2.HetznerBareMetalHostV1Beta1DeprecatedStatus{
+		out.Deprecated = &infrav1.HetznerBareMetalHostDeprecatedStatus{
+			V1Beta1: &infrav1.HetznerBareMetalHostV1Beta1DeprecatedStatus{
 				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
 			},
 		}
 	}
 
 	if in.HardwareDetails != nil {
-		out.HardwareDetails = &infrav2.HardwareDetails{}
+		out.HardwareDetails = &infrav1.HardwareDetails{}
 		if err := Convert_v1beta1_HardwareDetails_To_v1beta2_HardwareDetails(in.HardwareDetails, out.HardwareDetails, s); err != nil {
 			return err
 		}
@@ -403,7 +403,7 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 	if err := Convert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(&in.SSHStatus, &out.SSHStatus, s); err != nil {
 		return err
 	}
-	out.ProvisioningState = infrav2.ProvisioningState(in.ProvisioningState)
+	out.ProvisioningState = infrav1.ProvisioningState(in.ProvisioningState)
 	out.Rebooted = in.Rebooted
 	out.NodeBootID = in.NodeBootID
 
@@ -412,19 +412,19 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 	// error, preparation error, provisioning error and connection refused error of SSH command,
 	// because the controller does not read them. We do not stash them in the conversion data
 	// annotation, because restoring them would overwrite newer values from the controller.
-	var rebootType infrav2.RebootType
+	var rebootType infrav1.RebootType
 	switch in.ErrorType {
 	case FatalError, PermanentError:
-		out.ErrorType = infrav2.ErrorType(in.ErrorType)
+		out.ErrorType = infrav1.ErrorType(in.ErrorType)
 	case ErrorTypeSSHRebootTriggered:
-		rebootType = infrav2.RebootTypeSSH
+		rebootType = infrav1.RebootTypeSSH
 	case ErrorTypeSoftwareRebootTriggered:
-		rebootType = infrav2.RebootTypeSoftware
+		rebootType = infrav1.RebootTypeSoftware
 	case ErrorTypeHardwareRebootTriggered:
-		rebootType = infrav2.RebootTypeHardware
+		rebootType = infrav1.RebootTypeHardware
 	}
 	if rebootType != "" && !in.RebootTriggeredAt.IsZero() {
-		out.OngoingReboot = &infrav2.OngoingReboot{
+		out.OngoingReboot = &infrav1.OngoingReboot{
 			Type:        rebootType,
 			TriggeredAt: *in.RebootTriggeredAt,
 		}
@@ -441,7 +441,7 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 //   - hetznerClusterRef, userData, installImage, sshSpec, errorCount, errorMessage, lastUpdated and
 //     hardwareDetails.cpu.flags are restored from the conversion data annotation at the object level
 //     (HetznerBareMetalHost.ConvertFrom); they have no v1beta2 source field.
-func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedStatus(in *infrav2.HetznerBareMetalHostStatus, out *ControllerGeneratedStatus, s apiconversion.Scope) error {
+func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedStatus(in *infrav1.HetznerBareMetalHostStatus, out *ControllerGeneratedStatus, s apiconversion.Scope) error {
 	// Demote the v1beta2 conditions back to the staged v1beta1 status.v1beta2.conditions.
 	if len(in.Conditions) > 0 {
 		out.V1Beta2 = &HetznerBareMetalHostV1Beta2Status{
@@ -477,11 +477,11 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedSt
 	if in.OngoingReboot != nil {
 		if in.ErrorType == "" {
 			switch in.OngoingReboot.Type {
-			case infrav2.RebootTypeSSH:
+			case infrav1.RebootTypeSSH:
 				out.ErrorType = ErrorTypeSSHRebootTriggered
-			case infrav2.RebootTypeSoftware:
+			case infrav1.RebootTypeSoftware:
 				out.ErrorType = ErrorTypeSoftwareRebootTriggered
-			case infrav2.RebootTypeHardware:
+			case infrav1.RebootTypeHardware:
 				out.ErrorType = ErrorTypeHardwareRebootTriggered
 			}
 		}
@@ -497,24 +497,24 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedSt
 // Convert_v1beta1_CPU_To_v1beta2_CPU converts the v1beta1 CPU to v1beta2, dropping cpu.flags, which
 // is captured by the controller but never read. The dropped flags are stashed in the conversion data
 // annotation at the object level, keeping the round trip lossless.
-func Convert_v1beta1_CPU_To_v1beta2_CPU(in *CPU, out *infrav2.CPU, s apiconversion.Scope) error {
+func Convert_v1beta1_CPU_To_v1beta2_CPU(in *CPU, out *infrav1.CPU, s apiconversion.Scope) error {
 	return autoConvert_v1beta1_CPU_To_v1beta2_CPU(in, out, s)
 }
 
 // convertRebootTypesToV1Beta2 converts the v1beta1 reboot type list to v1beta2.
-func convertRebootTypesToV1Beta2(in []RebootType) []infrav2.RebootType {
+func convertRebootTypesToV1Beta2(in []RebootType) []infrav1.RebootType {
 	if in == nil {
 		return nil
 	}
-	out := make([]infrav2.RebootType, len(in))
+	out := make([]infrav1.RebootType, len(in))
 	for i := range in {
-		out[i] = infrav2.RebootType(in[i])
+		out[i] = infrav1.RebootType(in[i])
 	}
 	return out
 }
 
 // convertRebootTypesToV1Beta1 converts the v1beta2 reboot type list back to v1beta1.
-func convertRebootTypesToV1Beta1(in []infrav2.RebootType) []RebootType {
+func convertRebootTypesToV1Beta1(in []infrav1.RebootType) []RebootType {
 	if in == nil {
 		return nil
 	}
@@ -573,7 +573,7 @@ func restoreV1Beta1OnlyStatus(from, to *ControllerGeneratedStatus) {
 
 // Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus converts the v1beta1 SecretStatus to v1beta2.
 // v1beta2 does not have credentialsVersion, because CAPH never sets it.
-func Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in *SecretStatus, out *infrav2.SecretStatus, s apiconversion.Scope) error {
+func Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in *SecretStatus, out *infrav1.SecretStatus, s apiconversion.Scope) error {
 	return autoConvert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in, out, s)
 }
 
@@ -592,7 +592,7 @@ func Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in *SecretStatus, out 
 //     populated by CAPH, so they are not carried over to v1beta2.
 //   - status.ready maps to status.initialization.provisioned at the object level
 //     (HCloudMachine.ConvertTo), because that lossy bool -> *bool mapping needs the restored hub data.
-func Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus(in *HCloudMachineStatus, out *infrav2.HCloudMachineStatus, s apiconversion.Scope) error {
+func Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus(in *HCloudMachineStatus, out *infrav1.HCloudMachineStatus, s apiconversion.Scope) error {
 	// Promote the staged v1beta2 conditions to the v1beta2 status.conditions.
 	if in.V1Beta2 != nil {
 		out.Conditions = in.V1Beta2.Conditions
@@ -600,8 +600,8 @@ func Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus(in *HClo
 
 	// Demote the old v1beta1 conditions to status.deprecated.v1beta1.conditions.
 	if len(in.Conditions) > 0 {
-		out.Deprecated = &infrav2.HCloudMachineDeprecatedStatus{
-			V1Beta1: &infrav2.HCloudMachineV1Beta1DeprecatedStatus{
+		out.Deprecated = &infrav1.HCloudMachineDeprecatedStatus{
+			V1Beta1: &infrav1.HCloudMachineV1Beta1DeprecatedStatus{
 				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
 			},
 		}
@@ -617,10 +617,10 @@ func Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus(in *HClo
 		}
 	}
 
-	out.Region = infrav2.Region(in.Region)
+	out.Region = infrav1.Region(in.Region)
 
 	if in.SSHKeys != nil {
-		out.SSHKeys = make([]infrav2.SSHKey, len(in.SSHKeys))
+		out.SSHKeys = make([]infrav1.SSHKey, len(in.SSHKeys))
 		for i := range in.SSHKeys {
 			if err := Convert_v1beta1_SSHKey_To_v1beta2_SSHKey(&in.SSHKeys[i], &out.SSHKeys[i], s); err != nil {
 				return err
@@ -630,10 +630,10 @@ func Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus(in *HClo
 
 	// instanceState changes from *hcloud.ServerStatus to the CAPH owned InstanceState; a nil pointer maps to the empty value.
 	if in.InstanceState != nil {
-		out.InstanceState = infrav2.InstanceState(*in.InstanceState)
+		out.InstanceState = infrav1.InstanceState(*in.InstanceState)
 	}
 
-	out.BootState = infrav2.HCloudBootState(in.BootState)
+	out.BootState = infrav1.HCloudBootState(in.BootState)
 	out.BootStateSince = in.BootStateSince
 
 	if err := Convert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStatusExternalIDs(&in.ExternalIDs, &out.ExternalIDs, s); err != nil {
@@ -656,7 +656,7 @@ func Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus(in *HClo
 //   - status.instanceState changes back to *hcloud.ServerStatus (the empty value maps to a nil pointer).
 //   - status.lastRemediatedAt moves from a value to a pointer (zero time -> nil).
 //   - status.initialization.provisioned maps back to status.ready.
-func Convert_v1beta2_HCloudMachineStatus_To_v1beta1_HCloudMachineStatus(in *infrav2.HCloudMachineStatus, out *HCloudMachineStatus, s apiconversion.Scope) error {
+func Convert_v1beta2_HCloudMachineStatus_To_v1beta1_HCloudMachineStatus(in *infrav1.HCloudMachineStatus, out *HCloudMachineStatus, s apiconversion.Scope) error {
 	// Demote the v1beta2 conditions back to the staged v1beta1 status.v1beta2.conditions.
 	if len(in.Conditions) > 0 {
 		out.V1Beta2 = &HCloudMachineV1Beta2Status{
@@ -720,7 +720,7 @@ func Convert_v1beta2_HCloudMachineStatus_To_v1beta1_HCloudMachineStatus(in *infr
 // annotations, so those are copied by hand and the spec uses the generated converter. The resource is
 // excluded from conversion-gen (+k8s:conversion-gen=false) so this pass does not depend on a shared
 // ObjectMeta converter introduced by another v1beta2 resource pass.
-func Convert_v1beta1_HCloudMachineTemplateResource_To_v1beta2_HCloudMachineTemplateResource(in *HCloudMachineTemplateResource, out *infrav2.HCloudMachineTemplateResource, s apiconversion.Scope) error {
+func Convert_v1beta1_HCloudMachineTemplateResource_To_v1beta2_HCloudMachineTemplateResource(in *HCloudMachineTemplateResource, out *infrav1.HCloudMachineTemplateResource, s apiconversion.Scope) error {
 	out.ObjectMeta.Labels = in.ObjectMeta.Labels
 	out.ObjectMeta.Annotations = in.ObjectMeta.Annotations
 	return Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(&in.Spec, &out.Spec, s)
@@ -729,7 +729,7 @@ func Convert_v1beta1_HCloudMachineTemplateResource_To_v1beta2_HCloudMachineTempl
 // Convert_v1beta2_HCloudMachineTemplateResource_To_v1beta1_HCloudMachineTemplateResource converts the
 // v1beta2 HCloudMachineTemplateResource back to v1beta1, mapping the clusterv1.ObjectMeta labels and
 // annotations back to the deprecated clusterv1beta1.ObjectMeta.
-func Convert_v1beta2_HCloudMachineTemplateResource_To_v1beta1_HCloudMachineTemplateResource(in *infrav2.HCloudMachineTemplateResource, out *HCloudMachineTemplateResource, s apiconversion.Scope) error {
+func Convert_v1beta2_HCloudMachineTemplateResource_To_v1beta1_HCloudMachineTemplateResource(in *infrav1.HCloudMachineTemplateResource, out *HCloudMachineTemplateResource, s apiconversion.Scope) error {
 	out.ObjectMeta.Labels = in.ObjectMeta.Labels
 	out.ObjectMeta.Annotations = in.ObjectMeta.Annotations
 	return Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(&in.Spec, &out.Spec, s)
@@ -738,14 +738,14 @@ func Convert_v1beta2_HCloudMachineTemplateResource_To_v1beta1_HCloudMachineTempl
 // Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec converts the v1beta1 spec to v1beta2.
 // The flat v1beta1 imageURL and imageURLCommand become the v1beta2 customProvisioner. It is set when
 // either field is set, so a half-filled v1beta1 spec keeps its value through the round trip.
-func Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(in *HCloudMachineSpec, out *infrav2.HCloudMachineSpec, s apiconversion.Scope) error {
+func Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(in *HCloudMachineSpec, out *infrav1.HCloudMachineSpec, s apiconversion.Scope) error {
 	// The generated converter handles every field except imageURL and imageURLCommand, which it cannot map.
 	if err := autoConvert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(in, out, s); err != nil {
 		return err
 	}
 
 	if in.ImageURL != "" || in.ImageURLCommand != "" {
-		out.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		out.CustomProvisioner = &infrav1.HCloudCustomProvisioner{
 			URL:     in.ImageURL,
 			Command: in.ImageURLCommand,
 		}
@@ -756,7 +756,7 @@ func Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(in *HCloudMa
 // Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec converts the v1beta2 spec back to
 // v1beta1. It is the inverse of the mapping above: customProvisioner is flattened into imageURL and
 // imageURLCommand.
-func Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in *infrav2.HCloudMachineSpec, out *HCloudMachineSpec, s apiconversion.Scope) error {
+func Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in *infrav1.HCloudMachineSpec, out *HCloudMachineSpec, s apiconversion.Scope) error {
 	// The generated converter handles every field except customProvisioner, which it cannot map.
 	if err := autoConvert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in, out, s); err != nil {
 		return err
@@ -773,7 +773,7 @@ func Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in *infrav2.
 // v1beta1 HetznerBareMetalMachineTemplateResource to v1beta2. The template metadata changes type from the deprecated
 // clusterv1beta1.ObjectMeta to clusterv1.ObjectMeta, which carry the same labels and annotations, so those are copied by
 // hand and the spec uses the generated converter.
-func Convert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerBareMetalMachineTemplateResource(in *HetznerBareMetalMachineTemplateResource, out *infrav2.HetznerBareMetalMachineTemplateResource, s apiconversion.Scope) error {
+func Convert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerBareMetalMachineTemplateResource(in *HetznerBareMetalMachineTemplateResource, out *infrav1.HetznerBareMetalMachineTemplateResource, s apiconversion.Scope) error {
 	out.ObjectMeta.Labels = in.ObjectMeta.Labels
 	out.ObjectMeta.Annotations = in.ObjectMeta.Annotations
 	return Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(&in.Spec, &out.Spec, s)
@@ -782,7 +782,7 @@ func Convert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerB
 // Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerBareMetalMachineTemplateResource converts the
 // v1beta2 HetznerBareMetalMachineTemplateResource back to v1beta1, mapping the clusterv1.ObjectMeta labels and annotations
 // back to the deprecated clusterv1beta1.ObjectMeta.
-func Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerBareMetalMachineTemplateResource(in *infrav2.HetznerBareMetalMachineTemplateResource, out *HetznerBareMetalMachineTemplateResource, s apiconversion.Scope) error {
+func Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerBareMetalMachineTemplateResource(in *infrav1.HetznerBareMetalMachineTemplateResource, out *HetznerBareMetalMachineTemplateResource, s apiconversion.Scope) error {
 	out.ObjectMeta.Labels = in.ObjectMeta.Labels
 	out.ObjectMeta.Annotations = in.ObjectMeta.Annotations
 	return Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&in.Spec, &out.Spec, s)
@@ -791,7 +791,7 @@ func Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerB
 // Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec converts the v1beta1 spec
 // to v1beta2. The v1beta1 installImage field carries both provisioning flows; v1beta2 splits them, so an
 // installImage that sets imageURLCommand becomes a customProvisioner.
-func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in *HetznerBareMetalMachineSpec, out *infrav2.HetznerBareMetalMachineSpec, s apiconversion.Scope) error {
+func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in *HetznerBareMetalMachineSpec, out *infrav1.HetznerBareMetalMachineSpec, s apiconversion.Scope) error {
 	// The generated converter handles every field except installImage, which it cannot map.
 	if err := autoConvert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in, out, s); err != nil {
 		return err
@@ -802,23 +802,23 @@ func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMach
 		// The v1beta1 webhook forbids image name and path when imageURLCommand is
 		// set, so those are always empty here. The remaining installImage fields (partitions, RAID
 		// level, post-install script) have no equivalent on customProvisioner.
-		out.CustomProvisioner = &infrav2.CustomProvisioner{
+		out.CustomProvisioner = &infrav1.CustomProvisioner{
 			URL:              in.InstallImage.Image.URL,
 			Command:          in.InstallImage.ImageURLCommand,
-			DeviceStringType: infrav2.DeviceStringType(in.InstallImage.DeviceStringType),
+			DeviceStringType: infrav1.DeviceStringType(in.InstallImage.DeviceStringType),
 			Swraid:           in.InstallImage.Swraid,
 		}
 		return nil
 	}
 
-	out.InstallImage = &infrav2.InstallImage{}
+	out.InstallImage = &infrav1.InstallImage{}
 	return Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(&in.InstallImage, out.InstallImage, s)
 }
 
 // Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec converts the v1beta2 spec
 // back to v1beta1. It is the inverse of the split above: a customProvisioner maps back to the imageURLCommand
 // fields of the single v1beta1 installImage.
-func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in *infrav2.HetznerBareMetalMachineSpec, out *HetznerBareMetalMachineSpec, s apiconversion.Scope) error {
+func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in *infrav1.HetznerBareMetalMachineSpec, out *HetznerBareMetalMachineSpec, s apiconversion.Scope) error {
 	// The generated converter handles every field except installImage and customProvisioner, which it cannot map.
 	if err := autoConvert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in, out, s); err != nil {
 		return err
@@ -849,7 +849,7 @@ func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMach
 // Convert_v1beta1_InstallImage_To_v1beta2_InstallImage converts a v1beta1 InstallImage to v1beta2. The
 // v1beta1-only imageURLCommand and deviceStringType fields belong to the custom provisioner flow, which the
 // spec converter maps to customProvisioner instead, so they are dropped here.
-func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out *infrav2.InstallImage, s apiconversion.Scope) error {
+func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out *infrav1.InstallImage, s apiconversion.Scope) error {
 	return autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in, out, s)
 }
 
@@ -861,7 +861,7 @@ func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out 
 //   - status.v1beta2.conditions is promoted to status.conditions.
 //   - status.conditions is demoted to status.deprecated.v1beta1.conditions (the old core/v1beta1
 //     conditions are converted to the structurally identical core/v1beta2 deprecated conditions).
-func Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus(in *HCloudMachineTemplateStatus, out *infrav2.HCloudMachineTemplateStatus, _ apiconversion.Scope) error {
+func Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus(in *HCloudMachineTemplateStatus, out *infrav1.HCloudMachineTemplateStatus, _ apiconversion.Scope) error {
 	// Promote the staged v1beta2 conditions to the v1beta2 status.conditions.
 	if in.V1Beta2 != nil {
 		out.Conditions = in.V1Beta2.Conditions
@@ -869,8 +869,8 @@ func Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplat
 
 	// Demote the old v1beta1 conditions to status.deprecated.v1beta1.conditions.
 	if len(in.Conditions) > 0 {
-		out.Deprecated = &infrav2.HCloudMachineTemplateDeprecatedStatus{
-			V1Beta1: &infrav2.HCloudMachineTemplateV1Beta1DeprecatedStatus{
+		out.Deprecated = &infrav1.HCloudMachineTemplateDeprecatedStatus{
+			V1Beta1: &infrav1.HCloudMachineTemplateV1Beta1DeprecatedStatus{
 				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
 			},
 		}
@@ -886,7 +886,7 @@ func Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplat
 // v1beta2 HCloudMachineTemplateStatus back to v1beta1. It is the inverse of the function above:
 //   - status.conditions is demoted to the staged status.v1beta2.conditions.
 //   - status.deprecated.v1beta1.conditions is promoted back to status.conditions.
-func Convert_v1beta2_HCloudMachineTemplateStatus_To_v1beta1_HCloudMachineTemplateStatus(in *infrav2.HCloudMachineTemplateStatus, out *HCloudMachineTemplateStatus, _ apiconversion.Scope) error {
+func Convert_v1beta2_HCloudMachineTemplateStatus_To_v1beta1_HCloudMachineTemplateStatus(in *infrav1.HCloudMachineTemplateStatus, out *HCloudMachineTemplateStatus, _ apiconversion.Scope) error {
 	// Demote the v1beta2 conditions back to the staged v1beta1 status.v1beta2.conditions.
 	if len(in.Conditions) > 0 {
 		out.V1Beta2 = &HCloudMachineTemplateV1Beta2Status{
@@ -946,9 +946,9 @@ func remediationDurationToSeconds(in metav1.Duration) (int32, error) {
 // RemediationStrategy to v1beta2. It is hand-written (the type is tagged +k8s:conversion-gen=false)
 // because v1beta2 stores the timeout and cooldown as whole-second *int32 counters and the retry limit
 // as a *int32. It is shared with HetznerBareMetalRemediation.
-func Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(in *RemediationStrategy, out *infrav2.RemediationStrategy, _ apiconversion.Scope) error {
+func Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(in *RemediationStrategy, out *infrav1.RemediationStrategy, _ apiconversion.Scope) error {
 	var err error
-	out.Type = infrav2.RemediationType(in.Type)
+	out.Type = infrav1.RemediationType(in.Type)
 	out.RetryLimit, err = remediationRetryToPointer(in.RetryLimit)
 	if err != nil {
 		return err
@@ -972,7 +972,7 @@ func Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(in *Reme
 
 // Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy converts a v1beta2
 // RemediationStrategy back to v1beta1, restoring the durations from the whole-second counters.
-func Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(in *infrav2.RemediationStrategy, out *RemediationStrategy, _ apiconversion.Scope) error {
+func Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(in *infrav1.RemediationStrategy, out *RemediationStrategy, _ apiconversion.Scope) error {
 	out.Type = RemediationType(in.Type)
 	out.RetryLimit = remediationRetryFromPointer(in.RetryLimit)
 	out.Timeout = &metav1.Duration{Duration: time.Duration(in.TimeoutSeconds) * time.Second}
@@ -985,17 +985,17 @@ func Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(in *infr
 // Convert_v1beta1_BareMetalRemediationStrategy_To_v1beta2_BareMetalRemediationStrategy is hand-written
 // (the type is tagged +k8s:conversion-gen=false) because it embeds RemediationStrategy, whose conversion
 // is itself hand-written. It converts the embedded shared fields and copies the bare-metal-only OnExhaustion.
-func Convert_v1beta1_BareMetalRemediationStrategy_To_v1beta2_BareMetalRemediationStrategy(in *BareMetalRemediationStrategy, out *infrav2.BareMetalRemediationStrategy, s apiconversion.Scope) error {
+func Convert_v1beta1_BareMetalRemediationStrategy_To_v1beta2_BareMetalRemediationStrategy(in *BareMetalRemediationStrategy, out *infrav1.BareMetalRemediationStrategy, s apiconversion.Scope) error {
 	if err := Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(&in.RemediationStrategy, &out.RemediationStrategy, s); err != nil {
 		return err
 	}
-	out.OnExhaustion = infrav2.OnExhaustionAction(in.OnExhaustion)
+	out.OnExhaustion = infrav1.OnExhaustionAction(in.OnExhaustion)
 	return nil
 }
 
 // Convert_v1beta2_BareMetalRemediationStrategy_To_v1beta1_BareMetalRemediationStrategy is the reverse of
 // Convert_v1beta1_BareMetalRemediationStrategy_To_v1beta2_BareMetalRemediationStrategy.
-func Convert_v1beta2_BareMetalRemediationStrategy_To_v1beta1_BareMetalRemediationStrategy(in *infrav2.BareMetalRemediationStrategy, out *BareMetalRemediationStrategy, s apiconversion.Scope) error {
+func Convert_v1beta2_BareMetalRemediationStrategy_To_v1beta1_BareMetalRemediationStrategy(in *infrav1.BareMetalRemediationStrategy, out *BareMetalRemediationStrategy, s apiconversion.Scope) error {
 	if err := Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(&in.RemediationStrategy, &out.RemediationStrategy, s); err != nil {
 		return err
 	}
@@ -1008,7 +1008,7 @@ func Convert_v1beta2_BareMetalRemediationStrategy_To_v1beta1_BareMetalRemediatio
 // versions. It promotes the staged status.v1beta2.conditions to status.conditions, demotes the old
 // status.conditions to status.deprecated.v1beta1.conditions, and maps retryCount and lastRemediated to
 // their v1beta2 forms.
-func Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus(in *HCloudRemediationStatus, out *infrav2.HCloudRemediationStatus, _ apiconversion.Scope) error {
+func Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus(in *HCloudRemediationStatus, out *infrav1.HCloudRemediationStatus, _ apiconversion.Scope) error {
 	var err error
 	out.Phase = in.Phase
 	out.RetryCount, err = remediationRetryToPointer(in.RetryCount)
@@ -1022,8 +1022,8 @@ func Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus(
 		out.Conditions = in.V1Beta2.Conditions
 	}
 	if len(in.Conditions) > 0 {
-		out.Deprecated = &infrav2.HCloudRemediationDeprecatedStatus{
-			V1Beta1: &infrav2.HCloudRemediationV1Beta1DeprecatedStatus{
+		out.Deprecated = &infrav1.HCloudRemediationDeprecatedStatus{
+			V1Beta1: &infrav1.HCloudRemediationV1Beta1DeprecatedStatus{
 				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
 			},
 		}
@@ -1033,7 +1033,7 @@ func Convert_v1beta1_HCloudRemediationStatus_To_v1beta2_HCloudRemediationStatus(
 
 // Convert_v1beta2_HCloudRemediationStatus_To_v1beta1_HCloudRemediationStatus restores the staged
 // v1beta2 conditions and the old condition slice from their v1beta2 homes.
-func Convert_v1beta2_HCloudRemediationStatus_To_v1beta1_HCloudRemediationStatus(in *infrav2.HCloudRemediationStatus, out *HCloudRemediationStatus, _ apiconversion.Scope) error {
+func Convert_v1beta2_HCloudRemediationStatus_To_v1beta1_HCloudRemediationStatus(in *infrav1.HCloudRemediationStatus, out *HCloudRemediationStatus, _ apiconversion.Scope) error {
 	out.Phase = in.Phase
 	out.RetryCount = remediationRetryFromPointer(in.RetryCount)
 	if !in.LastRemediated.IsZero() {
@@ -1053,7 +1053,7 @@ func Convert_v1beta2_HCloudRemediationStatus_To_v1beta1_HCloudRemediationStatus(
 // hand-written (the type is tagged +k8s:conversion-gen=false) because the retry counter and the
 // last-remediated timestamp change shape between versions. It maps retryCount and lastRemediated to
 // their v1beta2 forms.
-func Convert_v1beta1_HetznerBareMetalRemediationStatus_To_v1beta2_HetznerBareMetalRemediationStatus(in *HetznerBareMetalRemediationStatus, out *infrav2.HetznerBareMetalRemediationStatus, _ apiconversion.Scope) error {
+func Convert_v1beta1_HetznerBareMetalRemediationStatus_To_v1beta2_HetznerBareMetalRemediationStatus(in *HetznerBareMetalRemediationStatus, out *infrav1.HetznerBareMetalRemediationStatus, _ apiconversion.Scope) error {
 	var err error
 	out.Phase = in.Phase
 	out.RetryCount, err = remediationRetryToPointer(in.RetryCount)
@@ -1068,7 +1068,7 @@ func Convert_v1beta1_HetznerBareMetalRemediationStatus_To_v1beta2_HetznerBareMet
 
 // Convert_v1beta2_HetznerBareMetalRemediationStatus_To_v1beta1_HetznerBareMetalRemediationStatus restores
 // the v1beta1 retry counter and last-remediated pointer from their v1beta2 forms.
-func Convert_v1beta2_HetznerBareMetalRemediationStatus_To_v1beta1_HetznerBareMetalRemediationStatus(in *infrav2.HetznerBareMetalRemediationStatus, out *HetznerBareMetalRemediationStatus, _ apiconversion.Scope) error {
+func Convert_v1beta2_HetznerBareMetalRemediationStatus_To_v1beta1_HetznerBareMetalRemediationStatus(in *infrav1.HetznerBareMetalRemediationStatus, out *HetznerBareMetalRemediationStatus, _ apiconversion.Scope) error {
 	out.Phase = in.Phase
 	out.RetryCount = remediationRetryFromPointer(in.RetryCount)
 	if !in.LastRemediated.IsZero() {
@@ -1090,7 +1090,7 @@ func Convert_v1beta2_HetznerBareMetalRemediationStatus_To_v1beta1_HetznerBareMet
 //   - status.lastUpdated and status.lastRemediatedAt move from pointer to value.
 //   - status.ready maps to status.initialization.provisioned at the object level
 //     (HetznerBareMetalMachine.ConvertTo), because that lossy bool -> *bool mapping needs the restored hub data.
-func Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMachineStatus(in *HetznerBareMetalMachineStatus, out *infrav2.HetznerBareMetalMachineStatus, _ apiconversion.Scope) error {
+func Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMachineStatus(in *HetznerBareMetalMachineStatus, out *infrav1.HetznerBareMetalMachineStatus, _ apiconversion.Scope) error {
 	// Promote the staged v1beta2 conditions to the v1beta2 status.conditions.
 	if in.V1Beta2 != nil {
 		out.Conditions = in.V1Beta2.Conditions
@@ -1098,8 +1098,8 @@ func Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMa
 
 	// Demote the old v1beta1 conditions to status.deprecated.v1beta1.conditions.
 	if len(in.Conditions) > 0 {
-		out.Deprecated = &infrav2.HetznerBareMetalMachineDeprecatedStatus{
-			V1Beta1: &infrav2.HetznerBareMetalMachineV1Beta1DeprecatedStatus{
+		out.Deprecated = &infrav1.HetznerBareMetalMachineDeprecatedStatus{
+			V1Beta1: &infrav1.HetznerBareMetalMachineV1Beta1DeprecatedStatus{
 				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
 			},
 		}
@@ -1125,7 +1125,7 @@ func Convert_v1beta1_HetznerBareMetalMachineStatus_To_v1beta2_HetznerBareMetalMa
 //   - status.deprecated.v1beta1.conditions is promoted back to status.conditions.
 //   - status.lastUpdated and status.lastRemediatedAt move from value to pointer (zero time -> nil).
 //   - status.initialization.provisioned maps back to status.ready.
-func Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMachineStatus(in *infrav2.HetznerBareMetalMachineStatus, out *HetznerBareMetalMachineStatus, _ apiconversion.Scope) error {
+func Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMachineStatus(in *infrav1.HetznerBareMetalMachineStatus, out *HetznerBareMetalMachineStatus, _ apiconversion.Scope) error {
 	// Demote the v1beta2 conditions back to the staged v1beta1 status.v1beta2.conditions.
 	if len(in.Conditions) > 0 {
 		out.V1Beta2 = &HetznerBareMetalMachineV1Beta2Status{
@@ -1157,7 +1157,7 @@ func Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMa
 
 // Convert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus converts the v1beta1 NetworkStatus to v1beta2.
 // v1beta2 does not have labels, because the field was never stored (json:"-").
-func Convert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus(in *NetworkStatus, out *infrav2.NetworkStatus, s apiconversion.Scope) error {
+func Convert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus(in *NetworkStatus, out *infrav1.NetworkStatus, s apiconversion.Scope) error {
 	return autoConvert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus(in, out, s)
 }
 
@@ -1170,7 +1170,7 @@ func Convert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus(in *NetworkStatus, o
 //   - status.conditions is demoted to status.deprecated.v1beta1.conditions.
 //   - status.ready maps to status.initialization.provisioned at the object level
 //     (HetznerCluster.ConvertTo), because that lossy bool -> *bool mapping needs the restored hub data.
-func Convert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus(in *HetznerClusterStatus, out *infrav2.HetznerClusterStatus, s apiconversion.Scope) error {
+func Convert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus(in *HetznerClusterStatus, out *infrav1.HetznerClusterStatus, s apiconversion.Scope) error {
 	// Promote the staged v1beta2 conditions to the v1beta2 status.conditions.
 	if in.V1Beta2 != nil {
 		out.Conditions = in.V1Beta2.Conditions
@@ -1178,29 +1178,29 @@ func Convert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus(in *He
 
 	// Demote the old v1beta1 conditions to status.deprecated.v1beta1.conditions.
 	if len(in.Conditions) > 0 {
-		out.Deprecated = &infrav2.HetznerClusterDeprecatedStatus{
-			V1Beta1: &infrav2.HetznerClusterV1Beta1DeprecatedStatus{
+		out.Deprecated = &infrav1.HetznerClusterDeprecatedStatus{
+			V1Beta1: &infrav1.HetznerClusterV1Beta1DeprecatedStatus{
 				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
 			},
 		}
 	}
 
 	if in.Network != nil {
-		out.Network = &infrav2.NetworkStatus{}
+		out.Network = &infrav1.NetworkStatus{}
 		if err := Convert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus(in.Network, out.Network, s); err != nil {
 			return err
 		}
 	}
 
 	if in.ControlPlaneLoadBalancer != nil {
-		out.ControlPlaneLoadBalancer = &infrav2.LoadBalancerStatus{}
+		out.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{}
 		if err := Convert_v1beta1_LoadBalancerStatus_To_v1beta2_LoadBalancerStatus(in.ControlPlaneLoadBalancer, out.ControlPlaneLoadBalancer, s); err != nil {
 			return err
 		}
 	}
 
 	if in.HCloudPlacementGroups != nil {
-		out.HCloudPlacementGroups = make([]infrav2.HCloudPlacementGroupStatus, len(in.HCloudPlacementGroups))
+		out.HCloudPlacementGroups = make([]infrav1.HCloudPlacementGroupStatus, len(in.HCloudPlacementGroups))
 		for i := range in.HCloudPlacementGroups {
 			if err := Convert_v1beta1_HCloudPlacementGroupStatus_To_v1beta2_HCloudPlacementGroupStatus(&in.HCloudPlacementGroups[i], &out.HCloudPlacementGroups[i], s); err != nil {
 				return err
@@ -1218,7 +1218,7 @@ func Convert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus(in *He
 //   - status.conditions is demoted to the staged status.v1beta2.conditions.
 //   - status.deprecated.v1beta1.conditions is promoted back to status.conditions.
 //   - status.initialization.provisioned maps back to status.ready.
-func Convert_v1beta2_HetznerClusterStatus_To_v1beta1_HetznerClusterStatus(in *infrav2.HetznerClusterStatus, out *HetznerClusterStatus, s apiconversion.Scope) error {
+func Convert_v1beta2_HetznerClusterStatus_To_v1beta1_HetznerClusterStatus(in *infrav1.HetznerClusterStatus, out *HetznerClusterStatus, s apiconversion.Scope) error {
 	// Demote the v1beta2 conditions back to the staged v1beta1 status.v1beta2.conditions.
 	if len(in.Conditions) > 0 {
 		out.V1Beta2 = &HetznerClusterV1Beta2Status{
@@ -1400,13 +1400,13 @@ func Convert_v1beta2_ObjectMeta_To_v1beta1_ObjectMeta(in *clusterv1.ObjectMeta, 
 
 // Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec converts the v1beta1
 // HetznerClusterSpec to v1beta2, mapping the pointer controlPlaneEndpoint to the v1beta2 value type.
-func Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in *HetznerClusterSpec, out *infrav2.HetznerClusterSpec, s apiconversion.Scope) error {
+func Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in *HetznerClusterSpec, out *infrav1.HetznerClusterSpec, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in, out, s); err != nil {
 		return err
 	}
 
 	if in.ControlPlaneEndpoint != nil {
-		out.ControlPlaneEndpoint = infrav2.APIEndpoint{
+		out.ControlPlaneEndpoint = infrav1.APIEndpoint{
 			Host: in.ControlPlaneEndpoint.Host,
 			Port: in.ControlPlaneEndpoint.Port,
 		}
@@ -1418,12 +1418,12 @@ func Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in *Hetzne
 // Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec converts the v1beta2
 // HetznerClusterSpec back to v1beta1, mapping the value controlPlaneEndpoint to the pointer type.
 // A zero endpoint maps to a nil pointer.
-func Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in *infrav2.HetznerClusterSpec, out *HetznerClusterSpec, s apiconversion.Scope) error {
+func Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in *infrav1.HetznerClusterSpec, out *HetznerClusterSpec, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in, out, s); err != nil {
 		return err
 	}
 
-	if in.ControlPlaneEndpoint != (infrav2.APIEndpoint{}) {
+	if in.ControlPlaneEndpoint != (infrav1.APIEndpoint{}) {
 		out.ControlPlaneEndpoint = &clusterv1beta1.APIEndpoint{
 			Host: in.ControlPlaneEndpoint.Host,
 			Port: in.ControlPlaneEndpoint.Port,
@@ -1435,7 +1435,7 @@ func Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in *infrav
 
 // Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys converts the v1beta1 HetznerSSHKeys to
 // v1beta2, mapping the renamed robotRescueSecretRef field to rescueSecretRef.
-func Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(in *HetznerSSHKeys, out *infrav2.HetznerSSHKeys, s apiconversion.Scope) error {
+func Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(in *HetznerSSHKeys, out *infrav1.HetznerSSHKeys, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(in, out, s); err != nil {
 		return err
 	}
@@ -1444,7 +1444,7 @@ func Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(in *HetznerSSHKeys
 
 // Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys converts the v1beta2 HetznerSSHKeys back
 // to v1beta1, mapping the renamed rescueSecretRef field back to robotRescueSecretRef.
-func Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(in *infrav2.HetznerSSHKeys, out *HetznerSSHKeys, s apiconversion.Scope) error {
+func Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(in *infrav1.HetznerSSHKeys, out *HetznerSSHKeys, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(in, out, s); err != nil {
 		return err
 	}
