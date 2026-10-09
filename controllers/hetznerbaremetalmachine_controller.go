@@ -165,22 +165,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 	// Always close the scope when exiting this function so we can persist any HetznerBareMetalMachine changes.
 	defer func() {
-		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
-			deprecatedv1beta1conditions.MarkFalse(hbmMachine, infrav2.HCloudTokenAvailableV1Beta1Condition, infrav2.HCloudCredentialsInvalidV1Beta1Reason, clusterv1.ConditionSeverityError, "wrong hcloud token")
-			conditions.Set(hbmMachine, metav1.Condition{
-				Type:    infrav2.HCloudTokenAvailableCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HCloudTokenInvalidReason,
-				Message: "wrong hcloud token",
-			})
-		} else {
-			deprecatedv1beta1conditions.MarkTrue(hbmMachine, infrav2.HCloudTokenAvailableV1Beta1Condition)
-			conditions.Set(hbmMachine, metav1.Condition{
-				Type:   infrav2.HCloudTokenAvailableCondition,
-				Status: metav1.ConditionTrue,
-				Reason: infrav2.HCloudTokenAvailableReason,
-			})
-		}
+		setHCloudTokenAvailable(hbmMachine, reterr)
 
 		deprecatedv1beta1conditions.SetSummary(hbmMachine)
 

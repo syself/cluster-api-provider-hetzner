@@ -564,7 +564,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					}
 
 					if !hasEvent(ctx, testEnv, testNs.Name, bmMachine.Name, "MachineWillBeDeleted",
-						baremetal.FailureMessageMaintenanceMode) {
+						baremetal.MaintenanceModeMessage) {
 						return fmt.Errorf("Event not found")
 					}
 
@@ -943,7 +943,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			Eventually(func() bool {
 				return isPresentAndFalseWithReasonDeprecatedV1Beta1(bmmKey, bmMachine, infrav2.HostReadyV1Beta1Condition, infrav2.HostNotFoundV1Beta1Reason) &&
-					isPresentAndFalseWithReason(bmmKey, bmMachine, infrav2.HetznerBareMetalMachineHostReadyCondition, infrav2.HetznerBareMetalMachineNotFoundReason)
+					isPresentAndFalseWithReason(bmmKey, bmMachine, infrav2.HetznerBareMetalMachineHostReadyCondition, infrav2.HetznerBareMetalMachineHostNotFoundReason)
 			}, timeout).Should(BeTrue())
 
 			By("ensuring remediate machine annotation is set on CAPI machine")
@@ -1044,7 +1044,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Expect(testEnv.Create(ctx, bmMachine)).NotTo(Succeed())
 			})
 
-			It("should fail with a wrong host selector label", func() {
+			It("should fail with a wrong host selector operator", func() {
 				bmMachine.Spec.HostSelector.MatchExpressions = []infrav2.HostSelectorRequirement{
 					{
 						Key:      "Cluster",

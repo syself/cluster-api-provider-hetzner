@@ -784,7 +784,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 						return fmt.Errorf("BootstrapNotReadyReason not set. Reason: %q", c.Reason)
 					}
 					if !isPresentAndFalseWithReason(key, hcloudMachine, infrav2.HCloudMachineServerCreatedCondition, infrav2.HCloudMachineServerWaitingForBootstrapDataReason) {
-						return fmt.Errorf("ServerCreatedV1Beta2Condition not false with WaitingForBootstrapData reason")
+						return fmt.Errorf("ServerCreated condition not false with WaitingForBootstrapData reason")
 					}
 					return nil
 				}, timeout, interval).Should(Succeed())
@@ -1307,7 +1307,7 @@ var _ = Describe("Hetzner secret", func() {
 			g.Expect(hcloudMachine.Status.InstanceState).To(Equal(infrav2.InstanceStateDeleting))
 		}, timeout, interval).Should(Succeed())
 
-		// ServerAvailable v1beta2 condition should be False with Deleting reason.
+		// The ServerAvailable condition should be False with Deleting reason.
 		Eventually(func() bool {
 			return isPresentAndFalseWithReason(key, hcloudMachine, infrav2.HCloudMachineServerAvailableCondition, infrav2.HCloudMachineDeletingReason)
 		}, timeout, interval).Should(BeTrue())
@@ -1586,6 +1586,19 @@ var _ = Describe("IgnoreInsignificantHetznerClusterUpdates Predicate", func() {
 			Manager:   "test",
 			Operation: "update",
 		}})
+
+		Expect(predicate.Update(event.UpdateEvent{
+			ObjectOld: oldCluster,
+			ObjectNew: newCluster,
+		})).To(BeFalse())
+	})
+
+	It("should skip updates to the v1beta2 HetznerCluster conditions", func() {
+		conditions.Set(newCluster, metav1.Condition{
+			Type:   infrav2.HCloudTokenAvailableCondition,
+			Status: metav1.ConditionFalse,
+			Reason: infrav2.HCloudTokenInvalidReason,
+		})
 
 		Expect(predicate.Update(event.UpdateEvent{
 			ObjectOld: oldCluster,

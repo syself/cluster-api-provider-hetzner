@@ -586,7 +586,7 @@ var _ = Describe("actionImageInstalling (customProvisioner)", func() {
 		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("custom provisioner timed out"))
-		Expect(c.Reason).To(Equal("CustomProvisionerTimedOut"))
+		Expect(c.Reason).To(Equal("CustomProvisionerTimeoutReached"))
 		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
 		Expect(cV1Beta1.Message).To(ContainSubstring("custom provisioner timed out"))
 		Expect(cV1Beta1.Reason).To(Equal("CustomProvisionerTimedOut"))
@@ -1791,7 +1791,7 @@ var _ = Describe("actionRegistering", func() {
 				rootDeviceHintsValidated := conditions.Get(host, infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition)
 				Expect(rootDeviceHintsValidated).ToNot(BeNil())
 				Expect(rootDeviceHintsValidated.Status).To(Equal(metav1.ConditionFalse))
-				Expect(rootDeviceHintsValidated.Reason).To(Equal(infrav2.HetznerBareMetalHostValidationFailedReason))
+				Expect(rootDeviceHintsValidated.Reason).To(Equal(infrav2.HetznerBareMetalHostRootDeviceHintsValidationFailedReason))
 				Expect(rootDeviceHintsValidated.Message).To(Equal(*tc.expectedErrorMessage))
 			}
 			if _, ok := tc.expectedActionResult.(actionComplete); ok {
@@ -2632,7 +2632,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 		rebootSucceeded := conditions.Get(host, infrav2.HetznerBareMetalHostRebootSucceededCondition)
 		Expect(rebootSucceeded).NotTo(BeNil())
-		Expect(rebootSucceeded.Reason).To(Equal(infrav2.HetznerBareMetalHostRebootSucceededTimeoutReachedOutReason))
+		Expect(rebootSucceeded.Reason).To(Equal(infrav2.HetznerBareMetalHostRebootSucceededTimeoutReachedReason))
 	})
 })
 
