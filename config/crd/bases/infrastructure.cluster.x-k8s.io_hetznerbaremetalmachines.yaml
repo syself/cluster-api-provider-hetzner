@@ -603,7 +603,7 @@ spec:
                   command:
                     description: |-
                       command is the basename of a command file below /shared on the controller pod. CAPH copies
-                      that command into the rescue system and executes it there to provision the machine from URL.
+                      that command into the rescue system and executes it there to provision the machine from url.
                     minLength: 1
                     type: string
                   deviceStringType:

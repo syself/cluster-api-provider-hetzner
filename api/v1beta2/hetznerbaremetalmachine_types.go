@@ -225,7 +225,7 @@ type CustomProvisioner struct {
 	URL string `json:"url"`
 
 	// command is the basename of a command file below /shared on the controller pod. CAPH copies
-	// that command into the rescue system and executes it there to provision the machine from URL.
+	// that command into the rescue system and executes it there to provision the machine from url.
 	// +kubebuilder:validation:MinLength=1
 	Command string `json:"command"`
 

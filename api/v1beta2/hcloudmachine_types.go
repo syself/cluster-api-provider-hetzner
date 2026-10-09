@@ -56,7 +56,7 @@ type HCloudMachineSpec struct {
 	// +optional
 	ImageName string `json:"imageName,omitempty"`
 
-	// CustomProvisioner provisions the machine with a custom command instead of an HCloud image.
+	// customProvisioner provisions the machine with a custom command instead of an HCloud image.
 	// Exactly one of imageName or customProvisioner must be set.
 	// +optional
 	CustomProvisioner *HCloudCustomProvisioner `json:"customProvisioner,omitempty"`
@@ -80,11 +80,11 @@ type HCloudMachineSpec struct {
 // HCloudCustomProvisioner defines the configuration for provisioning an HCloud machine with a
 // custom command in the rescue system instead of creating it from an HCloud image.
 type HCloudCustomProvisioner struct {
-	// URL gets used for installing custom node images. If customProvisioner is set, the controller
+	// url gets used for installing custom node images. If customProvisioner is set, the controller
 	// boots a new HCloud machine into rescue mode. Then the command referenced by
-	// Command will be copied into the rescue system and executed.
+	// command will be copied into the rescue system and executed.
 	//
-	// The controller uses url.ParseRequestURI (Go function) to validate the URL.
+	// The controller uses url.ParseRequestURI (Go function) to validate the url.
 	//
 	// It is up to the script to provision the disk of the hcloud machine accordingly. The process
 	// is considered successful if the last line in the output contains
@@ -97,8 +97,8 @@ type HCloudCustomProvisioner struct {
 	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url"`
 
-	// Command is the basename of a command file below /shared on the controller pod which
-	// provisions a machine from URL. CAPH copies that command into the rescue system and
+	// command is the basename of a command file below /shared on the controller pod which
+	// provisions a machine from url. CAPH copies that command into the rescue system and
 	// executes it there.
 	// +kubebuilder:validation:MinLength=1
 	Command string `json:"command"`
