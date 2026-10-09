@@ -814,12 +814,12 @@ spec:
       jsonPath: .status.hardwareDetails.cpu.threads
       name: CPU
       priority: 1
-      type: string
+      type: integer
     - description: RAM in GB
       jsonPath: .status.hardwareDetails.ramGB
       name: RAM
       priority: 1
-      type: string
+      type: integer
     - description: Server ID of the host
       jsonPath: .spec.serverID
       name: Server ID
@@ -1237,8 +1237,6 @@ spec:
                       credentialsDataHash:
                         format: byte
                         type: string
-                      credentialsVersion:
-                        type: string
                     type: object
                   currentRescue:
                     description: CurrentRescue gives information about the secret
@@ -1261,8 +1259,6 @@ spec:
                         x-kubernetes-map-type: atomic
                       credentialsDataHash:
                         format: byte
-                        type: string
-                      credentialsVersion:
                         type: string
                     type: object
                   osKey:

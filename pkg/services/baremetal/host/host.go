@@ -763,7 +763,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalHostValidationFailedReason,
+			Reason:  infrav2.HetznerBareMetalHostRootDeviceHintsValidationFailedReason,
 			Message: infrav2.ErrorMessageMissingRootDeviceHints,
 		})
 		s.scope.EventRecorder.Event(
@@ -788,7 +788,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalHostValidationFailedReason,
+			Reason:  infrav2.HetznerBareMetalHostRootDeviceHintsValidationFailedReason,
 			Message: errMsg,
 		})
 		s.scope.EventRecorder.Event(
@@ -814,7 +814,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalHostValidationFailedReason,
+			Reason:  infrav2.HetznerBareMetalHostRootDeviceHintsValidationFailedReason,
 			Message: err.Error(),
 		})
 		s.scope.EventRecorder.Event(
@@ -840,10 +840,9 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		msg = "Invalid HetznerBareMetalHost: swraid of the HetznerBareMetalMachine is not active. Use spec.rootDevideHints.wwn and leave raid.wwn empty."
 	}
 	if msg != "" {
-		// This triggers a FailureMessage on the HetznerBareMetalMachine
-		// and CAPI machine and will lead to this Machine to be deleted.
-		// Another machine (with same swraid setting) will not take the same host anymore,
-		// because the rootDeviceHints don't fit.
+		// The fatal error set below makes the HetznerBareMetalMachine controller remediate the CAPI
+		// Machine, and CAPI then deletes it. Another HetznerBareMetalMachine (with the same swraid
+		// setting) will not take the same host anymore, because the rootDeviceHints don't fit.
 		s.scope.Info(msg)
 		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,
@@ -856,7 +855,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalHostValidationFailedReason,
+			Reason:  infrav2.HetznerBareMetalHostRootDeviceHintsValidationFailedReason,
 			Message: msg,
 		})
 		s.scope.EventRecorder.Event(
@@ -1404,7 +1403,7 @@ func (s *Service) actionImageInstallingCustomProvisioner(ctx context.Context, ss
 		conditions.Set(host, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostProvisionSucceededCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "CustomProvisionerTimedOut",
+			Reason:  "CustomProvisionerTimeoutReached",
 			Message: msg,
 		})
 		s.scope.SetHostError(infrav2.ErrorTypeFatal, msg)
@@ -2713,7 +2712,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
 				Type:    infrav2.HetznerBareMetalHostRebootSucceededCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HetznerBareMetalHostRebootSucceededTimeoutReachedOutReason,
+				Reason:  infrav2.HetznerBareMetalHostRebootSucceededTimeoutReachedReason,
 				Message: msg,
 			})
 			s.scope.SetHostError(infrav2.ErrorTypeFatal, msg)
@@ -2800,7 +2799,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 				conditions.Set(host, metav1.Condition{
 					Type:    infrav2.HetznerBareMetalHostRebootSucceededCondition,
 					Status:  metav1.ConditionFalse,
-					Reason:  infrav2.HetznerBareMetalHostRebootingBMServerViaAPIFailedReason,
+					Reason:  infrav2.HetznerBareMetalHostRebootingViaAPIFailedReason,
 					Message: err.Error(),
 				})
 				return actionError{err: err}

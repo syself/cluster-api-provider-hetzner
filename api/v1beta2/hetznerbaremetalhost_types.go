@@ -128,8 +128,6 @@ type OngoingReboot struct {
 const (
 	// ErrorMessageMissingRootDeviceHints specifies the error message when no root device hints are specified.
 	ErrorMessageMissingRootDeviceHints = "no root device hints specified"
-	// ErrorMessageInvalidRootDeviceHints specifies the error message when invalid root device hints are specified.
-	ErrorMessageInvalidRootDeviceHints = "invalid root device hints specified"
 	// ErrorMessageMissingHetznerSecret specifies the error message when no Hetzner secret is found.
 	ErrorMessageMissingHetznerSecret = "could not find HetznerSecret"
 	// ErrorMessageMissingRescueSSHSecret specifies the error message when no RescueSSH secret is found.
@@ -189,7 +187,7 @@ const (
 	RebootTypeSSH RebootType = "ssh"
 )
 
-// VerboseRebootType returns the verbose namem of a reboot Type.
+// VerboseRebootType returns the verbose name of a reboot Type.
 // The string is CamelCase.
 func VerboseRebootType(rebootType RebootType) string {
 	return map[RebootType]string{
@@ -337,7 +335,7 @@ type HetznerBareMetalHostV1Beta1DeprecatedStatus struct {
 	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
 }
 
-// GetIPAddress returns the IPv6 if set, otherwise the IPv4.
+// GetIPAddress returns the IPv4 if set, otherwise the IPv6.
 func (sts HetznerBareMetalHostStatus) GetIPAddress() string {
 	if sts.IPv4 == "" {
 		return sts.IPv6
@@ -464,10 +462,9 @@ type SSHStatus struct {
 	RescueKey *SSHKey `json:"rescueKey,omitempty"`
 }
 
-// SecretStatus contains the reference and version of the last secret that was used.
+// SecretStatus contains the reference and the data hash of the last secret that was used.
 type SecretStatus struct {
 	Reference *corev1.SecretReference `json:"credentials,omitempty"`
-	Version   string                  `json:"credentialsVersion,omitempty"`
 	DataHash  []byte                  `json:"credentialsDataHash,omitempty"`
 }
 
@@ -582,8 +579,8 @@ type HardwareDetails struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
 // +kubebuilder:printcolumn:name="IPv4",type="string",JSONPath=".status.ipv4",description="IPv4 of the host",priority=1
 // +kubebuilder:printcolumn:name="IPv6",type="string",JSONPath=".status.ipv6",description="IPv6 of the host",priority=1
-// +kubebuilder:printcolumn:name="CPU",type="string",JSONPath=".status.hardwareDetails.cpu.threads",description="CPU threads",priority=1
-// +kubebuilder:printcolumn:name="RAM",type="string",JSONPath=".status.hardwareDetails.ramGB",description="RAM in GB",priority=1
+// +kubebuilder:printcolumn:name="CPU",type=integer,JSONPath=".status.hardwareDetails.cpu.threads",description="CPU threads",priority=1
+// +kubebuilder:printcolumn:name="RAM",type=integer,JSONPath=".status.hardwareDetails.ramGB",description="RAM in GB",priority=1
 // +kubebuilder:printcolumn:name="Server ID",type="integer",JSONPath=".spec.serverID",description="Server ID of the host",priority=1
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason",priority=1
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message",priority=1

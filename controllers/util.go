@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
 // conditionsObject is an API object that owns both the conditions and the deprecated v1beta1
@@ -179,4 +181,31 @@ func hcloudTokenErrorResult(
 		return reconcile.Result{}, inerr
 	}
 	return res, nil
+}
+
+// setHCloudTokenAvailable sets the HCloudTokenAvailable condition at the end of a reconcile. It is
+// False when the reconcile failed with an unauthorized error from the HCloud API, and True otherwise.
+func setHCloudTokenAvailable(obj conditionsObject, reconcileErr error) {
+	if reconcileErr != nil && errors.Is(reconcileErr, hcloudclient.ErrUnauthorized) {
+		deprecatedv1beta1conditions.MarkFalse(obj,
+			infrav2.HCloudTokenAvailableV1Beta1Condition,
+			infrav2.HCloudCredentialsInvalidV1Beta1Reason,
+			clusterv1.ConditionSeverityError,
+			"wrong hcloud token",
+		)
+		conditions.Set(obj, metav1.Condition{
+			Type:    infrav2.HCloudTokenAvailableCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav2.HCloudTokenInvalidReason,
+			Message: "wrong hcloud token",
+		})
+		return
+	}
+
+	deprecatedv1beta1conditions.MarkTrue(obj, infrav2.HCloudTokenAvailableV1Beta1Condition)
+	conditions.Set(obj, metav1.Condition{
+		Type:   infrav2.HCloudTokenAvailableCondition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav2.HCloudTokenAvailableReason,
+	})
 }

@@ -401,7 +401,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 						return false
 					}
 					c := conditions.Get(host, infrav2.HetznerBareMetalHostRootDeviceHintsValidatedCondition)
-					return c != nil && c.Reason == infrav2.HetznerBareMetalHostValidationFailedReason
+					return c != nil && c.Reason == infrav2.HetznerBareMetalHostRootDeviceHintsValidationFailedReason
 				}, timeout).Should(BeTrue())
 			})
 

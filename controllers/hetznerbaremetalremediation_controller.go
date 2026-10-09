@@ -29,7 +29,6 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
-	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -216,10 +215,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	// Always close the scope when exiting this function so we can persist any BareMetalRemediation changes.
 	defer func() {
 		// Always attempt to Patch the Remediation object and status after each reconciliation.
-		// Patch ObservedGeneration only if the reconciliation completed successfully
-		patchOpts := []patch.Option{patch.WithStatusObservedGeneration{}}
-
-		if err := remediationScope.Close(ctx, patchOpts...); err != nil {
+		if err := remediationScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
 			reterr = errors.Join(reterr, err)
 		}
