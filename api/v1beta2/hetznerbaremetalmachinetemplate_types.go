@@ -52,11 +52,11 @@ type HetznerBareMetalMachineTemplateList struct {
 
 // HetznerBareMetalMachineTemplateResource describes the data needed to create a HetznerBareMetalMachine from a template.
 type HetznerBareMetalMachineTemplateResource struct {
-	// Standard object's metadata.
+	// metadata is the standard object's metadata.
 	// +optional
 	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitempty,omitzero"`
 
-	// Spec is the specification of the desired behavior of the machine.
+	// spec is the specification of the desired behavior of the machine.
 	Spec HetznerBareMetalMachineSpec `json:"spec"`
 }
 

@@ -462,23 +462,23 @@ spec:
             properties:
               customProvisioner:
                 description: |-
-                  CustomProvisioner provisions the machine with a custom command instead of an HCloud image.
+                  customProvisioner provisions the machine with a custom command instead of an HCloud image.
                   Exactly one of imageName or customProvisioner must be set.
                 properties:
                   command:
                     description: |-
-                      Command is the basename of a command file below /shared on the controller pod which
-                      provisions a machine from URL. CAPH copies that command into the rescue system and
+                      command is the basename of a command file below /shared on the controller pod which
+                      provisions a machine from url. CAPH copies that command into the rescue system and
                       executes it there.
                     minLength: 1
                     type: string
                   url:
                     description: |-
-                      URL gets used for installing custom node images. If customProvisioner is set, the controller
+                      url gets used for installing custom node images. If customProvisioner is set, the controller
                       boots a new HCloud machine into rescue mode. Then the command referenced by
-                      Command will be copied into the rescue system and executed.
+                      command will be copied into the rescue system and executed.
 
-                      The controller uses url.ParseRequestURI (Go function) to validate the URL.
+                      The controller uses url.ParseRequestURI (Go function) to validate the url.
 
                       It is up to the script to provision the disk of the hcloud machine accordingly. The process
                       is considered successful if the last line in the output contains
@@ -496,48 +496,48 @@ spec:
                 type: object
               imageName:
                 description: |-
-                  ImageName is the reference to the Machine Image from which to create the machine instance.
+                  imageName is the reference to the Machine Image from which to create the machine instance.
                   It can reference an image uploaded to Hetzner API in two ways: either directly as the name of an image or as the label of an image.
                 minLength: 1
                 type: string
               placementGroupName:
-                description: PlacementGroupName defines the placement group of the
+                description: placementGroupName defines the placement group of the
                   machine in HCloud API that must reference an existing placement
                   group.
                 type: string
               providerID:
-                description: ProviderID is the unique identifier as specified by the
+                description: providerID is the unique identifier as specified by the
                   cloud provider.
                 type: string
               publicNetwork:
                 description: |-
-                  PublicNetwork specifies information for public networks. It defines the specs about
+                  publicNetwork specifies information for public networks. It defines the specs about
                   the primary IP address of the server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled.
                 properties:
                   enableIPv4:
                     default: true
                     description: |-
-                      EnableIPv4 defines whether server has IPv4 address enabled.
+                      enableIPv4 defines whether server has IPv4 address enabled.
                       As Hetzner load balancers require an IPv4 address, this setting will be ignored and set to true if there is no private net.
                     type: boolean
                   enableIPv6:
                     default: true
-                    description: EnableIPv6 defines whether server has IPv6 addresses
+                    description: enableIPv6 defines whether server has IPv6 addresses
                       enabled.
                     type: boolean
                 type: object
               sshKeys:
-                description: SSHKeys define machine-specific SSH keys and override
+                description: sshKeys define machine-specific SSH keys and override
                   cluster-wide SSH keys.
                 items:
                   description: SSHKey defines the SSHKey for HCloud.
                   properties:
                     fingerprint:
-                      description: Fingerprint defines the fingerprint of the SSH
+                      description: fingerprint defines the fingerprint of the SSH
                         key - added by the controller.
                       type: string
                     name:
-                      description: Name defines the name of the SSH key.
+                      description: name defines the name of the SSH key.
                       minLength: 1
                       type: string
                   required:
@@ -549,7 +549,7 @@ spec:
                 x-kubernetes-list-type: map
               type:
                 description: |-
-                  Type is the HCloud Machine Type for this machine. It defines the desired server type of
+                  type is the HCloud Machine Type for this machine. It defines the desired server type of
                   server in Hetzner's Cloud API. You can use the hcloud CLI to get server names (`hcloud
                   server-type list`) or on https://www.hetzner.com/cloud
 
@@ -569,7 +569,7 @@ spec:
             description: HCloudMachineStatus defines the observed state of HCloudMachine.
             properties:
               addresses:
-                description: Addresses contain the server's associated addresses.
+                description: addresses contain the server's associated addresses.
                 items:
                   description: MachineAddress contains information for the node's
                     address.
@@ -596,11 +596,24 @@ spec:
                 type: array
                 x-kubernetes-list-type: atomic
               bootState:
-                description: HCloudBootState defines the boot state of an HCloud server.
+                description: |-
+                  bootState indicates the current state during provisioning.
+
+                  If spec.imageName is set the states will be:
+                    1. BootingToRealOS
+                    2. OperatingSystemRunning
+
+                  If spec.customProvisioner is set the states will be:
+                    1. Initializing
+                    2. EnablingRescue
+                    3. BootingToRescue
+                    4. RunningImageCommand
+                    5. BootingToRealOS
+                    6. OperatingSystemRunning
                 type: string
               bootStateSince:
                 description: |-
-                  BootStateSince is the timestamp of the last change to BootState. It is used to timeout
+                  bootStateSince is the timestamp of the last change to bootState. It is used to timeout
                   provisioning if a state takes too long.
                 format: date-time
                 type: string
@@ -739,16 +752,16 @@ spec:
                     type: object
                 type: object
               externalIDs:
-                description: ExternalIDs contains temporary data during the provisioning
+                description: externalIDs contains temporary data during the provisioning
                   process
                 properties:
                   actionIdCreateServer:
-                    description: ActionIDCreateServer is the hcloud API Action result
+                    description: actionIdCreateServer is the hcloud API Action result
                       of CreateServer.
                     format: int64
                     type: integer
                   actionIdEnableRescueSystem:
-                    description: ActionIDEnableRescueSystem is the hcloud API Action
+                    description: actionIdEnableRescueSystem is the hcloud API Action
                       result of EnableRescueSystem.
                     format: int64
                     type: integer
@@ -767,16 +780,16 @@ spec:
                     type: boolean
                 type: object
               instanceState:
-                description: InstanceState is the state of the server for this machine.
+                description: instanceState is the state of the server for this machine.
                 type: string
               lastRemediatedAt:
                 description: |-
-                  LastRemediatedAt records when the most recent successful remediation completed.
+                  lastRemediatedAt records when the most recent successful remediation completed.
                   Used to prevent reboot loops across successive MHC incidents.
                 format: date-time
                 type: string
               region:
-                description: Region contains the name of the HCloud location the server
+                description: region contains the name of the HCloud location the server
                   is running.
                 enum:
                 - fsn1
@@ -787,17 +800,17 @@ spec:
                 - sin
                 type: string
               sshKeys:
-                description: SSHKeys specifies the ssh keys that were used for provisioning
+                description: sshKeys specifies the ssh keys that were used for provisioning
                   the server.
                 items:
                   description: SSHKey defines the SSHKey for HCloud.
                   properties:
                     fingerprint:
-                      description: Fingerprint defines the fingerprint of the SSH
+                      description: fingerprint defines the fingerprint of the SSH
                         key - added by the controller.
                       type: string
                     name:
-                      description: Name defines the name of the SSH key.
+                      description: name defines the name of the SSH key.
                       minLength: 1
                       type: string
                   required:

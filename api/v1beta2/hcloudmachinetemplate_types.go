@@ -38,13 +38,13 @@ type HCloudMachineTemplateStatus struct {
 	// +kubebuilder:validation:MaxItems=32
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// Capacity defines the resource capacity for this machine.
+	// capacity defines the resource capacity for this machine.
 	// This value is used for autoscaling from zero operations as defined in:
 	// https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20210310-opt-in-autoscaling-from-zero.md
 	// +optional
 	Capacity corev1.ResourceList `json:"capacity,omitempty"`
 
-	// OwnerType is the type of object that owns the HCloudMachineTemplate.
+	// ownerType is the type of object that owns the HCloudMachineTemplate.
 	// +optional
 	OwnerType string `json:"ownerType,omitempty"`
 
@@ -183,11 +183,11 @@ type HCloudMachineTemplateList struct {
 
 // HCloudMachineTemplateResource describes the data needed to create an HCloudMachine from a template.
 type HCloudMachineTemplateResource struct {
-	// Standard object's metadata.
+	// metadata is the standard object's metadata.
 	// +optional
 	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitempty,omitzero"`
 
-	// Spec is the specification of the desired behavior of the machine.
+	// spec is the specification of the desired behavior of the machine.
 	Spec HCloudMachineSpec `json:"spec"`
 }
 
