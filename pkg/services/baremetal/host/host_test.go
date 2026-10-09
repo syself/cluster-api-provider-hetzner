@@ -586,7 +586,7 @@ var _ = Describe("actionImageInstalling (customProvisioner)", func() {
 		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("custom provisioner timed out"))
-		Expect(c.Reason).To(Equal("CustomProvisionerTimedOut"))
+		Expect(c.Reason).To(Equal("CustomProvisionerTimeoutReached"))
 		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
 		Expect(cV1Beta1.Message).To(ContainSubstring("custom provisioner timed out"))
 		Expect(cV1Beta1.Reason).To(Equal("CustomProvisionerTimedOut"))

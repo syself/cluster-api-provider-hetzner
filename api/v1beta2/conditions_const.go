@@ -497,8 +497,8 @@ const (
 	HCloudMachineCustomProvisionerFailedToStartReason = "CustomProvisionerFailedToStart"
 	// HCloudMachineStartCustomProvisionerNonZeroExitCodeReason indicates the custom provisioner returned a non-zero exit code.
 	HCloudMachineStartCustomProvisionerNonZeroExitCodeReason = "StartCustomProvisionerNonZeroExitCode"
-	// HCloudMachineRunningCustomProvisionerTimedOutReason indicates the running custom provisioner timed out.
-	HCloudMachineRunningCustomProvisionerTimedOutReason = "RunningCustomProvisionerTimedOut"
+	// HCloudMachineRunningCustomProvisionerTimeoutReachedReason indicates the running custom provisioner timed out.
+	HCloudMachineRunningCustomProvisionerTimeoutReachedReason = "RunningCustomProvisionerTimeoutReached"
 	// HCloudMachineBootingToRealOSReason indicates the server is booting to the real OS.
 	HCloudMachineBootingToRealOSReason = "BootingToRealOS"
 	// HCloudMachineBootingToRealOSTimeoutReachedReason indicates booting to the real OS timed out.

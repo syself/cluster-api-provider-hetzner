@@ -961,7 +961,7 @@ var _ = Describe("handleBootStateRunningImageCommand", func() {
 		_, exists := service.scope.Machine.Annotations[clusterv1.RemediateMachineAnnotation]
 		Expect(exists).To(BeTrue())
 		Expect(isPresentAndFalseWithReasonDeprecatedV1Beta1(hcloudMachine, infrav2.ServerProvisionedV1Beta1Condition, "RunningImageCommandTimedOut")).To(BeTrue())
-		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav2.HCloudMachineServerProvisionedCondition, metav1.ConditionFalse, infrav2.HCloudMachineRunningCustomProvisionerTimedOutReason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav2.HCloudMachineServerProvisionedCondition, metav1.ConditionFalse, infrav2.HCloudMachineRunningCustomProvisionerTimeoutReachedReason)).To(BeTrue())
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 })

@@ -1396,7 +1396,7 @@ func (s *Service) actionImageInstallingCustomProvisioner(ctx context.Context, ss
 		conditions.Set(host, metav1.Condition{
 			Type:    infrav2.HetznerBareMetalHostProvisionSucceededCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  "CustomProvisionerTimedOut",
+			Reason:  "CustomProvisionerTimeoutReached",
 			Message: msg,
 		})
 		s.scope.SetHostError(infrav2.ErrorTypeFatal, msg)

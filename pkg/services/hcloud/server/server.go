@@ -843,7 +843,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context) (res r
 		// timeout. Something has failed.
 		timeoutMsg := fmt.Sprintf("custom provisioner timed out, in this state since %s", durationOfState.Round(time.Second).String())
 
-		msg, err := s.remediateAfterTimeout(ctx, infrav2.ServerProvisionedV1Beta1Condition, "RunningImageCommandTimedOut", infrav2.HCloudMachineServerProvisionedCondition, infrav2.HCloudMachineRunningCustomProvisionerTimedOutReason, timeoutMsg)
+		msg, err := s.remediateAfterTimeout(ctx, infrav2.ServerProvisionedV1Beta1Condition, "RunningImageCommandTimedOut", infrav2.HCloudMachineServerProvisionedCondition, infrav2.HCloudMachineRunningCustomProvisionerTimeoutReachedReason, timeoutMsg)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
