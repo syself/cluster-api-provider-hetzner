@@ -838,7 +838,22 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	out := sshClient.GetHostName(ctx)
 	hostName := trimLineBreak(out.StdOut)
 
-	if hostName != rescue {
+	// A hostname of rescue does not prove that the server rebooted, because it might have been in the rescue system before.
+	// If the uptime is not shorter than the time since TriggeredAt, the server did not reboot.
+	staleRescueSession := false
+	var uptime time.Duration
+	if ongoingReboot := s.scope.HetznerBareMetalHost.Status.OngoingReboot; hostName == rescue && ongoingReboot.IsDefined() {
+		var err error
+		uptime, err = sshClient.GetUptime(ctx)
+		if err != nil {
+			// The server can go down between the hostname and the uptime call. Handle it like a failed hostname call.
+			out = sshclient.Output{Err: err}
+		} else {
+			staleRescueSession = uptime >= time.Since(ongoingReboot.TriggeredAt.Time)
+		}
+	}
+
+	if hostName != rescue || out.Err != nil || staleRescueSession {
 		// give the reboot some time until it takes effect
 		if s.hasJustRebooted() {
 			return actionContinue{delay: 2 * time.Second}
@@ -865,7 +880,11 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			timeSinceReboot = time.Since(ongoingReboot.TriggeredAt.Time).Round(time.Second).String()
 		}
 
-		s.scope.Info("Could not reach rescue system. Will retry some seconds later.", "out", out.String(), "hostName", hostName,
+		msg := "Could not reach rescue system. Will retry some seconds later."
+		if staleRescueSession {
+			msg = "Server was already in the rescue system before the reboot was triggered. Will retry some seconds later."
+		}
+		s.scope.Info(msg, "out", out.String(), "hostName", hostName, "staleRescueSession", staleRescueSession, "uptime", uptime.String(),
 			"isSSHTimeoutError", isSSHTimeoutError, "isSSHConnectionRefusedError", isSSHConnectionRefusedError, "timeSinceReboot", timeSinceReboot)
 		return actionContinue{delay: 10 * time.Second}
 	}
@@ -1127,7 +1146,7 @@ func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, i
 		isConnectionRefused = true
 
 	default:
-		reterr = fmt.Errorf("unhandled ssh error while getting hostname: %w", sshErr)
+		reterr = fmt.Errorf("unhandled ssh error while getting hostname or uptime: %w", sshErr)
 	}
 	return isSSHTimeoutError, isConnectionRefused, reterr
 }
