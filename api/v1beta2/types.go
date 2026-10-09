@@ -80,22 +80,22 @@ func (algorithmType *LoadBalancerAlgorithmType) HCloudAlgorithmType() hcloud.Loa
 
 // HetznerSSHKeys defines the global cluster-wide SSHKeys for HetznerCluster. It serves as the default for machines as well.
 type HetznerSSHKeys struct {
-	// Hcloud defines the SSH keys used for hcloud.
+	// hcloud defines the SSH keys used for hcloud.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
 	HCloud []SSHKey `json:"hcloud,omitempty"`
-	// RescueSecretRef defines the reference to the secret where the SSH key for the rescue system is stored.
+	// rescueSecretRef defines the reference to the secret where the SSH key for the rescue system is stored.
 	// +optional
 	RescueSecretRef SSHSecretRef `json:"rescueSecretRef,omitempty"`
 }
 
 // SSHKey defines the SSHKey for HCloud.
 type SSHKey struct {
-	// Name defines the name of the SSH key.
+	// name defines the name of the SSH key.
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
-	// Fingerprint defines the fingerprint of the SSH key - added by the controller.
+	// fingerprint defines the fingerprint of the SSH key - added by the controller.
 	// +optional
 	Fingerprint string `json:"fingerprint,omitempty"`
 }
@@ -121,7 +121,7 @@ type HCloudPlacementGroupStatus struct {
 	// +optional
 	// +listType=set
 	Server []int64 `json:"servers,omitempty"`
-	// Name is the placement group name. It is required because status.hcloudPlacementGroups is a
+	// name is the placement group name. It is required because status.hcloudPlacementGroups is a
 	// list-map keyed on name, and a list-map key must be a required (or defaulted) property.
 	Name string `json:"name"`
 	Type string `json:"type,omitempty"`
@@ -129,7 +129,7 @@ type HCloudPlacementGroupStatus struct {
 
 // HetznerSecretRef defines all the names of the secret and the relevant keys needed to access Hetzner API.
 type HetznerSecretRef struct {
-	// Name defines the name of the secret. The controller reads the credential from the
+	// name defines the name of the secret. The controller reads the credential from the
 	// management-cluster secret with this name and creates a workload-cluster secret with the same
 	// name. The upstream hcloud-ccm helm chart expects the secret name "hcloud", while the Syself
 	// ccm fork defaults to "hetzner".
@@ -146,13 +146,13 @@ type HetznerSecretRef struct {
 	// +kubebuilder:default=hetzner
 	Name string `json:"name"`
 
-	// Key defines the keys that are used in the secret.
+	// key defines the keys that are used in the secret.
 	Key HetznerSecretKeyRef `json:"key"`
 }
 
 // HetznerSecretKeyRef defines the key name of the HetznerSecret.
 type HetznerSecretKeyRef struct {
-	// HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
+	// hcloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
 	// The controller reads the token from the management-cluster secret using this key and writes
 	// it to workload-cluster secrets using the same key. Upstream hcloud-ccm expects the key
 	// "token", while the legacy Syself ccm fork uses "hcloud". The configured workload-cluster
@@ -165,7 +165,7 @@ type HetznerSecretKeyRef struct {
 	// +kubebuilder:default=token
 	HCloudToken string `json:"hcloudToken"`
 
-	// HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
+	// hetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
 	// stored. It gets used for reading the credential in the mgt-cluster, and it gets used for
 	// creating a secret in the wl-cluster. We recommend to use "robot-user", because this is the
 	// default of upstream hcloud-ccm.
@@ -174,7 +174,7 @@ type HetznerSecretKeyRef struct {
 	// +kubebuilder:default=hetzner-robot-user
 	HetznerRobotUser string `json:"hetznerRobotUser"`
 
-	// HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
+	// hetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
 	// is stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
 	// creating a secret in the wl-cluster. We recommend to use "robot-password", because this is
 	// the default of upstream hcloud-ccm.
@@ -183,7 +183,7 @@ type HetznerSecretKeyRef struct {
 	// +kubebuilder:default=hetzner-robot-password
 	HetznerRobotPassword string `json:"hetznerRobotPassword"`
 
-	// SSHKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
+	// sshKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
 	// to the wl-cluster.
 	//
 	// +optional
@@ -193,12 +193,12 @@ type HetznerSecretKeyRef struct {
 
 // PublicNetworkSpec contains specs about the public network spec of an HCloud server.
 type PublicNetworkSpec struct {
-	// EnableIPv4 defines whether server has IPv4 address enabled.
+	// enableIPv4 defines whether server has IPv4 address enabled.
 	// As Hetzner load balancers require an IPv4 address, this setting will be ignored and set to true if there is no private net.
 	// +optional
 	// +kubebuilder:default=true
 	EnableIPv4 bool `json:"enableIPv4"`
-	// EnableIPv6 defines whether server has IPv6 addresses enabled.
+	// enableIPv6 defines whether server has IPv6 addresses enabled.
 	// +optional
 	// +kubebuilder:default=true
 	EnableIPv6 bool `json:"enableIPv6"`
@@ -206,43 +206,43 @@ type PublicNetworkSpec struct {
 
 // LoadBalancerSpec defines the desired state of the Control Plane load balancer.
 type LoadBalancerSpec struct {
-	// Enabled specifies if a load balancer should be created.
+	// enabled specifies if a load balancer should be created.
 	// +optional
 	// +kubebuilder:default=true
 	Enabled bool `json:"enabled"`
 
-	// Name defines the name of the load balancer. It can be specified in order to use an existing load balancer.
+	// name defines the name of the load balancer. It can be specified in order to use an existing load balancer.
 	// +optional
 	Name *string `json:"name,omitempty"`
 
-	// Algorithm defines the type of load balancer algorithm. It could be round_robin or least_connections. The default value is "round_robin".
+	// algorithm defines the type of load balancer algorithm. It could be round_robin or least_connections. The default value is "round_robin".
 	// +optional
 	// +kubebuilder:validation:Enum=round_robin;least_connections
 	// +kubebuilder:default=round_robin
 	Algorithm LoadBalancerAlgorithmType `json:"algorithm,omitempty"`
 
-	// Type defines the type of load balancer. It could be one of lb11, lb21, or lb31.
+	// type defines the type of load balancer. It could be one of lb11, lb21, or lb31.
 	// +optional
 	// +kubebuilder:validation:Enum=lb11;lb21;lb31
 	// +kubebuilder:default=lb11
 	Type string `json:"type,omitempty"`
 
-	// Port defines the API Server port. It must be a valid port range (1-65535). If omitted, the default value is 6443.
+	// port defines the API Server port. It must be a valid port range (1-65535). If omitted, the default value is 6443.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=6443
 	Port int `json:"port,omitempty"`
 
-	// ExtraServices defines how traffic will be routed from the load balancer to your target server.
+	// extraServices defines how traffic will be routed from the load balancer to your target server.
 	// +optional
 	// +listType=atomic
 	ExtraServices []LoadBalancerServiceSpec `json:"extraServices,omitempty"`
 
-	// Region contains the name of the HCloud location where the load balancer is running.
+	// region contains the name of the HCloud location where the load balancer is running.
 	Region Region `json:"region,omitempty"`
 
-	// EnableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
+	// enableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
 	// Only the kube-apiserver service is affected; extra services are never given proxy protocol.
 	//
 	// For new clusters the LB service is created with proxy protocol enabled immediately — no
@@ -261,7 +261,7 @@ type LoadBalancerSpec struct {
 	// +optional
 	EnableProxyProtocol bool `json:"enableProxyProtocol,omitempty"`
 
-	// TargetAddressFamily selects which addresses of a bare metal control plane server are
+	// targetAddressFamily selects which addresses of a bare metal control plane server are
 	// attached as targets of the load balancer.
 	//
 	// This only affects bare metal servers. An HCloud server is a resource of the HCloud
@@ -288,12 +288,12 @@ type LoadBalancerSpec struct {
 	// +optional
 	TargetAddressFamily LoadBalancerTargetAddressFamily `json:"targetAddressFamily,omitempty"`
 
-	// HealthCheck configures the health check the load balancer uses to determine whether the
+	// healthCheck configures the health check the load balancer uses to determine whether the
 	// kube-apiserver service on a control-plane node is healthy. If omitted, the load balancer's
 	// default behavior (a plain TCP check, with Hetzner's default interval, timeout and retries)
 	// is unchanged.
 	//
-	// Switching Protocol to http or https lets the load balancer check the kube-apiserver's actual
+	// Switching protocol to http or https lets the load balancer check the kube-apiserver's actual
 	// readiness (e.g. path "/readyz") instead of just whether the port accepts connections. Only
 	// the kube-apiserver service is affected; extra services are never given a custom health
 	// check. Doing so requires the kube-apiserver to serve that path without authentication,
@@ -307,12 +307,12 @@ type LoadBalancerSpec struct {
 	// control-plane infra machine template. This is checked on every reconcile, so it applies to
 	// every switch away from tcp, not only the first one. Until the annotation is there the tcp
 	// check stays in place, so the switch never marks a backend that does not yet answer the path
-	// unhealthy. This mirrors the proxy-protocol migration in EnableProxyProtocol. Any other change
+	// unhealthy. This mirrors the proxy-protocol migration in enableProxyProtocol. Any other change
 	// (e.g. a path or timeout change while already on http/https) is applied immediately, without
 	// this gate; nothing checks that the targets already pass the new check, so change these only
 	// once they do.
 	//
-	// Leaving HealthCheck out means CAPH does not manage the check, so a load balancer that
+	// Leaving healthCheck out means CAPH does not manage the check, so a load balancer that
 	// already has one keeps it. Deleting the field after an http check was applied therefore does
 	// not undo that check.
 	// +optional
@@ -356,13 +356,13 @@ func (spec LoadBalancerSpec) WantsIPv6() bool {
 // https://docs.hetzner.cloud/reference/cloud#tag/load-balancer-actions/add_load_balancer_service
 // for the current defaults and limits.
 type LoadBalancerHealthCheckSpec struct {
-	// Protocol is the protocol used for the health check. If omitted, "tcp" is used, matching the
+	// protocol is the protocol used for the health check. If omitted, "tcp" is used, matching the
 	// load balancer's own default behavior.
 	// +kubebuilder:validation:Enum=tcp;http;https
 	// +kubebuilder:default=tcp
 	Protocol string `json:"protocol"`
 
-	// Port is the target port the check runs against. It defaults to the service's destination
+	// port is the target port the check runs against. It defaults to the service's destination
 	// port. Set it when the health-check endpoint is served on a different port than the API
 	// server itself.
 	// +optional
@@ -370,14 +370,14 @@ type LoadBalancerHealthCheckSpec struct {
 	// +kubebuilder:validation:Maximum=65535
 	Port *int `json:"port,omitempty"`
 
-	// IntervalSeconds is the time in seconds between two consecutive health checks. If omitted,
+	// intervalSeconds is the time in seconds between two consecutive health checks. If omitted,
 	// Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec above).
 	// +optional
 	// +kubebuilder:validation:Minimum=3
 	// +kubebuilder:validation:Maximum=60
 	IntervalSeconds *int `json:"intervalSeconds,omitempty"`
 
-	// TimeoutSeconds is the time in seconds to wait for a health check attempt to succeed. If
+	// timeoutSeconds is the time in seconds to wait for a health check attempt to succeed. If
 	// omitted, Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec
 	// above).
 	// +optional
@@ -385,7 +385,7 @@ type LoadBalancerHealthCheckSpec struct {
 	// +kubebuilder:validation:Maximum=60
 	TimeoutSeconds *int `json:"timeoutSeconds,omitempty"`
 
-	// Retries is the number of consecutive failed health checks before a target is considered
+	// retries is the number of consecutive failed health checks before a target is considered
 	// unhealthy. The same number of successful checks makes it healthy again. If omitted,
 	// Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec above).
 	// +optional
@@ -393,41 +393,41 @@ type LoadBalancerHealthCheckSpec struct {
 	// +kubebuilder:validation:Maximum=5
 	Retries *int `json:"retries,omitempty"`
 
-	// Path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
-	// Protocol is http or https.
+	// path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
+	// protocol is http or https.
 	// +optional
 	Path *string `json:"path,omitempty"`
 
-	// Domain sets the Host header sent with the HTTP(S) health check request. Only valid when
-	// Protocol is http or https.
+	// domain sets the Host header sent with the HTTP(S) health check request. Only valid when
+	// protocol is http or https.
 	// +optional
 	Domain *string `json:"domain,omitempty"`
 
-	// Response is a string that must be contained in the HTTP(S) response for the check to pass.
-	// Only valid when Protocol is http or https.
+	// response is a string that must be contained in the HTTP(S) response for the check to pass.
+	// Only valid when protocol is http or https.
 	// +optional
 	Response *string `json:"response,omitempty"`
 
-	// StatusCodes are the HTTP response status codes counted as healthy, for example ["200"].
+	// statusCodes are the HTTP response status codes counted as healthy, for example ["200"].
 	// Single codes ("200") and wildcards ("2??") are both allowed. If empty, Hetzner's own default
 	// is used (see the API reference on LoadBalancerHealthCheckSpec above). Only valid when
-	// Protocol is http or https.
+	// protocol is http or https.
 	// +optional
 	StatusCodes []string `json:"statusCodes,omitempty"`
 }
 
 // LoadBalancerServiceSpec defines a load balancer Target.
 type LoadBalancerServiceSpec struct {
-	// Protocol specifies the supported load balancer Protocol. It could be one of the https, http, or tcp.
+	// protocol specifies the supported load balancer Protocol. It could be one of the https, http, or tcp.
 	// +kubebuilder:validation:Enum=http;https;tcp
 	Protocol string `json:"protocol,omitempty"`
 
-	// ListenPort, i.e. source port, defines the incoming port open on the load balancer. It must be a valid port range (1-65535).
+	// listenPort, i.e. source port, defines the incoming port open on the load balancer. It must be a valid port range (1-65535).
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	ListenPort int `json:"listenPort,omitempty"`
 
-	// DestinationPort defines the port on the server. It must be a valid port range (1-65535).
+	// destinationPort defines the port on the server. It must be a valid port range (1-65535).
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	DestinationPort int `json:"destinationPort,omitempty"`
@@ -444,7 +444,7 @@ type LoadBalancerStatus struct {
 	Target    []LoadBalancerTarget `json:"targets,omitempty"`
 	Protected bool                 `json:"protected,omitempty"`
 
-	// ProxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
+	// proxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
 	// has proxy protocol enabled, as observed on the actual HCloud load balancer. This can lag
 	// behind spec.controlPlaneLoadBalancer.enableProxyProtocol while the migration to proxy
 	// protocol is in progress (see the field's docs for details).
@@ -461,21 +461,21 @@ type LoadBalancerTarget struct {
 
 // HCloudNetworkSpec defines the desired state of the HCloud Private Network.
 type HCloudNetworkSpec struct {
-	// Enabled defines whether the network should be enabled or not.
+	// enabled defines whether the network should be enabled or not.
 	Enabled bool `json:"enabled"`
 
-	// CIDRBlock defines the cidrBlock of the HCloud Network. If omitted, default "10.0.0.0/16" will be used.
+	// cidrBlock defines the cidrBlock of the HCloud Network. If omitted, default "10.0.0.0/16" will be used.
 	// +kubebuilder:default="10.0.0.0/16"
 	// +optional
 	CIDRBlock string `json:"cidrBlock,omitempty"`
 
-	// SubnetCIDRBlock defines the cidrBlock for the subnet of the HCloud Network.
+	// subnetCidrBlock defines the cidrBlock for the subnet of the HCloud Network.
 	// Note: A subnet is required.
 	// +kubebuilder:default="10.0.0.0/24"
 	// +optional
 	SubnetCIDRBlock string `json:"subnetCidrBlock,omitempty"`
 
-	// NetworkZone specifies the HCloud network zone of the private network.
+	// networkZone specifies the HCloud network zone of the private network.
 	// The zones must be one of eu-central, us-east, us-west or ap-southeast. The default is eu-central.
 	// +kubebuilder:validation:Enum=eu-central;us-east;us-west;ap-southeast
 	// +kubebuilder:default=eu-central

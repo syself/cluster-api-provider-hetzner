@@ -32,7 +32,7 @@ const (
 
 // HetznerBareMetalRemediationSpec defines the desired state of HetznerBareMetalRemediation.
 type HetznerBareMetalRemediationSpec struct {
-	// Strategy field defines the remediation strategy to be applied.
+	// strategy field defines the remediation strategy to be applied.
 	Strategy *BareMetalRemediationStrategy `json:"strategy,omitempty"`
 }
 
@@ -62,7 +62,7 @@ type BareMetalRemediationStrategy struct {
 	// The shared remediation fields (type, retryLimit, timeoutSeconds, cooldownSeconds).
 	RemediationStrategy `json:",inline"`
 
-	// OnExhaustion selects what happens when remediation runs out of retries and
+	// onExhaustion selects what happens when remediation runs out of retries and
 	// the node is still unhealthy. Reuse deletes the machine and frees the host to be
 	// provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
 	// error on the host, which deletes the machine and keeps the host out of the pool
@@ -74,17 +74,17 @@ type BareMetalRemediationStrategy struct {
 
 // HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation.
 type HetznerBareMetalRemediationStatus struct {
-	// Phase represents the current phase of machine remediation.
+	// phase represents the current phase of machine remediation.
 	// E.g. Running, Waiting, Deleting machine, Succeeded.
 	// +optional
 	Phase string `json:"phase,omitempty"`
 
-	// RetryCount records how many times the remediation controller has tried to
+	// retryCount records how many times the remediation controller has tried to
 	// remediate the node, for example the number of reboots.
 	// +optional
 	RetryCount *int32 `json:"retryCount,omitempty"`
 
-	// LastRemediated identifies when the host was last remediated.
+	// lastRemediated identifies when the host was last remediated.
 	// A zero value is treated as absent.
 	// +optional
 	LastRemediated metav1.Time `json:"lastRemediated,omitempty,omitzero"`

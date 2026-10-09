@@ -57,11 +57,11 @@ const (
 // the details to be specified. HardwareDetails in the host's status can be used to find the correct device.
 // Currently, you can specify one disk or a raid setup.
 type RootDeviceHints struct {
-	// WWN is a unique storage identifier used for non-raid setups. The hint
+	// wwn is a unique storage identifier used for non-raid setups. The hint
 	// must match the actual value exactly.
 	// +optional
 	WWN string `json:"wwn,omitempty"`
-	// Raid is used to specify multiple storage devices. It provides the controller with information
+	// raid is used to specify multiple storage devices. It provides the controller with information
 	// on which disks a raid can be established.
 	// +optional
 	Raid Raid `json:"raid,omitempty"`
@@ -97,7 +97,7 @@ func (rdh *RootDeviceHints) ListOfWWN() []string {
 
 // Raid can be used instead of WWN to point to multiple storage devices.
 type Raid struct {
-	// WWN defines a list of unique storage identifiers used for raid setups.
+	// wwn defines a list of unique storage identifiers used for raid setups.
 	WWN []string `json:"wwn,omitempty"`
 }
 
@@ -207,21 +207,21 @@ type RebootAnnotationArguments struct {
 // HetznerBareMetalHostConsumerReference is a reference to the HetznerBareMetalMachine
 // that is using a HetznerBareMetalHost.
 type HetznerBareMetalHostConsumerReference struct {
-	// Kind is the kind of the resource being referenced.
+	// kind is the kind of the resource being referenced.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern=`^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$`
 	Kind string `json:"kind,omitempty"`
 
-	// Name is the name of the resource being referenced.
+	// name is the name of the resource being referenced.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	Name string `json:"name,omitempty"`
 
-	// APIGroup is the group of the resource being referenced.
+	// apiGroup is the group of the resource being referenced.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
@@ -231,26 +231,26 @@ type HetznerBareMetalHostConsumerReference struct {
 
 // HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
 type HetznerBareMetalHostSpec struct {
-	// ServerID defines the ID of the server provided by Hetzner.
+	// serverID defines the ID of the server provided by Hetzner.
 	// Find it on your Hetzner robot dashboard.
 	ServerID int `json:"serverID"`
 
-	// RootDeviceHints provides guidance about how to choose the device for the image
+	// rootDeviceHints provides guidance about how to choose the device for the image
 	// being provisioned. They need to be specified to provision the host.
 	// +optional
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
-	// ConsumerRef is a reference to the HetznerBareMetalMachine
+	// consumerRef is a reference to the HetznerBareMetalMachine
 	// that is using this host. When it is not empty, the host is considered "in use".
 	// +optional
 	ConsumerRef *HetznerBareMetalHostConsumerReference `json:"consumerRef,omitempty"`
 
-	// MaintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
+	// maintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
 	// will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
 	// machine. Additionally, the host won't be selected by any Hetzner bare metal machine.
 	MaintenanceMode *bool `json:"maintenanceMode,omitempty"`
 
-	// Description is a human-entered text used to help identify the host.
+	// description is a human-entered text used to help identify the host.
 	// It can be used to store some valuable information about the host.
 	// +optional
 	Description string `json:"description,omitempty"`
@@ -452,13 +452,13 @@ func HetznerBareMetalHostSummaryOpts() []conditions.SummaryOption {
 
 // SSHStatus contains all status information about SSHStatus.
 type SSHStatus struct {
-	// CurrentRescue gives information about the secret where the rescue ssh key is stored.
+	// currentRescue gives information about the secret where the rescue ssh key is stored.
 	CurrentRescue *SecretStatus `json:"currentRescue,omitempty"`
-	// CurrentOS gives information about the secret where the os ssh key is stored.
+	// currentOS gives information about the secret where the os ssh key is stored.
 	CurrentOS *SecretStatus `json:"currentOS,omitempty"`
-	// OSKey contains name and fingerprint of the in HetznerBareMetalMachine spec specified SSH key.
+	// osKey contains name and fingerprint of the in HetznerBareMetalMachine spec specified SSH key.
 	OSKey *SSHKey `json:"osKey,omitempty"`
-	// RescueKey contains name and fingerprint of the in HetznerCluster spec specified SSH key.
+	// rescueKey contains name and fingerprint of the in HetznerCluster spec specified SSH key.
 	RescueKey *SSHKey `json:"rescueKey,omitempty"`
 }
 
@@ -506,53 +506,53 @@ type CPU struct {
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
 type Storage struct {
-	// The Linux device name of the disk, e.g. "/dev/sda". Note that this
+	// name is the Linux device name of the disk, e.g. "/dev/sda". Note that this
 	// may not be stable across reboots.
 	Name string `json:"name,omitempty"`
 
-	// SizeBytes is the size of the disk in Bytes.
+	// sizeBytes is the size of the disk in Bytes.
 	SizeBytes Capacity `json:"sizeBytes,omitempty"`
 
-	// SizeGB is the size of the disk in GB.
+	// sizeGB is the size of the disk in GB.
 	SizeGB Capacity `json:"sizeGB,omitempty"`
 
-	// Vendor is the name of the vendor of the device.
+	// vendor is the name of the vendor of the device.
 	Vendor string `json:"vendor,omitempty"`
 
-	// Model represents the Hardware model.
+	// model represents the Hardware model.
 	Model string `json:"model,omitempty"`
 
-	// SerialNumber denotes the serial number of the device.
+	// serialNumber denotes the serial number of the device.
 	SerialNumber string `json:"serialNumber,omitempty"`
 
-	// WWN defines the WWN of the device.
+	// wwn defines the WWN of the device.
 	WWN string `json:"wwn,omitempty"`
 
-	// HCTL defines the SCSI location of the device.
+	// hctl defines the SCSI location of the device.
 	HCTL string `json:"hctl,omitempty"`
 
-	// Rota defines if it's an HDD device or not.
+	// rota defines if it's an HDD device or not.
 	Rota bool `json:"rota,omitempty"`
 }
 
 // NIC describes one network interface on the host.
 type NIC struct {
-	// The name of the network interface, e.g. "en0"
+	// name is the name of the network interface, e.g. "en0"
 	Name string `json:"name,omitempty"`
 
-	// The vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
+	// model is the vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
 	Model string `json:"model,omitempty"`
 
-	// The device MAC address
+	// mac is the device MAC address
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
 	MAC string `json:"mac,omitempty"`
 
-	// The IP address of the interface. This will be an IPv4 or IPv6 address
+	// ip is the IP address of the interface. This will be an IPv4 or IPv6 address
 	// if one is present.  If both IPv4 and IPv6 addresses are present in a
 	// dual-stack environment, two nics will be output, one with each IP.
 	IP string `json:"ip,omitempty"`
 
-	// The speed of the device in Gigabits per second
+	// speedMbps is the speed of the device in Megabits per second
 	SpeedMbps int `json:"speedMbps,omitempty"`
 }
 

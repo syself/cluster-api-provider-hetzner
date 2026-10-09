@@ -194,17 +194,17 @@ spec:
                   the data needed to create a HetznerBareMetalRemediation from a template.
                 properties:
                   spec:
-                    description: Spec is the specification of the desired behavior
+                    description: spec is the specification of the desired behavior
                       of the HetznerBareMetalRemediation.
                     properties:
                       strategy:
-                        description: Strategy field defines the remediation strategy
+                        description: strategy field defines the remediation strategy
                           to be applied.
                         properties:
                           cooldownSeconds:
                             default: 1800
                             description: |-
-                              CooldownSeconds is the minimum time, in seconds, between successive
+                              cooldownSeconds is the minimum time, in seconds, between successive
                               remediations of the same machine. If a new remediation starts within this
                               window of the previous successful one, the reboot is skipped and the
                               machine is deleted. An explicit 0 disables the guard and is distinct from an
@@ -214,7 +214,7 @@ spec:
                             type: integer
                           onExhaustion:
                             description: |-
-                              OnExhaustion selects what happens when remediation runs out of retries and
+                              onExhaustion selects what happens when remediation runs out of retries and
                               the node is still unhealthy. Reuse deletes the machine and frees the host to be
                               provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
                               error on the host, which deletes the machine and keeps the host out of the pool
@@ -224,20 +224,20 @@ spec:
                             - Retire
                             type: string
                           retryLimit:
-                            description: RetryLimit sets the maximum number of remediation
+                            description: retryLimit sets the maximum number of remediation
                               retries. Zero retries if not set.
                             format: int32
                             minimum: 0
                             type: integer
                           timeoutSeconds:
-                            description: TimeoutSeconds sets the timeout, in seconds,
+                            description: timeoutSeconds sets the timeout, in seconds,
                               between remediation retries.
                             format: int32
                             minimum: 0
                             type: integer
                           type:
                             default: Reboot
-                            description: Type represents the type of the remediation
+                            description: type represents the type of the remediation
                               strategy. At the moment, only "Reboot" is supported.
                             type: string
                         required:
@@ -255,23 +255,22 @@ spec:
               state of HetznerBareMetalRemediationTemplate.
             properties:
               status:
-                description: HetznerBareMetalRemediationStatus defines the observed
-                  state of HetznerBareMetalRemediation
+                description: status defines the observed state of HetznerBareMetalRemediation
                 properties:
                   lastRemediated:
                     description: |-
-                      LastRemediated identifies when the host was last remediated.
+                      lastRemediated identifies when the host was last remediated.
                       A zero value is treated as absent.
                     format: date-time
                     type: string
                   phase:
                     description: |-
-                      Phase represents the current phase of machine remediation.
+                      phase represents the current phase of machine remediation.
                       E.g. Running, Waiting, Deleting machine, Succeeded.
                     type: string
                   retryCount:
                     description: |-
-                      RetryCount records how many times the remediation controller has tried to
+                      retryCount records how many times the remediation controller has tried to
                       remediate the node, for example the number of reboots.
                     format: int32
                     type: integer
