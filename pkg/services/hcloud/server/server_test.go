@@ -312,8 +312,9 @@ var _ = Describe("handleBootStateUnset", func() {
 			Client:    testEnv.GetClient(),
 			APIReader: testEnv.GetAPIReader(),
 
-			HCloudClient: mocks.NewClient(GinkgoT()),
-			Logger:       GinkgoLogr,
+			HCloudClient:  mocks.NewClient(GinkgoT()),
+			Logger:        GinkgoLogr,
+			EventRecorder: record.NewFakeRecorder(10),
 
 			Cluster: &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "clustername", Namespace: "default"}},
 			HetznerCluster: &infrav2.HetznerCluster{
