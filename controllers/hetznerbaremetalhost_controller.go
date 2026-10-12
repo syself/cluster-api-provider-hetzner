@@ -516,22 +516,24 @@ func getAndValidateRobotCredentials(
 		return robotclient.Credentials{}, err
 	}
 
+	robotUserKey := hetznerCluster.Spec.HetznerSecret.Key.GetHetznerRobotUser()
+	robotPasswordKey := hetznerCluster.Spec.HetznerSecret.Key.GetHetznerRobotPassword()
 	creds := robotclient.Credentials{
-		Username: string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]),
-		Password: string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]),
+		Username: string(hetznerSecret.Data[robotUserKey]),
+		Password: string(hetznerSecret.Data[robotPasswordKey]),
 	}
 
 	// Validate token
 	if creds.Username == "" {
 		return robotclient.Credentials{}, &bmclient.CredentialsValidationError{
 			Message: fmt.Sprintf("secret %s/%s: Missing Hetzner robot api connection detail '%s' in credentials",
-				namespace, hetznerCluster.Spec.HetznerSecret.Name, hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser),
+				namespace, hetznerCluster.Spec.HetznerSecret.Name, robotUserKey),
 		}
 	}
 	if creds.Password == "" {
 		return robotclient.Credentials{}, &bmclient.CredentialsValidationError{
 			Message: fmt.Sprintf("secret %s/%s: Missing Hetzner robot api connection detail '%s' in credentials",
-				namespace, hetznerCluster.Spec.HetznerSecret.Name, hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword),
+				namespace, hetznerCluster.Spec.HetznerSecret.Name, robotPasswordKey),
 		}
 	}
 

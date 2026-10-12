@@ -26,6 +26,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
@@ -50,7 +51,7 @@ func NewService(scope *scope.ClusterScope) *Service {
 
 // Reconcile implements life cycle of networks.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
-	if !s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled {
+	if !ptr.Deref(s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled, false) {
 		return nil
 	}
 

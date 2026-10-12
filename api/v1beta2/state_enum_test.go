@@ -159,6 +159,20 @@ func stringConstantsInPackage(t *testing.T) []stringConstant {
 func crdEnum(t *testing.T, crdFile string, fieldPath []string) []string {
 	t.Helper()
 
+	schema := crdFieldSchema(t, crdFile, fieldPath)
+	values := make([]string, 0, len(schema.Enum))
+	for _, raw := range schema.Enum {
+		var value string
+		require.NoError(t, json.Unmarshal(raw.Raw, &value))
+		values = append(values, value)
+	}
+	return values
+}
+
+// crdFieldSchema returns the schema of a field in the v1beta2 schema of a generated CRD.
+func crdFieldSchema(t *testing.T, crdFile string, fieldPath []string) *apiextensionsv1.JSONSchemaProps {
+	t.Helper()
+
 	data, err := fs.ReadFile(os.DirFS(filepath.Join("..", "..", "config", "crd", "bases")), crdFile)
 	require.NoError(t, err)
 
@@ -178,12 +192,5 @@ func crdEnum(t *testing.T, crdFile string, fieldPath []string) []string {
 		require.True(t, ok, "CRD has no field %s", strings.Join(fieldPath, "."))
 		schema = &property
 	}
-
-	values := make([]string, 0, len(schema.Enum))
-	for _, raw := range schema.Enum {
-		var value string
-		require.NoError(t, json.Unmarshal(raw.Raw, &value))
-		values = append(values, value)
-	}
-	return values
+	return schema
 }

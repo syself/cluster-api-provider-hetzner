@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta2
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -24,6 +25,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
@@ -380,7 +383,7 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 								PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 							},
 						},
-						PortAfterInstallImage: 22,
+						PortAfterInstallImage: ptr.To[int32](22),
 					},
 				},
 				newSpec: infrav2.HetznerBareMetalMachineSpec{
@@ -393,7 +396,7 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 								PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 							},
 						},
-						PortAfterInstallImage: 2222,
+						PortAfterInstallImage: ptr.To[int32](2222),
 					},
 				},
 			},
@@ -452,7 +455,7 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 								PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 							},
 						},
-						PortAfterInstallImage: 22,
+						PortAfterInstallImage: ptr.To[int32](22),
 					},
 					HostSelector: &infrav2.HostSelector{
 						MatchLabels: map[string]string{
@@ -483,7 +486,7 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 								PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 							},
 						},
-						PortAfterInstallImage: 22,
+						PortAfterInstallImage: ptr.To[int32](22),
 					},
 					HostSelector: &infrav2.HostSelector{
 						MatchLabels: map[string]string{
@@ -581,4 +584,148 @@ func TestValidateHetznerBareMetalMachineSpecUpdate_FlowSwitch(t *testing.T) {
 	require.Equal(t,
 		`[spec.installImage: Forbidden: installImage is immutable spec.customProvisioner: Forbidden: customProvisioner is immutable]`,
 		fmt.Sprintf("%+v", got))
+}
+
+// storedHetznerBareMetalMachineSpec returns a spec as it is read from storage: the conversion from
+// v1beta1 sets every field that has a meaning when unset.
+func storedHetznerBareMetalMachineSpec() infrav2.HetznerBareMetalMachineSpec {
+	return infrav2.HetznerBareMetalMachineSpec{
+		InstallImage: infrav2.InstallImage{
+			Image:       infrav2.Image{Name: "ubuntu-24.04", URL: "https://example.com/ubuntu-24.04.tar.gz"},
+			Swraid:      ptr.To[int32](0),
+			SwraidLevel: ptr.To[int32](1),
+		},
+		SSHSpec: infrav2.SSHSpec{
+			SecretRef:              infrav2.SSHSecretRef{Name: "ssh-secret"},
+			NoSSHAfterInstallImage: ptr.To(false),
+			PortAfterInstallImage:  ptr.To[int32](22),
+		},
+		SkipCheckDisk: ptr.To(false),
+	}
+}
+
+// unsetHetznerBareMetalMachineSpec returns the stored spec with every field that has a meaning when
+// unset left out, like an update request that does not send these fields.
+func unsetHetznerBareMetalMachineSpec() infrav2.HetznerBareMetalMachineSpec {
+	spec := storedHetznerBareMetalMachineSpec()
+	spec.InstallImage.Swraid = nil
+	spec.InstallImage.SwraidLevel = nil
+	spec.SSHSpec.NoSSHAfterInstallImage = nil
+	spec.SSHSpec.PortAfterInstallImage = nil
+	spec.SkipCheckDisk = nil
+	return spec
+}
+
+// storedCustomProvisionerSpec returns a stored spec with customProvisioner set and installImage empty.
+func storedCustomProvisionerSpec() infrav2.HetznerBareMetalMachineSpec {
+	spec := storedHetznerBareMetalMachineSpec()
+	spec.InstallImage = infrav2.InstallImage{}
+	spec.CustomProvisioner = infrav2.CustomProvisioner{
+		URL:     "oci://example.com/node-image:v1",
+		Command: "provision.sh",
+		Swraid:  ptr.To[int32](0),
+	}
+	return spec
+}
+
+func TestValidateHetznerBareMetalMachineSpecUpdate_UnsetFields(t *testing.T) {
+	tests := []struct {
+		name    string
+		oldSpec infrav2.HetznerBareMetalMachineSpec
+		newSpec infrav2.HetznerBareMetalMachineSpec
+		want    string
+	}{
+		{
+			name:    "unset fields with the value they mean are not a change",
+			oldSpec: storedHetznerBareMetalMachineSpec(),
+			newSpec: unsetHetznerBareMetalMachineSpec(),
+			want:    "[]",
+		},
+		{
+			name:    "an empty hostSelector is the same as no hostSelector",
+			oldSpec: storedHetznerBareMetalMachineSpec(),
+			newSpec: func() infrav2.HetznerBareMetalMachineSpec {
+				spec := unsetHetznerBareMetalMachineSpec()
+				spec.HostSelector = &infrav2.HostSelector{}
+				return spec
+			}(),
+			want: "[]",
+		},
+		{
+			name: "unset portAfterInstallImage is a change when the stored port is not 22",
+			oldSpec: func() infrav2.HetznerBareMetalMachineSpec {
+				spec := storedHetznerBareMetalMachineSpec()
+				spec.SSHSpec.PortAfterInstallImage = ptr.To[int32](2222)
+				return spec
+			}(),
+			newSpec: unsetHetznerBareMetalMachineSpec(),
+			want:    "[spec.sshSpec: Forbidden: sshSpec is immutable]",
+		},
+		{
+			name:    "a changed noSSHAfterInstallImage is still rejected",
+			oldSpec: storedHetznerBareMetalMachineSpec(),
+			newSpec: func() infrav2.HetznerBareMetalMachineSpec {
+				spec := unsetHetznerBareMetalMachineSpec()
+				spec.SSHSpec.NoSSHAfterInstallImage = ptr.To(true)
+				return spec
+			}(),
+			want: "[spec.sshSpec: Forbidden: sshSpec is immutable]",
+		},
+		{
+			name:    "a changed swraidLevel is still rejected",
+			oldSpec: storedHetznerBareMetalMachineSpec(),
+			newSpec: func() infrav2.HetznerBareMetalMachineSpec {
+				spec := unsetHetznerBareMetalMachineSpec()
+				spec.InstallImage.SwraidLevel = ptr.To[int32](0)
+				return spec
+			}(),
+			want: "[spec.installImage: Forbidden: installImage is immutable]",
+		},
+		{
+			name:    "unset customProvisioner.swraid is the same as the stored 0",
+			oldSpec: storedCustomProvisionerSpec(),
+			newSpec: func() infrav2.HetznerBareMetalMachineSpec {
+				spec := storedCustomProvisionerSpec()
+				spec.CustomProvisioner.Swraid = nil
+				return spec
+			}(),
+			want: "[]",
+		},
+		{
+			name:    "a changed customProvisioner.swraid is still rejected",
+			oldSpec: storedCustomProvisionerSpec(),
+			newSpec: func() infrav2.HetznerBareMetalMachineSpec {
+				spec := storedCustomProvisionerSpec()
+				spec.CustomProvisioner.Swraid = ptr.To[int32](1)
+				return spec
+			}(),
+			want: "[spec.customProvisioner: Forbidden: customProvisioner is immutable]",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := validateHetznerBareMetalMachineSpecUpdate(tt.oldSpec, tt.newSpec)
+			require.Equal(t, tt.want, fmt.Sprintf("%+v", got))
+		})
+	}
+}
+
+func TestHetznerBareMetalMachineTemplateValidateUpdate_UnsetFields(t *testing.T) {
+	template := func(spec infrav2.HetznerBareMetalMachineSpec) *infrav2.HetznerBareMetalMachineTemplate {
+		return &infrav2.HetznerBareMetalMachineTemplate{
+			Spec: infrav2.HetznerBareMetalMachineTemplateSpec{
+				Template: infrav2.HetznerBareMetalMachineTemplateResource{Spec: spec},
+			},
+		}
+	}
+	ctx := admission.NewContextWithRequest(context.Background(), admission.Request{})
+	webhook := &HetznerBareMetalMachineTemplateWebhook{}
+
+	_, err := webhook.ValidateUpdate(ctx, template(storedHetznerBareMetalMachineSpec()), template(unsetHetznerBareMetalMachineSpec()))
+	require.NoError(t, err)
+
+	changed := unsetHetznerBareMetalMachineSpec()
+	changed.SkipCheckDisk = ptr.To(true)
+	_, err = webhook.ValidateUpdate(ctx, template(storedHetznerBareMetalMachineSpec()), template(changed))
+	require.ErrorContains(t, err, "HetznerBareMetalMachineTemplate.Spec is immutable")
 }

@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
@@ -394,7 +395,7 @@ func getDefaultHetznerBareMetalMachineSpec() infrav2.HetznerBareMetalMachineSpec
 					PrivateKey: "private-key",
 				},
 			},
-			PortAfterInstallImage: 22,
+			PortAfterInstallImage: ptr.To[int32](22),
 		},
 	}
 }

@@ -27,7 +27,7 @@ import (
 type HCloudRemediationSpec struct {
 	// strategy field defines remediation strategy.
 	// +optional
-	Strategy *RemediationStrategy `json:"strategy,omitempty"`
+	Strategy RemediationStrategy `json:"strategy,omitempty,omitzero"`
 }
 
 // HCloudRemediationStatus defines the observed state of HCloudRemediation.

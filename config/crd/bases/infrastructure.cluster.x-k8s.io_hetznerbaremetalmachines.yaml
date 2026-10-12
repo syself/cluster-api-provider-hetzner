@@ -624,6 +624,7 @@ spec:
                     enum:
                     - 0
                     - 1
+                    format: int32
                     type: integer
                   url:
                     description: |-
@@ -844,6 +845,7 @@ spec:
                     enum:
                     - 0
                     - 1
+                    format: int32
                     type: integer
                   swraidLevel:
                     default: 1
@@ -856,6 +858,7 @@ spec:
                     - 5
                     - 6
                     - 10
+                    format: int32
                     type: integer
                 required:
                 - partitions
@@ -875,6 +878,7 @@ spec:
                 description: |-
                   skipCheckDisk skips the CheckDisk step during provisioning.
                   This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
+                  Not set means false.
                 type: boolean
               sshSpec:
                 description: sshSpec gives a reference on the secret where SSH details
@@ -883,19 +887,22 @@ spec:
                   noSSHAfterInstallImage:
                     description: |-
                       noSSHAfterInstallImage disables SSH access to the machine after installimage
-                      completed successfully.
+                      completed successfully. Not set means false.
                     type: boolean
                   portAfterCloudInit:
                     description: |-
                       portAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
 
                       Deprecated: This field is not used anymore.
+                    format: int32
                     type: integer
                   portAfterInstallImage:
                     default: 22
                     description: |-
                       portAfterInstallImage specifies the port that has to be used to connect to the machine
                       by reaching the server via SSH after installing the image successfully.
+                    format: int32
+                    maximum: 65535
                     type: integer
                   secretRef:
                     description: secretRef gives reference to the secret where the

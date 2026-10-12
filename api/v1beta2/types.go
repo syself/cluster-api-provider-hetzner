@@ -18,6 +18,7 @@ package v1beta2
 
 import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	"k8s.io/utils/ptr"
 )
 
 // LoadBalancerAlgorithmType defines the Algorithm type.
@@ -196,6 +197,22 @@ type HetznerSecretRef struct {
 	Key HetznerSecretKeyRef `json:"key,omitempty"`
 }
 
+// The values of the keys in hetznerSecretRef.key when they are not set. They must match the
+// +kubebuilder:default markers of these fields.
+const (
+	// DefaultHCloudTokenKey is the value of hetznerSecretRef.key.hcloudToken when it is not set.
+	DefaultHCloudTokenKey = "token"
+
+	// DefaultHetznerRobotUserKey is the value of hetznerSecretRef.key.hetznerRobotUser when it is not set.
+	DefaultHetznerRobotUserKey = "hetzner-robot-user"
+
+	// DefaultHetznerRobotPasswordKey is the value of hetznerSecretRef.key.hetznerRobotPassword when it is not set.
+	DefaultHetznerRobotPasswordKey = "hetzner-robot-password" // #nosec G101 -- the name of a key in the secret, not a password
+
+	// DefaultSSHKeyNameKey is the value of hetznerSecretRef.key.sshKey when it is not set.
+	DefaultSSHKeyNameKey = "hcloud-ssh-key-name"
+)
+
 // HetznerSecretKeyRef defines the key name of the HetznerSecret.
 type HetznerSecretKeyRef struct {
 	// hcloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
@@ -210,7 +227,7 @@ type HetznerSecretKeyRef struct {
 	// +optional
 	// +kubebuilder:default=token
 	// +kubebuilder:validation:MaxLength=253
-	HCloudToken string `json:"hcloudToken"`
+	HCloudToken *string `json:"hcloudToken,omitempty"`
 
 	// hetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
 	// stored. It gets used for reading the credential in the mgt-cluster, and it gets used for
@@ -220,7 +237,7 @@ type HetznerSecretKeyRef struct {
 	// +optional
 	// +kubebuilder:default=hetzner-robot-user
 	// +kubebuilder:validation:MaxLength=253
-	HetznerRobotUser string `json:"hetznerRobotUser"`
+	HetznerRobotUser *string `json:"hetznerRobotUser,omitempty"`
 
 	// hetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
 	// is stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
@@ -230,7 +247,7 @@ type HetznerSecretKeyRef struct {
 	// +optional
 	// +kubebuilder:default=hetzner-robot-password
 	// +kubebuilder:validation:MaxLength=253
-	HetznerRobotPassword string `json:"hetznerRobotPassword"`
+	HetznerRobotPassword *string `json:"hetznerRobotPassword,omitempty"`
 
 	// sshKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
 	// to the wl-cluster.
@@ -238,8 +255,38 @@ type HetznerSecretKeyRef struct {
 	// +optional
 	// +kubebuilder:default=hcloud-ssh-key-name
 	// +kubebuilder:validation:MaxLength=253
-	SSHKey string `json:"sshKey"`
+	SSHKey *string `json:"sshKey,omitempty"`
 }
+
+// GetHCloudToken returns the key of the Hetzner Cloud API token, or DefaultHCloudTokenKey when it is not set.
+func (r HetznerSecretKeyRef) GetHCloudToken() string {
+	return ptr.Deref(r.HCloudToken, DefaultHCloudTokenKey)
+}
+
+// GetHetznerRobotUser returns the key of the Hetzner Robot user, or DefaultHetznerRobotUserKey when it is not set.
+func (r HetznerSecretKeyRef) GetHetznerRobotUser() string {
+	return ptr.Deref(r.HetznerRobotUser, DefaultHetznerRobotUserKey)
+}
+
+// GetHetznerRobotPassword returns the key of the Hetzner Robot password, or DefaultHetznerRobotPasswordKey when it is not set.
+func (r HetznerSecretKeyRef) GetHetznerRobotPassword() string {
+	return ptr.Deref(r.HetznerRobotPassword, DefaultHetznerRobotPasswordKey)
+}
+
+// GetSSHKey returns the key of the SSH key name, or DefaultSSHKeyNameKey when it is not set.
+func (r HetznerSecretKeyRef) GetSSHKey() string {
+	return ptr.Deref(r.SSHKey, DefaultSSHKeyNameKey)
+}
+
+// The values of the publicNetwork fields when they are not set. They must match the
+// +kubebuilder:default markers of these fields.
+const (
+	// DefaultEnableIPv4 is the value of publicNetwork.enableIPv4 when it is not set.
+	DefaultEnableIPv4 = true
+
+	// DefaultEnableIPv6 is the value of publicNetwork.enableIPv6 when it is not set.
+	DefaultEnableIPv6 = true
+)
 
 // PublicNetworkSpec contains specs about the public network spec of an HCloud server.
 type PublicNetworkSpec struct {
@@ -247,20 +294,21 @@ type PublicNetworkSpec struct {
 	// As Hetzner load balancers require an IPv4 address, this setting will be ignored and set to true if there is no private net.
 	// +optional
 	// +kubebuilder:default=true
-	EnableIPv4 bool `json:"enableIPv4"`
+	EnableIPv4 *bool `json:"enableIPv4,omitempty"`
 	// enableIPv6 defines whether server has IPv6 addresses enabled.
 	// +optional
 	// +kubebuilder:default=true
-	EnableIPv6 bool `json:"enableIPv6"`
+	EnableIPv6 *bool `json:"enableIPv6,omitempty"`
 }
 
 // LoadBalancerSpec defines the desired state of the Control Plane load balancer.
 // +kubebuilder:validation:MinProperties=1
 type LoadBalancerSpec struct {
-	// enabled specifies if a load balancer should be created.
+	// enabled specifies if a load balancer should be created. When the whole
+	// controlPlaneLoadBalancer is left out, no default is applied and no load balancer is created.
 	// +optional
 	// +kubebuilder:default=true
-	Enabled bool `json:"enabled"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// name defines the name of the load balancer. It can be specified in order to use an existing load balancer.
 	// +optional
@@ -312,8 +360,9 @@ type LoadBalancerSpec struct {
 	// malformed PROXY-protocol headers.
 	//
 	// Enabling proxy protocol is a one-way operation — it is never turned back off.
+	// Not set means false.
 	// +optional
-	EnableProxyProtocol bool `json:"enableProxyProtocol,omitempty"`
+	EnableProxyProtocol *bool `json:"enableProxyProtocol,omitempty"`
 
 	// targetAddressFamily selects which addresses of a bare metal control plane server are
 	// attached as targets of the load balancer.
@@ -531,16 +580,16 @@ type LoadBalancerStatus struct {
 	// +kubebuilder:validation:MaxItems=512
 	Target []LoadBalancerTarget `json:"targets,omitempty"`
 
-	// protected is true when the load balancer has delete protection in HCloud.
+	// protected is true when the load balancer has delete protection in HCloud. Not set means false.
 	// +optional
-	Protected bool `json:"protected,omitempty"`
+	Protected *bool `json:"protected,omitempty"`
 
 	// proxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
 	// has proxy protocol enabled, as observed on the actual HCloud load balancer. This can lag
 	// behind spec.controlPlaneLoadBalancer.enableProxyProtocol while the migration to proxy
-	// protocol is in progress (see the field's docs for details).
+	// protocol is in progress (see the field's docs for details). Not set means false.
 	// +optional
-	ProxyProtocolEnabled bool `json:"proxyProtocolEnabled,omitempty"`
+	ProxyProtocolEnabled *bool `json:"proxyProtocolEnabled,omitempty"`
 }
 
 // LoadBalancerTarget defines the target of a load balancer.
@@ -564,9 +613,9 @@ type LoadBalancerTarget struct {
 // HCloudNetworkSpec defines the desired state of the HCloud Private Network.
 // +kubebuilder:validation:MinProperties=1
 type HCloudNetworkSpec struct {
-	// enabled defines whether the network should be enabled or not.
+	// enabled defines whether the network should be enabled or not. If it is not set, the network is not enabled.
 	// +optional
-	Enabled bool `json:"enabled"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// cidrBlock defines the cidrBlock of the HCloud Network. If omitted, default "10.0.0.0/16" will be used.
 	// +kubebuilder:default="10.0.0.0/16"

@@ -1325,7 +1325,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	// control planes have to be deleted as targets of server
-	if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
+	if s.scope.IsControlPlane() && ptr.Deref(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled, false) {
 		for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
 			if target.Type == infrav2.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
 				if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
@@ -1639,8 +1639,8 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 		StartAfterCreate: &startAfterCreate,
 		UserData:         string(userData),
 		PublicNet: &hcloud.ServerCreatePublicNet{
-			EnableIPv4: hm.Spec.PublicNetwork.EnableIPv4,
-			EnableIPv6: hm.Spec.PublicNetwork.EnableIPv6,
+			EnableIPv4: ptr.Deref(hm.Spec.PublicNetwork.EnableIPv4, infrav2.DefaultEnableIPv4),
+			EnableIPv6: ptr.Deref(hm.Spec.PublicNetwork.EnableIPv6, infrav2.DefaultEnableIPv6),
 		},
 	}
 
@@ -1691,7 +1691,7 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 	}
 
 	// if no private network exists, there must be an IPv4 for the load balancer
-	if !s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled {
+	if !ptr.Deref(s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled, false) {
 		opts.PublicNet.EnableIPv4 = true
 	}
 
@@ -1818,7 +1818,7 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 	}
 
 	// always add ssh key from secret if one is found
-	sshKeyName := s.scope.HetznerSecret().Data[s.scope.HetznerCluster.Spec.HetznerSecret.Key.SSHKey]
+	sshKeyName := s.scope.HetznerSecret().Data[s.scope.HetznerCluster.Spec.HetznerSecret.Key.GetSSHKey()]
 	if len(sshKeyName) > 0 {
 		// Check if the SSH key name already exists
 		keyExists := false

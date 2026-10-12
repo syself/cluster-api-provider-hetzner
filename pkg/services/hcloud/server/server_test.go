@@ -872,7 +872,7 @@ var _ = Describe("handleBootStateInitializing", func() {
 					HetznerSecret: infrav2.HetznerSecretRef{
 						Name: "secretname",
 						Key: infrav2.HetznerSecretKeyRef{
-							SSHKey: "hcloud-ssh-key-name",
+							SSHKey: ptr.To("hcloud-ssh-key-name"),
 						},
 					},
 				},
@@ -996,7 +996,7 @@ var _ = Describe("getSSHKeys", func() {
 					HetznerSecret: infrav2.HetznerSecretRef{
 						Name: "secretname",
 						Key: infrav2.HetznerSecretKeyRef{
-							SSHKey: "hcloud-ssh-key-name",
+							SSHKey: ptr.To("hcloud-ssh-key-name"),
 						},
 					},
 				},
@@ -1276,7 +1276,7 @@ var _ = Describe("Reconcile", func() {
 				HetznerSecret: infrav2.HetznerSecretRef{
 					Name: "secretname",
 					Key: infrav2.HetznerSecretKeyRef{
-						SSHKey: "hcloud-ssh-key-name",
+						SSHKey: ptr.To("hcloud-ssh-key-name"),
 					},
 				},
 				SSHKeys: infrav2.HetznerSSHKeys{

@@ -205,7 +205,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseDeleting
 
 		// remove control plane as load balancer target
-		if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
+		if s.scope.IsControlPlane() && ptr.Deref(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled, false) {
 			conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
 				Type:    infrav2.HetznerBareMetalMachineDeletingCondition,
 				Status:  metav1.ConditionTrue,

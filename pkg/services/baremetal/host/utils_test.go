@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -79,8 +80,8 @@ var _ = Describe("buildAutoSetup", func() {
 						Mount:     "/usr",
 					},
 				},
-				Swraid:      0,
-				SwraidLevel: 1,
+				Swraid:      ptr.To[int32](0),
+				SwraidLevel: ptr.To[int32](1),
 			},
 			asi: autoSetupInput{
 				image:     "my-image",
@@ -128,8 +129,8 @@ IMAGE my-image`,
 						Mount:     "/",
 					},
 				},
-				Swraid:      1,
-				SwraidLevel: 1,
+				Swraid:      ptr.To[int32](1),
+				SwraidLevel: ptr.To[int32](1),
 			},
 			asi: autoSetupInput{
 				image:     "my-image",
@@ -175,8 +176,8 @@ IMAGE my-image`,
 						Mount:     "/",
 					},
 				},
-				Swraid:      0,
-				SwraidLevel: 1,
+				Swraid:      ptr.To[int32](0),
+				SwraidLevel: ptr.To[int32](1),
 			},
 			asi: autoSetupInput{
 				image:     "my-image",
@@ -208,8 +209,8 @@ IMAGE my-image`,
 				},
 				LVMDefinitions:   []infrav2.LVMDefinition{},
 				BTRFSDefinitions: []infrav2.BTRFSDefinition{},
-				Swraid:           0,
-				SwraidLevel:      1,
+				Swraid:           ptr.To[int32](0),
+				SwraidLevel:      ptr.To[int32](1),
 			},
 			asi: autoSetupInput{
 				image:     "my-image",

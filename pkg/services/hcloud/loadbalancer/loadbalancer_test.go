@@ -46,10 +46,10 @@ var _ = Describe("Loadbalancer", func() {
 			Expect(sts.InternalIP).To(Equal(internalIP))
 		})
 		It("should be unprotected", func() {
-			Expect(sts.Protected).To(Equal(protected))
+			Expect(sts.Protected).To(Equal(ptr.To(protected)))
 		})
 		It("should have proxy protocol disabled", func() {
-			Expect(sts.ProxyProtocolEnabled).To(BeFalse())
+			Expect(sts.ProxyProtocolEnabled).To(Equal(ptr.To(false)))
 		})
 	})
 	Context("hcloud cluster has no network attached", func() {
@@ -69,7 +69,7 @@ var _ = Describe("Loadbalancer", func() {
 			Expect(sts.InternalIP).To(Equal(""))
 		})
 		It("should be unprotected", func() {
-			Expect(sts.Protected).To(Equal(protected))
+			Expect(sts.Protected).To(Equal(ptr.To(protected)))
 		})
 	})
 	Context("proxy protocol detection", func() {
@@ -80,11 +80,11 @@ var _ = Describe("Loadbalancer", func() {
 				},
 			}
 			sts := statusFromHCloudLB(lbWithProxyProtocol, false, 6443, logr.Discard())
-			Expect(sts.ProxyProtocolEnabled).To(BeTrue())
+			Expect(sts.ProxyProtocolEnabled).To(Equal(ptr.To(true)))
 		})
 		It("reports disabled when the kube-API port has no matching service", func() {
 			sts := statusFromHCloudLB(lb, false, 6443, logr.Discard())
-			Expect(sts.ProxyProtocolEnabled).To(BeFalse())
+			Expect(sts.ProxyProtocolEnabled).To(Equal(ptr.To(false)))
 		})
 	})
 })

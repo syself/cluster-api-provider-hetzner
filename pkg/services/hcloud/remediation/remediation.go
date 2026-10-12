@@ -99,7 +99,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, nil
 	}
 
-	if s.scope.HCloudRemediation.Spec.Strategy == nil {
+	if !s.scope.HCloudRemediation.Spec.Strategy.IsDefined() {
 		s.scope.Info("remediation strategy is nil")
 		s.scope.EventRecorder.Event(
 			s.scope.HCloudRemediation,
@@ -426,7 +426,7 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 // timeUntilNextRemediation checks if it is time to execute a next remediation step
 // and returns seconds to next remediation time.
 func (s *Service) timeUntilNextRemediation(now time.Time) time.Duration {
-	timeout := time.Duration(s.scope.HCloudRemediation.Spec.Strategy.TimeoutSeconds) * time.Second
+	timeout := time.Duration(ptr.Deref(s.scope.HCloudRemediation.Spec.Strategy.TimeoutSeconds, 0)) * time.Second
 	// status is not updated yet
 	if s.scope.HCloudRemediation.Status.LastRemediated.IsZero() {
 		return timeout

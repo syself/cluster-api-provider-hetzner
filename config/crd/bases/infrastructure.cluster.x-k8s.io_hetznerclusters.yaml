@@ -859,10 +859,13 @@ spec:
                       malformed PROXY-protocol headers.
 
                       Enabling proxy protocol is a one-way operation — it is never turned back off.
+                      Not set means false.
                     type: boolean
                   enabled:
                     default: true
-                    description: enabled specifies if a load balancer should be created.
+                    description: |-
+                      enabled specifies if a load balancer should be created. When the whole
+                      controlPlaneLoadBalancer is left out, no default is applied and no load balancer is created.
                     type: boolean
                   extraServices:
                     description: |-
@@ -1107,7 +1110,7 @@ spec:
                     type: string
                   enabled:
                     description: enabled defines whether the network should be enabled
-                      or not.
+                      or not. If it is not set, the network is not enabled.
                     type: boolean
                   networkZone:
                     default: eu-central
@@ -1236,6 +1239,7 @@ spec:
                   in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
                   wl-cluster, you can set this to true, so that the secret is not created. Be sure to
                   run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
+                  Not set means false.
                 type: boolean
               sshKeys:
                 description: sshKeys are cluster wide. Valid values are a valid SSH
@@ -1401,14 +1405,14 @@ spec:
                     type: string
                   protected:
                     description: protected is true when the load balancer has delete
-                      protection in HCloud.
+                      protection in HCloud. Not set means false.
                     type: boolean
                   proxyProtocolEnabled:
                     description: |-
                       proxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
                       has proxy protocol enabled, as observed on the actual HCloud load balancer. This can lag
                       behind spec.controlPlaneLoadBalancer.enableProxyProtocol while the migration to proxy
-                      protocol is in progress (see the field's docs for details).
+                      protocol is in progress (see the field's docs for details). Not set means false.
                     type: boolean
                   targets:
                     description: |-

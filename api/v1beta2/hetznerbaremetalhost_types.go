@@ -346,9 +346,9 @@ type HetznerBareMetalHostStatus struct {
 	// +optional
 	OngoingReboot OngoingReboot `json:"ongoingReboot,omitempty,omitzero"`
 
-	// rebooted shows whether the server is currently being rebooted.
+	// rebooted shows whether the server is currently being rebooted. Not set means false.
 	// +optional
-	Rebooted bool `json:"rebooted,omitempty"`
+	Rebooted *bool `json:"rebooted,omitempty"`
 
 	// nodeBootID reflects the BootID of the corresponding Node resource in the workload-cluster.
 	// +optional
@@ -633,9 +633,9 @@ type Storage struct {
 	// +kubebuilder:validation:MaxLength=64
 	HCTL string `json:"hctl,omitempty"`
 
-	// rota defines if it's an HDD device or not.
+	// rota defines if it's an HDD device or not. Not set means false.
 	// +optional
-	Rota bool `json:"rota,omitempty"`
+	Rota *bool `json:"rota,omitempty"`
 }
 
 // NIC describes one network interface on the host.

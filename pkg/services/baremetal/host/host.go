@@ -285,7 +285,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		// using the robot API.
 		sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 			PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.Name, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PublicKey, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PrivateKey).PrivateKey,
-			Port:       s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage,
+			Port:       int(ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage, infrav2.DefaultPortAfterInstallImage)),
 			IP:         s.scope.HetznerBareMetalHost.Status.GetIPAddress(),
 		})
 
@@ -1116,7 +1116,7 @@ func obtainHardwareDetailsStorage(ctx context.Context, sshClient sshclient.Clien
 				SerialNumber: storage.SerialNumber,
 				WWN:          storage.WWN,
 				HCTL:         storage.HCTL,
-				Rota:         rota,
+				Rota:         ptr.To(rota),
 			})
 		}
 	}
@@ -1652,7 +1652,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 	info, err := sshClient.CheckDisk(ctx, s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN())
 	if err != nil {
 		_, annotationOk := s.scope.HetznerBareMetalHost.Annotations[infrav2.IgnoreCheckDiskAnnotation]
-		machineSkipsCheckDisk := s.scope.HetznerBareMetalMachine.Spec.SkipCheckDisk
+		machineSkipsCheckDisk := ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SkipCheckDisk, false)
 		if !annotationOk && !machineSkipsCheckDisk {
 			// Neither the annotation nor the machine spec field is set. This is a permanent error.
 			msg := fmt.Sprintf(
@@ -2217,7 +2217,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.Name, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PublicKey, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PrivateKey).PrivateKey,
-		Port:       s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage,
+		Port:       int(ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage, infrav2.DefaultPortAfterInstallImage)),
 		IP:         s.scope.HetznerBareMetalHost.Status.GetIPAddress(),
 	})
 
@@ -2426,7 +2426,7 @@ func (s *Service) handleCloudInitNotStarted(ctx context.Context) actionResult {
 	// Check whether cloud init really was successfully. Sigterm causes problems there.
 	oldSSHClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.Name, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PublicKey, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PrivateKey).PrivateKey,
-		Port:       s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage,
+		Port:       int(ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage, infrav2.DefaultPortAfterInstallImage)),
 		IP:         s.scope.HetznerBareMetalHost.Status.GetIPAddress(),
 	})
 	out := oldSSHClient.CheckCloudInitLogsForSigTerm(ctx)
@@ -2661,7 +2661,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	if !rebootDesired {
 		// No reboot annotation, ensure all reboot-related state is cleared.
-		host.Status.Rebooted = false
+		host.Status.Rebooted = ptr.To(false)
 		clearOngoingReboot(host)
 
 		// Populate NodeBootID the first time the host enters Provisioned state.
@@ -2717,7 +2717,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		}
 	}
 
-	if !host.Status.Rebooted {
+	if !ptr.Deref(host.Status.Rebooted, false) {
 		// --- Phase 1: trigger the reboot ---
 		// This branch runs exactly once per reboot annotation. We store the current
 		// BootID so Phase 2 can detect when it changes, then send the reboot command.
@@ -2731,7 +2731,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 			in := sshclient.Input{
 				PrivateKey: creds.PrivateKey,
-				Port:       s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage,
+				Port:       int(ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage, infrav2.DefaultPortAfterInstallImage)),
 				IP:         host.Status.GetIPAddress(),
 			}
 
@@ -2816,7 +2816,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// value on every reconcile; a difference means the node completed a reboot.
 		host.Status.NodeBootID = currentBootID
 		setOngoingReboot(host, rebootType, msg)
-		host.Status.Rebooted = true
+		host.Status.Rebooted = ptr.To(true)
 
 		deprecatedv1beta1conditions.MarkFalse(host, infrav2.RebootSucceededV1Beta1Condition,
 			"WaitingForNodeToBeRebooted",
@@ -2841,7 +2841,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// Reboot has been successful
 		s.scope.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Status.NodeBootID, currentBootID))
 		clearOngoingReboot(host)
-		host.Status.Rebooted = false
+		host.Status.Rebooted = ptr.To(false)
 
 		deprecatedv1beta1conditions.MarkTrue(host, infrav2.RebootSucceededV1Beta1Condition)
 		conditions.Set(host, metav1.Condition{
@@ -2944,7 +2944,7 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 		if s.scope.OSSSHSecret != nil {
 			sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 				PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.Name, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PublicKey, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PrivateKey).PrivateKey,
-				Port:       s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage,
+				Port:       int(ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage, infrav2.DefaultPortAfterInstallImage)),
 				IP:         s.scope.HetznerBareMetalHost.Status.GetIPAddress(),
 			})
 			out := sshClient.ResetKubeadm(ctx)

@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta2
 
 import (
+	"reflect"
 	"time"
 )
 
@@ -68,7 +69,7 @@ type RemediationStrategy struct {
 	// timeoutSeconds sets the timeout, in seconds, between remediation retries.
 	// +required
 	// +kubebuilder:validation:Minimum=0
-	TimeoutSeconds int32 `json:"timeoutSeconds"`
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
 
 	// cooldownSeconds is the minimum time, in seconds, between successive
 	// remediations of the same machine. If a new remediation starts within this
@@ -79,6 +80,14 @@ type RemediationStrategy struct {
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	CooldownSeconds *int32 `json:"cooldownSeconds,omitempty"`
+}
+
+// IsDefined returns true if the RemediationStrategy is set.
+func (s *RemediationStrategy) IsDefined() bool {
+	if s == nil {
+		return false
+	}
+	return !reflect.DeepEqual(s, &RemediationStrategy{})
 }
 
 // EffectiveCooldown returns the configured cooldown, or DefaultRemediationCooldown

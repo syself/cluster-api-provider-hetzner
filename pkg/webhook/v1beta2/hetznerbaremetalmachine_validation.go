@@ -115,6 +115,9 @@ func validateCustomProvisioner(customProvisioner infrav2.CustomProvisioner) fiel
 
 func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec infrav2.HetznerBareMetalMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
+	oldSpec = normalizeHetznerBareMetalMachineSpec(oldSpec)
+	newSpec = normalizeHetznerBareMetalMachineSpec(newSpec)
+
 	if !reflect.DeepEqual(newSpec.InstallImage, oldSpec.InstallImage) {
 		allErrs = append(allErrs,
 			field.Forbidden(field.NewPath("spec", "installImage"), "installImage is immutable"),
@@ -146,4 +149,35 @@ func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec infrav2.HetznerB
 	}
 
 	return allErrs
+}
+
+// normalizeHetznerBareMetalMachineSpec returns a copy of spec in which every unset field gets the value
+// that an unset field means. A stored object and an update request can differ in which unset fields
+// they send. Without this, such an update looks like a change of an immutable field.
+func normalizeHetznerBareMetalMachineSpec(spec infrav2.HetznerBareMetalMachineSpec) infrav2.HetznerBareMetalMachineSpec {
+	if spec.InstallImage.Swraid == nil {
+		spec.InstallImage.Swraid = ptr.To(infrav2.DefaultSwraid)
+	}
+	if spec.InstallImage.SwraidLevel == nil {
+		spec.InstallImage.SwraidLevel = ptr.To(infrav2.DefaultSwraidLevel)
+	}
+	if spec.CustomProvisioner.Swraid == nil {
+		spec.CustomProvisioner.Swraid = ptr.To(infrav2.DefaultSwraid)
+	}
+	if spec.HostSelector == nil {
+		spec.HostSelector = &infrav2.HostSelector{}
+	}
+	if spec.SSHSpec.NoSSHAfterInstallImage == nil {
+		spec.SSHSpec.NoSSHAfterInstallImage = ptr.To(false)
+	}
+	if spec.SSHSpec.PortAfterInstallImage == nil {
+		spec.SSHSpec.PortAfterInstallImage = ptr.To(infrav2.DefaultPortAfterInstallImage)
+	}
+	if spec.SSHSpec.PortAfterCloudInit == nil { //nolint:staticcheck // the deprecated field is still part of the immutable sshSpec
+		spec.SSHSpec.PortAfterCloudInit = ptr.To[int32](0) //nolint:staticcheck // the deprecated field is still part of the immutable sshSpec
+	}
+	if spec.SkipCheckDisk == nil {
+		spec.SkipCheckDisk = ptr.To(false)
+	}
+	return spec
 }

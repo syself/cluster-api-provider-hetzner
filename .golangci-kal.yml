@@ -31,17 +31,13 @@ linters:
               - "nonullable" # Ensure that types and fields do not have the nullable marker.
               - "noreferences" # Ensure that field names use Ref instead of Reference.
               - "notimestamp" # Prevents usage of 'Timestamp' fields
+              - "optionalfields" # Ensure that optional fields are pointers and have `omitempty` in their `json` tag where appropriate.
               - "optionalorrequired" # Every field should be marked as `+optional` or `+required`.
               - "requiredfields" # Required fields should have `omitempty`, and be pointers only when the zero value is a valid value.
               - "ssatags" # Ensure array fields have the appropriate listType markers
               - "statusoptional" # Ensure all first children within status should be optional.
               - "statussubresource" # All root objects that have a `status` field should have a status subresource.
               - "uniquemarkers" # Ensure that types and fields do not contain more than a single definition of a marker that should only be present once.
-
-            # The linters below still have findings in api/v1beta2.
-            # Each linter moves to the enable list above together with the fixes for its findings.
-            # - "optionalfields" # Ensure that all fields marked as optional adhere to being pointers and
-            #                    # having the `omitempty` value in their `json` tag where appropriate.
 
             # We keep our +kubebuilder:default markers.
             # - "forbiddenmarkers" # Ensure that types and fields do not contain any markers that are forbidden.
@@ -58,14 +54,12 @@ linters:
               isFirstField: Warn # Require conditions to be the first field in the status struct.
               usePatchStrategy: Forbid # Forbid patchStrategy markers on the Conditions field.
               useProtobuf: Forbid # We don't use protobuf, so protobuf tags are not required.
-            # KAL fails on settings for a linter that is not enabled.
-            # The optionalfields settings are commented out until the optionalfields linter is enabled.
-            # optionalfields:
-            #   pointers:
-            #     preference: WhenRequired # Always | WhenRequired # Whether to always require pointers, or only when required. Defaults to `Always`.
-            #     policy: SuggestFix # SuggestFix | Warn # The policy for pointers in optional fields. Defaults to `SuggestFix`.
-            #   omitempty:
-            #     policy: SuggestFix # SuggestFix | Warn | Ignore # The policy for omitempty in optional fields. Defaults to `SuggestFix`.
+            optionalfields:
+              pointers:
+                preference: WhenRequired # Always | WhenRequired # Whether to always require pointers, or only when required. Defaults to `Always`.
+                policy: SuggestFix # SuggestFix | Warn # The policy for pointers in optional fields. Defaults to `SuggestFix`.
+              omitempty:
+                policy: SuggestFix # SuggestFix | Warn | Ignore # The policy for omitempty in optional fields. Defaults to `SuggestFix`.
             conflictingmarkers:
               conflicts:
                 - name: "default_vs_required"
@@ -127,16 +121,11 @@ linters:
         linters:
           - kubeapilinter
 
-      ## These fields become pointers in a later change, together with the other defaulted fields.
+      ## Optional structs whose empty value is valid input.
+      # A HetznerBareMetalMachineTemplate in a ClusterClass has an empty image, and a ClusterClass patch
+      # fills it. The HetznerBareMetalMachine webhook checks the image.
       - path: "^api/v1beta2/hetznerbaremetalmachine_types.go"
-        text: "integers: field (Swraid|SwraidLevel|PortAfterInstallImage|PortAfterCloudInit) should not use an int"
-        linters:
-          - kubeapilinter
-
-      ## TimeoutSeconds stays required, and 0 is a value users can set today.
-      # Remove these two rules when the field becomes a pointer with omitempty.
-      - path: "^api/v1beta2/remediation_types.go"
-        text: "requiredfields: field TimeoutSeconds (has a valid zero value|should have the omitempty tag)"
+        text: "optionalfields: field Image has a valid zero value"
         linters:
           - kubeapilinter
 

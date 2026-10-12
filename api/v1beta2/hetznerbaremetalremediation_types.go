@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta2
 
 import (
+	"reflect"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -35,7 +37,7 @@ const (
 type HetznerBareMetalRemediationSpec struct {
 	// strategy field defines the remediation strategy to be applied.
 	// +optional
-	Strategy *BareMetalRemediationStrategy `json:"strategy,omitempty"`
+	Strategy BareMetalRemediationStrategy `json:"strategy,omitempty,omitzero"`
 }
 
 // OnExhaustionAction defines what remediation does when the retries run out and
@@ -72,6 +74,14 @@ type BareMetalRemediationStrategy struct {
 	// +kubebuilder:validation:Enum=Reuse;Retire
 	// +optional
 	OnExhaustion OnExhaustionAction `json:"onExhaustion,omitempty"`
+}
+
+// IsDefined returns true if the BareMetalRemediationStrategy is set.
+func (s *BareMetalRemediationStrategy) IsDefined() bool {
+	if s == nil {
+		return false
+	}
+	return !reflect.DeepEqual(s, &BareMetalRemediationStrategy{})
 }
 
 // HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation.

@@ -174,10 +174,10 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				},
 			},
 			Spec: infrav2.HCloudRemediationSpec{
-				Strategy: &infrav2.RemediationStrategy{
+				Strategy: infrav2.RemediationStrategy{
 					Type:           "Reboot",
 					RetryLimit:     ptr.To(int32(1)),
-					TimeoutSeconds: 1,
+					TimeoutSeconds: ptr.To(int32(1)),
 				},
 			},
 		}
@@ -568,10 +568,10 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					Namespace: hcloudMachine.Namespace,
 				},
 				Spec: infrav2.HCloudRemediationSpec{
-					Strategy: &infrav2.RemediationStrategy{
+					Strategy: infrav2.RemediationStrategy{
 						Type:           infrav2.RemediationTypeReboot,
 						RetryLimit:     ptr.To(int32(5)),
-						TimeoutSeconds: 60,
+						TimeoutSeconds: ptr.To(int32(60)),
 					},
 				},
 			}

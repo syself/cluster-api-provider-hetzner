@@ -702,7 +702,7 @@ NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" 
 					SizeBytes:    2048408248320,
 					SizeGB:       2048,
 					WWN:          "eui.002538b411b2cee8",
-					Rota:         false,
+					Rota:         ptr.To(false),
 				},
 				{
 					Name:         "nvme1n1",
@@ -713,7 +713,7 @@ NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" 
 					SizeBytes:    512110190592,
 					SizeGB:       512,
 					WWN:          "eui.0025388801b4dff2",
-					Rota:         false,
+					Rota:         ptr.To(false),
 				},
 			},
 			expectedErrorMessage: nil,
@@ -1778,9 +1778,9 @@ var _ = Describe("actionRegistering", func() {
 			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 			if tc.customProvisioner {
 				service.scope.HetznerBareMetalMachine.Spec.InstallImage = infrav2.InstallImage{}
-				service.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = infrav2.CustomProvisioner{Swraid: 1}
+				service.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = infrav2.CustomProvisioner{Swraid: ptr.To[int32](1)}
 			} else if tc.swRaid {
-				service.scope.HetznerBareMetalMachine.Spec.InstallImage = infrav2.InstallImage{Swraid: 1}
+				service.scope.HetznerBareMetalMachine.Spec.InstallImage = infrav2.InstallImage{Swraid: ptr.To[int32](1)}
 			}
 
 			actResult := service.actionRegistering(ctx)
@@ -1986,7 +1986,7 @@ var _ = Describe("actionRegistering check RAID", func() {
 		service := newTestService(host, nil, bmmock.NewSSHFactory(
 			sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		service.scope.HetznerBareMetalMachine.Spec.InstallImage = infrav2.InstallImage{
-			Swraid: 1,
+			Swraid: ptr.To[int32](1),
 		}
 		actResult := service.actionRegistering(ctx)
 
@@ -1994,7 +1994,7 @@ var _ = Describe("actionRegistering check RAID", func() {
 		Expect(err).Should(BeNil())
 		Expect(host.Status.ErrorType).To(Equal(infrav2.ErrorTypeFatal))
 
-		service.scope.HetznerBareMetalMachine.Spec.InstallImage.Swraid = 0
+		service.scope.HetznerBareMetalMachine.Spec.InstallImage.Swraid = ptr.To[int32](0)
 		host.Spec.RootDeviceHints.WWN = ""
 		host.Spec.RootDeviceHints.Raid.WWN = []string{"wwn1", "wwn2"}
 		actResult = service.actionRegistering(ctx)
@@ -2078,8 +2078,8 @@ NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJ
 		// persisted, so the object still reports the new storage layout.
 		Expect(host.Status.HardwareDetails).ToNot(BeNil())
 		Expect(host.Status.HardwareDetails.Storage).To(ConsistOf(
-			infrav2.Storage{Model: "SAMSUNG MZVL22T0HBLB-00B00", SerialNumber: "S677NF0R402742", SizeBytes: 2048408248320, SizeGB: 2048, WWN: "eui.002538b411b2cee2"},
-			infrav2.Storage{Model: "SAMSUNG MZVLB512HAJQ-00000", SerialNumber: "S3W8NX0N811178", SizeBytes: 512110190592, SizeGB: 512, WWN: "eui.0025388801b4dff2"},
+			infrav2.Storage{Model: "SAMSUNG MZVL22T0HBLB-00B00", SerialNumber: "S677NF0R402742", SizeBytes: 2048408248320, SizeGB: 2048, WWN: "eui.002538b411b2cee2", Rota: ptr.To(false)},
+			infrav2.Storage{Model: "SAMSUNG MZVLB512HAJQ-00000", SerialNumber: "S3W8NX0N811178", SizeBytes: 512110190592, SizeGB: 512, WWN: "eui.0025388801b4dff2", Rota: ptr.To(false)},
 		))
 	})
 })
@@ -2173,7 +2173,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 	DescribeTable("actionEnsureProvisioned",
 		func(in testCaseActionEnsureProvisioned) {
 			ctx := context.Background()
-			portAfterInstallImage := 24
+			portAfterInstallImage := int32(24)
 
 			host := helpers.BareMetalHost(
 				"test-host",
@@ -2201,7 +2201,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			robotMock.On("SetBMServerName", mock.Anything, infrav2.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
 
 			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, oldSSHMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
-			service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = portAfterInstallImage
+			service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = ptr.To(portAfterInstallImage)
 
 			actResult := service.actionEnsureProvisioned(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(in.expectedActionResult))
@@ -2357,7 +2357,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			<-testEventRecorder.Events
 		}
 
-		portAfterInstallImage := 24
+		portAfterInstallImage := int32(24)
 		host := helpers.BareMetalHost(
 			"test-host",
 			"default",
@@ -2375,7 +2375,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		robotMock.On("SetBMServerName", mock.Anything, infrav2.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
 
 		service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
-		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = portAfterInstallImage
+		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = ptr.To(portAfterInstallImage)
 
 		// the error is still returned, and the cloud-init output is recorded in an event
 		Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionError{}))
@@ -2390,7 +2390,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 
 	It("sets a fatal error when the reboot into the OS times out", func() {
 		ctx := context.Background()
-		portAfterInstallImage := 24
+		portAfterInstallImage := int32(24)
 
 		host := helpers.BareMetalHost(
 			"test-host",
@@ -2404,7 +2404,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: timeout})
 
 		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
-		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = portAfterInstallImage
+		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = ptr.To(portAfterInstallImage)
 
 		actResult := service.actionEnsureProvisioned(ctx)
 
@@ -2421,7 +2421,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 
 	It("reports the host as still provisioning while the connection refused timeout has not passed", func() {
 		ctx := context.Background()
-		portAfterInstallImage := 24
+		portAfterInstallImage := int32(24)
 
 		host := helpers.BareMetalHost(
 			"test-host",
@@ -2435,7 +2435,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: syscall.ECONNREFUSED})
 
 		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
-		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = portAfterInstallImage
+		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = ptr.To(portAfterInstallImage)
 
 		Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionContinue{}))
 		Expect(host.Status.OngoingReboot.IsDefined()).To(BeTrue())
@@ -2452,7 +2452,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 
 	It("keeps failing with the same fatal error when the provisioned server keeps refusing the ssh connection", func() {
 		ctx := context.Background()
-		portAfterInstallImage := 24
+		portAfterInstallImage := int32(24)
 
 		host := helpers.BareMetalHost(
 			"test-host",
@@ -2466,7 +2466,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: syscall.ECONNREFUSED})
 
 		service := newTestService(host, &robotmock.Client{}, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
-		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = portAfterInstallImage
+		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = ptr.To(portAfterInstallImage)
 
 		for run := 1; run <= 3; run++ {
 			Expect(service.actionEnsureProvisioned(ctx)).To(BeAssignableToTypeOf(actionStop{}), "run %d", run)
@@ -2519,7 +2519,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			}
 
 			if tc.rebooted {
-				host.Status.Rebooted = tc.rebooted
+				host.Status.Rebooted = ptr.To(tc.rebooted)
 				host.Status.OngoingReboot = infrav2.OngoingReboot{
 					Type:        infrav2.RebootTypeSSH,
 					TriggeredAt: metav1.Now(),
@@ -2537,12 +2537,12 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			sshMock.On("Reboot", mock.Anything).Return(sshclient.Output{})
 
 			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-			service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = 23
+			service.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage = ptr.To[int32](23)
 
 			actResult := service.actionProvisioned(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
 			Expect(host.HasRebootAnnotation()).To(Equal(tc.expectRebootAnnotation))
-			Expect(host.Status.Rebooted).To(Equal(tc.expectRebootInStatus))
+			Expect(ptr.Deref(host.Status.Rebooted, false)).To(Equal(tc.expectRebootInStatus))
 			Expect(host.Status.OngoingReboot.IsDefined()).To(Equal(tc.expectOngoingRebootInStatus))
 			Expect(host.Status.NodeBootID).To(Equal(tc.expectedNodeBootID))
 
@@ -2615,7 +2615,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			helpers.WithOngoingReboot(infrav2.RebootTypeSSH, metav1.NewTime(time.Now().Add(-6*time.Minute))),
 		)
 		host.SetAnnotations(map[string]string{infrav2.RebootAnnotation: "reboot"})
-		host.Status.Rebooted = true
+		host.Status.Rebooted = ptr.To(true)
 		host.Status.NodeBootID = fakeBootID
 
 		sshMock := &sshmock.Client{}
@@ -2653,7 +2653,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil).Once()
 
 		service := newTestService(host, &robotMock, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.NoSSHAfterInstallImage = true
+		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.NoSSHAfterInstallImage = ptr.To(true)
 		Expect(service.scope.RobotClient).ToNot(BeNil())
 
 		actResult := service.actionProvisioned(ctx)
@@ -2680,8 +2680,8 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		host.Status.NodeBootID = fakeBootID
 
 		service := newTestService(host, nil, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.NoSSHAfterInstallImage = true
-		host.Status.Rebooted = true
+		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.NoSSHAfterInstallImage = ptr.To(true)
+		host.Status.Rebooted = ptr.To(true)
 
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
@@ -2711,8 +2711,8 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		}
 
 		service := newTestService(host, nil, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.NoSSHAfterInstallImage = true
-		host.Status.Rebooted = true
+		service.scope.HetznerBareMetalMachine.Spec.SSHSpec.NoSSHAfterInstallImage = ptr.To(true)
+		host.Status.Rebooted = ptr.To(true)
 
 		err := service.scope.Client.Get(ctx, client.ObjectKeyFromObject(node), node)
 		Expect(err).ToNot(HaveOccurred())

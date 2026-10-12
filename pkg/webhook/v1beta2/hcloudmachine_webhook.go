@@ -19,6 +19,7 @@ package v1beta2
 import (
 	"context"
 
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -45,10 +46,13 @@ var _ admission.Defaulter[*infrav2.HCloudMachine] = &HCloudMachineWebhook{}
 // Default implements admission.Defaulter so a webhook will be registered for HCloudMachine.
 func (*HCloudMachineWebhook) Default(_ context.Context, r *infrav2.HCloudMachine) error {
 	if r.Spec.PublicNetwork == nil {
-		r.Spec.PublicNetwork = &infrav2.PublicNetworkSpec{
-			EnableIPv4: true,
-			EnableIPv6: true,
-		}
+		r.Spec.PublicNetwork = &infrav2.PublicNetworkSpec{}
+	}
+	if r.Spec.PublicNetwork.EnableIPv4 == nil {
+		r.Spec.PublicNetwork.EnableIPv4 = ptr.To(infrav2.DefaultEnableIPv4)
+	}
+	if r.Spec.PublicNetwork.EnableIPv6 == nil {
+		r.Spec.PublicNetwork.EnableIPv6 = ptr.To(infrav2.DefaultEnableIPv6)
 	}
 	return nil
 }

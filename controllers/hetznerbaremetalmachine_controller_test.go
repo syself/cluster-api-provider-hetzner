@@ -578,10 +578,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						Namespace: bmMachine.Namespace,
 					},
 					Spec: infrav2.HetznerBareMetalRemediationSpec{
-						Strategy: &infrav2.BareMetalRemediationStrategy{
+						Strategy: infrav2.BareMetalRemediationStrategy{
 							RemediationStrategy: infrav2.RemediationStrategy{
 								Type:           infrav2.RemediationTypeReboot,
-								TimeoutSeconds: 300,
+								TimeoutSeconds: ptr.To(int32(300)),
 							},
 						},
 					},
@@ -1170,7 +1170,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 										PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 									},
 								},
-								PortAfterInstallImage: 2222,
+								PortAfterInstallImage: ptr.To[int32](2222),
 							},
 						},
 					},

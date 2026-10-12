@@ -417,7 +417,7 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 		return err
 	}
 	out.ProvisioningState = infrav2.ProvisioningState(in.ProvisioningState)
-	out.Rebooted = in.Rebooted
+	out.Rebooted = ptr.To(in.Rebooted)
 	out.NodeBootID = in.NodeBootID
 
 	// errorType only keeps fatal error and permanent error. A reboot value moves to ongoingReboot
@@ -482,7 +482,7 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedSt
 	}
 	out.ErrorType = ErrorType(in.ErrorType)
 	out.ProvisioningState = ProvisioningState(in.ProvisioningState)
-	out.Rebooted = in.Rebooted
+	out.Rebooted = ptr.Deref(in.Rebooted, false)
 	out.NodeBootID = in.NodeBootID
 
 	// v1beta1 stores the ongoing reboot in errorType and rebootTriggeredAt. When the host has a fatal
@@ -910,7 +910,7 @@ func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMach
 			URL:              in.InstallImage.Image.URL,
 			Command:          in.InstallImage.ImageURLCommand,
 			DeviceStringType: infrav2.DeviceStringType(in.InstallImage.DeviceStringType),
-			Swraid:           in.InstallImage.Swraid,
+			Swraid:           ptr.To(int32(in.InstallImage.Swraid)), //nolint:gosec // the v1beta1 enum allows only 0 and 1
 		}
 	}
 	return nil
@@ -943,7 +943,7 @@ func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMach
 			Image:            Image{URL: in.CustomProvisioner.URL},
 			ImageURLCommand:  in.CustomProvisioner.Command,
 			DeviceStringType: DeviceStringType(in.CustomProvisioner.DeviceStringType),
-			Swraid:           in.CustomProvisioner.Swraid,
+			Swraid:           int(ptr.Deref(in.CustomProvisioner.Swraid, infrav2.DefaultSwraid)),
 			// The v1beta1 schema requires partitions. The custom provisioner does not use them, and
 			// customProvisioner has no field to keep them. With a nil list, the stored object has no
 			// partitions field. A v1beta1 create of that object then fails with "partitions: Required
@@ -971,8 +971,60 @@ func Convert_v1beta2_HostSelectorRequirement_To_v1beta1_HostSelectorRequirement(
 // Convert_v1beta1_InstallImage_To_v1beta2_InstallImage converts a v1beta1 InstallImage to v1beta2. The
 // v1beta1-only imageURLCommand and deviceStringType fields belong to the custom provisioner flow, which the
 // spec converter maps to customProvisioner instead, so they are removed here.
+//
+// swraid and swraidLevel always get a value, also when it is 0. The v1beta2 fields have a default, so
+// a missing value would get the default the next time the object is written through v1beta2.
 func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out *infrav2.InstallImage, s apiconversion.Scope) error {
-	return autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in, out, s)
+	if err := autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in, out, s); err != nil {
+		return err
+	}
+	out.Swraid = ptr.To(int32(in.Swraid))           //nolint:gosec // the v1beta1 enum allows only 0 and 1
+	out.SwraidLevel = ptr.To(int32(in.SwraidLevel)) //nolint:gosec // the v1beta1 enum allows only 0, 1, 5, 6 and 10
+	return nil
+}
+
+// Convert_v1beta2_InstallImage_To_v1beta1_InstallImage converts a v1beta2 InstallImage back to v1beta1.
+// An unset swraid or swraidLevel maps to the default of the field: 0 for swraid and 1 for swraidLevel.
+// A swraidLevel of 0 is still stored as 1, because the v1beta1 field has omitempty and the default 1.
+func Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(in *infrav2.InstallImage, out *InstallImage, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_InstallImage_To_v1beta1_InstallImage(in, out, s); err != nil {
+		return err
+	}
+	out.Swraid = int(ptr.Deref(in.Swraid, infrav2.DefaultSwraid))
+	out.SwraidLevel = int(ptr.Deref(in.SwraidLevel, infrav2.DefaultSwraidLevel))
+	return nil
+}
+
+// Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec converts a v1beta1 SSHSpec to v1beta2.
+//
+// portAfterInstallImage always gets a value, also when it is 0. The v1beta2 field has a default, so a
+// missing value would get the default the next time the object is written through v1beta2. The v1beta1
+// webhook then rejects the write, because sshSpec is immutable. A port of 0 is valid when
+// noSSHAfterInstallImage is true, because the port is then never used.
+//
+// portAfterCloudInit has no default, so 0 maps to nil and nothing is lost.
+func Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in *SSHSpec, out *infrav2.SSHSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in, out, s); err != nil {
+		return err
+	}
+	out.PortAfterInstallImage = ptr.To(int32(in.PortAfterInstallImage)) //nolint:gosec // real ports are far below the int32 limit
+	if in.PortAfterCloudInit == 0 {
+		out.PortAfterCloudInit = nil //nolint:staticcheck // the deprecated field still needs a conversion
+	} else {
+		out.PortAfterCloudInit = ptr.To(int32(in.PortAfterCloudInit)) //nolint:gosec,staticcheck // real ports are far below the int32 limit
+	}
+	return nil
+}
+
+// Convert_v1beta2_SSHSpec_To_v1beta1_SSHSpec converts a v1beta2 SSHSpec back to v1beta1. An unset
+// portAfterInstallImage maps to 22, the default of the field. An unset portAfterCloudInit maps to 0.
+func Convert_v1beta2_SSHSpec_To_v1beta1_SSHSpec(in *infrav2.SSHSpec, out *SSHSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_SSHSpec_To_v1beta1_SSHSpec(in, out, s); err != nil {
+		return err
+	}
+	out.PortAfterInstallImage = int(ptr.Deref(in.PortAfterInstallImage, infrav2.DefaultPortAfterInstallImage))
+	out.PortAfterCloudInit = int(ptr.Deref(in.PortAfterCloudInit, 0))
+	return nil
 }
 
 // Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus converts the
@@ -1075,13 +1127,16 @@ func Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(in *Reme
 	if err != nil {
 		return err
 	}
+	// timeoutSeconds is required in v1beta2, so it always gets a value. A nil v1beta1 timeout maps to 0.
+	var timeout metav1.Duration
 	if in.Timeout != nil {
-		timeoutSeconds, err := remediationDurationToSeconds(*in.Timeout)
-		if err != nil {
-			return err
-		}
-		out.TimeoutSeconds = timeoutSeconds
+		timeout = *in.Timeout
 	}
+	timeoutSeconds, err := remediationDurationToSeconds(timeout)
+	if err != nil {
+		return err
+	}
+	out.TimeoutSeconds = ptr.To(timeoutSeconds)
 	if in.Cooldown != nil {
 		cooldownSeconds, err := remediationDurationToSeconds(*in.Cooldown)
 		if err != nil {
@@ -1097,7 +1152,7 @@ func Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(in *Reme
 func Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(in *infrav2.RemediationStrategy, out *RemediationStrategy, _ apiconversion.Scope) error {
 	out.Type = RemediationType(in.Type)
 	out.RetryLimit = remediationRetryFromPointer(in.RetryLimit)
-	out.Timeout = &metav1.Duration{Duration: time.Duration(in.TimeoutSeconds) * time.Second}
+	out.Timeout = &metav1.Duration{Duration: time.Duration(ptr.Deref(in.TimeoutSeconds, 0)) * time.Second}
 	if in.CooldownSeconds != nil {
 		out.Cooldown = &metav1.Duration{Duration: time.Duration(*in.CooldownSeconds) * time.Second}
 	}
@@ -1122,6 +1177,60 @@ func Convert_v1beta2_BareMetalRemediationStrategy_To_v1beta1_BareMetalRemediatio
 		return err
 	}
 	out.OnExhaustion = OnExhaustionAction(in.OnExhaustion)
+	return nil
+}
+
+// Convert_v1beta1_HCloudRemediationSpec_To_v1beta2_HCloudRemediationSpec converts the v1beta1
+// HCloudRemediationSpec to v1beta2. strategy changes from a pointer to a value; a nil pointer maps to
+// the empty value.
+func Convert_v1beta1_HCloudRemediationSpec_To_v1beta2_HCloudRemediationSpec(in *HCloudRemediationSpec, out *infrav2.HCloudRemediationSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_HCloudRemediationSpec_To_v1beta2_HCloudRemediationSpec(in, out, s); err != nil {
+		return err
+	}
+	if in.Strategy != nil {
+		return Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(in.Strategy, &out.Strategy, s)
+	}
+	return nil
+}
+
+// Convert_v1beta2_HCloudRemediationSpec_To_v1beta1_HCloudRemediationSpec converts the v1beta2
+// HCloudRemediationSpec back to v1beta1. strategy changes from a value to a pointer; the empty value
+// maps to a nil pointer.
+func Convert_v1beta2_HCloudRemediationSpec_To_v1beta1_HCloudRemediationSpec(in *infrav2.HCloudRemediationSpec, out *HCloudRemediationSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_HCloudRemediationSpec_To_v1beta1_HCloudRemediationSpec(in, out, s); err != nil {
+		return err
+	}
+	if in.Strategy.IsDefined() {
+		out.Strategy = &RemediationStrategy{}
+		return Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(&in.Strategy, out.Strategy, s)
+	}
+	return nil
+}
+
+// Convert_v1beta1_HetznerBareMetalRemediationSpec_To_v1beta2_HetznerBareMetalRemediationSpec converts the
+// v1beta1 HetznerBareMetalRemediationSpec to v1beta2. strategy changes from a pointer to a value; a nil
+// pointer maps to the empty value.
+func Convert_v1beta1_HetznerBareMetalRemediationSpec_To_v1beta2_HetznerBareMetalRemediationSpec(in *HetznerBareMetalRemediationSpec, out *infrav2.HetznerBareMetalRemediationSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_HetznerBareMetalRemediationSpec_To_v1beta2_HetznerBareMetalRemediationSpec(in, out, s); err != nil {
+		return err
+	}
+	if in.Strategy != nil {
+		return Convert_v1beta1_BareMetalRemediationStrategy_To_v1beta2_BareMetalRemediationStrategy(in.Strategy, &out.Strategy, s)
+	}
+	return nil
+}
+
+// Convert_v1beta2_HetznerBareMetalRemediationSpec_To_v1beta1_HetznerBareMetalRemediationSpec converts the
+// v1beta2 HetznerBareMetalRemediationSpec back to v1beta1. strategy changes from a value to a pointer; the
+// empty value maps to a nil pointer.
+func Convert_v1beta2_HetznerBareMetalRemediationSpec_To_v1beta1_HetznerBareMetalRemediationSpec(in *infrav2.HetznerBareMetalRemediationSpec, out *HetznerBareMetalRemediationSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_HetznerBareMetalRemediationSpec_To_v1beta1_HetznerBareMetalRemediationSpec(in, out, s); err != nil {
+		return err
+	}
+	if in.Strategy.IsDefined() {
+		out.Strategy = &BareMetalRemediationStrategy{}
+		return Convert_v1beta2_BareMetalRemediationStrategy_To_v1beta1_BareMetalRemediationStrategy(&in.Strategy, out.Strategy, s)
+	}
 	return nil
 }
 
@@ -1522,9 +1631,22 @@ func Convert_v1beta2_ObjectMeta_To_v1beta1_ObjectMeta(in *clusterv1.ObjectMeta, 
 
 // Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec converts the v1beta1
 // HetznerClusterSpec to v1beta2, mapping the pointer controlPlaneEndpoint to the v1beta2 value type.
+//
+// A v1beta1 object without a controlPlaneLoadBalancer or hcloudNetwork block has a zero struct there.
+// It maps to the zero v1beta2 struct, so the v1beta2 JSON also leaves the block out. With enabled
+// false in the block, the API server adds the v1beta2 defaults of the block, like port 6443, on every
+// v1beta2 write. The v1beta1 webhook then rejects the write, because port and hcloudNetwork are
+// immutable.
 func Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in *HetznerClusterSpec, out *infrav2.HetznerClusterSpec, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in, out, s); err != nil {
 		return err
+	}
+
+	if reflect.DeepEqual(in.ControlPlaneLoadBalancer, LoadBalancerSpec{}) {
+		out.ControlPlaneLoadBalancer = infrav2.LoadBalancerSpec{}
+	}
+	if in.HCloudNetwork == (HCloudNetworkSpec{}) {
+		out.HCloudNetwork = infrav2.HCloudNetworkSpec{}
 	}
 
 	if in.ControlPlaneEndpoint != nil {
@@ -1608,6 +1730,30 @@ func Convert_v1beta1_Raid_To_v1beta2_Raid(in *Raid, out *infrav2.Raid, s apiconv
 	if len(out.WWN) == 0 {
 		out.WWN = nil
 	}
+	return nil
+}
+
+// Convert_v1beta2_PublicNetworkSpec_To_v1beta1_PublicNetworkSpec converts the v1beta2 PublicNetworkSpec
+// back to v1beta1. An unset enableIPv4 or enableIPv6 maps to true, the default of both fields.
+func Convert_v1beta2_PublicNetworkSpec_To_v1beta1_PublicNetworkSpec(in *infrav2.PublicNetworkSpec, out *PublicNetworkSpec, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_PublicNetworkSpec_To_v1beta1_PublicNetworkSpec(in, out, s); err != nil {
+		return err
+	}
+	out.EnableIPv4 = ptr.Deref(in.EnableIPv4, infrav2.DefaultEnableIPv4)
+	out.EnableIPv6 = ptr.Deref(in.EnableIPv6, infrav2.DefaultEnableIPv6)
+	return nil
+}
+
+// Convert_v1beta2_HetznerSecretKeyRef_To_v1beta1_HetznerSecretKeyRef converts the v1beta2
+// HetznerSecretKeyRef back to v1beta1. An unset key maps to the v1beta2 default of the field.
+func Convert_v1beta2_HetznerSecretKeyRef_To_v1beta1_HetznerSecretKeyRef(in *infrav2.HetznerSecretKeyRef, out *HetznerSecretKeyRef, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_HetznerSecretKeyRef_To_v1beta1_HetznerSecretKeyRef(in, out, s); err != nil {
+		return err
+	}
+	out.HCloudToken = in.GetHCloudToken()
+	out.HetznerRobotUser = in.GetHetznerRobotUser()
+	out.HetznerRobotPassword = in.GetHetznerRobotPassword()
+	out.SSHKey = in.GetSSHKey()
 	return nil
 }
 

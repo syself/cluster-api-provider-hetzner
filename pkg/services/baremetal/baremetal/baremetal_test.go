@@ -310,11 +310,11 @@ var _ = Describe("chooseHost", func() {
 	)
 
 	DescribeTable("chooseHost(): customProvisioner uses its swraid setting",
-		func(swraid int, expectedHostName string) {
+		func(swraid int32, expectedHostName string) {
 			bmMachine := &infrav2.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "bmMachine", Namespace: defaultNamespace},
 				Spec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: infrav2.CustomProvisioner{Swraid: swraid},
+					CustomProvisioner: infrav2.CustomProvisioner{Swraid: ptr.To(swraid)},
 				},
 			}
 
@@ -324,15 +324,15 @@ var _ = Describe("chooseHost", func() {
 			Expect(host).ToNot(BeNil())
 			Expect(host.Name).To(Equal(expectedHostName))
 		},
-		Entry("swraid 1 chooses the RAID host", 1, "hostWithRaidWwnConfig"),
-		Entry("swraid 0 chooses the non-RAID host", 0, "hostWithNonRaidWwnConfig"),
+		Entry("swraid 1 chooses the RAID host", int32(1), "hostWithRaidWwnConfig"),
+		Entry("swraid 0 chooses the non-RAID host", int32(0), "hostWithNonRaidWwnConfig"),
 	)
 
 	type testCaseChooseHostWithReason struct {
 		hosts            []client.Object
 		expectedHostName string
 		expectedReason   string
-		swraid           int
+		swraid           int32
 	}
 
 	DescribeTable(
@@ -346,7 +346,7 @@ var _ = Describe("chooseHost", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "bmMachine", Namespace: defaultNamespace},
 				Spec: infrav2.HetznerBareMetalMachineSpec{
 					InstallImage: infrav2.InstallImage{
-						Swraid: tc.swraid,
+						Swraid: ptr.To(tc.swraid),
 					},
 				},
 			}

@@ -25,6 +25,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 )
@@ -109,8 +110,9 @@ type HetznerBareMetalMachineSpec struct {
 
 	// skipCheckDisk skips the CheckDisk step during provisioning.
 	// This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
+	// Not set means false.
 	// +optional
-	SkipCheckDisk bool `json:"skipCheckDisk,omitempty"`
+	SkipCheckDisk *bool `json:"skipCheckDisk,omitempty"`
 }
 
 // HostSelector specifies matching criteria for labels on BareMetalHosts.
@@ -151,6 +153,10 @@ type HostSelectorRequirement struct {
 	Values []string `json:"values,omitempty"`
 }
 
+// DefaultPortAfterInstallImage is the value of sshSpec.portAfterInstallImage when it is not set.
+// It must match the +kubebuilder:default marker of the field.
+const DefaultPortAfterInstallImage int32 = 22
+
 // SSHSpec defines specs for SSH.
 type SSHSpec struct {
 	// secretRef gives reference to the secret where the SSH key is stored.
@@ -158,21 +164,22 @@ type SSHSpec struct {
 	SecretRef SSHSecretRef `json:"secretRef,omitempty"`
 
 	// noSSHAfterInstallImage disables SSH access to the machine after installimage
-	// completed successfully.
+	// completed successfully. Not set means false.
 	// +optional
-	NoSSHAfterInstallImage bool `json:"noSSHAfterInstallImage,omitempty"`
+	NoSSHAfterInstallImage *bool `json:"noSSHAfterInstallImage,omitempty"`
 
 	// portAfterInstallImage specifies the port that has to be used to connect to the machine
 	// by reaching the server via SSH after installing the image successfully.
 	// +kubebuilder:default=22
 	// +optional
-	PortAfterInstallImage int `json:"portAfterInstallImage"`
+	// +kubebuilder:validation:Maximum=65535
+	PortAfterInstallImage *int32 `json:"portAfterInstallImage,omitempty"`
 
 	// portAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
 	//
 	// Deprecated: This field is not used anymore.
 	// +optional
-	PortAfterCloudInit int `json:"portAfterCloudInit"`
+	PortAfterCloudInit *int32 `json:"portAfterCloudInit,omitempty"`
 }
 
 // SSHSecretRef defines the secret containing all information of the SSH key used for the Hetzner robot.
@@ -209,6 +216,16 @@ type SSHSecretKeyRef struct {
 	// +kubebuilder:validation:MaxLength=253
 	PrivateKey string `json:"privateKey,omitempty"`
 }
+
+// The values of the swraid fields when they are not set. They must match the +kubebuilder:default
+// markers of these fields.
+const (
+	// DefaultSwraid is the value of installImage.swraid and customProvisioner.swraid when they are not set.
+	DefaultSwraid int32 = 0
+
+	// DefaultSwraidLevel is the value of installImage.swraidLevel when it is not set.
+	DefaultSwraidLevel int32 = 1
+)
 
 // InstallImage defines the configuration for provisioning a machine with the Hetzner installimage tool.
 type InstallImage struct {
@@ -250,14 +267,14 @@ type InstallImage struct {
 	// +optional
 	// +kubebuilder:default=0
 	// +kubebuilder:validation:Enum=0;1;
-	Swraid int `json:"swraid"`
+	Swraid *int32 `json:"swraid,omitempty"`
 
 	// swraidLevel defines the SWRAIDLEVEL in InstallImage. Only relevant if the raid is enabled.
 	// Pick one of 0,1,5,6,10. Ignored if swraid=0.
 	// +optional
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Enum=0;1;5;6;10;
-	SwraidLevel int `json:"swraidLevel,omitempty"`
+	SwraidLevel *int32 `json:"swraidLevel,omitempty"`
 }
 
 // IsDefined returns true if the InstallImage is set.
@@ -298,7 +315,7 @@ type CustomProvisioner struct {
 	// +optional
 	// +kubebuilder:default=0
 	// +kubebuilder:validation:Enum=0;1;
-	Swraid int `json:"swraid,omitempty"`
+	Swraid *int32 `json:"swraid,omitempty"`
 }
 
 // IsDefined returns true if the CustomProvisioner is set.
@@ -658,12 +675,12 @@ func GetImageSuffix(url string) (string, error) {
 }
 
 // Swraid returns the swraid setting of installImage or customProvisioner, whichever is set.
-func (hbmm *HetznerBareMetalMachine) Swraid() int {
+func (hbmm *HetznerBareMetalMachine) Swraid() int32 {
 	if hbmm.Spec.InstallImage.IsDefined() {
-		return hbmm.Spec.InstallImage.Swraid
+		return ptr.Deref(hbmm.Spec.InstallImage.Swraid, DefaultSwraid)
 	}
 	if hbmm.Spec.CustomProvisioner.IsDefined() {
-		return hbmm.Spec.CustomProvisioner.Swraid
+		return ptr.Deref(hbmm.Spec.CustomProvisioner.Swraid, DefaultSwraid)
 	}
 	return 0
 }

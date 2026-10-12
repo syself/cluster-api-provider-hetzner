@@ -113,8 +113,9 @@ type HetznerClusterSpec struct {
 	// in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
 	// wl-cluster, you can set this to true, so that the secret is not created. Be sure to
 	// run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
+	// Not set means false.
 	// +optional
-	SkipCreatingHetznerSecretInWorkloadCluster bool `json:"skipCreatingHetznerSecretInWorkloadCluster,omitempty"`
+	SkipCreatingHetznerSecretInWorkloadCluster *bool `json:"skipCreatingHetznerSecretInWorkloadCluster,omitempty"`
 }
 
 // APIEndpoint represents a reachable Kubernetes API endpoint.

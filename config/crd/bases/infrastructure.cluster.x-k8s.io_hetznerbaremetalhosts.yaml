@@ -1203,6 +1203,7 @@ spec:
                           type: string
                         rota:
                           description: rota defines if it's an HDD device or not.
+                            Not set means false.
                           type: boolean
                         serialNumber:
                           description: serialNumber denotes the serial number of the
@@ -1301,7 +1302,7 @@ spec:
                 x-kubernetes-list-type: atomic
               rebooted:
                 description: rebooted shows whether the server is currently being
-                  rebooted.
+                  rebooted. Not set means false.
                 type: boolean
               sshStatus:
                 description: sshStatus contains the name and fingerprint of the SSH
