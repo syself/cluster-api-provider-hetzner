@@ -26,6 +26,7 @@ import (
 const DefaultRemediationCooldown = 30 * time.Minute
 
 // RemediationType defines the type of remediation.
+// +kubebuilder:validation:MaxLength=64
 type RemediationType string
 
 const (
@@ -33,6 +34,9 @@ const (
 	RemediationTypeReboot RemediationType = "Reboot"
 )
 
+// The phase constants below are the values of status.phase of HCloudRemediation and
+// HetznerBareMetalRemediation. A new phase must also be added to the Enum marker of both phase
+// fields. TestStateEnumsMatchConstants checks this.
 const (
 	// PhaseRunning represents the running state during remediation.
 	PhaseRunning = "Running"
@@ -53,6 +57,7 @@ type RemediationStrategy struct {
 	// type represents the type of the remediation strategy. At the moment, only "Reboot" is supported.
 	// +kubebuilder:default=Reboot
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Type RemediationType `json:"type,omitempty"`
 
 	// retryLimit sets the maximum number of remediation retries. Zero retries if not set.
@@ -61,6 +66,7 @@ type RemediationStrategy struct {
 	RetryLimit *int32 `json:"retryLimit,omitempty"`
 
 	// timeoutSeconds sets the timeout, in seconds, between remediation retries.
+	// +required
 	// +kubebuilder:validation:Minimum=0
 	TimeoutSeconds int32 `json:"timeoutSeconds"`
 

@@ -1742,7 +1742,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 		},
 		// HCloudRemediation v1beta1 status: keep retryCount in the non-negative v1beta2 int32 range,
-		// collapse zero lastRemediated and empty condition slices to nil, and drop the V1Beta2
+		// collapse zero lastRemediated and empty condition slices to nil, and remove the V1Beta2
 		// wrapper unless it carries conditions.
 		func(in *HCloudRemediationStatus, c randfill.Continue) {
 			c.FillNoCustom(in)

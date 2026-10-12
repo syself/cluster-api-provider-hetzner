@@ -304,6 +304,7 @@ spec:
                   spec:
                     description: spec is the specification of the desired behavior
                       of the HCloudRemediation.
+                    minProperties: 1
                     properties:
                       strategy:
                         description: strategy field defines remediation strategy.
@@ -335,6 +336,8 @@ spec:
                             default: Reboot
                             description: type represents the type of the remediation
                               strategy. At the moment, only "Reboot" is supported.
+                            maxLength: 64
+                            minLength: 1
                             type: string
                         required:
                         - timeoutSeconds
@@ -483,9 +486,6 @@ spec:
                               - type
                               type: object
                             type: array
-                            x-kubernetes-list-map-keys:
-                            - type
-                            x-kubernetes-list-type: map
                         type: object
                     type: object
                   lastRemediated:
@@ -498,6 +498,11 @@ spec:
                     description: |-
                       phase represents the current phase of machine remediation.
                       One of Running, Waiting, Deleting machine or Succeeded.
+                    enum:
+                    - Running
+                    - Waiting
+                    - Deleting machine
+                    - Succeeded
                     type: string
                   retryCount:
                     description: |-

@@ -577,6 +577,14 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						Name:      bmMachine.Name,
 						Namespace: bmMachine.Namespace,
 					},
+					Spec: infrav2.HetznerBareMetalRemediationSpec{
+						Strategy: &infrav2.BareMetalRemediationStrategy{
+							RemediationStrategy: infrav2.RemediationStrategy{
+								Type:           infrav2.RemediationTypeReboot,
+								TimeoutSeconds: 300,
+							},
+						},
+					},
 				}
 				err = controllerutil.SetOwnerReference(capiMachine, rem, testEnv.Scheme())
 				Expect(err).To(BeNil())

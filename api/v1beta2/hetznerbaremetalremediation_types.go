@@ -31,8 +31,10 @@ const (
 )
 
 // HetznerBareMetalRemediationSpec defines the desired state of HetznerBareMetalRemediation.
+// +kubebuilder:validation:MinProperties=1
 type HetznerBareMetalRemediationSpec struct {
 	// strategy field defines the remediation strategy to be applied.
+	// +optional
 	Strategy *BareMetalRemediationStrategy `json:"strategy,omitempty"`
 }
 
@@ -75,8 +77,9 @@ type BareMetalRemediationStrategy struct {
 // HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation.
 type HetznerBareMetalRemediationStatus struct {
 	// phase represents the current phase of machine remediation.
-	// E.g. Running, Waiting, Deleting machine, Succeeded.
+	// One of Running, Waiting, Deleting machine or Succeeded.
 	// +optional
+	// +kubebuilder:validation:Enum=Running;Waiting;"Deleting machine";Succeeded
 	Phase string `json:"phase,omitempty"`
 
 	// retryCount records how many times the remediation controller has tried to
@@ -111,8 +114,8 @@ type HetznerBareMetalRemediation struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec is the desired state of HetznerBareMetalRemediation.
-	// +optional
-	Spec HetznerBareMetalRemediationSpec `json:"spec,omitempty"`
+	// +required
+	Spec HetznerBareMetalRemediationSpec `json:"spec,omitempty,omitzero"`
 	// status is the observed state of HetznerBareMetalRemediation.
 	// +optional
 	Status HetznerBareMetalRemediationStatus `json:"status,omitempty"`

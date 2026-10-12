@@ -84,6 +84,7 @@ type HetznerSSHKeys struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=100
 	HCloud []SSHKey `json:"hcloud,omitempty"`
 	// rescueSecretRef defines the reference to the secret where the SSH key for the rescue system is stored.
 	// +optional
@@ -93,14 +94,20 @@ type HetznerSSHKeys struct {
 // SSHKey defines the SSHKey for HCloud.
 type SSHKey struct {
 	// name defines the name of the SSH key.
+	// The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+	// +required
 	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
+	// +kubebuilder:validation:MaxLength=255
+	Name string `json:"name,omitempty"`
 	// fingerprint defines the fingerprint of the SSH key - added by the controller.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
 	Fingerprint string `json:"fingerprint,omitempty"`
 }
 
 // HCloudMachineType defines the HCloud Machine type.
+// +kubebuilder:validation:MaxLength=64
 type HCloudMachineType string
 
 // ResourceLifecycle configures the lifecycle of a resource.
@@ -110,10 +117,14 @@ type ResourceLifecycle string
 type HCloudPlacementGroupSpec struct {
 	// name is the name of the placement group. The placement group in HCloud gets the name
 	// "<HetznerCluster name>-<name>".
+	// The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+	// +required
 	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
+	// +kubebuilder:validation:MaxLength=255
+	Name string `json:"name,omitempty"`
 
 	// type is the type of the placement group. The only allowed value is spread.
+	// +optional
 	// +kubebuilder:validation:Enum=spread
 	// +kubebuilder:default=spread
 	Type string `json:"type,omitempty"`
@@ -122,18 +133,28 @@ type HCloudPlacementGroupSpec struct {
 // HCloudPlacementGroupStatus returns the status of a Placementgroup.
 type HCloudPlacementGroupStatus struct {
 	// id is the ID of the placement group in HCloud.
+	// +optional
 	ID int64 `json:"id,omitempty"`
 
 	// servers are the IDs of the HCloud servers in the placement group.
+	// The limit is more than twice the Hetzner limit of 10 servers in a placement group. A higher Hetzner limit then does not break status updates.
 	// +optional
 	// +listType=set
+	// +kubebuilder:validation:MaxItems=32
 	Server []int64 `json:"servers,omitempty"`
 
 	// name is the placement group name. It is required because status.hcloudPlacementGroups is a
 	// list-map keyed on name, and a list-map key must be a required (or defaulted) property.
-	Name string `json:"name"`
+	// The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	Name string `json:"name,omitempty"`
 
 	// type is the type of the placement group in HCloud, for example spread.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
 	Type string `json:"type,omitempty"`
 }
 
@@ -153,11 +174,15 @@ type HetznerSecretRef struct {
 	// We recommend to use the value "hcloud". Set `spec.skipCreatingHetznerSecretInWorkloadCluster`
 	// if you don't want workload-cluster secrets to be created.
 	//
+	// +optional
 	// +kubebuilder:default=hetzner
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name,omitempty"`
 
 	// key defines the keys that are used in the secret.
-	Key HetznerSecretKeyRef `json:"key"`
+	// +required
+	Key HetznerSecretKeyRef `json:"key,omitempty"`
 }
 
 // HetznerSecretKeyRef defines the key name of the HetznerSecret.
@@ -173,6 +198,7 @@ type HetznerSecretKeyRef struct {
 	//
 	// +optional
 	// +kubebuilder:default=token
+	// +kubebuilder:validation:MaxLength=253
 	HCloudToken string `json:"hcloudToken"`
 
 	// hetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
@@ -182,6 +208,7 @@ type HetznerSecretKeyRef struct {
 	//
 	// +optional
 	// +kubebuilder:default=hetzner-robot-user
+	// +kubebuilder:validation:MaxLength=253
 	HetznerRobotUser string `json:"hetznerRobotUser"`
 
 	// hetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
@@ -191,6 +218,7 @@ type HetznerSecretKeyRef struct {
 	//
 	// +optional
 	// +kubebuilder:default=hetzner-robot-password
+	// +kubebuilder:validation:MaxLength=253
 	HetznerRobotPassword string `json:"hetznerRobotPassword"`
 
 	// sshKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
@@ -198,6 +226,7 @@ type HetznerSecretKeyRef struct {
 	//
 	// +optional
 	// +kubebuilder:default=hcloud-ssh-key-name
+	// +kubebuilder:validation:MaxLength=253
 	SSHKey string `json:"sshKey"`
 }
 
@@ -223,6 +252,7 @@ type LoadBalancerSpec struct {
 
 	// name defines the name of the load balancer. It can be specified in order to use an existing load balancer.
 	// +optional
+	// +kubebuilder:validation:MaxLength=128
 	Name *string `json:"name,omitempty"`
 
 	// algorithm defines the type of load balancer algorithm. It could be round_robin or least_connections. The default value is "round_robin".
@@ -244,11 +274,14 @@ type LoadBalancerSpec struct {
 	Port int `json:"port,omitempty"`
 
 	// extraServices defines how traffic will be routed from the load balancer to your target server.
+	// The limit is more than twice the Hetzner limit of 30 services on a load balancer. A higher Hetzner limit then still works.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=64
 	ExtraServices []LoadBalancerServiceSpec `json:"extraServices,omitempty"`
 
 	// region contains the name of the HCloud location where the load balancer is running.
+	// +optional
 	Region Region `json:"region,omitempty"`
 
 	// enableProxyProtocol enables proxy protocol on the kube-apiserver load balancer service.
@@ -367,9 +400,10 @@ func (spec LoadBalancerSpec) WantsIPv6() bool {
 type LoadBalancerHealthCheckSpec struct {
 	// protocol is the protocol used for the health check. If omitted, "tcp" is used, matching the
 	// load balancer's own default behavior.
+	// +optional
 	// +kubebuilder:validation:Enum=tcp;http;https
 	// +kubebuilder:default=tcp
-	Protocol string `json:"protocol"`
+	Protocol string `json:"protocol,omitempty"`
 
 	// port is the target port the check runs against. It defaults to the service's destination
 	// port. Set it when the health-check endpoint is served on a different port than the API
@@ -405,39 +439,48 @@ type LoadBalancerHealthCheckSpec struct {
 	// path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
 	// protocol is http or https.
 	// +optional
+	// +kubebuilder:validation:MaxLength=256
 	Path *string `json:"path,omitempty"`
 
 	// domain sets the Host header sent with the HTTP(S) health check request. Only valid when
 	// protocol is http or https.
 	// +optional
+	// +kubebuilder:validation:MaxLength=128
 	Domain *string `json:"domain,omitempty"`
 
 	// response is a string that must be contained in the HTTP(S) response for the check to pass.
 	// Only valid when protocol is http or https.
 	// +optional
+	// +kubebuilder:validation:MaxLength=256
 	Response *string `json:"response,omitempty"`
 
 	// statusCodes are the HTTP response status codes counted as healthy, for example ["200"].
 	// Single codes ("200") and wildcards ("2??") are both allowed. If empty, Hetzner's own default
 	// is used (see the API reference on LoadBalancerHealthCheckSpec above). Only valid when
 	// protocol is http or https.
+	// The limit of 16 characters for an item is far above the 3 characters of a status code.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=20
+	// +kubebuilder:validation:items:MaxLength=16
 	StatusCodes []string `json:"statusCodes,omitempty"`
 }
 
 // LoadBalancerServiceSpec defines a load balancer Target.
 type LoadBalancerServiceSpec struct {
 	// protocol specifies the supported load balancer Protocol. It could be one of the https, http, or tcp.
+	// +required
 	// +kubebuilder:validation:Enum=http;https;tcp
 	Protocol string `json:"protocol,omitempty"`
 
 	// listenPort defines the incoming port (source port) open on the load balancer. It must be a valid port range (1-65535).
+	// +required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	ListenPort int `json:"listenPort,omitempty"`
 
 	// destinationPort defines the port on the server. It must be a valid port range (1-65535).
+	// +required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	DestinationPort int `json:"destinationPort,omitempty"`
@@ -446,24 +489,37 @@ type LoadBalancerServiceSpec struct {
 // LoadBalancerStatus defines the observed state of the control plane load balancer.
 type LoadBalancerStatus struct {
 	// id is the ID of the load balancer in HCloud.
+	// +optional
 	ID int64 `json:"id,omitempty"`
 
 	// ipv4 is the public IPv4 address of the load balancer.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=45
 	IPv4 string `json:"ipv4,omitempty"`
 
 	// ipv6 is the public IPv6 address of the load balancer.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=45
 	IPv6 string `json:"ipv6,omitempty"`
 
 	// internalIP is the IP address of the load balancer in the private network of the cluster.
 	// It is empty when the load balancer is not attached to that network.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=45
 	InternalIP string `json:"internalIP,omitempty"`
 
 	// targets is the list of servers and IP addresses that the load balancer sends traffic to.
+	// The limit is more than twice the Hetzner limit of 150 targets. A higher Hetzner limit then does not break status updates.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=512
 	Target []LoadBalancerTarget `json:"targets,omitempty"`
 
 	// protected is true when the load balancer has delete protection in HCloud.
+	// +optional
 	Protected bool `json:"protected,omitempty"`
 
 	// proxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
@@ -477,29 +533,39 @@ type LoadBalancerStatus struct {
 // LoadBalancerTarget defines the target of a load balancer.
 type LoadBalancerTarget struct {
 	// type is the type of the target, server or ip.
-	Type LoadBalancerTargetType `json:"type"`
+	// +required
+	Type LoadBalancerTargetType `json:"type,omitempty"`
 
 	// serverID is the ID of the HCloud server. It is only set when type is server.
+	// +optional
 	ServerID int64 `json:"serverID,omitempty"`
 
 	// ip is the IP address of the target. It is only set when type is ip.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=45
 	IP string `json:"ip,omitempty"`
 }
 
 // HCloudNetworkSpec defines the desired state of the HCloud Private Network.
 type HCloudNetworkSpec struct {
 	// enabled defines whether the network should be enabled or not.
+	// +optional
 	Enabled bool `json:"enabled"`
 
 	// cidrBlock defines the cidrBlock of the HCloud Network. If omitted, default "10.0.0.0/16" will be used.
 	// +kubebuilder:default="10.0.0.0/16"
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=49
 	CIDRBlock string `json:"cidrBlock,omitempty"`
 
 	// subnetCidrBlock defines the cidrBlock for the subnet of the HCloud Network.
 	// Note: A subnet is required.
 	// +kubebuilder:default="10.0.0.0/24"
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=49
 	SubnetCIDRBlock string `json:"subnetCidrBlock,omitempty"`
 
 	// networkZone specifies the HCloud network zone of the private network.
@@ -513,11 +579,14 @@ type HCloudNetworkSpec struct {
 // NetworkStatus defines the observed state of the HCloud Private Network.
 type NetworkStatus struct {
 	// id is the ID of the network in HCloud.
+	// +optional
 	ID int64 `json:"id,omitempty"`
 
 	// attachedServers are the IDs of the HCloud servers that are attached to the network.
+	// The limit is more than twice the Hetzner limit of 100 resources in a network. A higher Hetzner limit then does not break status updates.
 	// +optional
 	// +listType=set
+	// +kubebuilder:validation:MaxItems=256
 	AttachedServers []int64 `json:"attachedServers,omitempty"`
 }
 
@@ -529,6 +598,8 @@ type Region string
 type HCloudNetworkZone string
 
 // HCloudBootState defines the boot state of an HCloud server.
+// A new constant must also be added to the Enum marker. TestStateEnumsMatchConstants checks this.
+// +kubebuilder:validation:Enum=Initializing;EnablingRescue;BootingToRescue;RunningImageCommand;BootingToRealOS;OperatingSystemRunning;ProvisioningFailed
 type HCloudBootState string
 
 const (

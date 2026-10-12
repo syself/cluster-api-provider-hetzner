@@ -464,7 +464,7 @@ func (in *HCloudMachineTemplateV1Beta1DeprecatedStatus) DeepCopyInto(out *HCloud
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]corev1beta2.Condition, len(*in))
+		*out = make(corev1beta2.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -486,7 +486,7 @@ func (in *HCloudMachineV1Beta1DeprecatedStatus) DeepCopyInto(out *HCloudMachineV
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]corev1beta2.Condition, len(*in))
+		*out = make(corev1beta2.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -797,7 +797,7 @@ func (in *HCloudRemediationV1Beta1DeprecatedStatus) DeepCopyInto(out *HCloudReme
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]corev1beta2.Condition, len(*in))
+		*out = make(corev1beta2.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -1012,7 +1012,7 @@ func (in *HetznerBareMetalHostV1Beta1DeprecatedStatus) DeepCopyInto(out *Hetzner
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]corev1beta2.Condition, len(*in))
+		*out = make(corev1beta2.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -1291,7 +1291,7 @@ func (in *HetznerBareMetalMachineV1Beta1DeprecatedStatus) DeepCopyInto(out *Hetz
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]corev1beta2.Condition, len(*in))
+		*out = make(corev1beta2.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -1792,7 +1792,7 @@ func (in *HetznerClusterV1Beta1DeprecatedStatus) DeepCopyInto(out *HetznerCluste
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]corev1beta2.Condition, len(*in))
+		*out = make(corev1beta2.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

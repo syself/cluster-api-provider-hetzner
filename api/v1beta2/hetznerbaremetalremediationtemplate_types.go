@@ -23,13 +23,15 @@ import (
 // HetznerBareMetalRemediationTemplateSpec defines the desired state of HetznerBareMetalRemediationTemplate.
 type HetznerBareMetalRemediationTemplateSpec struct {
 	// template defines the desired state of HetznerBareMetalRemediationTemplate.
-	Template HetznerBareMetalRemediationTemplateResource `json:"template"`
+	// +required
+	Template HetznerBareMetalRemediationTemplateResource `json:"template,omitempty,omitzero"`
 }
 
 // HetznerBareMetalRemediationTemplateResource describes the data needed to create a HetznerBareMetalRemediation from a template.
 type HetznerBareMetalRemediationTemplateResource struct {
 	// spec is the specification of the desired behavior of the HetznerBareMetalRemediation.
-	Spec HetznerBareMetalRemediationSpec `json:"spec"`
+	// +required
+	Spec HetznerBareMetalRemediationSpec `json:"spec,omitempty,omitzero"`
 }
 
 // HetznerBareMetalRemediationTemplateStatus defines the observed state of HetznerBareMetalRemediationTemplate.

@@ -23,13 +23,15 @@ import (
 // HCloudRemediationTemplateSpec defines the desired state of HCloudRemediationTemplate.
 type HCloudRemediationTemplateSpec struct {
 	// template defines the desired state of HCloudRemediationTemplate.
-	Template HCloudRemediationTemplateResource `json:"template"`
+	// +required
+	Template HCloudRemediationTemplateResource `json:"template,omitempty,omitzero"`
 }
 
 // HCloudRemediationTemplateResource describes the data needed to create a HCloudRemediation from a template.
 type HCloudRemediationTemplateResource struct {
 	// spec is the specification of the desired behavior of the HCloudRemediation.
-	Spec HCloudRemediationSpec `json:"spec"`
+	// +required
+	Spec HCloudRemediationSpec `json:"spec,omitempty,omitzero"`
 }
 
 // HCloudRemediationTemplateStatus defines the observed state of HCloudRemediationTemplate.

@@ -470,6 +470,7 @@ spec:
                       command is the basename of a command file below /shared on the controller pod which
                       provisions a machine from url. CAPH copies that command into the rescue system and
                       executes it there.
+                    maxLength: 255
                     minLength: 1
                     type: string
                   url:
@@ -488,6 +489,9 @@ spec:
                       A Kubernetes event will be created in both (success, failure) cases containing the output
                       (stdout and stderr) of the script. If the script takes longer than 20 minutes, the
                       controller cancels the provisioning.
+
+                      The limit is 8 KiB, the default URL length limit of common HTTP servers.
+                    maxLength: 8192
                     minLength: 1
                     type: string
                 required:
@@ -498,16 +502,20 @@ spec:
                 description: |-
                   imageName is the reference to the Machine Image from which to create the machine instance.
                   It can reference an image uploaded to Hetzner API in two ways: either directly as the name of an image or as the label of an image.
+                maxLength: 63
                 minLength: 1
                 type: string
               placementGroupName:
-                description: placementGroupName defines the placement group of the
-                  machine in HCloud API that must reference an existing placement
-                  group.
+                description: |-
+                  placementGroupName defines the placement group of the machine in HCloud API that must reference an existing placement group.
+                  The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+                maxLength: 255
                 type: string
               providerID:
                 description: providerID is the unique identifier as specified by the
                   cloud provider.
+                maxLength: 512
+                minLength: 1
                 type: string
               publicNetwork:
                 description: |-
@@ -535,14 +543,20 @@ spec:
                     fingerprint:
                       description: fingerprint defines the fingerprint of the SSH
                         key - added by the controller.
+                      maxLength: 128
+                      minLength: 1
                       type: string
                     name:
-                      description: name defines the name of the SSH key.
+                      description: |-
+                        name defines the name of the SSH key.
+                        The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+                      maxLength: 255
                       minLength: 1
                       type: string
                   required:
                   - name
                   type: object
+                maxItems: 100
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -561,6 +575,8 @@ spec:
                   The list of valid machine types gets changed by Hetzner from time to time. CAPH does not
                   validate this string. It is up to you to use a valid type. Not all types are available in all
                   locations.
+                maxLength: 64
+                minLength: 1
                 type: string
             required:
             - type
@@ -593,6 +609,7 @@ spec:
                   - address
                   - type
                   type: object
+                maxItems: 256
                 type: array
                 x-kubernetes-list-type: atomic
               bootState:
@@ -610,6 +627,14 @@ spec:
                     4. RunningImageCommand
                     5. BootingToRealOS
                     6. OperatingSystemRunning
+                enum:
+                - Initializing
+                - EnablingRescue
+                - BootingToRescue
+                - RunningImageCommand
+                - BootingToRealOS
+                - OperatingSystemRunning
+                - ProvisioningFailed
                 type: string
               bootStateSince:
                 description: |-
@@ -746,9 +771,6 @@ spec:
                           - type
                           type: object
                         type: array
-                        x-kubernetes-list-map-keys:
-                        - type
-                        x-kubernetes-list-type: map
                     type: object
                 type: object
               externalIDs:
@@ -781,6 +803,8 @@ spec:
                 type: object
               instanceState:
                 description: instanceState is the state of the server for this machine.
+                maxLength: 64
+                minLength: 1
                 type: string
               lastRemediatedAt:
                 description: |-
@@ -800,22 +824,30 @@ spec:
                 - sin
                 type: string
               sshKeys:
-                description: sshKeys specifies the ssh keys that were used for provisioning
-                  the server.
+                description: |-
+                  sshKeys specifies the ssh keys that were used for provisioning the server.
+                  It lists the keys from spec.sshKeys, or from the HetznerCluster when spec.sshKeys is empty,
+                  and also the ssh key from the Hetzner secret. So it can have one key more than the spec allows.
                 items:
                   description: SSHKey defines the SSHKey for HCloud.
                   properties:
                     fingerprint:
                       description: fingerprint defines the fingerprint of the SSH
                         key - added by the controller.
+                      maxLength: 128
+                      minLength: 1
                       type: string
                     name:
-                      description: name defines the name of the SSH key.
+                      description: |-
+                        name defines the name of the SSH key.
+                        The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+                      maxLength: 255
                       minLength: 1
                       type: string
                   required:
                   - name
                   type: object
+                maxItems: 101
                 type: array
                 x-kubernetes-list-map-keys:
                 - name

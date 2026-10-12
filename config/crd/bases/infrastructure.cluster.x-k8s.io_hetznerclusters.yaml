@@ -864,8 +864,9 @@ spec:
                     description: enabled specifies if a load balancer should be created.
                     type: boolean
                   extraServices:
-                    description: extraServices defines how traffic will be routed
-                      from the load balancer to your target server.
+                    description: |-
+                      extraServices defines how traffic will be routed from the load balancer to your target server.
+                      The limit is more than twice the Hetzner limit of 30 services on a load balancer. A higher Hetzner limit then still works.
                     items:
                       description: LoadBalancerServiceSpec defines a load balancer
                         Target.
@@ -891,7 +892,12 @@ spec:
                           - https
                           - tcp
                           type: string
+                      required:
+                      - destinationPort
+                      - listenPort
+                      - protocol
                       type: object
+                    maxItems: 64
                     type: array
                     x-kubernetes-list-type: atomic
                   healthCheck:
@@ -928,6 +934,7 @@ spec:
                         description: |-
                           domain sets the Host header sent with the HTTP(S) health check request. Only valid when
                           protocol is http or https.
+                        maxLength: 128
                         type: string
                       intervalSeconds:
                         description: |-
@@ -940,6 +947,7 @@ spec:
                         description: |-
                           path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
                           protocol is http or https.
+                        maxLength: 256
                         type: string
                       port:
                         description: |-
@@ -963,6 +971,7 @@ spec:
                         description: |-
                           response is a string that must be contained in the HTTP(S) response for the check to pass.
                           Only valid when protocol is http or https.
+                        maxLength: 256
                         type: string
                       retries:
                         description: |-
@@ -978,8 +987,11 @@ spec:
                           Single codes ("200") and wildcards ("2??") are both allowed. If empty, Hetzner's own default
                           is used (see the API reference on LoadBalancerHealthCheckSpec above). Only valid when
                           protocol is http or https.
+                          The limit of 16 characters for an item is far above the 3 characters of a status code.
                         items:
+                          maxLength: 16
                           type: string
+                        maxItems: 20
                         type: array
                         x-kubernetes-list-type: atomic
                       timeoutSeconds:
@@ -990,12 +1002,11 @@ spec:
                         maximum: 60
                         minimum: 1
                         type: integer
-                    required:
-                    - protocol
                     type: object
                   name:
                     description: name defines the name of the load balancer. It can
                       be specified in order to use an existing load balancer.
+                    maxLength: 128
                     type: string
                   port:
                     default: 6443
@@ -1071,6 +1082,7 @@ spec:
                   - hil
                   - sin
                   type: string
+                maxItems: 100
                 type: array
                 x-kubernetes-list-type: set
               hcloudNetwork:
@@ -1081,6 +1093,8 @@ spec:
                     default: 10.0.0.0/16
                     description: cidrBlock defines the cidrBlock of the HCloud Network.
                       If omitted, default "10.0.0.0/16" will be used.
+                    maxLength: 49
+                    minLength: 1
                     type: string
                   enabled:
                     description: enabled defines whether the network should be enabled
@@ -1102,14 +1116,15 @@ spec:
                     description: |-
                       subnetCidrBlock defines the cidrBlock for the subnet of the HCloud Network.
                       Note: A subnet is required.
+                    maxLength: 49
+                    minLength: 1
                     type: string
-                required:
-                - enabled
                 type: object
               hcloudPlacementGroups:
                 description: |-
                   hcloudPlacementGroups are the placement groups that the controller creates in HCloud for this cluster.
                   An HCloudMachine is added to one of them with placementGroupName.
+                  The limit allows 1000 servers, because a placement group in Hetzner has at most 10 servers.
                 items:
                   description: HCloudPlacementGroupSpec defines a PlacementGroup.
                   properties:
@@ -1117,6 +1132,8 @@ spec:
                       description: |-
                         name is the name of the placement group. The placement group in HCloud gets the name
                         "<HetznerCluster name>-<name>".
+                        The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+                      maxLength: 255
                       minLength: 1
                       type: string
                     type:
@@ -1129,6 +1146,7 @@ spec:
                   required:
                   - name
                   type: object
+                maxItems: 100
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -1152,6 +1170,7 @@ spec:
                           workload-cluster secret named "hcloud", and only if this field is not already "token". If
                           the configured secret name is already "hcloud", the same token value is stored under both
                           keys in that single secret. It defaults to "token".
+                        maxLength: 253
                         type: string
                       hetznerRobotPassword:
                         default: hetzner-robot-password
@@ -1160,6 +1179,7 @@ spec:
                           is stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
                           creating a secret in the wl-cluster. We recommend to use "robot-password", because this is
                           the default of upstream hcloud-ccm.
+                        maxLength: 253
                         type: string
                       hetznerRobotUser:
                         default: hetzner-robot-user
@@ -1168,12 +1188,14 @@ spec:
                           stored. It gets used for reading the credential in the mgt-cluster, and it gets used for
                           creating a secret in the wl-cluster. We recommend to use "robot-user", because this is the
                           default of upstream hcloud-ccm.
+                        maxLength: 253
                         type: string
                       sshKey:
                         default: hcloud-ssh-key-name
                         description: |-
                           sshKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
                           to the wl-cluster.
+                        maxLength: 253
                         type: string
                     type: object
                   name:
@@ -1192,10 +1214,11 @@ spec:
 
                       We recommend to use the value "hcloud". Set `spec.skipCreatingHetznerSecretInWorkloadCluster`
                       if you don't want workload-cluster secrets to be created.
+                    maxLength: 253
+                    minLength: 1
                     type: string
                 required:
                 - key
-                - name
                 type: object
               skipCreatingHetznerSecretInWorkloadCluster:
                 description: |-
@@ -1217,14 +1240,20 @@ spec:
                         fingerprint:
                           description: fingerprint defines the fingerprint of the
                             SSH key - added by the controller.
+                          maxLength: 128
+                          minLength: 1
                           type: string
                         name:
-                          description: name defines the name of the SSH key.
+                          description: |-
+                            name defines the name of the SSH key.
+                            The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+                          maxLength: 255
                           minLength: 1
                           type: string
                       required:
                       - name
                       type: object
+                    maxItems: 100
                     type: array
                     x-kubernetes-list-map-keys:
                     - name
@@ -1240,32 +1269,31 @@ spec:
                           name:
                             description: name is the key in the secret's data where
                               the SSH key's name is stored.
+                            maxLength: 253
+                            minLength: 1
                             type: string
                           privateKey:
                             description: privateKey is the key in the secret's data
                               where the SSH key's private key is stored.
+                            maxLength: 253
+                            minLength: 1
                             type: string
                           publicKey:
                             description: publicKey is the key in the secret's data
                               where the SSH key's public key is stored.
+                            maxLength: 253
+                            minLength: 1
                             type: string
-                        required:
-                        - name
-                        - privateKey
-                        - publicKey
                         type: object
                       name:
                         description: name is the name of the secret.
+                        maxLength: 253
+                        minLength: 1
                         type: string
-                    required:
-                    - key
-                    - name
                     type: object
                 type: object
             required:
-            - controlPlaneRegions
             - hetznerSecretRef
-            - sshKeys
             type: object
           status:
             description: status is the observed state of HetznerCluster.
@@ -1344,12 +1372,18 @@ spec:
                     description: |-
                       internalIP is the IP address of the load balancer in the private network of the cluster.
                       It is empty when the load balancer is not attached to that network.
+                    maxLength: 45
+                    minLength: 1
                     type: string
                   ipv4:
                     description: ipv4 is the public IPv4 address of the load balancer.
+                    maxLength: 45
+                    minLength: 1
                     type: string
                   ipv6:
                     description: ipv6 is the public IPv6 address of the load balancer.
+                    maxLength: 45
+                    minLength: 1
                     type: string
                   protected:
                     description: protected is true when the load balancer has delete
@@ -1363,8 +1397,9 @@ spec:
                       protocol is in progress (see the field's docs for details).
                     type: boolean
                   targets:
-                    description: targets is the list of servers and IP addresses that
-                      the load balancer sends traffic to.
+                    description: |-
+                      targets is the list of servers and IP addresses that the load balancer sends traffic to.
+                      The limit is more than twice the Hetzner limit of 150 targets. A higher Hetzner limit then does not break status updates.
                     items:
                       description: LoadBalancerTarget defines the target of a load
                         balancer.
@@ -1372,6 +1407,8 @@ spec:
                         ip:
                           description: ip is the IP address of the target. It is only
                             set when type is ip.
+                          maxLength: 45
+                          minLength: 1
                           type: string
                         serverID:
                           description: serverID is the ID of the HCloud server. It
@@ -1387,6 +1424,7 @@ spec:
                       required:
                       - type
                       type: object
+                    maxItems: 512
                     type: array
                     x-kubernetes-list-type: atomic
                 type: object
@@ -1456,9 +1494,6 @@ spec:
                           - type
                           type: object
                         type: array
-                        x-kubernetes-list-map-keys:
-                        - type
-                        x-kubernetes-list-type: map
                     type: object
                 type: object
               failureDomains:
@@ -1494,8 +1529,9 @@ spec:
                 - name
                 x-kubernetes-list-type: map
               hcloudPlacementGroups:
-                description: hcloudPlacementGroups are the placement groups in HCloud
-                  that belong to this cluster.
+                description: |-
+                  hcloudPlacementGroups are the placement groups in HCloud that belong to this cluster.
+                  The limit allows 1000 servers, because a placement group in Hetzner has at most 10 servers.
                 items:
                   description: HCloudPlacementGroupStatus returns the status of a
                     Placementgroup.
@@ -1508,22 +1544,30 @@ spec:
                       description: |-
                         name is the placement group name. It is required because status.hcloudPlacementGroups is a
                         list-map keyed on name, and a list-map key must be a required (or defaulted) property.
+                        The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+                      maxLength: 255
+                      minLength: 1
                       type: string
                     servers:
-                      description: servers are the IDs of the HCloud servers in the
-                        placement group.
+                      description: |-
+                        servers are the IDs of the HCloud servers in the placement group.
+                        The limit is more than twice the Hetzner limit of 10 servers in a placement group. A higher Hetzner limit then does not break status updates.
                       items:
                         format: int64
                         type: integer
+                      maxItems: 32
                       type: array
                       x-kubernetes-list-type: set
                     type:
                       description: type is the type of the placement group in HCloud,
                         for example spread.
+                      maxLength: 64
+                      minLength: 1
                       type: string
                   required:
                   - name
                   type: object
+                maxItems: 100
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -1546,11 +1590,13 @@ spec:
                   network of the cluster.
                 properties:
                   attachedServers:
-                    description: attachedServers are the IDs of the HCloud servers
-                      that are attached to the network.
+                    description: |-
+                      attachedServers are the IDs of the HCloud servers that are attached to the network.
+                      The limit is more than twice the Hetzner limit of 100 resources in a network. A higher Hetzner limit then does not break status updates.
                     items:
                       format: int64
                       type: integer
+                    maxItems: 256
                     type: array
                     x-kubernetes-list-type: set
                   id:

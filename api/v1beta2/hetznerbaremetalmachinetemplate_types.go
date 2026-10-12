@@ -24,7 +24,8 @@ import (
 // HetznerBareMetalMachineTemplateSpec defines the desired state of HetznerBareMetalMachineTemplate.
 type HetznerBareMetalMachineTemplateSpec struct {
 	// template defines the desired state of HetznerBareMetalMachineTemplate.
-	Template HetznerBareMetalMachineTemplateResource `json:"template"`
+	// +required
+	Template HetznerBareMetalMachineTemplateResource `json:"template,omitempty,omitzero"`
 }
 
 // HetznerBareMetalMachineTemplate is the Schema for the hetznerbaremetalmachinetemplates API.
@@ -61,7 +62,8 @@ type HetznerBareMetalMachineTemplateResource struct {
 	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitempty,omitzero"`
 
 	// spec is the specification of the desired behavior of the machine.
-	Spec HetznerBareMetalMachineSpec `json:"spec"`
+	// +required
+	Spec HetznerBareMetalMachineSpec `json:"spec,omitempty,omitzero"`
 }
 
 func init() {

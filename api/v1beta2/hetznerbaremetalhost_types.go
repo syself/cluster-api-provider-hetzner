@@ -59,7 +59,10 @@ const (
 type RootDeviceHints struct {
 	// wwn is a unique storage identifier used for non-raid setups. The hint
 	// must match the actual value exactly.
+	// The limit is far above the longest WWN that Linux reports, which has 140 characters.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
 	WWN string `json:"wwn,omitempty"`
 	// raid is used to specify multiple storage devices. It provides the controller with information
 	// on which disks a raid can be established.
@@ -98,7 +101,11 @@ func (rdh *RootDeviceHints) ListOfWWN() []string {
 // Raid can be used instead of WWN to point to multiple storage devices.
 type Raid struct {
 	// wwn defines a list of unique storage identifiers used for raid setups.
+	// The limits are the same as in status.hardwareDetails.storage, because each entry must be the wwn of a disk from that list.
+	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=256
+	// +kubebuilder:validation:items:MaxLength=256
 	WWN []string `json:"wwn,omitempty"`
 }
 
@@ -140,6 +147,8 @@ const (
 )
 
 // ProvisioningState defines the states of provisioning of the host.
+// A new constant must also be added to the Enum marker. TestStateEnumsMatchConstants checks this.
+// +kubebuilder:validation:Enum=preparing;registering;pre-provisioning;image-installing;ensure-provisioned;provisioned;deprovisioning;deleting
 type ProvisioningState string
 
 const (
@@ -172,6 +181,7 @@ const (
 )
 
 // RebootType defines the reboot type of servers via Hetzner robot API.
+// +kubebuilder:validation:MaxLength=64
 type RebootType string
 
 const (
@@ -204,7 +214,9 @@ func VerboseRebootType(rebootType RebootType) string {
 type RebootAnnotationArguments struct {
 	// type is the requested reboot type. The HetznerBareMetalHost controller does not read it and
 	// chooses the reboot type itself.
-	Type RebootType `json:"type"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Type RebootType `json:"type,omitempty"`
 }
 
 // HetznerBareMetalHostConsumerReference is a reference to the HetznerBareMetalMachine
@@ -236,7 +248,9 @@ type HetznerBareMetalHostConsumerReference struct {
 type HetznerBareMetalHostSpec struct {
 	// serverID defines the ID of the server provided by Hetzner.
 	// Find it on your Hetzner robot dashboard.
-	ServerID int `json:"serverID"`
+	// +required
+	// +kubebuilder:validation:Minimum=1
+	ServerID int `json:"serverID,omitempty"`
 
 	// rootDeviceHints provides guidance about how to choose the device for the image
 	// being provisioned. They need to be specified to provision the host.
@@ -251,11 +265,15 @@ type HetznerBareMetalHostSpec struct {
 	// maintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
 	// will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
 	// machine. Additionally, the host won't be selected by any Hetzner bare metal machine.
+	// +optional
 	MaintenanceMode *bool `json:"maintenanceMode,omitempty"`
 
 	// description is a human-entered text used to help identify the host.
 	// It can be used to store some valuable information about the host.
+	// 1024 characters are enough for a short note about the host.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=1024
 	Description string `json:"description,omitempty"`
 }
 
@@ -275,15 +293,21 @@ type HetznerBareMetalHostStatus struct {
 
 	// ipv4 address of the server.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=45
 	IPv4 string `json:"ipv4,omitempty"`
 
 	// ipv6 address of the server.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=45
 	IPv6 string `json:"ipv6,omitempty"`
 
 	// rebootTypes is a list of all available reboot types for API reboots.
+	// The limit is more than twice the 5 reboot types that Hetzner Robot offers. New reboot types then do not break status updates.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=16
 	RebootTypes []RebootType `json:"rebootTypes,omitempty"`
 
 	// sshStatus contains the name and fingerprint of the SSH keys that have been used.
@@ -310,6 +334,8 @@ type HetznerBareMetalHostStatus struct {
 
 	// nodeBootID reflects the BootID of the corresponding Node resource in the workload-cluster.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
 	NodeBootID string `json:"nodeBootID,omitempty"`
 
 	// deprecated groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
@@ -331,11 +357,9 @@ type HetznerBareMetalHostV1Beta1DeprecatedStatus struct {
 	// conditions define the current service state of the HetznerBareMetalHost.
 	//
 	// +optional
-	// +listType=map
-	// +listMapKey=type
 	//
 	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
 // GetIPAddress returns the IPv4 if set, otherwise the IPv6.
@@ -456,21 +480,28 @@ func HetznerBareMetalHostSummaryOpts() []conditions.SummaryOption {
 // SSHStatus contains all status information about SSHStatus.
 type SSHStatus struct {
 	// currentRescue gives information about the secret where the rescue ssh key is stored.
+	// +optional
 	CurrentRescue *SecretStatus `json:"currentRescue,omitempty"`
 	// currentOS gives information about the secret where the os ssh key is stored.
+	// +optional
 	CurrentOS *SecretStatus `json:"currentOS,omitempty"`
 	// osKey contains name and fingerprint of the in HetznerBareMetalMachine spec specified SSH key.
+	// +optional
 	OSKey *SSHKey `json:"osKey,omitempty"`
 	// rescueKey contains name and fingerprint of the in HetznerCluster spec specified SSH key.
+	// +optional
 	RescueKey *SSHKey `json:"rescueKey,omitempty"`
 }
 
 // SecretStatus contains the reference and the data hash of the last secret that was used.
 type SecretStatus struct {
 	// credentials is the name and namespace of the secret.
+	// +optional
 	Reference *corev1.SecretReference `json:"credentials,omitempty"`
 
 	// credentialsDataHash is the SHA256 hash of the secret data.
+	// +optional
+	// +kubebuilder:validation:MaxLength=64
 	DataHash []byte `json:"credentialsDataHash,omitempty"`
 }
 
@@ -499,23 +530,34 @@ type Capacity int64
 
 // ClockSpeed is a clock speed in MHz
 // +kubebuilder:validation:Format=double
+// +kubebuilder:validation:MaxLength=32
 type ClockSpeed string
 
 // CPU describes one processor on the host.
 type CPU struct {
 	// arch is the CPU architecture, for example x86_64.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
 	Arch string `json:"arch,omitempty"`
 
 	// model is the CPU model name.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=512
 	Model string `json:"model,omitempty"`
 
 	// clockGigahertz is the maximum clock speed of the CPU in GHz.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
 	ClockGigahertz ClockSpeed `json:"clockGigahertz,omitempty"`
 
 	// threads is the number of logical CPUs of the host.
+	// +optional
 	Threads int `json:"threads,omitempty"`
 
 	// cores is the number of CPU cores. The controller does not set it.
+	// +optional
 	Cores int `json:"cores,omitempty"`
 }
 
@@ -523,51 +565,89 @@ type CPU struct {
 type Storage struct {
 	// name is the Linux device name of the disk, e.g. "/dev/sda". Note that this
 	// may not be stable across reboots.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
 	Name string `json:"name,omitempty"`
 
 	// sizeBytes is the size of the disk in Bytes.
+	// +optional
 	SizeBytes Capacity `json:"sizeBytes,omitempty"`
 
 	// sizeGB is the size of the disk in GB.
+	// +optional
 	SizeGB Capacity `json:"sizeGB,omitempty"`
 
 	// vendor is the name of the vendor of the device.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=512
 	Vendor string `json:"vendor,omitempty"`
 
 	// model represents the Hardware model.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=512
 	Model string `json:"model,omitempty"`
 
 	// serialNumber denotes the serial number of the device.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=512
 	SerialNumber string `json:"serialNumber,omitempty"`
 
 	// wwn defines the WWN of the device.
+	// The limit is far above the longest WWN that Linux reports, which has 140 characters.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
 	WWN string `json:"wwn,omitempty"`
 
 	// hctl defines the SCSI location of the device.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
 	HCTL string `json:"hctl,omitempty"`
 
 	// rota defines if it's an HDD device or not.
+	// +optional
 	Rota bool `json:"rota,omitempty"`
 }
 
 // NIC describes one network interface on the host.
 type NIC struct {
 	// name is the name of the network interface, e.g. "en0"
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=15
 	Name string `json:"name,omitempty"`
 
 	// model is the vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=512
 	Model string `json:"model,omitempty"`
 
-	// mac is the device MAC address
+	// mac is the device MAC address.
+	// The limit is the longest hardware address in Linux, 32 bytes written as hex pairs with colons.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
+	// +kubebuilder:validation:MaxLength=95
 	MAC string `json:"mac,omitempty"`
 
 	// ip is the IP address of the interface. This will be an IPv4 or IPv6 address
 	// if one is present.  If both IPv4 and IPv6 addresses are present in a
 	// dual-stack environment, two nics will be output, one with each IP.
+	// The value includes the prefix length, for example 10.0.0.5/26. For this reason the limit is 49,
+	// the 45 characters of the longest IP address plus /128.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=49
 	IP string `json:"ip,omitempty"`
 
 	// speedMbps is the speed of the device in Megabits per second
+	// +optional
 	SpeedMbps int `json:"speedMbps,omitempty"`
 }
 
@@ -575,19 +655,25 @@ type NIC struct {
 // discovered on the host.
 type HardwareDetails struct {
 	// ramGB is the total memory of the host in GB.
+	// +optional
 	RAMGB int `json:"ramGB,omitempty"`
 
 	// nics is the list of network interfaces of the host that are up, with one entry for each IP address.
+	// With this limit, the HetznerBareMetalMachine addresses, one for each entry here plus two, stay below the Cluster API limit of 256 addresses.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=128
 	NIC []NIC `json:"nics,omitempty"`
 
 	// storage is the list of storage devices of the host.
+	// The limit is far above the number of disks that a Hetzner dedicated server has.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=256
 	Storage []Storage `json:"storage,omitempty"`
 
 	// cpu describes the CPU of the host.
+	// +optional
 	CPU CPU `json:"cpu,omitempty"`
 }
 
@@ -613,11 +699,14 @@ type HetznerBareMetalHost struct {
 	metav1.TypeMeta `json:",inline"`
 	// metadata is the standard object's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec is the desired state of HetznerBareMetalHost.
+	// +optional
 	Spec HetznerBareMetalHostSpec `json:"spec,omitempty"`
 	// status is the observed state of HetznerBareMetalHost.
+	// +optional
 	Status HetznerBareMetalHostStatus `json:"status,omitempty"`
 }
 

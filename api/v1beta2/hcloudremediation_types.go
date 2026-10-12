@@ -23,8 +23,10 @@ import (
 )
 
 // HCloudRemediationSpec defines the desired state of HCloudRemediation.
+// +kubebuilder:validation:MinProperties=1
 type HCloudRemediationSpec struct {
 	// strategy field defines remediation strategy.
+	// +optional
 	Strategy *RemediationStrategy `json:"strategy,omitempty"`
 }
 
@@ -41,6 +43,7 @@ type HCloudRemediationStatus struct {
 	// phase represents the current phase of machine remediation.
 	// One of Running, Waiting, Deleting machine or Succeeded.
 	// +optional
+	// +kubebuilder:validation:Enum=Running;Waiting;"Deleting machine";Succeeded
 	Phase string `json:"phase,omitempty"`
 
 	// retryCount records how many times the remediation controller has tried to
@@ -70,11 +73,9 @@ type HCloudRemediationV1Beta1DeprecatedStatus struct {
 	// conditions defines current service state of the HCloudRemediation.
 	//
 	// +optional
-	// +listType=map
-	// +listMapKey=type
 	//
 	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -99,8 +100,8 @@ type HCloudRemediation struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec is the desired state of HCloudRemediation.
-	// +optional
-	Spec HCloudRemediationSpec `json:"spec,omitempty"`
+	// +required
+	Spec HCloudRemediationSpec `json:"spec,omitempty,omitzero"`
 	// status is the observed state of HCloudRemediation.
 	// +optional
 	Status HCloudRemediationStatus `json:"status,omitempty"`
