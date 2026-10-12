@@ -633,6 +633,7 @@ spec:
                       controlPlaneLoadBalancer:
                         description: controlPlaneLoadBalancer is an optional configuration
                           for customizing control plane behavior.
+                        minProperties: 1
                         properties:
                           algorithm:
                             default: round_robin
@@ -903,6 +904,7 @@ spec:
                         description: hcloudNetwork defines details about the private
                           Network for Hetzner Cloud. If left empty, no private Network
                           is configured.
+                        minProperties: 1
                         properties:
                           cidrBlock:
                             default: 10.0.0.0/16
@@ -1047,6 +1049,7 @@ spec:
                       sshKeys:
                         description: sshKeys are cluster wide. Valid values are a
                           valid SSH key name.
+                        minProperties: 1
                         properties:
                           hcloud:
                             description: hcloud defines the SSH keys used for hcloud.
@@ -1075,13 +1078,14 @@ spec:
                             - name
                             x-kubernetes-list-type: map
                           rescueSecretRef:
-                            description: rescueSecretRef defines the reference to
-                              the secret where the SSH key for the rescue system is
-                              stored.
+                            description: |-
+                              rescueSecretRef defines the reference to the secret where the SSH key for the rescue system is stored.
+                              When it is not set, no secret with a rescue SSH key is configured.
                             properties:
                               key:
                                 description: key contains details about the keys used
                                   in the data of the secret.
+                                minProperties: 1
                                 properties:
                                   name:
                                     description: name is the key in the secret's data

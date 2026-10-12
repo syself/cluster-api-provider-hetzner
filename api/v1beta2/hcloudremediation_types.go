@@ -31,6 +31,7 @@ type HCloudRemediationSpec struct {
 }
 
 // HCloudRemediationStatus defines the observed state of HCloudRemediation.
+// +kubebuilder:validation:MinProperties=1
 type HCloudRemediationStatus struct {
 	// conditions represents the observations of a HCloudRemediation's current state.
 	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded and RemediationSkipped.
@@ -104,7 +105,7 @@ type HCloudRemediation struct {
 	Spec HCloudRemediationSpec `json:"spec,omitempty,omitzero"`
 	// status is the observed state of HCloudRemediation.
 	// +optional
-	Status HCloudRemediationStatus `json:"status,omitempty"`
+	Status HCloudRemediationStatus `json:"status,omitempty,omitzero"`
 }
 
 // GetConditions returns the set of conditions for the HCloudRemediation object.

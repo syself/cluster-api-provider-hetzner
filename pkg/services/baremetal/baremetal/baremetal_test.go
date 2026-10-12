@@ -70,7 +70,7 @@ var _ = Describe("chooseHost", func() {
 			Namespace: defaultNamespace,
 		},
 		Spec: infrav2.HetznerBareMetalHostSpec{
-			ConsumerRef: &infrav2.HetznerBareMetalHostConsumerReference{
+			ConsumerRef: infrav2.HetznerBareMetalHostConsumerReference{
 				Name:     "bm-machine",
 				Kind:     "HetznerBareMetalMachine",
 				APIGroup: infrav2.GroupVersion.Group,
@@ -87,7 +87,7 @@ var _ = Describe("chooseHost", func() {
 			Namespace: defaultNamespace,
 		},
 		Spec: infrav2.HetznerBareMetalHostSpec{
-			ConsumerRef: &infrav2.HetznerBareMetalHostConsumerReference{
+			ConsumerRef: infrav2.HetznerBareMetalHostConsumerReference{
 				Name:     "bm-machine-other",
 				Kind:     "HetznerBareMetalMachine",
 				APIGroup: infrav2.GroupVersion.Group,
@@ -240,7 +240,7 @@ var _ = Describe("chooseHost", func() {
 			scheme := runtime.NewScheme()
 			utilruntime.Must(infrav2.AddToScheme(scheme))
 			c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(tc.Hosts...).Build()
-			bmMachine.Spec.HostSelector = tc.HostSelector
+			bmMachine.Spec.HostSelector = &tc.HostSelector
 			service := newTestService(bmMachine, c)
 
 			hosts := &infrav2.HetznerBareMetalHostList{}
@@ -314,7 +314,7 @@ var _ = Describe("chooseHost", func() {
 			bmMachine := &infrav2.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "bmMachine", Namespace: defaultNamespace},
 				Spec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{Swraid: swraid},
+					CustomProvisioner: infrav2.CustomProvisioner{Swraid: swraid},
 				},
 			}
 
@@ -345,7 +345,7 @@ var _ = Describe("chooseHost", func() {
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{Name: "bmMachine", Namespace: defaultNamespace},
 				Spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
+					InstallImage: infrav2.InstallImage{
 						Swraid: tc.swraid,
 					},
 				},
@@ -1572,8 +1572,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		Expect(res.RequeueAfter).To(Equal(requeueAfter))
 
 		Expect(ptr.Deref(bareMetalMachine.Status.Initialization.Provisioned, false)).To(BeTrue())
-		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
-		Expect(*bareMetalMachine.Spec.ProviderID).NotTo(BeEmpty())
+		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeEmpty())
 		Expect(deprecatedv1beta1conditions.IsFalse(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(BeTrue())
 		Expect(deprecatedv1beta1conditions.GetReason(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(Equal("WaitingForAPIServer"))
 		Expect(conditions.IsFalse(bareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
@@ -1609,7 +1608,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		Expect(res).To(Equal(reconcile.Result{}))
 
 		Expect(ptr.Deref(bareMetalMachine.Status.Initialization.Provisioned, false)).To(BeTrue())
-		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
+		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeEmpty())
 		Expect(deprecatedv1beta1conditions.IsTrue(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(BeTrue())
 		Expect(conditions.IsTrue(bareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
 	})
@@ -1625,7 +1624,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		Expect(res).To(Equal(reconcile.Result{}))
 
 		Expect(ptr.Deref(bareMetalMachine.Status.Initialization.Provisioned, false)).To(BeTrue())
-		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
+		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeEmpty())
 		Expect(deprecatedv1beta1conditions.IsTrue(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(BeTrue())
 		Expect(conditions.IsTrue(bareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
 	})
@@ -1641,7 +1640,7 @@ var _ = Describe("Delete", func() {
 		host := &infrav2.HetznerBareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{Name: "bm-host", Namespace: ns},
 			Spec: infrav2.HetznerBareMetalHostSpec{
-				ConsumerRef: &infrav2.HetznerBareMetalHostConsumerReference{
+				ConsumerRef: infrav2.HetznerBareMetalHostConsumerReference{
 					Name:     "bm-machine",
 					Kind:     "HetznerBareMetalMachine",
 					APIGroup: infrav2.GroupVersion.Group,

@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"reflect"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,27 +85,27 @@ type HetznerBareMetalMachineSpec struct {
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=512
-	ProviderID *string `json:"providerID,omitempty"`
+	ProviderID string `json:"providerID,omitempty"`
 
 	// installImage provisions the machine with the Hetzner installimage tool.
 	// Exactly one of installImage or customProvisioner must be set.
 	// +optional
-	InstallImage *InstallImage `json:"installImage,omitempty"`
+	InstallImage InstallImage `json:"installImage,omitempty,omitzero"`
 
 	// customProvisioner provisions the machine with a custom command instead of installimage.
 	// Exactly one of installImage or customProvisioner must be set.
 	// +optional
-	CustomProvisioner *CustomProvisioner `json:"customProvisioner,omitempty"`
+	CustomProvisioner CustomProvisioner `json:"customProvisioner,omitempty,omitzero"`
 
 	// hostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
 	// This is used to limit the set of HetznerBareMetalHost objects considered for
-	// claiming for a HetznerBareMetalMachine.
+	// claiming for a HetznerBareMetalMachine. When it is not set, every HetznerBareMetalHost matches.
 	// +optional
-	HostSelector HostSelector `json:"hostSelector,omitempty"`
+	HostSelector *HostSelector `json:"hostSelector,omitempty"`
 
 	// sshSpec gives a reference on the secret where SSH details are specified as well as ports for SSH.
 	// +optional
-	SSHSpec SSHSpec `json:"sshSpec,omitempty"`
+	SSHSpec SSHSpec `json:"sshSpec,omitempty,omitzero"`
 
 	// skipCheckDisk skips the CheckDisk step during provisioning.
 	// This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
@@ -147,7 +148,7 @@ type HostSelectorRequirement struct {
 	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=512
 	// +kubebuilder:validation:items:MaxLength=512
-	Values []string `json:"values"`
+	Values []string `json:"values,omitempty"`
 }
 
 // SSHSpec defines specs for SSH.
@@ -184,10 +185,11 @@ type SSHSecretRef struct {
 
 	// key contains details about the keys used in the data of the secret.
 	// +optional
-	Key SSHSecretKeyRef `json:"key"`
+	Key SSHSecretKeyRef `json:"key,omitempty,omitzero"`
 }
 
 // SSHSecretKeyRef defines the key name of the SSHSecret.
+// +kubebuilder:validation:MinProperties=1
 type SSHSecretKeyRef struct {
 	// name is the key in the secret's data where the SSH key's name is stored.
 	// +optional
@@ -258,6 +260,14 @@ type InstallImage struct {
 	SwraidLevel int `json:"swraidLevel,omitempty"`
 }
 
+// IsDefined returns true if the InstallImage is set.
+func (i *InstallImage) IsDefined() bool {
+	if i == nil {
+		return false
+	}
+	return !reflect.DeepEqual(i, &InstallImage{})
+}
+
 // CustomProvisioner defines the configuration for provisioning a machine with a custom command
 // instead of the Hetzner installimage tool.
 type CustomProvisioner struct {
@@ -289,6 +299,14 @@ type CustomProvisioner struct {
 	// +kubebuilder:default=0
 	// +kubebuilder:validation:Enum=0;1;
 	Swraid int `json:"swraid,omitempty"`
+}
+
+// IsDefined returns true if the CustomProvisioner is set.
+func (p *CustomProvisioner) IsDefined() bool {
+	if p == nil {
+		return false
+	}
+	return !reflect.DeepEqual(p, &CustomProvisioner{})
 }
 
 // Image defines the properties for the autosetup config.
@@ -435,6 +453,7 @@ type LVMDefinition struct {
 }
 
 // HetznerBareMetalMachineStatus defines the observed state of HetznerBareMetalMachine.
+// +kubebuilder:validation:MinProperties=1
 type HetznerBareMetalMachineStatus struct {
 	// conditions represents the observations of a HetznerBareMetalMachine's current state.
 	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady, ServerAvailable and Deleting.
@@ -526,10 +545,10 @@ type HetznerBareMetalMachine struct {
 
 	// spec is the desired state of HetznerBareMetalMachine.
 	// +optional
-	Spec HetznerBareMetalMachineSpec `json:"spec,omitempty"`
+	Spec HetznerBareMetalMachineSpec `json:"spec,omitempty,omitzero"`
 	// status is the observed state of HetznerBareMetalMachine.
 	// +optional
-	Status HetznerBareMetalMachineStatus `json:"status,omitempty"`
+	Status HetznerBareMetalMachineStatus `json:"status,omitempty,omitzero"`
 }
 
 // GetConditions returns the set of conditions for the HetznerBareMetalMachine resource.
@@ -640,10 +659,10 @@ func GetImageSuffix(url string) (string, error) {
 
 // Swraid returns the swraid setting of installImage or customProvisioner, whichever is set.
 func (hbmm *HetznerBareMetalMachine) Swraid() int {
-	if hbmm.Spec.InstallImage != nil {
+	if hbmm.Spec.InstallImage.IsDefined() {
 		return hbmm.Spec.InstallImage.Swraid
 	}
-	if hbmm.Spec.CustomProvisioner != nil {
+	if hbmm.Spec.CustomProvisioner.IsDefined() {
 		return hbmm.Spec.CustomProvisioner.Swraid
 	}
 	return 0

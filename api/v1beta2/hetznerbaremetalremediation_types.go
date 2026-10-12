@@ -75,6 +75,7 @@ type BareMetalRemediationStrategy struct {
 }
 
 // HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation.
+// +kubebuilder:validation:MinProperties=1
 type HetznerBareMetalRemediationStatus struct {
 	// phase represents the current phase of machine remediation.
 	// One of Running, Waiting, Deleting machine or Succeeded.
@@ -118,7 +119,7 @@ type HetznerBareMetalRemediation struct {
 	Spec HetznerBareMetalRemediationSpec `json:"spec,omitempty,omitzero"`
 	// status is the observed state of HetznerBareMetalRemediation.
 	// +optional
-	Status HetznerBareMetalRemediationStatus `json:"status,omitempty"`
+	Status HetznerBareMetalRemediationStatus `json:"status,omitempty,omitzero"`
 }
 
 //+kubebuilder:object:root=true

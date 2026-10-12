@@ -31,6 +31,7 @@ type HCloudMachineTemplateSpec struct {
 }
 
 // HCloudMachineTemplateStatus defines the observed state of HCloudMachineTemplate.
+// +kubebuilder:validation:MinProperties=1
 type HCloudMachineTemplateStatus struct {
 	// conditions represents the observations of an HCloudMachineTemplate's current state.
 	// Known condition types are Ready, Available, HCloudTokenAvailable and HCloudRateLimitExceeded.
@@ -96,10 +97,10 @@ type HCloudMachineTemplate struct {
 
 	// spec is the desired state of HCloudMachineTemplate.
 	// +optional
-	Spec HCloudMachineTemplateSpec `json:"spec,omitempty"`
+	Spec HCloudMachineTemplateSpec `json:"spec,omitempty,omitzero"`
 	// status is the observed state of HCloudMachineTemplate.
 	// +optional
-	Status HCloudMachineTemplateStatus `json:"status,omitempty"`
+	Status HCloudMachineTemplateStatus `json:"status,omitempty,omitzero"`
 }
 
 // GetConditions returns the set of conditions for the HCloudMachineTemplate object.

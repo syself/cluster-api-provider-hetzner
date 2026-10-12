@@ -314,13 +314,26 @@ func Convert_v1beta2_HetznerBareMetalHost_To_v1beta1_HetznerBareMetalHost(in *in
 // Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec converts the
 // v1beta1 ObjectReference ConsumerRef to the smaller v1beta2 local reference.
 func Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in *HetznerBareMetalHostSpec, out *infrav2.HetznerBareMetalHostSpec, s apiconversion.Scope) error {
-	return autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in, out, s)
+	if err := autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in, out, s); err != nil {
+		return err
+	}
+	if in.ConsumerRef != nil {
+		return Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference(in.ConsumerRef, &out.ConsumerRef, s)
+	}
+	return nil
 }
 
 // Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec converts the
 // v1beta2 ConsumerRef shape back to the v1beta1 ObjectReference shape without namespace.
 func Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in *infrav2.HetznerBareMetalHostSpec, out *HetznerBareMetalHostSpec, s apiconversion.Scope) error {
-	return autoConvert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in, out, s)
+	if err := autoConvert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in, out, s); err != nil {
+		return err
+	}
+	if in.ConsumerRef.IsDefined() {
+		out.ConsumerRef = &corev1.ObjectReference{}
+		return Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference(&in.ConsumerRef, out.ConsumerRef, s)
+	}
+	return nil
 }
 
 // Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference converts the
@@ -424,7 +437,7 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 		rebootType = infrav2.RebootTypeHardware
 	}
 	if rebootType != "" && !in.RebootTriggeredAt.IsZero() {
-		out.OngoingReboot = &infrav2.OngoingReboot{
+		out.OngoingReboot = infrav2.OngoingReboot{
 			Type:        rebootType,
 			TriggeredAt: *in.RebootTriggeredAt,
 		}
@@ -474,7 +487,7 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedSt
 
 	// v1beta1 stores the ongoing reboot in errorType and rebootTriggeredAt. When the host has a fatal
 	// or permanent error, errorType has that error instead of the reboot type.
-	if in.OngoingReboot != nil {
+	if in.OngoingReboot.IsDefined() {
 		if in.ErrorType == "" {
 			switch in.OngoingReboot.Type {
 			case infrav2.RebootTypeSSH:
@@ -589,6 +602,46 @@ func Convert_v1beta2_SecretStatus_To_v1beta1_SecretStatus(in *infrav2.SecretStat
 		return err
 	}
 	out.Reference = in.CredentialsRef
+	return nil
+}
+
+// Convert_v1beta1_SSHStatus_To_v1beta2_SSHStatus converts the v1beta1 SSHStatus to v1beta2. osKey and
+// rescueKey change from a pointer to a value; a nil pointer maps to the empty value.
+func Convert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(in *SSHStatus, out *infrav2.SSHStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(in, out, s); err != nil {
+		return err
+	}
+	if in.OSKey != nil {
+		if err := Convert_v1beta1_SSHKey_To_v1beta2_SSHKey(in.OSKey, &out.OSKey, s); err != nil {
+			return err
+		}
+	}
+	if in.RescueKey != nil {
+		if err := Convert_v1beta1_SSHKey_To_v1beta2_SSHKey(in.RescueKey, &out.RescueKey, s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Convert_v1beta2_SSHStatus_To_v1beta1_SSHStatus converts the v1beta2 SSHStatus back to v1beta1. osKey
+// and rescueKey change from a value to a pointer; the empty value maps to a nil pointer.
+func Convert_v1beta2_SSHStatus_To_v1beta1_SSHStatus(in *infrav2.SSHStatus, out *SSHStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_SSHStatus_To_v1beta1_SSHStatus(in, out, s); err != nil {
+		return err
+	}
+	if in.OSKey.IsDefined() {
+		out.OSKey = &SSHKey{}
+		if err := Convert_v1beta2_SSHKey_To_v1beta1_SSHKey(&in.OSKey, out.OSKey, s); err != nil {
+			return err
+		}
+	}
+	if in.RescueKey.IsDefined() {
+		out.RescueKey = &SSHKey{}
+		if err := Convert_v1beta2_SSHKey_To_v1beta1_SSHKey(&in.RescueKey, out.RescueKey, s); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -782,7 +835,7 @@ func Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(in *HCloudMa
 	}
 
 	if in.ImageURL != "" || in.ImageURLCommand != "" {
-		out.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		out.CustomProvisioner = infrav2.HCloudCustomProvisioner{
 			URL:     in.ImageURL,
 			Command: in.ImageURLCommand,
 		}
@@ -799,7 +852,12 @@ func Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in *infrav2.
 		return err
 	}
 
-	if in.CustomProvisioner != nil {
+	// v1beta2 stores an unset providerID as "", v1beta1 as a nil pointer.
+	if in.ProviderID == "" {
+		out.ProviderID = nil
+	}
+
+	if in.CustomProvisioner.IsDefined() {
 		out.ImageURL = in.CustomProvisioner.URL
 		out.ImageURLCommand = in.CustomProvisioner.Command
 	}
@@ -829,9 +887,17 @@ func Convert_v1beta2_HetznerBareMetalMachineTemplateResource_To_v1beta1_HetznerB
 // to v1beta2. The v1beta1 installImage field carries both provisioning flows; v1beta2 splits them, so an
 // installImage that sets imageURLCommand becomes a customProvisioner.
 func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in *HetznerBareMetalMachineSpec, out *infrav2.HetznerBareMetalMachineSpec, s apiconversion.Scope) error {
-	// The generated converter handles every field except installImage, which it cannot map.
+	// The generated converter handles every field except hostSelector, which it cannot map.
 	if err := autoConvert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in, out, s); err != nil {
 		return err
+	}
+
+	// hostSelector changes from a value to a pointer; the empty value maps to a nil pointer.
+	if !reflect.DeepEqual(in.HostSelector, HostSelector{}) {
+		out.HostSelector = &infrav2.HostSelector{}
+		if err := Convert_v1beta1_HostSelector_To_v1beta2_HostSelector(&in.HostSelector, out.HostSelector, s); err != nil {
+			return err
+		}
 	}
 
 	if in.InstallImage.UsesImageURLCommand() {
@@ -839,30 +905,40 @@ func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMach
 		// The v1beta1 webhook forbids image name and path when imageURLCommand is
 		// set, so those are always empty here. The remaining installImage fields (partitions, RAID
 		// level, post-install script) have no equivalent on customProvisioner.
-		out.CustomProvisioner = &infrav2.CustomProvisioner{
+		out.InstallImage = infrav2.InstallImage{}
+		out.CustomProvisioner = infrav2.CustomProvisioner{
 			URL:              in.InstallImage.Image.URL,
 			Command:          in.InstallImage.ImageURLCommand,
 			DeviceStringType: infrav2.DeviceStringType(in.InstallImage.DeviceStringType),
 			Swraid:           in.InstallImage.Swraid,
 		}
-		return nil
 	}
-
-	out.InstallImage = &infrav2.InstallImage{}
-	return Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(&in.InstallImage, out.InstallImage, s)
+	return nil
 }
 
 // Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec converts the v1beta2 spec
 // back to v1beta1. It is the inverse of the split above: a customProvisioner maps back to the imageURLCommand
 // fields of the single v1beta1 installImage.
 func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in *infrav2.HetznerBareMetalMachineSpec, out *HetznerBareMetalMachineSpec, s apiconversion.Scope) error {
-	// The generated converter handles every field except installImage and customProvisioner, which it cannot map.
+	// The generated converter handles every field except customProvisioner and hostSelector, which it cannot map.
 	if err := autoConvert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in, out, s); err != nil {
 		return err
 	}
 
+	// v1beta2 stores an unset providerID as "", v1beta1 as a nil pointer.
+	if in.ProviderID == "" {
+		out.ProviderID = nil
+	}
+
+	// hostSelector changes from a pointer to a value; a nil pointer maps to the empty value.
+	if in.HostSelector != nil {
+		if err := Convert_v1beta2_HostSelector_To_v1beta1_HostSelector(in.HostSelector, &out.HostSelector, s); err != nil {
+			return err
+		}
+	}
+
 	// The machine webhook rejects both being set. If both are somehow set here, customProvisioner wins.
-	if in.CustomProvisioner != nil {
+	if in.CustomProvisioner.IsDefined() {
 		out.InstallImage = InstallImage{
 			Image:            Image{URL: in.CustomProvisioner.URL},
 			ImageURLCommand:  in.CustomProvisioner.Command,
@@ -874,18 +950,27 @@ func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMach
 			// value". We set an empty list to avoid this error.
 			Partitions: []Partition{},
 		}
-		return nil
 	}
+	return nil
+}
 
-	if in.InstallImage != nil {
-		return Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(in.InstallImage, &out.InstallImage, s)
+// Convert_v1beta2_HostSelectorRequirement_To_v1beta1_HostSelectorRequirement converts a v1beta2
+// HostSelectorRequirement back to v1beta1. The v1beta1 schema requires values. v1beta2 leaves an empty
+// list out of the JSON, so values reaches this function as nil. We set an empty list, so an
+// expression like "operator: Exists, values: []" keeps its values field.
+func Convert_v1beta2_HostSelectorRequirement_To_v1beta1_HostSelectorRequirement(in *infrav2.HostSelectorRequirement, out *HostSelectorRequirement, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_HostSelectorRequirement_To_v1beta1_HostSelectorRequirement(in, out, s); err != nil {
+		return err
+	}
+	if out.Values == nil {
+		out.Values = []string{}
 	}
 	return nil
 }
 
 // Convert_v1beta1_InstallImage_To_v1beta2_InstallImage converts a v1beta1 InstallImage to v1beta2. The
 // v1beta1-only imageURLCommand and deviceStringType fields belong to the custom provisioner flow, which the
-// spec converter maps to customProvisioner instead, so they are dropped here.
+// spec converter maps to customProvisioner instead, so they are removed here.
 func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out *infrav2.InstallImage, s apiconversion.Scope) error {
 	return autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in, out, s)
 }
@@ -1455,9 +1540,16 @@ func Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in *Hetzne
 // Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec converts the v1beta2
 // HetznerClusterSpec back to v1beta1, mapping the value controlPlaneEndpoint to the pointer type.
 // A zero endpoint maps to a nil pointer.
+//
+// The v1beta1 schema requires controlPlaneRegions. v1beta2 leaves an empty list out of the JSON, so
+// a nil list maps to an empty list. This keeps a v1beta1 "controlPlaneRegions: []" as it is.
 func Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in *infrav2.HetznerClusterSpec, out *HetznerClusterSpec, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in, out, s); err != nil {
 		return err
+	}
+
+	if out.ControlPlaneRegions == nil {
+		out.ControlPlaneRegions = []Region{}
 	}
 
 	if in.ControlPlaneEndpoint != (infrav2.APIEndpoint{}) {
@@ -1472,20 +1564,51 @@ func Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(in *infrav
 
 // Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys converts the v1beta1 HetznerSSHKeys to
 // v1beta2, mapping the renamed robotRescueSecretRef field to rescueSecretRef.
+//
+// An empty hcloud list becomes nil. Both versions leave an empty list out of the JSON, so this
+// changes nothing on the wire. It keeps a v1beta1 object with "hcloud: []" from becoming an empty
+// sshKeys object in v1beta2, which the minimum of one property would reject.
 func Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(in *HetznerSSHKeys, out *infrav2.HetznerSSHKeys, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(in, out, s); err != nil {
 		return err
 	}
-	return Convert_v1beta1_SSHSecretRef_To_v1beta2_SSHSecretRef(&in.RobotRescueSecretRef, &out.RescueSecretRef, s)
+	if len(out.HCloud) == 0 {
+		out.HCloud = nil
+	}
+
+	// rescueSecretRef changes from a value to a pointer; the empty value maps to a nil pointer.
+	if in.RobotRescueSecretRef != (SSHSecretRef{}) {
+		out.RescueSecretRef = &infrav2.SSHSecretRef{}
+		return Convert_v1beta1_SSHSecretRef_To_v1beta2_SSHSecretRef(&in.RobotRescueSecretRef, out.RescueSecretRef, s)
+	}
+	return nil
 }
 
 // Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys converts the v1beta2 HetznerSSHKeys back
-// to v1beta1, mapping the renamed rescueSecretRef field back to robotRescueSecretRef.
+// to v1beta1, mapping the renamed rescueSecretRef field back to robotRescueSecretRef. A nil
+// rescueSecretRef maps to the empty value.
 func Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(in *infrav2.HetznerSSHKeys, out *HetznerSSHKeys, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(in, out, s); err != nil {
 		return err
 	}
-	return Convert_v1beta2_SSHSecretRef_To_v1beta1_SSHSecretRef(&in.RescueSecretRef, &out.RobotRescueSecretRef, s)
+	if in.RescueSecretRef != nil {
+		return Convert_v1beta2_SSHSecretRef_To_v1beta1_SSHSecretRef(in.RescueSecretRef, &out.RobotRescueSecretRef, s)
+	}
+	return nil
+}
+
+// Convert_v1beta1_Raid_To_v1beta2_Raid converts the v1beta1 Raid to v1beta2. An empty wwn list becomes
+// nil. Both versions leave an empty list out of the JSON, so this changes nothing on the wire. It keeps
+// a v1beta1 object with "wwn: []" from becoming an empty raid object in v1beta2, which the minimum of
+// one property would reject.
+func Convert_v1beta1_Raid_To_v1beta2_Raid(in *Raid, out *infrav2.Raid, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_Raid_To_v1beta2_Raid(in, out, s); err != nil {
+		return err
+	}
+	if len(out.WWN) == 0 {
+		out.WWN = nil
+	}
+	return nil
 }
 
 // Convert_Pointer_int_To_int32 converts a v1beta1 *int to a v1beta2 int32. A nil pointer maps to 0,

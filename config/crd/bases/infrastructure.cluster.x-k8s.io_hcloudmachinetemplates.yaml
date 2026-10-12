@@ -554,6 +554,7 @@ spec:
             type: object
           status:
             description: status is the observed state of HCloudMachineTemplate.
+            minProperties: 1
             properties:
               capacity:
                 additionalProperties:

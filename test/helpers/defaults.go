@@ -73,7 +73,7 @@ func WithError(errorType infrav2.ErrorType, errorMessage string) HostOpts {
 // WithOngoingReboot gives the option to define a host that waits for a reboot sent at triggeredAt.
 func WithOngoingReboot(rebootType infrav2.RebootType, triggeredAt metav1.Time) HostOpts {
 	return func(host *infrav2.HetznerBareMetalHost) {
-		host.Status.OngoingReboot = &infrav2.OngoingReboot{
+		host.Status.OngoingReboot = infrav2.OngoingReboot{
 			Type:        rebootType,
 			TriggeredAt: triggeredAt,
 		}
@@ -120,11 +120,11 @@ func WithClusterNameLabel(clusterName string) HostOpts {
 func WithSSHStatus() HostOpts {
 	return func(host *infrav2.HetznerBareMetalHost) {
 		host.Status.SSHStatus = infrav2.SSHStatus{
-			OSKey: &infrav2.SSHKey{
+			OSKey: infrav2.SSHKey{
 				Name:        defaultOSSSHKeyName,
 				Fingerprint: sshFingerprint,
 			},
-			RescueKey: &infrav2.SSHKey{
+			RescueKey: infrav2.SSHKey{
 				Name:        defaultRescueSSHKeyName,
 				Fingerprint: sshFingerprint,
 			},
@@ -142,7 +142,7 @@ func WithIPv4() HostOpts {
 // WithConsumerRef gives the option to define a host with consumer ref.
 func WithConsumerRef() HostOpts {
 	return func(host *infrav2.HetznerBareMetalHost) {
-		host.Spec.ConsumerRef = &infrav2.HetznerBareMetalHostConsumerReference{
+		host.Spec.ConsumerRef = infrav2.HetznerBareMetalHostConsumerReference{
 			Name:     "bm-machine",
 			Kind:     "HetznerBareMetalMachine",
 			APIGroup: infrav2.GroupVersion.Group,
@@ -220,7 +220,7 @@ func GetDefaultHetznerClusterSpec() infrav2.HetznerClusterSpec {
 					Name: "testsshkey",
 				},
 			},
-			RescueSecretRef: infrav2.SSHSecretRef{
+			RescueSecretRef: &infrav2.SSHSecretRef{
 				Name: "rescue-ssh-secret",
 				Key: infrav2.SSHSecretKeyRef{
 					Name:       "sshkey-name",

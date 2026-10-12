@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
@@ -262,7 +263,7 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 			return actionError{err: fmt.Errorf("failed to update status of rescue SSH secret: %w", err)}
 		}
 	}
-	if err := validateSSHKey(rescueSSHSecret, hsm.reconciler.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef); err != nil {
+	if err := validateSSHKey(rescueSSHSecret, ptr.Deref(hsm.reconciler.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef, infrav2.SSHSecretRef{})); err != nil {
 		msg := fmt.Sprintf("ssh credentials for rescue system are invalid: %s", err.Error())
 		deprecatedv1beta1conditions.MarkFalse(
 			hsm.host,

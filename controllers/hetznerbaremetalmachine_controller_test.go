@@ -677,12 +677,12 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					if bmMachine.Spec.ProviderID == nil {
-						return fmt.Errorf("bmMachine.Spec.ProviderID is nil")
+					if bmMachine.Spec.ProviderID == "" {
+						return fmt.Errorf("bmMachine.Spec.ProviderID is empty")
 					}
-					if !strings.HasPrefix(*bmMachine.Spec.ProviderID, "hcloud://bm-") {
+					if !strings.HasPrefix(bmMachine.Spec.ProviderID, "hcloud://bm-") {
 						return fmt.Errorf("bmMachine.Spec.ProviderID = %q",
-							*bmMachine.Spec.ProviderID)
+							bmMachine.Spec.ProviderID)
 					}
 					return nil
 				}, timeout, time.Second).Should(Succeed())
@@ -1012,8 +1012,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				},
 				Spec: getDefaultHetznerBareMetalMachineSpec(),
 			}
-			bmMachine.Spec.HostSelector.MatchLabels = map[string]string{
-				"hcloud": "baremetalmachine-test",
+			bmMachine.Spec.HostSelector = &infrav2.HostSelector{
+				MatchLabels: map[string]string{
+					"hcloud": "baremetalmachine-test",
+				},
 			}
 
 			key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachine.Name}
@@ -1134,7 +1136,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				hbmmt.Spec = infrav2.HetznerBareMetalMachineTemplateSpec{
 					Template: infrav2.HetznerBareMetalMachineTemplateResource{
 						Spec: infrav2.HetznerBareMetalMachineSpec{
-							InstallImage: &infrav2.InstallImage{
+							InstallImage: infrav2.InstallImage{
 								Image: infrav2.Image{
 									Name: "ubuntu-24.04",
 									URL:  "https://example.com/ubuntu-24.04.tar.gz",
@@ -1182,7 +1184,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				hbmmt.Spec = infrav2.HetznerBareMetalMachineTemplateSpec{
 					Template: infrav2.HetznerBareMetalMachineTemplateResource{
 						Spec: infrav2.HetznerBareMetalMachineSpec{
-							HostSelector: infrav2.HostSelector{
+							HostSelector: &infrav2.HostSelector{
 								MatchLabels: map[string]string{
 									"key3": "value3",
 								},
@@ -1328,7 +1330,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				if err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host); err != nil {
 					return false
 				}
-				if host.Spec.ConsumerRef == nil {
+				if !host.Spec.ConsumerRef.IsDefined() {
 					return false
 				}
 
@@ -1399,7 +1401,7 @@ func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Spec: infrav2.HetznerBareMetalMachineSpec{
-			HostSelector: infrav2.HostSelector{
+			HostSelector: &infrav2.HostSelector{
 				MatchLabels: map[string]string{
 					"key": "foo",
 				},
@@ -1415,7 +1417,7 @@ func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
 			},
 		},
 		Spec: infrav2.HetznerBareMetalMachineSpec{
-			HostSelector: infrav2.HostSelector{
+			HostSelector: &infrav2.HostSelector{
 				MatchLabels: map[string]string{
 					"key": "foo",
 				},
@@ -1429,7 +1431,7 @@ func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Spec: infrav2.HetznerBareMetalMachineSpec{
-			HostSelector: infrav2.HostSelector{
+			HostSelector: &infrav2.HostSelector{
 				MatchLabels: map[string]string{
 					"key": "bar",
 				},
@@ -1442,7 +1444,7 @@ func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
 			Namespace: "test-other-namespace",
 		},
 		Spec: infrav2.HetznerBareMetalMachineSpec{
-			HostSelector: infrav2.HostSelector{
+			HostSelector: &infrav2.HostSelector{
 				MatchLabels: map[string]string{
 					"key": "foo",
 				},

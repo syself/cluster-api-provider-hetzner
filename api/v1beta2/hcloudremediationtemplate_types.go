@@ -35,10 +35,11 @@ type HCloudRemediationTemplateResource struct {
 }
 
 // HCloudRemediationTemplateStatus defines the observed state of HCloudRemediationTemplate.
+// +kubebuilder:validation:MinProperties=1
 type HCloudRemediationTemplateStatus struct {
 	// status defines the observed state of HCloudRemediation
 	// +optional
-	Status HCloudRemediationStatus `json:"status"`
+	Status HCloudRemediationStatus `json:"status,omitempty,omitzero"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -59,10 +60,10 @@ type HCloudRemediationTemplate struct {
 
 	// spec is the desired state of HCloudRemediationTemplate.
 	// +optional
-	Spec HCloudRemediationTemplateSpec `json:"spec,omitempty"`
+	Spec HCloudRemediationTemplateSpec `json:"spec,omitempty,omitzero"`
 	// status is the observed state of HCloudRemediationTemplate.
 	// +optional
-	Status HCloudRemediationTemplateStatus `json:"status,omitempty"`
+	Status HCloudRemediationTemplateStatus `json:"status,omitempty,omitzero"`
 }
 
 //+kubebuilder:object:root=true

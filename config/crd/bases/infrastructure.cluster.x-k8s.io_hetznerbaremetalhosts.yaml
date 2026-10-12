@@ -910,6 +910,7 @@ spec:
                     description: |-
                       raid is used to specify multiple storage devices. It provides the controller with information
                       on which disks a raid can be established.
+                    minProperties: 1
                     properties:
                       wwn:
                         description: |-
@@ -943,6 +944,7 @@ spec:
             type: object
           status:
             description: status is the observed state of HetznerBareMetalHost.
+            minProperties: 1
             properties:
               conditions:
                 description: |-
@@ -1088,6 +1090,7 @@ spec:
                 properties:
                   cpu:
                     description: cpu describes the CPU of the host.
+                    minProperties: 1
                     properties:
                       arch:
                         description: arch is the CPU architecture, for example x86_64.
@@ -1303,6 +1306,7 @@ spec:
               sshStatus:
                 description: sshStatus contains the name and fingerprint of the SSH
                   keys that have been used.
+                minProperties: 1
                 properties:
                   currentOS:
                     description: currentOS gives information about the secret where

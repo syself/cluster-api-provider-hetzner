@@ -67,7 +67,7 @@ type RootDeviceHints struct {
 	// raid is used to specify multiple storage devices. It provides the controller with information
 	// on which disks a raid can be established.
 	// +optional
-	Raid Raid `json:"raid,omitempty"`
+	Raid Raid `json:"raid,omitempty,omitzero"`
 }
 
 // IsValid checks whether rootDeviceHint is valid.
@@ -99,6 +99,7 @@ func (rdh *RootDeviceHints) ListOfWWN() []string {
 }
 
 // Raid can be used instead of WWN to point to multiple storage devices.
+// +kubebuilder:validation:MinProperties=1
 type Raid struct {
 	// wwn defines a list of unique storage identifiers used for raid setups.
 	// The limits are the same as in status.hardwareDetails.storage, because each entry must be the wwn of a disk from that list.
@@ -131,6 +132,14 @@ type OngoingReboot struct {
 	// triggeredAt is when we sent the reboot.
 	// +required
 	TriggeredAt metav1.Time `json:"triggeredAt,omitempty,omitzero"`
+}
+
+// IsDefined returns true if the OngoingReboot is set.
+func (r *OngoingReboot) IsDefined() bool {
+	if r == nil {
+		return false
+	}
+	return r.Type != "" || !r.TriggeredAt.IsZero()
 }
 
 const (
@@ -244,6 +253,14 @@ type HetznerBareMetalHostConsumerReference struct {
 	APIGroup string `json:"apiGroup,omitempty"`
 }
 
+// IsDefined returns true if the HetznerBareMetalHostConsumerReference is set.
+func (r *HetznerBareMetalHostConsumerReference) IsDefined() bool {
+	if r == nil {
+		return false
+	}
+	return r.Kind != "" || r.Name != "" || r.APIGroup != ""
+}
+
 // HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
 type HetznerBareMetalHostSpec struct {
 	// serverID defines the ID of the server provided by Hetzner.
@@ -260,7 +277,7 @@ type HetznerBareMetalHostSpec struct {
 	// consumerRef is a reference to the HetznerBareMetalMachine
 	// that is using this host. When it is not empty, the host is considered "in use".
 	// +optional
-	ConsumerRef *HetznerBareMetalHostConsumerReference `json:"consumerRef,omitempty"`
+	ConsumerRef HetznerBareMetalHostConsumerReference `json:"consumerRef,omitempty,omitzero"`
 
 	// maintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
 	// will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
@@ -278,6 +295,7 @@ type HetznerBareMetalHostSpec struct {
 }
 
 // HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
+// +kubebuilder:validation:MinProperties=1
 type HetznerBareMetalHostStatus struct {
 	// conditions represents the observations of a HetznerBareMetalHost's current state.
 	// Known condition types are Ready, SSHKeysAvailable, RobotCredentialsAvailable, RootDeviceHintsValidated, ProvisionSucceeded, NodeBootIDRetrieved, RebootSucceeded, Deleting, RobotRateLimitExceeded, ActionCompleted.
@@ -312,7 +330,7 @@ type HetznerBareMetalHostStatus struct {
 
 	// sshStatus contains the name and fingerprint of the SSH keys that have been used.
 	// +optional
-	SSHStatus SSHStatus `json:"sshStatus,omitempty"`
+	SSHStatus SSHStatus `json:"sshStatus,omitempty,omitzero"`
 
 	// errorType is the fatal or permanent error of the host. It is empty when the host has neither.
 	// +kubebuilder:validation:Enum="fatal error";"permanent error"
@@ -326,7 +344,7 @@ type HetznerBareMetalHostStatus struct {
 	// ongoingReboot is the reboot request we sent and are waiting to complete. It is empty when we
 	// are not waiting for a reboot.
 	// +optional
-	OngoingReboot *OngoingReboot `json:"ongoingReboot,omitempty"`
+	OngoingReboot OngoingReboot `json:"ongoingReboot,omitempty,omitzero"`
 
 	// rebooted shows whether the server is currently being rebooted.
 	// +optional
@@ -478,6 +496,7 @@ func HetznerBareMetalHostSummaryOpts() []conditions.SummaryOption {
 }
 
 // SSHStatus contains all status information about SSHStatus.
+// +kubebuilder:validation:MinProperties=1
 type SSHStatus struct {
 	// currentRescue gives information about the secret where the rescue ssh key is stored.
 	// +optional
@@ -487,10 +506,10 @@ type SSHStatus struct {
 	CurrentOS *SecretStatus `json:"currentOS,omitempty"`
 	// osKey contains name and fingerprint of the in HetznerBareMetalMachine spec specified SSH key.
 	// +optional
-	OSKey *SSHKey `json:"osKey,omitempty"`
+	OSKey SSHKey `json:"osKey,omitempty,omitzero"`
 	// rescueKey contains name and fingerprint of the in HetznerCluster spec specified SSH key.
 	// +optional
-	RescueKey *SSHKey `json:"rescueKey,omitempty"`
+	RescueKey SSHKey `json:"rescueKey,omitempty,omitzero"`
 }
 
 // SecretStatus contains the reference and the data hash of the last secret that was used.
@@ -534,6 +553,7 @@ type Capacity int64
 type ClockSpeed string
 
 // CPU describes one processor on the host.
+// +kubebuilder:validation:MinProperties=1
 type CPU struct {
 	// arch is the CPU architecture, for example x86_64.
 	// +optional
@@ -680,7 +700,7 @@ type HardwareDetails struct {
 
 	// cpu describes the CPU of the host.
 	// +optional
-	CPU CPU `json:"cpu,omitempty"`
+	CPU CPU `json:"cpu,omitempty,omitzero"`
 }
 
 // +kubebuilder:object:root=true
@@ -710,10 +730,10 @@ type HetznerBareMetalHost struct {
 
 	// spec is the desired state of HetznerBareMetalHost.
 	// +optional
-	Spec HetznerBareMetalHostSpec `json:"spec,omitempty"`
+	Spec HetznerBareMetalHostSpec `json:"spec,omitempty,omitzero"`
 	// status is the observed state of HetznerBareMetalHost.
 	// +optional
-	Status HetznerBareMetalHostStatus `json:"status,omitempty"`
+	Status HetznerBareMetalHostStatus `json:"status,omitempty,omitzero"`
 }
 
 // UpdateRescueSSHStatus modifies the ssh status with the last chosen ssh secret.
@@ -795,7 +815,7 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 // that callers holding an EventRecorder should emit as a "PermanentErrorSet" warning event.
 func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) (permanentErrorSet bool, message string) {
 	host.Status.ErrorType = errorType
-	host.Status.OngoingReboot = nil
+	host.Status.OngoingReboot = OngoingReboot{}
 
 	message = errorMessage
 	if errorType == ErrorTypePermanent {

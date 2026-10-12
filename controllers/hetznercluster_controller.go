@@ -410,8 +410,8 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	}
 
 	// Check if rescue ssh secret exists and release it if yes
-	if hetznerCluster.Spec.SSHKeys.RescueSecretRef.Name != "" {
-		rescueSSHSecretObjectKey := client.ObjectKey{Name: hetznerCluster.Spec.SSHKeys.RescueSecretRef.Name, Namespace: hetznerCluster.Namespace}
+	if rescueSecretRef := hetznerCluster.Spec.SSHKeys.RescueSecretRef; rescueSecretRef != nil && rescueSecretRef.Name != "" {
+		rescueSSHSecretObjectKey := client.ObjectKey{Name: rescueSecretRef.Name, Namespace: hetznerCluster.Namespace}
 		rescueSSHSecret, err := secretManager.ObtainSecret(ctx, rescueSSHSecretObjectKey)
 		if err != nil {
 			if apierrors.IsConflict(err) {

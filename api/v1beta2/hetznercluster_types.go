@@ -72,7 +72,7 @@ const (
 type HetznerClusterSpec struct {
 	// hcloudNetwork defines details about the private Network for Hetzner Cloud. If left empty, no private Network is configured.
 	// +optional
-	HCloudNetwork HCloudNetworkSpec `json:"hcloudNetwork"`
+	HCloudNetwork HCloudNetworkSpec `json:"hcloudNetwork,omitempty,omitzero"`
 
 	// controlPlaneRegions consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
 	// have a very low latency we could assume in some use cases that a region is behaving like a zone.
@@ -80,11 +80,11 @@ type HetznerClusterSpec struct {
 	// +optional
 	// +listType=set
 	// +kubebuilder:validation:MaxItems=100
-	ControlPlaneRegions []Region `json:"controlPlaneRegions"`
+	ControlPlaneRegions []Region `json:"controlPlaneRegions,omitempty"`
 
 	// sshKeys are cluster wide. Valid values are a valid SSH key name.
 	// +optional
-	SSHKeys HetznerSSHKeys `json:"sshKeys"`
+	SSHKeys HetznerSSHKeys `json:"sshKeys,omitempty,omitzero"`
 
 	// controlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
@@ -92,7 +92,7 @@ type HetznerClusterSpec struct {
 
 	// controlPlaneLoadBalancer is an optional configuration for customizing control plane behavior.
 	// +optional
-	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
+	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty,omitzero"`
 
 	// hcloudPlacementGroups are the placement groups that the controller creates in HCloud for this cluster.
 	// An HCloudMachine is added to one of them with placementGroupName.
@@ -134,6 +134,7 @@ type APIEndpoint struct {
 }
 
 // HetznerClusterStatus defines the observed state of HetznerCluster.
+// +kubebuilder:validation:MinProperties=1
 type HetznerClusterStatus struct {
 	// conditions represents the observations of a HetznerCluster's current state.
 	// +optional
@@ -228,10 +229,10 @@ type HetznerCluster struct {
 
 	// spec is the desired state of HetznerCluster.
 	// +optional
-	Spec HetznerClusterSpec `json:"spec,omitempty"`
+	Spec HetznerClusterSpec `json:"spec,omitempty,omitzero"`
 	// status is the observed state of HetznerCluster.
 	// +optional
-	Status HetznerClusterStatus `json:"status,omitempty"`
+	Status HetznerClusterStatus `json:"status,omitempty,omitzero"`
 }
 
 // HetznerClusterList contains a list of HetznerCluster

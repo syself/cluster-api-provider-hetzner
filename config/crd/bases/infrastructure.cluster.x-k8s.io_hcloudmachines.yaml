@@ -583,6 +583,7 @@ spec:
             type: object
           status:
             description: status is the observed state of HCloudMachine.
+            minProperties: 1
             properties:
               addresses:
                 description: addresses contain the server's associated addresses.
@@ -776,6 +777,7 @@ spec:
               externalIDs:
                 description: externalIDs contains temporary data during the provisioning
                   process
+                minProperties: 1
                 properties:
                   actionIdCreateServer:
                     description: |-

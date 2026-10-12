@@ -42,7 +42,7 @@ type HetznerClusterTemplate struct {
 
 	// spec is the desired state of HetznerClusterTemplate.
 	// +optional
-	Spec HetznerClusterTemplateSpec `json:"spec,omitempty"`
+	Spec HetznerClusterTemplateSpec `json:"spec,omitempty,omitzero"`
 }
 
 //+kubebuilder:object:root=true

@@ -351,9 +351,11 @@ spec:
             type: object
           status:
             description: status is the observed state of HCloudRemediationTemplate.
+            minProperties: 1
             properties:
               status:
                 description: status defines the observed state of HCloudRemediation
+                minProperties: 1
                 properties:
                   conditions:
                     description: |-

@@ -70,7 +70,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	var server *hcloud.Server
-	if s.scope.HCloudMachine.Spec.ProviderID != nil {
+	if s.scope.HCloudMachine.Spec.ProviderID != "" {
 		var err error
 		server, err = s.findServer(ctx)
 		if err != nil {
@@ -82,9 +82,9 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	// cannot exist).
 	if server == nil {
 		msg := "ProviderID is not set"
-		if s.scope.HCloudMachine.Spec.ProviderID != nil {
+		if s.scope.HCloudMachine.Spec.ProviderID != "" {
 			msg = fmt.Sprintf("No server found via hcloud api for providerID %q",
-				*s.scope.HCloudMachine.Spec.ProviderID)
+				s.scope.HCloudMachine.Spec.ProviderID)
 		}
 
 		if err := s.setOwnerRemediatedConditionToFailed(ctx, msg); err != nil {

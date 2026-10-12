@@ -369,7 +369,7 @@ func BareMetalHostToBareMetalMachines(c client.Client, log logr.Logger) handler.
 
 		// If this host has a consumerRef (hbmm), then reconcile the corresponding hbmm.
 		// The consuming HetznerBareMetalMachine always lives in the namespace of the host.
-		if host.Spec.ConsumerRef != nil {
+		if host.Spec.ConsumerRef.IsDefined() {
 			return []reconcile.Request{
 				{
 					NamespacedName: types.NamespacedName{

@@ -35,7 +35,7 @@ type HCloudMachineSpec struct {
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=512
-	ProviderID *string `json:"providerID,omitempty"`
+	ProviderID string `json:"providerID,omitempty"`
 
 	// type is the HCloud Machine Type for this machine. It defines the desired server type of
 	// server in Hetzner's Cloud API. You can use the hcloud CLI to get server names (`hcloud
@@ -63,7 +63,7 @@ type HCloudMachineSpec struct {
 	// customProvisioner provisions the machine with a custom command instead of an HCloud image.
 	// Exactly one of imageName or customProvisioner must be set.
 	// +optional
-	CustomProvisioner *HCloudCustomProvisioner `json:"customProvisioner,omitempty"`
+	CustomProvisioner HCloudCustomProvisioner `json:"customProvisioner,omitempty,omitzero"`
 
 	// sshKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
@@ -117,7 +117,16 @@ type HCloudCustomProvisioner struct {
 	Command string `json:"command,omitempty"`
 }
 
+// IsDefined returns true if the HCloudCustomProvisioner is set.
+func (p *HCloudCustomProvisioner) IsDefined() bool {
+	if p == nil {
+		return false
+	}
+	return p.URL != "" || p.Command != ""
+}
+
 // HCloudMachineStatus defines the observed state of HCloudMachine.
+// +kubebuilder:validation:MinProperties=1
 type HCloudMachineStatus struct {
 	// conditions represents the observations of an HCloudMachine's current state.
 	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded, ServerCreated, SSHPrivateKeyAvailable, ServerProvisioned and ServerAvailable.
@@ -175,11 +184,11 @@ type HCloudMachineStatus struct {
 	// bootStateSince is the timestamp of the last change to bootState. It is used to timeout
 	// provisioning if a state takes too long.
 	// +optional
-	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`
+	BootStateSince metav1.Time `json:"bootStateSince,omitempty,omitzero"`
 
 	// externalIDs contains temporary data during the provisioning process
 	// +optional
-	ExternalIDs HCloudMachineStatusExternalIDs `json:"externalIDs,omitempty"`
+	ExternalIDs HCloudMachineStatusExternalIDs `json:"externalIDs,omitempty,omitzero"`
 
 	// lastRemediatedAt records when the most recent successful remediation completed.
 	// Used to prevent reboot loops across successive MHC incidents.
@@ -246,6 +255,7 @@ const (
 )
 
 // HCloudMachineStatusExternalIDs holds temporary data during the provisioning process.
+// +kubebuilder:validation:MinProperties=1
 type HCloudMachineStatusExternalIDs struct {
 	// actionIdEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
 	// It is unset before the action starts, has the action ID while the action runs, and is -1 when
@@ -281,10 +291,10 @@ type HCloudMachine struct {
 
 	// spec is the desired state of HCloudMachine.
 	// +optional
-	Spec HCloudMachineSpec `json:"spec,omitempty"`
+	Spec HCloudMachineSpec `json:"spec,omitempty,omitzero"`
 	// status is the observed state of HCloudMachine.
 	// +optional
-	Status HCloudMachineStatus `json:"status,omitempty"`
+	Status HCloudMachineStatus `json:"status,omitempty,omitzero"`
 }
 
 // GetConditions returns the set of conditions for the HCloudMachine object.

@@ -79,6 +79,7 @@ func (algorithmType *LoadBalancerAlgorithmType) HCloudAlgorithmType() hcloud.Loa
 }
 
 // HetznerSSHKeys defines the global cluster-wide SSHKeys for HetznerCluster. It serves as the default for machines as well.
+// +kubebuilder:validation:MinProperties=1
 type HetznerSSHKeys struct {
 	// hcloud defines the SSH keys used for hcloud.
 	// +optional
@@ -87,8 +88,9 @@ type HetznerSSHKeys struct {
 	// +kubebuilder:validation:MaxItems=100
 	HCloud []SSHKey `json:"hcloud,omitempty"`
 	// rescueSecretRef defines the reference to the secret where the SSH key for the rescue system is stored.
+	// When it is not set, no secret with a rescue SSH key is configured.
 	// +optional
-	RescueSecretRef SSHSecretRef `json:"rescueSecretRef,omitempty"`
+	RescueSecretRef *SSHSecretRef `json:"rescueSecretRef,omitempty"`
 }
 
 // SSHKey defines the SSHKey for HCloud.
@@ -104,6 +106,14 @@ type SSHKey struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=128
 	Fingerprint string `json:"fingerprint,omitempty"`
+}
+
+// IsDefined returns true if the SSHKey is set.
+func (k *SSHKey) IsDefined() bool {
+	if k == nil {
+		return false
+	}
+	return k.Name != "" || k.Fingerprint != ""
 }
 
 // HCloudMachineType defines the HCloud Machine type.
@@ -245,6 +255,7 @@ type PublicNetworkSpec struct {
 }
 
 // LoadBalancerSpec defines the desired state of the Control Plane load balancer.
+// +kubebuilder:validation:MinProperties=1
 type LoadBalancerSpec struct {
 	// enabled specifies if a load balancer should be created.
 	// +optional
@@ -551,6 +562,7 @@ type LoadBalancerTarget struct {
 }
 
 // HCloudNetworkSpec defines the desired state of the HCloud Private Network.
+// +kubebuilder:validation:MinProperties=1
 type HCloudNetworkSpec struct {
 	// enabled defines whether the network should be enabled or not.
 	// +optional

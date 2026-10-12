@@ -68,13 +68,13 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 			name: "Immutable CustomProvisioner URL",
 			args: args{
 				oldSpec: infrav2.HCloudMachineSpec{
-					CustomProvisioner: &infrav2.HCloudCustomProvisioner{
+					CustomProvisioner: infrav2.HCloudCustomProvisioner{
 						URL:     "oci://ghcr.io/example/foo:v1",
 						Command: "custom-provisioner-v1.sh",
 					},
 				},
 				newSpec: infrav2.HCloudMachineSpec{
-					CustomProvisioner: &infrav2.HCloudCustomProvisioner{
+					CustomProvisioner: infrav2.HCloudCustomProvisioner{
 						URL:     "oci://ghcr.io/example/foo:v2",
 						Command: "custom-provisioner-v1.sh",
 					},
@@ -86,13 +86,13 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 			name: "Immutable CustomProvisioner Command",
 			args: args{
 				oldSpec: infrav2.HCloudMachineSpec{
-					CustomProvisioner: &infrav2.HCloudCustomProvisioner{
+					CustomProvisioner: infrav2.HCloudCustomProvisioner{
 						URL:     "oci://ghcr.io/example/foo:v1",
 						Command: "custom-provisioner-v1.sh",
 					},
 				},
 				newSpec: infrav2.HCloudMachineSpec{
-					CustomProvisioner: &infrav2.HCloudCustomProvisioner{
+					CustomProvisioner: infrav2.HCloudCustomProvisioner{
 						URL:     "oci://ghcr.io/example/foo:v1",
 						Command: "custom-provisioner-v2.sh",
 					},
@@ -186,7 +186,7 @@ func createPlacementGroupName(name string) *string {
 
 func TestValidateHCloudMachineSpec(t *testing.T) {
 	allErrs := validateHCloudMachineSpec(infrav2.HCloudMachineSpec{
-		CustomProvisioner: &infrav2.HCloudCustomProvisioner{
+		CustomProvisioner: infrav2.HCloudCustomProvisioner{
 			URL:     "oci://ghcr.io/example/foo:v1",
 			Command: "custom-provisioner-foo.sh",
 		},
@@ -194,7 +194,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 	require.Empty(t, allErrs)
 
 	allErrs = validateHCloudMachineSpec(infrav2.HCloudMachineSpec{
-		CustomProvisioner: &infrav2.HCloudCustomProvisioner{
+		CustomProvisioner: infrav2.HCloudCustomProvisioner{
 			URL:     "not-a-valid-url",
 			Command: "custom-provisioner-foo.sh",
 		},
@@ -203,7 +203,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 
 	allErrs = validateHCloudMachineSpec(infrav2.HCloudMachineSpec{
 		ImageName: "foo-name",
-		CustomProvisioner: &infrav2.HCloudCustomProvisioner{
+		CustomProvisioner: infrav2.HCloudCustomProvisioner{
 			URL:     "oci://ghcr.io/example/foo:v1",
 			Command: "custom-provisioner-foo.sh",
 		},
@@ -214,7 +214,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 	require.Equal(t, `spec.imageName: Invalid value: "": imageName and customProvisioner empty. One of these attributes must be set`, errorsToString(allErrs))
 
 	allErrs = validateHCloudMachineSpec(infrav2.HCloudMachineSpec{
-		CustomProvisioner: &infrav2.HCloudCustomProvisioner{
+		CustomProvisioner: infrav2.HCloudCustomProvisioner{
 			URL:     "oci://ghcr.io/example/foo:v1",
 			Command: "/shared/custom-provisioner.sh",
 		},
@@ -222,7 +222,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 	require.Equal(t, `spec.customProvisioner.command: Invalid value: "/shared/custom-provisioner.sh": must be a basename without slashes`, errorsToString(allErrs))
 
 	allErrs = validateHCloudMachineSpec(infrav2.HCloudMachineSpec{
-		CustomProvisioner: &infrav2.HCloudCustomProvisioner{
+		CustomProvisioner: infrav2.HCloudCustomProvisioner{
 			URL:     "oci://ghcr.io/example/foo:v1",
 			Command: "1bad-command",
 		},
@@ -230,7 +230,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 	require.Equal(t, `spec.customProvisioner.command: Invalid value: "1bad-command": must match the regex ^[a-z][a-z0-9._-]*$`, errorsToString(allErrs))
 
 	allErrs = validateHCloudMachineSpec(infrav2.HCloudMachineSpec{
-		CustomProvisioner: &infrav2.HCloudCustomProvisioner{
+		CustomProvisioner: infrav2.HCloudCustomProvisioner{
 			URL:     "oci://ghcr.io/example/foo:v1",
 			Command: "custom-provisioner-foo..sh",
 		},

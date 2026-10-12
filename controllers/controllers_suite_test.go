@@ -371,7 +371,7 @@ func getDefaultBootstrapSecret(namespace string) *corev1.Secret {
 
 func getDefaultHetznerBareMetalMachineSpec() infrav2.HetznerBareMetalMachineSpec {
 	return infrav2.HetznerBareMetalMachineSpec{
-		InstallImage: &infrav2.InstallImage{
+		InstallImage: infrav2.InstallImage{
 			Image: infrav2.Image{
 				Name: "image-name",
 				URL:  "https://myfile.tar.gz",

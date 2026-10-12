@@ -184,7 +184,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{}, nil
 	}
 
-	if hm.Spec.ProviderID != nil && *hm.Spec.ProviderID != "" && hm.Spec.CustomProvisioner == nil {
+	if hm.Spec.ProviderID != "" && !hm.Spec.CustomProvisioner.IsDefined() {
 		// This machine seems to be an existing machine which was created before introducing
 		// Status.BootState.
 
@@ -213,7 +213,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	// SSH private key. Check that before creating the server, so that no server gets created
 	// when the key is misconfigured. Other failures could also mean a network failure while
 	// trying to access the api-server, so they get retried.
-	if hm.Spec.CustomProvisioner != nil {
+	if hm.Spec.CustomProvisioner.IsDefined() {
 		_, err := s.getSSHPrivateKey(ctx)
 		if err != nil {
 			s.scope.Error(err, "")
@@ -1209,7 +1209,7 @@ func (s *Service) getLiveServer(ctx context.Context) (server *hcloud.Server, res
 		// The server no longer exists in HCloud, it was deleted.
 		// We set MachineError. CAPI will delete machine.
 		msg := fmt.Sprintf("hcloud server (%q) no longer available. Setting MachineError.",
-			*s.scope.HCloudMachine.Spec.ProviderID)
+			s.scope.HCloudMachine.Spec.ProviderID)
 
 		s.scope.Error(errors.New(msg), msg)
 
@@ -1295,7 +1295,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	s.scope.HCloudMachine.Status.InstanceState = infrav2.InstanceStateDeleting
 
 	// Nothing to do if ProviderID was never set.
-	if s.scope.HCloudMachine.Spec.ProviderID == nil {
+	if s.scope.HCloudMachine.Spec.ProviderID == "" {
 		return reconcile.Result{}, nil
 	}
 
@@ -1313,11 +1313,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 
 	// if no server has been found, then nothing can be deleted
 	if server == nil {
-		providerID := "nil"
-		if s.scope.HCloudMachine.Spec.ProviderID != nil {
-			providerID = *s.scope.HCloudMachine.Spec.ProviderID
-		}
-		msg := fmt.Sprintf("Unable to delete HCloud server. Could not find matching server for %s. ProviderID: %q", s.scope.Name(), providerID)
+		msg := fmt.Sprintf("Unable to delete HCloud server. Could not find matching server for %s. ProviderID: %q", s.scope.Name(), s.scope.HCloudMachine.Spec.ProviderID)
 		s.scope.V(1).Info(msg)
 		s.scope.EventRecorder.Event(
 			s.scope.HCloudMachine,
@@ -2334,7 +2330,8 @@ func updateHCloudMachineStatusFromServer(hm *infrav2.HCloudMachine, server *hclo
 // It reads the key from the Kubernetes secret referenced by HetznerCluster.Spec.SSHKeys.RescueSecretRef.
 // On failure it sets SSHPrivateKeyAvailableCondition with a specific reason describing the root cause.
 func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
-	robotSecretName := s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Name
+	rescueSecretRef := ptr.Deref(s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef, infrav2.SSHSecretRef{})
+	robotSecretName := rescueSecretRef.Name
 	if robotSecretName == "" {
 		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HCloudMachine,
@@ -2378,7 +2375,7 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
 	}
 
-	privateKey := string(robotSecret.Data[s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey])
+	privateKey := string(robotSecret.Data[rescueSecretRef.Key.PrivateKey])
 	if privateKey == "" {
 		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HCloudMachine,
@@ -2386,17 +2383,17 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 			infrav2.SSHPrivateKeyFieldEmptyV1Beta1Reason,
 			clusterv1.ConditionSeverityError,
 			"key %q in secret %q is missing or empty",
-			s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey,
+			rescueSecretRef.Key.PrivateKey,
 			robotSecretName,
 		)
 		conditions.Set(s.scope.HCloudMachine, metav1.Condition{
 			Type:    infrav2.HCloudMachineSSHPrivateKeyAvailableCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  infrav2.HCloudMachineSSHPrivateKeyFieldEmptyReason,
-			Message: fmt.Sprintf("key %q in secret %q is missing or empty", s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey, robotSecretName),
+			Message: fmt.Sprintf("key %q in secret %q is missing or empty", rescueSecretRef.Key.PrivateKey, robotSecretName),
 		})
 		return "", fmt.Errorf("key %q in secret %q is missing or empty. Failed to get ssh-private-key",
-			s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey,
+			rescueSecretRef.Key.PrivateKey,
 			robotSecretName)
 	}
 

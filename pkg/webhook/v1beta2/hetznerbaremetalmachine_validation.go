@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -35,35 +36,36 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav2.HetznerBareMetalMach
 
 	// installImage and customProvisioner are the two mutually exclusive provisioning flows.
 	switch {
-	case spec.InstallImage == nil && spec.CustomProvisioner == nil:
+	case !spec.InstallImage.IsDefined() && !spec.CustomProvisioner.IsDefined():
 		allErrs = append(allErrs,
 			field.Required(field.NewPath("spec"), "either installImage or customProvisioner must be set"),
 		)
-	case spec.InstallImage != nil && spec.CustomProvisioner != nil:
+	case spec.InstallImage.IsDefined() && spec.CustomProvisioner.IsDefined():
 		allErrs = append(allErrs,
 			field.Forbidden(field.NewPath("spec", "customProvisioner"),
 				"installImage and customProvisioner are mutually exclusive"),
 		)
-	case spec.InstallImage != nil:
-		allErrs = append(allErrs, validateInstallImage(*spec.InstallImage)...)
-	case spec.CustomProvisioner != nil:
-		allErrs = append(allErrs, validateCustomProvisioner(*spec.CustomProvisioner)...)
+	case spec.InstallImage.IsDefined():
+		allErrs = append(allErrs, validateInstallImage(spec.InstallImage)...)
+	case spec.CustomProvisioner.IsDefined():
+		allErrs = append(allErrs, validateCustomProvisioner(spec.CustomProvisioner)...)
 	}
 
 	// validate host selector
-	for labelKey, labelVal := range spec.HostSelector.MatchLabels {
+	hostSelector := ptr.Deref(spec.HostSelector, infrav2.HostSelector{})
+	for labelKey, labelVal := range hostSelector.MatchLabels {
 		if _, err := labels.NewRequirement(labelKey, selection.Equals, []string{labelVal}); err != nil {
 			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec", "hostSelector", "matchLabels"), spec.HostSelector.MatchLabels,
+				field.NewPath("spec", "hostSelector", "matchLabels"), hostSelector.MatchLabels,
 				fmt.Sprintf("invalid match label: %s", err.Error()),
 			))
 		}
 	}
-	for _, req := range spec.HostSelector.MatchExpressions {
+	for _, req := range hostSelector.MatchExpressions {
 		lowercaseOperator := selection.Operator(strings.ToLower(string(req.Operator)))
 		if _, err := labels.NewRequirement(req.Key, lowercaseOperator, req.Values); err != nil {
 			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec", "hostSelector", "matchExpressions"), spec.HostSelector.MatchExpressions,
+				field.NewPath("spec", "hostSelector", "matchExpressions"), hostSelector.MatchExpressions,
 				fmt.Sprintf("invalid match expression: %s", err.Error()),
 			))
 		}
@@ -134,9 +136,9 @@ func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec infrav2.HetznerB
 		)
 	}
 
-	if oldSpec.ProviderID != nil && *oldSpec.ProviderID != "" {
+	if oldSpec.ProviderID != "" {
 		// once the ProviderID was set, the value must not change.
-		if newSpec.ProviderID == nil || *oldSpec.ProviderID != *newSpec.ProviderID {
+		if oldSpec.ProviderID != newSpec.ProviderID {
 			allErrs = append(allErrs,
 				field.Forbidden(field.NewPath("spec", "providerID"), "providerID is immutable"),
 			)

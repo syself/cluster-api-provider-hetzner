@@ -106,7 +106,7 @@ func getDefaultHetznerClusterSpec() infrav2.HetznerClusterSpec {
 					Name: "testsshkey",
 				},
 			},
-			RescueSecretRef: infrav2.SSHSecretRef{
+			RescueSecretRef: &infrav2.SSHSecretRef{
 				Name: "rescue-ssh-secret",
 				Key: infrav2.SSHSecretKeyRef{
 					Name:       "sshkey-name",

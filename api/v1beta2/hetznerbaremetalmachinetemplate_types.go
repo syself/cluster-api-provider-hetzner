@@ -42,7 +42,7 @@ type HetznerBareMetalMachineTemplate struct {
 
 	// spec is the desired state of HetznerBareMetalMachineTemplate.
 	// +optional
-	Spec HetznerBareMetalMachineTemplateSpec `json:"spec,omitempty"`
+	Spec HetznerBareMetalMachineTemplateSpec `json:"spec,omitempty,omitzero"`
 }
 
 //+kubebuilder:object:root=true

@@ -255,6 +255,7 @@ spec:
             type: object
           status:
             description: status is the observed state of HetznerBareMetalRemediation.
+            minProperties: 1
             properties:
               lastRemediated:
                 description: |-

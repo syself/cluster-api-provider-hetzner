@@ -640,7 +640,7 @@ spec:
                 description: |-
                   hostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
                   This is used to limit the set of HetznerBareMetalHost objects considered for
-                  claiming for a HetznerBareMetalMachine.
+                  claiming for a HetznerBareMetalMachine. When it is not set, every HetznerBareMetalHost matches.
                 properties:
                   matchExpressions:
                     description: |-
@@ -904,6 +904,7 @@ spec:
                       key:
                         description: key contains details about the keys used in the
                           data of the secret.
+                        minProperties: 1
                         properties:
                           name:
                             description: name is the key in the secret's data where
@@ -936,6 +937,7 @@ spec:
             type: object
           status:
             description: status is the observed state of HetznerBareMetalMachine.
+            minProperties: 1
             properties:
               addresses:
                 description: |-

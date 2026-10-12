@@ -253,9 +253,11 @@ spec:
             type: object
           status:
             description: status is the observed state of HetznerBareMetalRemediationTemplate.
+            minProperties: 1
             properties:
               status:
                 description: status defines the observed state of HetznerBareMetalRemediation
+                minProperties: 1
                 properties:
                   lastRemediated:
                     description: |-

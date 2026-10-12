@@ -466,11 +466,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.HostSelectorRequirement)(nil), (*HostSelectorRequirement)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_HostSelectorRequirement_To_v1beta1_HostSelectorRequirement(a.(*v1beta2.HostSelectorRequirement), b.(*HostSelectorRequirement), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*Image)(nil), (*v1beta2.Image)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_Image_To_v1beta2_Image(a.(*Image), b.(*v1beta2.Image), scope)
 	}); err != nil {
@@ -581,11 +576,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*Raid)(nil), (*v1beta2.Raid)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_Raid_To_v1beta2_Raid(a.(*Raid), b.(*v1beta2.Raid), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*v1beta2.Raid)(nil), (*Raid)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta2_Raid_To_v1beta1_Raid(a.(*v1beta2.Raid), b.(*Raid), scope)
 	}); err != nil {
@@ -648,16 +638,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1beta2.SSHSpec)(nil), (*SSHSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta2_SSHSpec_To_v1beta1_SSHSpec(a.(*v1beta2.SSHSpec), b.(*SSHSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*SSHStatus)(nil), (*v1beta2.SSHStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(a.(*SSHStatus), b.(*v1beta2.SSHStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1beta2.SSHStatus)(nil), (*SSHStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta2_SSHStatus_To_v1beta1_SSHStatus(a.(*v1beta2.SSHStatus), b.(*SSHStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -796,8 +776,18 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*Raid)(nil), (*v1beta2.Raid)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_Raid_To_v1beta2_Raid(a.(*Raid), b.(*v1beta2.Raid), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*RemediationStrategy)(nil), (*v1beta2.RemediationStrategy)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(a.(*RemediationStrategy), b.(*v1beta2.RemediationStrategy), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*SSHStatus)(nil), (*v1beta2.SSHStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(a.(*SSHStatus), b.(*v1beta2.SSHStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -896,6 +886,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1beta2.HostSelectorRequirement)(nil), (*HostSelectorRequirement)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_HostSelectorRequirement_To_v1beta1_HostSelectorRequirement(a.(*v1beta2.HostSelectorRequirement), b.(*HostSelectorRequirement), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*corev1beta2.ObjectMeta)(nil), (*corev1beta1.ObjectMeta)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta2_ObjectMeta_To_v1beta1_ObjectMeta(a.(*corev1beta2.ObjectMeta), b.(*corev1beta1.ObjectMeta), scope)
 	}); err != nil {
@@ -903,6 +898,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*v1beta2.RemediationStrategy)(nil), (*RemediationStrategy)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(a.(*v1beta2.RemediationStrategy), b.(*RemediationStrategy), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta2.SSHStatus)(nil), (*SSHStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta2_SSHStatus_To_v1beta1_SSHStatus(a.(*v1beta2.SSHStatus), b.(*SSHStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -1037,7 +1037,9 @@ func Convert_v1beta2_HCloudMachineList_To_v1beta1_HCloudMachineList(in *v1beta2.
 }
 
 func autoConvert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(in *HCloudMachineSpec, out *v1beta2.HCloudMachineSpec, s conversion.Scope) error {
-	out.ProviderID = (*string)(unsafe.Pointer(in.ProviderID))
+	if err := metav1.Convert_Pointer_string_To_string(&in.ProviderID, &out.ProviderID, s); err != nil {
+		return err
+	}
 	out.Type = v1beta2.HCloudMachineType(in.Type)
 	out.ImageName = in.ImageName
 	// WARNING: in.ImageURL requires manual conversion: does not exist in peer-type
@@ -1049,7 +1051,9 @@ func autoConvert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(in *HClo
 }
 
 func autoConvert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in *v1beta2.HCloudMachineSpec, out *HCloudMachineSpec, s conversion.Scope) error {
-	out.ProviderID = (*string)(unsafe.Pointer(in.ProviderID))
+	if err := metav1.Convert_string_To_Pointer_string(&in.ProviderID, &out.ProviderID, s); err != nil {
+		return err
+	}
 	out.Type = HCloudMachineType(in.Type)
 	out.ImageName = in.ImageName
 	// WARNING: in.CustomProvisioner requires manual conversion: does not exist in peer-type
@@ -1628,16 +1632,16 @@ func Convert_v1beta2_HetznerBareMetalHostList_To_v1beta1_HetznerBareMetalHostLis
 
 func autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(in *HetznerBareMetalHostSpec, out *v1beta2.HetznerBareMetalHostSpec, s conversion.Scope) error {
 	out.ServerID = int64(in.ServerID)
-	out.RootDeviceHints = (*v1beta2.RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
-	if in.ConsumerRef != nil {
-		in, out := &in.ConsumerRef, &out.ConsumerRef
-		*out = new(v1beta2.HetznerBareMetalHostConsumerReference)
-		if err := Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference(*in, *out, s); err != nil {
+	if in.RootDeviceHints != nil {
+		in, out := &in.RootDeviceHints, &out.RootDeviceHints
+		*out = new(v1beta2.RootDeviceHints)
+		if err := Convert_v1beta1_RootDeviceHints_To_v1beta2_RootDeviceHints(*in, *out, s); err != nil {
 			return err
 		}
 	} else {
-		out.ConsumerRef = nil
+		out.RootDeviceHints = nil
 	}
+	// WARNING: in.ConsumerRef requires manual conversion: inconvertible types (*k8s.io/api/core/v1.ObjectReference vs github.com/syself/cluster-api-provider-hetzner/api/v1beta2.HetznerBareMetalHostConsumerReference)
 	out.MaintenanceMode = (*bool)(unsafe.Pointer(in.MaintenanceMode))
 	out.Description = in.Description
 	// WARNING: in.Status requires manual conversion: does not exist in peer-type
@@ -1646,16 +1650,16 @@ func autoConvert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHos
 
 func autoConvert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(in *v1beta2.HetznerBareMetalHostSpec, out *HetznerBareMetalHostSpec, s conversion.Scope) error {
 	out.ServerID = int(in.ServerID)
-	out.RootDeviceHints = (*RootDeviceHints)(unsafe.Pointer(in.RootDeviceHints))
-	if in.ConsumerRef != nil {
-		in, out := &in.ConsumerRef, &out.ConsumerRef
-		*out = new(v1.ObjectReference)
-		if err := Convert_v1beta2_HetznerBareMetalHostConsumerReference_To_v1_ObjectReference(*in, *out, s); err != nil {
+	if in.RootDeviceHints != nil {
+		in, out := &in.RootDeviceHints, &out.RootDeviceHints
+		*out = new(RootDeviceHints)
+		if err := Convert_v1beta2_RootDeviceHints_To_v1beta1_RootDeviceHints(*in, *out, s); err != nil {
 			return err
 		}
 	} else {
-		out.ConsumerRef = nil
+		out.RootDeviceHints = nil
 	}
+	// WARNING: in.ConsumerRef requires manual conversion: inconvertible types (github.com/syself/cluster-api-provider-hetzner/api/v1beta2.HetznerBareMetalHostConsumerReference vs *k8s.io/api/core/v1.ObjectReference)
 	out.MaintenanceMode = (*bool)(unsafe.Pointer(in.MaintenanceMode))
 	out.Description = in.Description
 	return nil
@@ -1736,11 +1740,13 @@ func Convert_v1beta2_HetznerBareMetalMachineList_To_v1beta1_HetznerBareMetalMach
 }
 
 func autoConvert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(in *HetznerBareMetalMachineSpec, out *v1beta2.HetznerBareMetalMachineSpec, s conversion.Scope) error {
-	out.ProviderID = (*string)(unsafe.Pointer(in.ProviderID))
-	// WARNING: in.InstallImage requires manual conversion: inconvertible types (github.com/syself/cluster-api-provider-hetzner/api/v1beta1.InstallImage vs *github.com/syself/cluster-api-provider-hetzner/api/v1beta2.InstallImage)
-	if err := Convert_v1beta1_HostSelector_To_v1beta2_HostSelector(&in.HostSelector, &out.HostSelector, s); err != nil {
+	if err := metav1.Convert_Pointer_string_To_string(&in.ProviderID, &out.ProviderID, s); err != nil {
 		return err
 	}
+	if err := Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(&in.InstallImage, &out.InstallImage, s); err != nil {
+		return err
+	}
+	// WARNING: in.HostSelector requires manual conversion: inconvertible types (github.com/syself/cluster-api-provider-hetzner/api/v1beta1.HostSelector vs *github.com/syself/cluster-api-provider-hetzner/api/v1beta2.HostSelector)
 	if err := Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(&in.SSHSpec, &out.SSHSpec, s); err != nil {
 		return err
 	}
@@ -1749,12 +1755,14 @@ func autoConvert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetal
 }
 
 func autoConvert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(in *v1beta2.HetznerBareMetalMachineSpec, out *HetznerBareMetalMachineSpec, s conversion.Scope) error {
-	out.ProviderID = (*string)(unsafe.Pointer(in.ProviderID))
-	// WARNING: in.InstallImage requires manual conversion: inconvertible types (*github.com/syself/cluster-api-provider-hetzner/api/v1beta2.InstallImage vs github.com/syself/cluster-api-provider-hetzner/api/v1beta1.InstallImage)
-	// WARNING: in.CustomProvisioner requires manual conversion: does not exist in peer-type
-	if err := Convert_v1beta2_HostSelector_To_v1beta1_HostSelector(&in.HostSelector, &out.HostSelector, s); err != nil {
+	if err := metav1.Convert_string_To_Pointer_string(&in.ProviderID, &out.ProviderID, s); err != nil {
 		return err
 	}
+	if err := Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(&in.InstallImage, &out.InstallImage, s); err != nil {
+		return err
+	}
+	// WARNING: in.CustomProvisioner requires manual conversion: does not exist in peer-type
+	// WARNING: in.HostSelector requires manual conversion: inconvertible types (*github.com/syself/cluster-api-provider-hetzner/api/v1beta2.HostSelector vs github.com/syself/cluster-api-provider-hetzner/api/v1beta1.HostSelector)
 	if err := Convert_v1beta2_SSHSpec_To_v1beta1_SSHSpec(&in.SSHSpec, &out.SSHSpec, s); err != nil {
 		return err
 	}
@@ -2412,7 +2420,17 @@ func Convert_v1beta2_HetznerSecretRef_To_v1beta1_HetznerSecretRef(in *v1beta2.He
 
 func autoConvert_v1beta1_HostSelector_To_v1beta2_HostSelector(in *HostSelector, out *v1beta2.HostSelector, s conversion.Scope) error {
 	out.MatchLabels = *(*map[string]string)(unsafe.Pointer(&in.MatchLabels))
-	out.MatchExpressions = *(*[]v1beta2.HostSelectorRequirement)(unsafe.Pointer(&in.MatchExpressions))
+	if in.MatchExpressions != nil {
+		in, out := &in.MatchExpressions, &out.MatchExpressions
+		*out = make([]v1beta2.HostSelectorRequirement, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_HostSelectorRequirement_To_v1beta2_HostSelectorRequirement(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.MatchExpressions = nil
+	}
 	return nil
 }
 
@@ -2423,7 +2441,17 @@ func Convert_v1beta1_HostSelector_To_v1beta2_HostSelector(in *HostSelector, out 
 
 func autoConvert_v1beta2_HostSelector_To_v1beta1_HostSelector(in *v1beta2.HostSelector, out *HostSelector, s conversion.Scope) error {
 	out.MatchLabels = *(*map[string]string)(unsafe.Pointer(&in.MatchLabels))
-	out.MatchExpressions = *(*[]HostSelectorRequirement)(unsafe.Pointer(&in.MatchExpressions))
+	if in.MatchExpressions != nil {
+		in, out := &in.MatchExpressions, &out.MatchExpressions
+		*out = make([]HostSelectorRequirement, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta2_HostSelectorRequirement_To_v1beta1_HostSelectorRequirement(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.MatchExpressions = nil
+	}
 	return nil
 }
 
@@ -2449,11 +2477,6 @@ func autoConvert_v1beta2_HostSelectorRequirement_To_v1beta1_HostSelectorRequirem
 	out.Operator = selection.Operator(in.Operator)
 	out.Values = *(*[]string)(unsafe.Pointer(&in.Values))
 	return nil
-}
-
-// Convert_v1beta2_HostSelectorRequirement_To_v1beta1_HostSelectorRequirement is an autogenerated conversion function.
-func Convert_v1beta2_HostSelectorRequirement_To_v1beta1_HostSelectorRequirement(in *v1beta2.HostSelectorRequirement, out *HostSelectorRequirement, s conversion.Scope) error {
-	return autoConvert_v1beta2_HostSelectorRequirement_To_v1beta1_HostSelectorRequirement(in, out, s)
 }
 
 func autoConvert_v1beta1_Image_To_v1beta2_Image(in *Image, out *v1beta2.Image, s conversion.Scope) error {
@@ -2844,11 +2867,6 @@ func autoConvert_v1beta1_Raid_To_v1beta2_Raid(in *Raid, out *v1beta2.Raid, s con
 	return nil
 }
 
-// Convert_v1beta1_Raid_To_v1beta2_Raid is an autogenerated conversion function.
-func Convert_v1beta1_Raid_To_v1beta2_Raid(in *Raid, out *v1beta2.Raid, s conversion.Scope) error {
-	return autoConvert_v1beta1_Raid_To_v1beta2_Raid(in, out, s)
-}
-
 func autoConvert_v1beta2_Raid_To_v1beta1_Raid(in *v1beta2.Raid, out *Raid, s conversion.Scope) error {
 	out.WWN = *(*[]string)(unsafe.Pointer(&in.WWN))
 	return nil
@@ -3026,14 +3044,9 @@ func autoConvert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(in *SSHStatus, out *v1be
 	} else {
 		out.CurrentOS = nil
 	}
-	out.OSKey = (*v1beta2.SSHKey)(unsafe.Pointer(in.OSKey))
-	out.RescueKey = (*v1beta2.SSHKey)(unsafe.Pointer(in.RescueKey))
+	// WARNING: in.OSKey requires manual conversion: inconvertible types (*github.com/syself/cluster-api-provider-hetzner/api/v1beta1.SSHKey vs github.com/syself/cluster-api-provider-hetzner/api/v1beta2.SSHKey)
+	// WARNING: in.RescueKey requires manual conversion: inconvertible types (*github.com/syself/cluster-api-provider-hetzner/api/v1beta1.SSHKey vs github.com/syself/cluster-api-provider-hetzner/api/v1beta2.SSHKey)
 	return nil
-}
-
-// Convert_v1beta1_SSHStatus_To_v1beta2_SSHStatus is an autogenerated conversion function.
-func Convert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(in *SSHStatus, out *v1beta2.SSHStatus, s conversion.Scope) error {
-	return autoConvert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(in, out, s)
 }
 
 func autoConvert_v1beta2_SSHStatus_To_v1beta1_SSHStatus(in *v1beta2.SSHStatus, out *SSHStatus, s conversion.Scope) error {
@@ -3055,14 +3068,9 @@ func autoConvert_v1beta2_SSHStatus_To_v1beta1_SSHStatus(in *v1beta2.SSHStatus, o
 	} else {
 		out.CurrentOS = nil
 	}
-	out.OSKey = (*SSHKey)(unsafe.Pointer(in.OSKey))
-	out.RescueKey = (*SSHKey)(unsafe.Pointer(in.RescueKey))
+	// WARNING: in.OSKey requires manual conversion: inconvertible types (github.com/syself/cluster-api-provider-hetzner/api/v1beta2.SSHKey vs *github.com/syself/cluster-api-provider-hetzner/api/v1beta1.SSHKey)
+	// WARNING: in.RescueKey requires manual conversion: inconvertible types (github.com/syself/cluster-api-provider-hetzner/api/v1beta2.SSHKey vs *github.com/syself/cluster-api-provider-hetzner/api/v1beta1.SSHKey)
 	return nil
-}
-
-// Convert_v1beta2_SSHStatus_To_v1beta1_SSHStatus is an autogenerated conversion function.
-func Convert_v1beta2_SSHStatus_To_v1beta1_SSHStatus(in *v1beta2.SSHStatus, out *SSHStatus, s conversion.Scope) error {
-	return autoConvert_v1beta2_SSHStatus_To_v1beta1_SSHStatus(in, out, s)
 }
 
 func autoConvert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in *SecretStatus, out *v1beta2.SecretStatus, s conversion.Scope) error {
