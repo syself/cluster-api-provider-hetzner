@@ -105,10 +105,15 @@ type HetznerBareMetalRemediationStatus struct {
 // HetznerBareMetalRemediation is the Schema for the hetznerbaremetalremediations API.
 type HetznerBareMetalRemediation struct {
 	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// spec is the desired state of HetznerBareMetalRemediation.
 	// +optional
 	Spec HetznerBareMetalRemediationSpec `json:"spec,omitempty"`
+	// status is the observed state of HetznerBareMetalRemediation.
 	// +optional
 	Status HetznerBareMetalRemediationStatus `json:"status,omitempty"`
 }

@@ -23,6 +23,7 @@ import (
 
 // HetznerBareMetalMachineTemplateSpec defines the desired state of HetznerBareMetalMachineTemplate.
 type HetznerBareMetalMachineTemplateSpec struct {
+	// template defines the desired state of HetznerBareMetalMachineTemplate.
 	Template HetznerBareMetalMachineTemplateResource `json:"template"`
 }
 
@@ -33,9 +34,12 @@ type HetznerBareMetalMachineTemplateSpec struct {
 // +kubebuilder:resource:path=hetznerbaremetalmachinetemplates,scope=Namespaced,categories=cluster-api,shortName=hbmmt
 type HetznerBareMetalMachineTemplate struct {
 	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// spec is the desired state of HetznerBareMetalMachineTemplate.
 	// +optional
 	Spec HetznerBareMetalMachineTemplateSpec `json:"spec,omitempty"`
 }

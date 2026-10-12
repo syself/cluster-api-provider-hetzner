@@ -808,7 +808,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HetznerClusterSpec defines the desired state of HetznerCluster.
+            description: spec is the desired state of HetznerCluster.
             properties:
               controlPlaneEndpoint:
                 description: controlPlaneEndpoint represents the endpoint used to
@@ -832,17 +832,13 @@ spec:
                   for customizing control plane behavior.
                 properties:
                   algorithm:
-                    allOf:
-                    - enum:
-                      - round_robin
-                      - least_connections
-                    - enum:
-                      - round_robin
-                      - least_connections
                     default: round_robin
                     description: algorithm defines the type of load balancer algorithm.
                       It could be round_robin or least_connections. The default value
                       is "round_robin".
+                    enum:
+                    - round_robin
+                    - least_connections
                     type: string
                   enableProxyProtocol:
                     description: |-
@@ -881,8 +877,8 @@ spec:
                           minimum: 1
                           type: integer
                         listenPort:
-                          description: listenPort, i.e. source port, defines the incoming
-                            port open on the load balancer. It must be a valid port
+                          description: listenPort defines the incoming port (source
+                            port) open on the load balancer. It must be a valid port
                             range (1-65535).
                           maximum: 65535
                           minimum: 1
@@ -985,6 +981,7 @@ spec:
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       timeoutSeconds:
                         description: |-
                           timeoutSeconds is the time in seconds to wait for a health check attempt to succeed. If
@@ -1110,14 +1107,22 @@ spec:
                 - enabled
                 type: object
               hcloudPlacementGroups:
+                description: |-
+                  hcloudPlacementGroups are the placement groups that the controller creates in HCloud for this cluster.
+                  An HCloudMachine is added to one of them with placementGroupName.
                 items:
                   description: HCloudPlacementGroupSpec defines a PlacementGroup.
                   properties:
                     name:
+                      description: |-
+                        name is the name of the placement group. The placement group in HCloud gets the name
+                        "<HetznerCluster name>-<name>".
                       minLength: 1
                       type: string
                     type:
                       default: spread
+                      description: type is the type of the placement group. The only
+                        allowed value is spread.
                       enum:
                       - spread
                       type: string
@@ -1263,7 +1268,7 @@ spec:
             - sshKeys
             type: object
           status:
-            description: HetznerClusterStatus defines the observed state of HetznerCluster.
+            description: status is the observed state of HetznerCluster.
             properties:
               conditions:
                 description: conditions represents the observations of a HetznerCluster's
@@ -1328,19 +1333,27 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               controlPlaneLoadBalancer:
-                description: LoadBalancerStatus defines the observed state of the
-                  control plane load balancer.
+                description: controlPlaneLoadBalancer is the observed state of the
+                  control plane load balancer in HCloud.
                 properties:
                   id:
+                    description: id is the ID of the load balancer in HCloud.
                     format: int64
                     type: integer
                   internalIP:
+                    description: |-
+                      internalIP is the IP address of the load balancer in the private network of the cluster.
+                      It is empty when the load balancer is not attached to that network.
                     type: string
                   ipv4:
+                    description: ipv4 is the public IPv4 address of the load balancer.
                     type: string
                   ipv6:
+                    description: ipv6 is the public IPv6 address of the load balancer.
                     type: string
                   protected:
+                    description: protected is true when the load balancer has delete
+                      protection in HCloud.
                     type: boolean
                   proxyProtocolEnabled:
                     description: |-
@@ -1350,17 +1363,23 @@ spec:
                       protocol is in progress (see the field's docs for details).
                     type: boolean
                   targets:
+                    description: targets is the list of servers and IP addresses that
+                      the load balancer sends traffic to.
                     items:
                       description: LoadBalancerTarget defines the target of a load
                         balancer.
                       properties:
                         ip:
+                          description: ip is the IP address of the target. It is only
+                            set when type is ip.
                           type: string
                         serverID:
+                          description: serverID is the ID of the HCloud server. It
+                            is only set when type is server.
                           format: int64
                           type: integer
                         type:
-                          description: LoadBalancerTargetType defines the target type.
+                          description: type is the type of the target, server or ip.
                           enum:
                           - server
                           - ip
@@ -1475,11 +1494,14 @@ spec:
                 - name
                 x-kubernetes-list-type: map
               hcloudPlacementGroups:
+                description: hcloudPlacementGroups are the placement groups in HCloud
+                  that belong to this cluster.
                 items:
                   description: HCloudPlacementGroupStatus returns the status of a
                     Placementgroup.
                   properties:
                     id:
+                      description: id is the ID of the placement group in HCloud.
                       format: int64
                       type: integer
                     name:
@@ -1488,12 +1510,16 @@ spec:
                         list-map keyed on name, and a list-map key must be a required (or defaulted) property.
                       type: string
                     servers:
+                      description: servers are the IDs of the HCloud servers in the
+                        placement group.
                       items:
                         format: int64
                         type: integer
                       type: array
                       x-kubernetes-list-type: set
                     type:
+                      description: type is the type of the placement group in HCloud,
+                        for example spread.
                       type: string
                   required:
                   - name
@@ -1516,16 +1542,19 @@ spec:
                     type: boolean
                 type: object
               networkStatus:
-                description: NetworkStatus defines the observed state of the HCloud
-                  Private Network.
+                description: networkStatus is the observed state of the HCloud private
+                  network of the cluster.
                 properties:
                   attachedServers:
+                    description: attachedServers are the IDs of the HCloud servers
+                      that are attached to the network.
                     items:
                       format: int64
                       type: integer
                     type: array
                     x-kubernetes-list-type: set
                   id:
+                    description: id is the ID of the network in HCloud.
                     format: int64
                     type: integer
                 type: object

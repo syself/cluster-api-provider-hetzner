@@ -577,10 +577,10 @@ spec:
           metadata:
             type: object
           spec:
-            description: HetznerClusterTemplateSpec defines the desired state of HetznerClusterTemplate.
+            description: spec is the desired state of HetznerClusterTemplate.
             properties:
               template:
-                description: HetznerClusterTemplateResource contains spec for HetznerClusterSpec.
+                description: template defines the desired state of HetznerClusterTemplate.
                 properties:
                   metadata:
                     description: |-
@@ -608,7 +608,8 @@ spec:
                         type: object
                     type: object
                   spec:
-                    description: HetznerClusterSpec defines the desired state of HetznerCluster.
+                    description: spec is the specification of the desired behavior
+                      of the HetznerCluster.
                     properties:
                       controlPlaneEndpoint:
                         description: controlPlaneEndpoint represents the endpoint
@@ -634,17 +635,13 @@ spec:
                           for customizing control plane behavior.
                         properties:
                           algorithm:
-                            allOf:
-                            - enum:
-                              - round_robin
-                              - least_connections
-                            - enum:
-                              - round_robin
-                              - least_connections
                             default: round_robin
                             description: algorithm defines the type of load balancer
                               algorithm. It could be round_robin or least_connections.
                               The default value is "round_robin".
+                            enum:
+                            - round_robin
+                            - least_connections
                             type: string
                           enableProxyProtocol:
                             description: |-
@@ -684,9 +681,9 @@ spec:
                                   minimum: 1
                                   type: integer
                                 listenPort:
-                                  description: listenPort, i.e. source port, defines
-                                    the incoming port open on the load balancer. It
-                                    must be a valid port range (1-65535).
+                                  description: listenPort defines the incoming port
+                                    (source port) open on the load balancer. It must
+                                    be a valid port range (1-65535).
                                   maximum: 65535
                                   minimum: 1
                                   type: integer
@@ -789,6 +786,7 @@ spec:
                                 items:
                                   type: string
                                 type: array
+                                x-kubernetes-list-type: atomic
                               timeoutSeconds:
                                 description: |-
                                   timeoutSeconds is the time in seconds to wait for a health check attempt to succeed. If
@@ -917,14 +915,22 @@ spec:
                         - enabled
                         type: object
                       hcloudPlacementGroups:
+                        description: |-
+                          hcloudPlacementGroups are the placement groups that the controller creates in HCloud for this cluster.
+                          An HCloudMachine is added to one of them with placementGroupName.
                         items:
                           description: HCloudPlacementGroupSpec defines a PlacementGroup.
                           properties:
                             name:
+                              description: |-
+                                name is the name of the placement group. The placement group in HCloud gets the name
+                                "<HetznerCluster name>-<name>".
                               minLength: 1
                               type: string
                             type:
                               default: spread
+                              description: type is the type of the placement group.
+                                The only allowed value is spread.
                               enum:
                               - spread
                               type: string

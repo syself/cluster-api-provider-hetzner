@@ -310,7 +310,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HCloudRemediationSpec defines the desired state of HCloudRemediation.
+            description: spec is the desired state of HCloudRemediation.
             properties:
               strategy:
                 description: strategy field defines remediation strategy.
@@ -348,7 +348,7 @@ spec:
                 type: object
             type: object
           status:
-            description: HCloudRemediationStatus defines the observed state of HCloudRemediation.
+            description: status is the observed state of HCloudRemediation.
             properties:
               conditions:
                 description: |-

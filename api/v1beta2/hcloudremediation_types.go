@@ -30,6 +30,14 @@ type HCloudRemediationSpec struct {
 
 // HCloudRemediationStatus defines the observed state of HCloudRemediation.
 type HCloudRemediationStatus struct {
+	// conditions represents the observations of a HCloudRemediation's current state.
+	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded and RemediationSkipped.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
 	// phase represents the current phase of machine remediation.
 	// One of Running, Waiting, Deleting machine or Succeeded.
 	// +optional
@@ -44,14 +52,6 @@ type HCloudRemediationStatus struct {
 	// A zero value is treated as absent.
 	// +optional
 	LastRemediated metav1.Time `json:"lastRemediated,omitempty,omitzero"`
-
-	// conditions represents the observations of a HCloudRemediation's current state.
-	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded and RemediationSkipped.
-	// +optional
-	// +listType=map
-	// +listMapKey=type
-	// +kubebuilder:validation:MaxItems=32
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// deprecated groups all the status fields that are deprecated and will be removed when support for v1beta1 is dropped.
 	// +optional
@@ -93,10 +93,15 @@ type HCloudRemediationV1Beta1DeprecatedStatus struct {
 // HCloudRemediation is the Schema for the hcloudremediations API.
 type HCloudRemediation struct {
 	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// spec is the desired state of HCloudRemediation.
 	// +optional
 	Spec HCloudRemediationSpec `json:"spec,omitempty"`
+	// status is the observed state of HCloudRemediation.
 	// +optional
 	Status HCloudRemediationStatus `json:"status,omitempty"`
 }

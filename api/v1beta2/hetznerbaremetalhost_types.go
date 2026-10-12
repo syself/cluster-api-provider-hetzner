@@ -98,6 +98,7 @@ func (rdh *RootDeviceHints) ListOfWWN() []string {
 // Raid can be used instead of WWN to point to multiple storage devices.
 type Raid struct {
 	// wwn defines a list of unique storage identifiers used for raid setups.
+	// +listType=atomic
 	WWN []string `json:"wwn,omitempty"`
 }
 
@@ -122,7 +123,7 @@ type OngoingReboot struct {
 
 	// triggeredAt is when we sent the reboot.
 	// +required
-	TriggeredAt metav1.Time `json:"triggeredAt,omitzero"`
+	TriggeredAt metav1.Time `json:"triggeredAt,omitempty,omitzero"`
 }
 
 const (
@@ -201,6 +202,8 @@ func VerboseRebootType(rebootType RebootType) string {
 
 // RebootAnnotationArguments defines the arguments of the RebootAnnotation type.
 type RebootAnnotationArguments struct {
+	// type is the requested reboot type. The HetznerBareMetalHost controller does not read it and
+	// chooses the reboot type itself.
 	Type RebootType `json:"type"`
 }
 
@@ -258,6 +261,14 @@ type HetznerBareMetalHostSpec struct {
 
 // HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
 type HetznerBareMetalHostStatus struct {
+	// conditions represents the observations of a HetznerBareMetalHost's current state.
+	// Known condition types are Ready, SSHKeysAvailable, RobotCredentialsAvailable, RootDeviceHintsValidated, ProvisionSucceeded, NodeBootIDRetrieved, RebootSucceeded, Deleting, RobotRateLimitExceeded, ActionCompleted.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
 	// hardwareDetails are automatically gathered and should not be modified by the user.
 	// +optional
 	HardwareDetails *HardwareDetails `json:"hardwareDetails,omitempty"`
@@ -300,14 +311,6 @@ type HetznerBareMetalHostStatus struct {
 	// nodeBootID reflects the BootID of the corresponding Node resource in the workload-cluster.
 	// +optional
 	NodeBootID string `json:"nodeBootID,omitempty"`
-
-	// conditions represents the observations of a HetznerBareMetalHost's current state.
-	// Known condition types are Ready, SSHKeysAvailable, RobotCredentialsAvailable, RootDeviceHintsValidated, ProvisionSucceeded, NodeBootIDRetrieved, RebootSucceeded, Deleting, RobotRateLimitExceeded, ActionCompleted.
-	// +optional
-	// +listType=map
-	// +listMapKey=type
-	// +kubebuilder:validation:MaxItems=32
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// deprecated groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
 	// +optional
@@ -464,8 +467,11 @@ type SSHStatus struct {
 
 // SecretStatus contains the reference and the data hash of the last secret that was used.
 type SecretStatus struct {
+	// credentials is the name and namespace of the secret.
 	Reference *corev1.SecretReference `json:"credentials,omitempty"`
-	DataHash  []byte                  `json:"credentialsDataHash,omitempty"`
+
+	// credentialsDataHash is the SHA256 hash of the secret data.
+	DataHash []byte `json:"credentialsDataHash,omitempty"`
 }
 
 // Match compares the saved status information with the name and
@@ -497,11 +503,20 @@ type ClockSpeed string
 
 // CPU describes one processor on the host.
 type CPU struct {
-	Arch           string     `json:"arch,omitempty"`
-	Model          string     `json:"model,omitempty"`
+	// arch is the CPU architecture, for example x86_64.
+	Arch string `json:"arch,omitempty"`
+
+	// model is the CPU model name.
+	Model string `json:"model,omitempty"`
+
+	// clockGigahertz is the maximum clock speed of the CPU in GHz.
 	ClockGigahertz ClockSpeed `json:"clockGigahertz,omitempty"`
-	Threads        int        `json:"threads,omitempty"`
-	Cores          int        `json:"cores,omitempty"`
+
+	// threads is the number of logical CPUs of the host.
+	Threads int `json:"threads,omitempty"`
+
+	// cores is the number of CPU cores. The controller does not set it.
+	Cores int `json:"cores,omitempty"`
 }
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
@@ -559,14 +574,21 @@ type NIC struct {
 // HardwareDetails collects all of the information about hardware
 // discovered on the host.
 type HardwareDetails struct {
+	// ramGB is the total memory of the host in GB.
 	RAMGB int `json:"ramGB,omitempty"`
+
+	// nics is the list of network interfaces of the host that are up, with one entry for each IP address.
 	// +optional
 	// +listType=atomic
 	NIC []NIC `json:"nics,omitempty"`
+
+	// storage is the list of storage devices of the host.
 	// +optional
 	// +listType=atomic
 	Storage []Storage `json:"storage,omitempty"`
-	CPU     CPU       `json:"cpu,omitempty"`
+
+	// cpu describes the CPU of the host.
+	CPU CPU `json:"cpu,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -588,10 +610,14 @@ type HardwareDetails struct {
 
 // HetznerBareMetalHost is the Schema for the hetznerbaremetalhosts API.
 type HetznerBareMetalHost struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HetznerBareMetalHostSpec   `json:"spec,omitempty"`
+	// spec is the desired state of HetznerBareMetalHost.
+	Spec HetznerBareMetalHostSpec `json:"spec,omitempty"`
+	// status is the observed state of HetznerBareMetalHost.
 	Status HetznerBareMetalHostStatus `json:"status,omitempty"`
 }
 

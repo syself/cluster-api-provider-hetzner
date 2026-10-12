@@ -252,10 +252,14 @@ type HCloudMachineStatusExternalIDs struct {
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message",priority=1
 // +k8s:defaulter-gen=true
 type HCloudMachine struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HCloudMachineSpec   `json:"spec,omitempty"`
+	// spec is the desired state of HCloudMachine.
+	Spec HCloudMachineSpec `json:"spec,omitempty"`
+	// status is the observed state of HCloudMachine.
 	Status HCloudMachineStatus `json:"status,omitempty"`
 }
 

@@ -201,8 +201,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HetznerBareMetalRemediationSpec defines the desired state
-              of HetznerBareMetalRemediation.
+            description: spec is the desired state of HetznerBareMetalRemediation.
             properties:
               strategy:
                 description: strategy field defines the remediation strategy to be
@@ -252,8 +251,7 @@ spec:
                 type: object
             type: object
           status:
-            description: HetznerBareMetalRemediationStatus defines the observed state
-              of HetznerBareMetalRemediation.
+            description: status is the observed state of HetznerBareMetalRemediation.
             properties:
               lastRemediated:
                 description: |-

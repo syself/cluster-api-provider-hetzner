@@ -296,12 +296,10 @@ spec:
           metadata:
             type: object
           spec:
-            description: HCloudRemediationTemplateSpec defines the desired state of
-              HCloudRemediationTemplate.
+            description: spec is the desired state of HCloudRemediationTemplate.
             properties:
               template:
-                description: HCloudRemediationTemplateResource describes the data
-                  needed to create a HCloudRemediation from a template.
+                description: template defines the desired state of HCloudRemediationTemplate.
                 properties:
                   spec:
                     description: spec is the specification of the desired behavior
@@ -349,8 +347,7 @@ spec:
             - template
             type: object
           status:
-            description: HCloudRemediationTemplateStatus defines the observed state
-              of HCloudRemediationTemplate.
+            description: status is the observed state of HCloudRemediationTemplate.
             properties:
               status:
                 description: status defines the observed state of HCloudRemediation
@@ -509,8 +506,6 @@ spec:
                     format: int32
                     type: integer
                 type: object
-            required:
-            - status
             type: object
         type: object
     served: true

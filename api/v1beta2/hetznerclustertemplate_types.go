@@ -23,6 +23,7 @@ import (
 
 // HetznerClusterTemplateSpec defines the desired state of HetznerClusterTemplate.
 type HetznerClusterTemplateSpec struct {
+	// template defines the desired state of HetznerClusterTemplate.
 	Template HetznerClusterTemplateResource `json:"template"`
 }
 
@@ -32,9 +33,12 @@ type HetznerClusterTemplateSpec struct {
 
 // HetznerClusterTemplate is the Schema for the hetznerclustertemplates API.
 type HetznerClusterTemplate struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// spec is the desired state of HetznerClusterTemplate.
 	Spec HetznerClusterTemplateSpec `json:"spec,omitempty"`
 }
 
@@ -57,5 +61,7 @@ type HetznerClusterTemplateResource struct {
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitempty,omitzero"`
-	Spec       HetznerClusterSpec   `json:"spec"`
+
+	// spec is the specification of the desired behavior of the HetznerCluster.
+	Spec HetznerClusterSpec `json:"spec"`
 }

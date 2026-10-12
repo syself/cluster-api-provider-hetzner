@@ -90,6 +90,8 @@ type HetznerClusterSpec struct {
 	// controlPlaneLoadBalancer is an optional configuration for customizing control plane behavior.
 	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
 
+	// hcloudPlacementGroups are the placement groups that the controller creates in HCloud for this cluster.
+	// An HCloudMachine is added to one of them with placementGroupName.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
@@ -138,11 +140,15 @@ type HetznerClusterStatus struct {
 	// +optional
 	Initialization HetznerClusterInitializationStatus `json:"initialization,omitempty,omitzero"`
 
+	// networkStatus is the observed state of the HCloud private network of the cluster.
 	// +optional
 	Network *NetworkStatus `json:"networkStatus,omitempty"`
 
+	// controlPlaneLoadBalancer is the observed state of the control plane load balancer in HCloud.
+	// +optional
 	ControlPlaneLoadBalancer *LoadBalancerStatus `json:"controlPlaneLoadBalancer,omitempty"`
 
+	// hcloudPlacementGroups are the placement groups in HCloud that belong to this cluster.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
@@ -207,10 +213,14 @@ type HetznerClusterV1Beta1DeprecatedStatus struct {
 
 // HetznerCluster is the Schema for the hetznercluster API.
 type HetznerCluster struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HetznerClusterSpec   `json:"spec,omitempty"`
+	// spec is the desired state of HetznerCluster.
+	Spec HetznerClusterSpec `json:"spec,omitempty"`
+	// status is the observed state of HetznerCluster.
 	Status HetznerClusterStatus `json:"status,omitempty"`
 }
 

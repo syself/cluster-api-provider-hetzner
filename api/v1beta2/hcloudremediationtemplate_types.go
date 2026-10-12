@@ -22,6 +22,7 @@ import (
 
 // HCloudRemediationTemplateSpec defines the desired state of HCloudRemediationTemplate.
 type HCloudRemediationTemplateSpec struct {
+	// template defines the desired state of HCloudRemediationTemplate.
 	Template HCloudRemediationTemplateResource `json:"template"`
 }
 
@@ -34,6 +35,7 @@ type HCloudRemediationTemplateResource struct {
 // HCloudRemediationTemplateStatus defines the observed state of HCloudRemediationTemplate.
 type HCloudRemediationTemplateStatus struct {
 	// status defines the observed state of HCloudRemediation
+	// +optional
 	Status HCloudRemediationStatus `json:"status"`
 }
 
@@ -48,10 +50,15 @@ type HCloudRemediationTemplateStatus struct {
 // HCloudRemediationTemplate is the Schema for the hcloudremediationtemplates API.
 type HCloudRemediationTemplate struct {
 	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// spec is the desired state of HCloudRemediationTemplate.
 	// +optional
 	Spec HCloudRemediationTemplateSpec `json:"spec,omitempty"`
+	// status is the observed state of HCloudRemediationTemplate.
 	// +optional
 	Status HCloudRemediationTemplateStatus `json:"status,omitempty"`
 }

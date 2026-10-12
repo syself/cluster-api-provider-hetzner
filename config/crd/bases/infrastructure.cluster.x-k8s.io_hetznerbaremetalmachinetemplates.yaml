@@ -390,12 +390,10 @@ spec:
           metadata:
             type: object
           spec:
-            description: HetznerBareMetalMachineTemplateSpec defines the desired state
-              of HetznerBareMetalMachineTemplate.
+            description: spec is the desired state of HetznerBareMetalMachineTemplate.
             properties:
               template:
-                description: HetznerBareMetalMachineTemplateResource describes the
-                  data needed to create a HetznerBareMetalMachine from a template.
+                description: template defines the desired state of HetznerBareMetalMachineTemplate.
                 properties:
                   metadata:
                     description: metadata is the standard object's metadata.

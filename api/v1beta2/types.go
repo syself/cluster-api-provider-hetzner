@@ -108,8 +108,12 @@ type ResourceLifecycle string
 
 // HCloudPlacementGroupSpec defines a PlacementGroup.
 type HCloudPlacementGroupSpec struct {
+	// name is the name of the placement group. The placement group in HCloud gets the name
+	// "<HetznerCluster name>-<name>".
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
+
+	// type is the type of the placement group. The only allowed value is spread.
 	// +kubebuilder:validation:Enum=spread
 	// +kubebuilder:default=spread
 	Type string `json:"type,omitempty"`
@@ -117,13 +121,19 @@ type HCloudPlacementGroupSpec struct {
 
 // HCloudPlacementGroupStatus returns the status of a Placementgroup.
 type HCloudPlacementGroupStatus struct {
+	// id is the ID of the placement group in HCloud.
 	ID int64 `json:"id,omitempty"`
+
+	// servers are the IDs of the HCloud servers in the placement group.
 	// +optional
 	// +listType=set
 	Server []int64 `json:"servers,omitempty"`
+
 	// name is the placement group name. It is required because status.hcloudPlacementGroups is a
 	// list-map keyed on name, and a list-map key must be a required (or defaulted) property.
 	Name string `json:"name"`
+
+	// type is the type of the placement group in HCloud, for example spread.
 	Type string `json:"type,omitempty"`
 }
 
@@ -217,7 +227,6 @@ type LoadBalancerSpec struct {
 
 	// algorithm defines the type of load balancer algorithm. It could be round_robin or least_connections. The default value is "round_robin".
 	// +optional
-	// +kubebuilder:validation:Enum=round_robin;least_connections
 	// +kubebuilder:default=round_robin
 	Algorithm LoadBalancerAlgorithmType `json:"algorithm,omitempty"`
 
@@ -413,6 +422,7 @@ type LoadBalancerHealthCheckSpec struct {
 	// is used (see the API reference on LoadBalancerHealthCheckSpec above). Only valid when
 	// protocol is http or https.
 	// +optional
+	// +listType=atomic
 	StatusCodes []string `json:"statusCodes,omitempty"`
 }
 
@@ -422,7 +432,7 @@ type LoadBalancerServiceSpec struct {
 	// +kubebuilder:validation:Enum=http;https;tcp
 	Protocol string `json:"protocol,omitempty"`
 
-	// listenPort, i.e. source port, defines the incoming port open on the load balancer. It must be a valid port range (1-65535).
+	// listenPort defines the incoming port (source port) open on the load balancer. It must be a valid port range (1-65535).
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	ListenPort int `json:"listenPort,omitempty"`
@@ -435,14 +445,26 @@ type LoadBalancerServiceSpec struct {
 
 // LoadBalancerStatus defines the observed state of the control plane load balancer.
 type LoadBalancerStatus struct {
-	ID         int64  `json:"id,omitempty"`
-	IPv4       string `json:"ipv4,omitempty"`
-	IPv6       string `json:"ipv6,omitempty"`
+	// id is the ID of the load balancer in HCloud.
+	ID int64 `json:"id,omitempty"`
+
+	// ipv4 is the public IPv4 address of the load balancer.
+	IPv4 string `json:"ipv4,omitempty"`
+
+	// ipv6 is the public IPv6 address of the load balancer.
+	IPv6 string `json:"ipv6,omitempty"`
+
+	// internalIP is the IP address of the load balancer in the private network of the cluster.
+	// It is empty when the load balancer is not attached to that network.
 	InternalIP string `json:"internalIP,omitempty"`
+
+	// targets is the list of servers and IP addresses that the load balancer sends traffic to.
 	// +optional
 	// +listType=atomic
-	Target    []LoadBalancerTarget `json:"targets,omitempty"`
-	Protected bool                 `json:"protected,omitempty"`
+	Target []LoadBalancerTarget `json:"targets,omitempty"`
+
+	// protected is true when the load balancer has delete protection in HCloud.
+	Protected bool `json:"protected,omitempty"`
 
 	// proxyProtocolEnabled reflects whether the kube-apiserver load balancer service currently
 	// has proxy protocol enabled, as observed on the actual HCloud load balancer. This can lag
@@ -454,9 +476,14 @@ type LoadBalancerStatus struct {
 
 // LoadBalancerTarget defines the target of a load balancer.
 type LoadBalancerTarget struct {
-	Type     LoadBalancerTargetType `json:"type"`
-	ServerID int64                  `json:"serverID,omitempty"`
-	IP       string                 `json:"ip,omitempty"`
+	// type is the type of the target, server or ip.
+	Type LoadBalancerTargetType `json:"type"`
+
+	// serverID is the ID of the HCloud server. It is only set when type is server.
+	ServerID int64 `json:"serverID,omitempty"`
+
+	// ip is the IP address of the target. It is only set when type is ip.
+	IP string `json:"ip,omitempty"`
 }
 
 // HCloudNetworkSpec defines the desired state of the HCloud Private Network.
@@ -485,7 +512,10 @@ type HCloudNetworkSpec struct {
 
 // NetworkStatus defines the observed state of the HCloud Private Network.
 type NetworkStatus struct {
+	// id is the ID of the network in HCloud.
 	ID int64 `json:"id,omitempty"`
+
+	// attachedServers are the IDs of the HCloud servers that are attached to the network.
 	// +optional
 	// +listType=set
 	AttachedServers []int64 `json:"attachedServers,omitempty"`

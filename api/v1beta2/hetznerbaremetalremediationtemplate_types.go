@@ -22,6 +22,7 @@ import (
 
 // HetznerBareMetalRemediationTemplateSpec defines the desired state of HetznerBareMetalRemediationTemplate.
 type HetznerBareMetalRemediationTemplateSpec struct {
+	// template defines the desired state of HetznerBareMetalRemediationTemplate.
 	Template HetznerBareMetalRemediationTemplateResource `json:"template"`
 }
 
@@ -34,6 +35,7 @@ type HetznerBareMetalRemediationTemplateResource struct {
 // HetznerBareMetalRemediationTemplateStatus defines the observed state of HetznerBareMetalRemediationTemplate.
 type HetznerBareMetalRemediationTemplateStatus struct {
 	// status defines the observed state of HetznerBareMetalRemediation
+	// +optional
 	Status HetznerBareMetalRemediationStatus `json:"status"`
 }
 
@@ -48,10 +50,15 @@ type HetznerBareMetalRemediationTemplateStatus struct {
 // HetznerBareMetalRemediationTemplate is the Schema for the hetznerbaremetalremediationtemplates API.
 type HetznerBareMetalRemediationTemplate struct {
 	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// spec is the desired state of HetznerBareMetalRemediationTemplate.
 	// +optional
 	Spec HetznerBareMetalRemediationTemplateSpec `json:"spec,omitempty"`
+	// status is the observed state of HetznerBareMetalRemediationTemplate.
 	// +optional
 	Status HetznerBareMetalRemediationTemplateStatus `json:"status,omitempty"`
 }
