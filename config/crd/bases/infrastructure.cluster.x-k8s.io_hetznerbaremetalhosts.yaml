@@ -1308,8 +1308,14 @@ spec:
                     description: currentOS gives information about the secret where
                       the os ssh key is stored.
                     properties:
-                      credentials:
-                        description: credentials is the name and namespace of the
+                      credentialsDataHash:
+                        description: credentialsDataHash is the SHA256 hash of the
+                          secret data.
+                        format: byte
+                        maxLength: 64
+                        type: string
+                      credentialsRef:
+                        description: credentialsRef is the name and namespace of the
                           secret.
                         properties:
                           name:
@@ -1322,19 +1328,19 @@ spec:
                             type: string
                         type: object
                         x-kubernetes-map-type: atomic
-                      credentialsDataHash:
-                        description: credentialsDataHash is the SHA256 hash of the
-                          secret data.
-                        format: byte
-                        maxLength: 64
-                        type: string
                     type: object
                   currentRescue:
                     description: currentRescue gives information about the secret
                       where the rescue ssh key is stored.
                     properties:
-                      credentials:
-                        description: credentials is the name and namespace of the
+                      credentialsDataHash:
+                        description: credentialsDataHash is the SHA256 hash of the
+                          secret data.
+                        format: byte
+                        maxLength: 64
+                        type: string
+                      credentialsRef:
+                        description: credentialsRef is the name and namespace of the
                           secret.
                         properties:
                           name:
@@ -1347,12 +1353,6 @@ spec:
                             type: string
                         type: object
                         x-kubernetes-map-type: atomic
-                      credentialsDataHash:
-                        description: credentialsDataHash is the SHA256 hash of the
-                          secret data.
-                        format: byte
-                        maxLength: 64
-                        type: string
                     type: object
                   osKey:
                     description: osKey contains name and fingerprint of the in HetznerBareMetalMachine

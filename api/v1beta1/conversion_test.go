@@ -874,6 +874,39 @@ func TestHetznerBareMetalMachineFailureFieldsAreDropped(t *testing.T) {
 	}
 }
 
+// TestConvertSecretStatusCredentials checks that the v1beta1 field credentials and the v1beta2 field
+// credentialsRef have the same secret reference.
+func TestConvertSecretStatusCredentials(t *testing.T) {
+	tests := []struct {
+		name      string
+		reference *corev1.SecretReference
+	}{
+		{name: "nil stays nil", reference: nil},
+		{name: "empty reference keeps its value", reference: &corev1.SecretReference{}},
+		{name: "set reference keeps its value", reference: &corev1.SecretReference{Name: "robot-ssh", Namespace: "default"}},
+	}
+	for _, tc := range tests {
+		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
+			var got infrav2.SecretStatus
+			if err := Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(&SecretStatus{Reference: tc.reference}, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got.CredentialsRef, tc.reference) {
+				t.Fatalf("credentialsRef = %#v, want %#v", got.CredentialsRef, tc.reference)
+			}
+		})
+		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
+			var got SecretStatus
+			if err := Convert_v1beta2_SecretStatus_To_v1beta1_SecretStatus(&infrav2.SecretStatus{CredentialsRef: tc.reference}, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got.Reference, tc.reference) {
+				t.Fatalf("credentials = %#v, want %#v", got.Reference, tc.reference)
+			}
+		})
+	}
+}
+
 // TestConvertHealthCheckIntegers checks port, intervalSeconds, timeoutSeconds and retries of the load
 // balancer health check. They are *int in v1beta1 and int32 in v1beta2, where 0 means unset. A pointer
 // to 0 comes back as nil. This does not matter, because the v1beta1 validation does not allow 0.

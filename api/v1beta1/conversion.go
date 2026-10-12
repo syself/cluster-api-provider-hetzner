@@ -572,9 +572,24 @@ func restoreV1Beta1OnlyStatus(from, to *ControllerGeneratedStatus) {
 }
 
 // Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus converts the v1beta1 SecretStatus to v1beta2.
-// v1beta2 does not have credentialsVersion, because CAPH never sets it.
+// v1beta2 does not have credentialsVersion, because CAPH never sets it. The v1beta1 field credentials
+// is called credentialsRef in v1beta2.
 func Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in *SecretStatus, out *infrav2.SecretStatus, s apiconversion.Scope) error {
-	return autoConvert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in, out, s)
+	if err := autoConvert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in, out, s); err != nil {
+		return err
+	}
+	out.CredentialsRef = in.Reference
+	return nil
+}
+
+// Convert_v1beta2_SecretStatus_To_v1beta1_SecretStatus converts the v1beta2 SecretStatus back to
+// v1beta1, mapping credentialsRef back to credentials.
+func Convert_v1beta2_SecretStatus_To_v1beta1_SecretStatus(in *infrav2.SecretStatus, out *SecretStatus, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta2_SecretStatus_To_v1beta1_SecretStatus(in, out, s); err != nil {
+		return err
+	}
+	out.Reference = in.CredentialsRef
+	return nil
 }
 
 // Convert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStatusExternalIDs converts the

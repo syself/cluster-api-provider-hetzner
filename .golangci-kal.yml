@@ -29,6 +29,7 @@ linters:
               - "nofloats" # Ensure floats are not used.
               - "nomaps" # Ensure maps are not used.
               - "nonullable" # Ensure that types and fields do not have the nullable marker.
+              - "noreferences" # Ensure that field names use Ref instead of Reference.
               - "notimestamp" # Prevents usage of 'Timestamp' fields
               - "optionalorrequired" # Every field should be marked as `+optional` or `+required`.
               - "requiredfields" # Required fields should have `omitempty`, and be pointers only when the zero value is a valid value.
@@ -39,7 +40,6 @@ linters:
 
             # The linters below still have findings in api/v1beta2.
             # Each linter moves to the enable list above together with the fixes for its findings.
-            # - "noreferences" # Ensure that field names use Ref instead of Reference.
             # - "optionalfields" # Ensure that all fields marked as optional adhere to being pointers and
             #                    # having the `omitempty` value in their `json` tag where appropriate.
 

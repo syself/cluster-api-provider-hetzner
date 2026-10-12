@@ -495,9 +495,9 @@ type SSHStatus struct {
 
 // SecretStatus contains the reference and the data hash of the last secret that was used.
 type SecretStatus struct {
-	// credentials is the name and namespace of the secret.
+	// credentialsRef is the name and namespace of the secret.
 	// +optional
-	Reference *corev1.SecretReference `json:"credentials,omitempty"`
+	CredentialsRef *corev1.SecretReference `json:"credentialsRef,omitempty"`
 
 	// credentialsDataHash is the SHA256 hash of the secret data.
 	// +optional
@@ -509,11 +509,11 @@ type SecretStatus struct {
 // content of a secret object. Returns false if an error occurred.
 func (cs SecretStatus) Match(secret corev1.Secret) bool {
 	switch {
-	case cs.Reference == nil:
+	case cs.CredentialsRef == nil:
 		return false
-	case cs.Reference.Name != secret.Name:
+	case cs.CredentialsRef.Name != secret.Name:
 		return false
-	case cs.Reference.Namespace != secret.Namespace:
+	case cs.CredentialsRef.Namespace != secret.Namespace:
 		return false
 	}
 
@@ -743,7 +743,7 @@ func statusFromSecret(secret corev1.Secret) (*SecretStatus, error) {
 		return nil, fmt.Errorf("failed to calculate hash of data")
 	}
 	return &SecretStatus{
-		Reference: &corev1.SecretReference{
+		CredentialsRef: &corev1.SecretReference{
 			Name:      secret.Name,
 			Namespace: secret.Namespace,
 		},
