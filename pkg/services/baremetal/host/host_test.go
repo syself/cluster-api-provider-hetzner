@@ -905,14 +905,6 @@ var _ = Describe("handleIncompleteBoot", func() {
 				expectedOngoingRebootType: infrav2.RebootTypeHardware,
 				expectedRebootType:        infrav2.RebootTypeHardware,
 			}),
-			Entry("wrong boot, OngoingReboot == RebootTypeHardware", testCaseHandleIncompleteBootDifferentResetTypes{
-				isTimeOut:                 false,
-				isConnectionRefused:       false,
-				rebootTypes:               []infrav2.RebootType{infrav2.RebootTypeSoftware, infrav2.RebootTypeHardware},
-				hostOngoingRebootType:     infrav2.RebootTypeHardware,
-				expectedOngoingRebootType: infrav2.RebootTypeHardware,
-				expectedRebootType:        infrav2.RebootTypeHardware,
-			}),
 		)
 
 		type testCaseHandleIncompleteBootDifferentTimeouts struct {
@@ -997,12 +989,41 @@ var _ = Describe("handleIncompleteBoot", func() {
 			Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
 		})
 
-		It("fails if hardware reboot times out", func() {
+		DescribeTable("fails if hardware reboot times out",
+			func(isRebootIntoRescue, isTimeOut bool) {
+				robotMock := robotmock.Client{}
+				robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
+
+				host := helpers.BareMetalHost("test-host", "default",
+					helpers.WithRebootTypes([]infrav2.RebootType{
+						infrav2.RebootTypeSoftware,
+						infrav2.RebootTypeHardware,
+						infrav2.RebootTypePower,
+					}),
+					helpers.WithSSHStatus(),
+					helpers.WithOngoingReboot(infrav2.RebootTypeHardware, metav1.NewTime(time.Now().Add(-time.Hour))),
+				)
+				service := newTestService(host, &robotMock, nil, nil, nil)
+
+				ctx := context.Background()
+				failed, err := service.handleIncompleteBoot(ctx, isRebootIntoRescue, isTimeOut, false)
+				Expect(err).ToNot(Succeed())
+				Expect(failed).To(BeTrue())
+				Expect(host.Status.OngoingReboot).ToNot(BeNil())
+				Expect(host.Status.OngoingReboot.Type).To(Equal(infrav2.RebootTypeHardware))
+				Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
+			},
+			Entry("rescue, ssh timeout", true, true),
+			Entry("rescue, wrong boot", true, false),
+			Entry("node, ssh timeout", false, true),
+			Entry("node, wrong boot", false, false),
+		)
+
+		It("waits for the hardware reboot and does not reset again after a wrong boot", func() {
 			robotMock := robotmock.Client{}
-			robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(nil, nil)
-			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
 			robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
 
+			triggeredAt := metav1.NewTime(time.Now().Add(-2 * time.Minute))
 			host := helpers.BareMetalHost("test-host", "default",
 				helpers.WithRebootTypes([]infrav2.RebootType{
 					infrav2.RebootTypeSoftware,
@@ -1010,15 +1031,19 @@ var _ = Describe("handleIncompleteBoot", func() {
 					infrav2.RebootTypePower,
 				}),
 				helpers.WithSSHStatus(),
-				helpers.WithOngoingReboot(infrav2.RebootTypeHardware, metav1.NewTime(time.Now().Add(-time.Hour))),
+				helpers.WithOngoingReboot(infrav2.RebootTypeHardware, triggeredAt),
 			)
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
 			ctx := context.Background()
-			_, err := service.handleIncompleteBoot(ctx, true, true, false)
-			Expect(err).ToNot(Succeed())
+			failed, err := service.handleIncompleteBoot(ctx, true, false, false)
+			Expect(err).To(Succeed())
+			Expect(failed).To(BeFalse())
+
+			// the hardware timeout counts from the hardware reset
 			Expect(host.Status.OngoingReboot).ToNot(BeNil())
 			Expect(host.Status.OngoingReboot.Type).To(Equal(infrav2.RebootTypeHardware))
+			Expect(host.Status.OngoingReboot.TriggeredAt).To(Equal(triggeredAt))
 			Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
 		})
 	})
