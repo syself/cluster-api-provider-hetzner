@@ -853,9 +853,8 @@ func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out 
 	return autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in, out, s)
 }
 
-// Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec converts a v1beta1 SSHSpec to v1beta2. Nothing has read
-// portAfterCloudInit since the connection after cloud init was dropped, and v1beta2 has no equivalent,
-// so the value does not survive the conversion.
+// Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec converts a v1beta1 SSHSpec to v1beta2 without
+// portAfterCloudInit, which has no v1beta2 equivalent and is never read.
 func Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in *SSHSpec, out *infrav2.SSHSpec, s apiconversion.Scope) error {
 	return autoConvert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in, out, s)
 }
