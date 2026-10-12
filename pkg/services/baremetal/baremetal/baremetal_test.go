@@ -953,7 +953,7 @@ var _ = Describe("Test analyzePatchError", func() {
 var _ = Describe("Test GenerateProviderID", func() {
 	type testCaseGenerateProviderID struct {
 		hetznerCluster     *infrav2.HetznerCluster
-		serverNumber       int
+		serverNumber       int64
 		expectedProviderID string
 	}
 

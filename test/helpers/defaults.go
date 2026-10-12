@@ -51,7 +51,7 @@ func BareMetalHost(name, namespace string, opts ...HostOpts) *infrav2.HetznerBar
 			Namespace: namespace,
 		},
 		Spec: infrav2.HetznerBareMetalHostSpec{
-			ServerID: int(serverID),
+			ServerID: int64(serverID),
 		},
 	}
 	for _, o := range opts {

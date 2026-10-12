@@ -874,6 +874,92 @@ func TestHetznerBareMetalMachineFailureFieldsAreDropped(t *testing.T) {
 	}
 }
 
+// TestConvertHealthCheckIntegers checks port, intervalSeconds, timeoutSeconds and retries of the load
+// balancer health check. They are *int in v1beta1 and int32 in v1beta2, where 0 means unset. A pointer
+// to 0 comes back as nil. This does not matter, because the v1beta1 validation does not allow 0.
+func TestConvertHealthCheckIntegers(t *testing.T) {
+	toV1Beta2 := []struct {
+		name string
+		in   *int
+		want int32
+	}{
+		{name: "nil becomes 0", in: nil, want: 0},
+		{name: "pointer to 0 becomes 0", in: ptr.To(0), want: 0},
+		{name: "pointer to 5 becomes 5", in: ptr.To(5), want: 5},
+	}
+	for _, tc := range toV1Beta2 {
+		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
+			in := LoadBalancerHealthCheckSpec{Port: tc.in, IntervalSeconds: tc.in, TimeoutSeconds: tc.in, Retries: tc.in}
+			var got infrav2.LoadBalancerHealthCheckSpec
+			if err := Convert_v1beta1_LoadBalancerHealthCheckSpec_To_v1beta2_LoadBalancerHealthCheckSpec(&in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			want := infrav2.LoadBalancerHealthCheckSpec{Port: tc.want, IntervalSeconds: tc.want, TimeoutSeconds: tc.want, Retries: tc.want}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("healthCheck = %#v, want %#v", got, want)
+			}
+		})
+	}
+
+	toV1Beta1 := []struct {
+		name string
+		in   int32
+		want *int
+	}{
+		{name: "0 becomes nil", in: 0, want: nil},
+		{name: "5 becomes a pointer to 5", in: 5, want: ptr.To(5)},
+	}
+	for _, tc := range toV1Beta1 {
+		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
+			in := infrav2.LoadBalancerHealthCheckSpec{Port: tc.in, IntervalSeconds: tc.in, TimeoutSeconds: tc.in, Retries: tc.in}
+			var got LoadBalancerHealthCheckSpec
+			if err := Convert_v1beta2_LoadBalancerHealthCheckSpec_To_v1beta1_LoadBalancerHealthCheckSpec(&in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			want := LoadBalancerHealthCheckSpec{Port: tc.want, IntervalSeconds: tc.want, TimeoutSeconds: tc.want, Retries: tc.want}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("healthCheck = %#v, want %#v", got, want)
+			}
+		})
+	}
+}
+
+// TestConvertHCloudMachineStatusExternalIDs verifies that the v1beta1 action ID 0 means unset and maps
+// to nil, while the done marker -1 and a real action ID keep their value.
+func TestConvertHCloudMachineStatusExternalIDs(t *testing.T) {
+	tests := []struct {
+		name string
+		in   int64
+		want *int64
+	}{
+		{name: "unset", in: 0, want: nil},
+		{name: "done", in: -1, want: ptr.To[int64](-1)},
+		{name: "action ID", in: 42, want: ptr.To[int64](42)},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			src := HCloudMachineStatusExternalIDs{ActionIDEnableRescueSystem: tc.in, ActionIDCreateServer: tc.in}
+
+			var hub infrav2.HCloudMachineStatusExternalIDs
+			if err := Convert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStatusExternalIDs(&src, &hub, nil); err != nil {
+				t.Fatalf("convert to v1beta2 failed: %v", err)
+			}
+			if !reflect.DeepEqual(hub.ActionIDEnableRescueSystem, tc.want) || !reflect.DeepEqual(hub.ActionIDCreateServer, tc.want) {
+				t.Fatalf("externalIDs = %#v, want both %v", hub, tc.want)
+			}
+
+			var back HCloudMachineStatusExternalIDs
+			if err := Convert_v1beta2_HCloudMachineStatusExternalIDs_To_v1beta1_HCloudMachineStatusExternalIDs(&hub, &back, nil); err != nil {
+				t.Fatalf("convert back to v1beta1 failed: %v", err)
+			}
+			if back != src {
+				t.Fatalf("externalIDs = %#v, want %#v", back, src)
+			}
+		})
+	}
+}
+
 // TestRemediationRetryToPointer verifies the v1beta1 int to v1beta2 *int32 counter
 // conversion, including the compatibility rule that v1beta1 zero maps to nil.
 func TestRemediationRetryToPointer(t *testing.T) {
@@ -1740,6 +1826,32 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			if in.CustomProvisioner != nil && *in.CustomProvisioner == (infrav2.HCloudCustomProvisioner{}) {
 				in.CustomProvisioner = nil
 			}
+		},
+		// HCloudMachine v1beta2 external IDs (hub side): v1beta1 stores an unset action ID as 0, and 0
+		// converts back to nil. So a pointer to 0 does not round trip.
+		func(in *infrav2.HCloudMachineStatusExternalIDs, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.ActionIDEnableRescueSystem != nil && *in.ActionIDEnableRescueSystem == 0 {
+				in.ActionIDEnableRescueSystem = nil
+			}
+			if in.ActionIDCreateServer != nil && *in.ActionIDCreateServer == 0 {
+				in.ActionIDCreateServer = nil
+			}
+		},
+		// LoadBalancerHealthCheckSpec v1beta1: v1beta2 stores an unset value as 0, which converts back to
+		// nil. So a pointer to 0 does not round trip.
+		func(in *LoadBalancerHealthCheckSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			for _, p := range []**int{&in.Port, &in.IntervalSeconds, &in.TimeoutSeconds, &in.Retries} {
+				if *p != nil && **p == 0 {
+					*p = nil
+				}
+			}
+		},
+		// v1beta1 uses int, v1beta2 uses int32 for the same fields. Keep the v1beta1 values in the
+		// int32 range, negative values included.
+		func(in *int, c randfill.Continue) {
+			*in = int(int32(c.Uint32())) //nolint:gosec // the overflow into negative values is wanted
 		},
 		// HCloudRemediation v1beta1 status: keep retryCount in the non-negative v1beta2 int32 range,
 		// collapse zero lastRemediated and empty condition slices to nil, and remove the V1Beta2

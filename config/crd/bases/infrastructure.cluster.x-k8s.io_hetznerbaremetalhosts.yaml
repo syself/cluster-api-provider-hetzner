@@ -935,6 +935,7 @@ spec:
                 description: |-
                   serverID defines the ID of the server provided by Hetzner.
                   Find it on your Hetzner robot dashboard.
+                format: int64
                 minimum: 1
                 type: integer
             required:
@@ -1103,6 +1104,8 @@ spec:
                       cores:
                         description: cores is the number of CPU cores. The controller
                           does not set it.
+                        format: int32
+                        minimum: 1
                         type: integer
                       model:
                         description: model is the CPU model name.
@@ -1112,6 +1115,8 @@ spec:
                       threads:
                         description: threads is the number of logical CPUs of the
                           host.
+                        format: int32
+                        minimum: 1
                         type: integer
                     type: object
                   nics:
@@ -1154,6 +1159,8 @@ spec:
                         speedMbps:
                           description: speedMbps is the speed of the device in Megabits
                             per second
+                          format: int32
+                          minimum: 1
                           type: integer
                       required:
                       - name
@@ -1163,6 +1170,8 @@ spec:
                     x-kubernetes-list-type: atomic
                   ramGB:
                     description: ramGB is the total memory of the host in GB.
+                    format: int32
+                    minimum: 1
                     type: integer
                   storage:
                     description: |-
@@ -1201,10 +1210,12 @@ spec:
                         sizeBytes:
                           description: sizeBytes is the size of the disk in Bytes.
                           format: int64
+                          minimum: 1
                           type: integer
                         sizeGB:
                           description: sizeGB is the size of the disk in GB.
                           format: int64
+                          minimum: 1
                           type: integer
                         vendor:
                           description: vendor is the name of the vendor of the device.

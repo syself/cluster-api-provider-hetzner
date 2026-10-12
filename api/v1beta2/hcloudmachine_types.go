@@ -248,12 +248,16 @@ const (
 // HCloudMachineStatusExternalIDs holds temporary data during the provisioning process.
 type HCloudMachineStatusExternalIDs struct {
 	// actionIdEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
+	// It is unset before the action starts, has the action ID while the action runs, and is -1 when
+	// the action is done.
 	// +optional
-	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`
+	ActionIDEnableRescueSystem *int64 `json:"actionIdEnableRescueSystem,omitempty"`
 
 	// actionIdCreateServer is the hcloud API Action result of CreateServer.
+	// It is unset before the action starts, has the action ID while the action runs, and is -1 when
+	// the action is done.
 	// +optional
-	ActionIDCreateServer int64 `json:"actionIdCreateServer,omitzero"`
+	ActionIDCreateServer *int64 `json:"actionIdCreateServer,omitempty"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.

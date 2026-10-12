@@ -250,7 +250,7 @@ type HetznerBareMetalHostSpec struct {
 	// Find it on your Hetzner robot dashboard.
 	// +required
 	// +kubebuilder:validation:Minimum=1
-	ServerID int `json:"serverID,omitempty"`
+	ServerID int64 `json:"serverID,omitempty"`
 
 	// rootDeviceHints provides guidance about how to choose the device for the image
 	// being provisioned. They need to be specified to provision the host.
@@ -554,11 +554,13 @@ type CPU struct {
 
 	// threads is the number of logical CPUs of the host.
 	// +optional
-	Threads int `json:"threads,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	Threads int32 `json:"threads,omitempty"`
 
 	// cores is the number of CPU cores. The controller does not set it.
 	// +optional
-	Cores int `json:"cores,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	Cores int32 `json:"cores,omitempty"`
 }
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
@@ -572,10 +574,12 @@ type Storage struct {
 
 	// sizeBytes is the size of the disk in Bytes.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	SizeBytes Capacity `json:"sizeBytes,omitempty"`
 
 	// sizeGB is the size of the disk in GB.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	SizeGB Capacity `json:"sizeGB,omitempty"`
 
 	// vendor is the name of the vendor of the device.
@@ -648,7 +652,8 @@ type NIC struct {
 
 	// speedMbps is the speed of the device in Megabits per second
 	// +optional
-	SpeedMbps int `json:"speedMbps,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	SpeedMbps int32 `json:"speedMbps,omitempty"`
 }
 
 // HardwareDetails collects all of the information about hardware
@@ -656,7 +661,8 @@ type NIC struct {
 type HardwareDetails struct {
 	// ramGB is the total memory of the host in GB.
 	// +optional
-	RAMGB int `json:"ramGB,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	RAMGB int32 `json:"ramGB,omitempty"`
 
 	// nics is the list of network interfaces of the host that are up, with one entry for each IP address.
 	// With this limit, the HetznerBareMetalMachine addresses, one for each entry here plus two, stay below the Cluster API limit of 256 addresses.

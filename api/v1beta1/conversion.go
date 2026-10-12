@@ -577,6 +577,28 @@ func Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in *SecretStatus, out 
 	return autoConvert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in, out, s)
 }
 
+// Convert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStatusExternalIDs converts the
+// v1beta1 action IDs to v1beta2. v1beta1 stores an unset action ID as 0, while v1beta2 stores it as a
+// nil pointer. The other values (the action ID, or -1 when the action is done) keep their value. The
+// generated converter for the other direction maps a nil pointer back to 0.
+func Convert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStatusExternalIDs(in *HCloudMachineStatusExternalIDs, out *infrav2.HCloudMachineStatusExternalIDs, s apiconversion.Scope) error {
+	if err := autoConvert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStatusExternalIDs(in, out, s); err != nil {
+		return err
+	}
+	out.ActionIDEnableRescueSystem = actionIDToPointer(in.ActionIDEnableRescueSystem)
+	out.ActionIDCreateServer = actionIDToPointer(in.ActionIDCreateServer)
+	return nil
+}
+
+// actionIDToPointer maps a v1beta1 action ID to the v1beta2 *int64 form. 0 means unset in v1beta1, so it
+// maps to nil.
+func actionIDToPointer(in int64) *int64 {
+	if in == 0 {
+		return nil
+	}
+	return ptr.To(in)
+}
+
 // Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus converts the v1beta1
 // HCloudMachineStatus to v1beta2. The v1beta1 status.conditions (old clusterv1beta1.Conditions) and
 // the v1beta2 status.conditions ([]metav1.Condition) share a field name but not a type and do not
@@ -1449,4 +1471,27 @@ func Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(in *infrav2.Hetzne
 		return err
 	}
 	return Convert_v1beta2_SSHSecretRef_To_v1beta1_SSHSecretRef(&in.RescueSecretRef, &out.RobotRescueSecretRef, s)
+}
+
+// Convert_Pointer_int_To_int32 converts a v1beta1 *int to a v1beta2 int32. A nil pointer maps to 0,
+// which v1beta2 leaves out of the JSON. It is used for the load balancer health check fields, whose
+// validation never allows 0.
+func Convert_Pointer_int_To_int32(in **int, out *int32, _ apiconversion.Scope) error {
+	if *in == nil {
+		*out = 0
+		return nil
+	}
+	*out = int32(**in) //nolint:gosec // the v1beta1 validation keeps these values far below the int32 limit
+	return nil
+}
+
+// Convert_int32_To_Pointer_int converts a v1beta2 int32 to a v1beta1 *int. 0 means unset in v1beta2,
+// so it maps to a nil pointer.
+func Convert_int32_To_Pointer_int(in *int32, out **int, _ apiconversion.Scope) error {
+	if *in == 0 {
+		*out = nil
+		return nil
+	}
+	*out = ptr.To(int(*in))
+	return nil
 }

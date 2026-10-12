@@ -1109,7 +1109,7 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 // (hcloud://bm-NNNN) by default. If the annotation
 // `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the HetznerCluster is set to "true"
 // (case-insensitive), then `hrobot://` is used.
-func generateProviderID(hetznerCluster *infrav2.HetznerCluster, serverNumber int) string {
+func generateProviderID(hetznerCluster *infrav2.HetznerCluster, serverNumber int64) string {
 	annotationValue := strings.TrimSpace(hetznerCluster.Annotations[infrav2.UseHrobotProviderIDForBaremetalAnnotation])
 	if strings.EqualFold(annotationValue, "true") {
 		return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber)

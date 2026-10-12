@@ -150,7 +150,7 @@ func (s *Service) setHostError(errType infrav2.ErrorType, errMessage string) {
 func (s *Service) actionPreparing(ctx context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav2.StatePreparing)
 
-	server, err := s.scope.RobotClient.GetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID)
+	server, err := s.scope.RobotClient.GetBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID))
 	if err != nil {
 		// If Robot API returned "unauthorized" error - mark condition RobotCredentialsAvailable as false
 		// with reason RobotCredentialsInvalid and stop reconciling.
@@ -262,7 +262,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 
 	// Populate reboot methods in status
 	if len(s.scope.HetznerBareMetalHost.Status.RebootTypes) == 0 {
-		reboot, err := s.scope.RobotClient.GetReboot(s.scope.HetznerBareMetalHost.Spec.ServerID)
+		reboot, err := s.scope.RobotClient.GetReboot(int(s.scope.HetznerBareMetalHost.Spec.ServerID))
 		if err != nil {
 			s.handleRobotRateLimitExceeded(err, "GetReboot")
 			return actionError{err: fmt.Errorf("failed to get reboot: %w", err)}
@@ -306,7 +306,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 	// Check if software reboot is available. If it is not, choose hardware reboot.
 	rebootType := rebootTypeAfterTimeout(s.scope.HetznerBareMetalHost)
 
-	if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
+	if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), rebootType); err != nil {
 		s.handleRobotRateLimitExceeded(err, rebootServerStr)
 		return actionError{err: fmt.Errorf(errMsgFailedReboot, err)}
 	}
@@ -318,13 +318,13 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 
 func (s *Service) enforceRescueMode() error {
 	// delete old rescue activations if exist, as the ssh key might have changed in between
-	if _, err := s.scope.RobotClient.DeleteBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID); err != nil {
+	if _, err := s.scope.RobotClient.DeleteBootRescue(int(s.scope.HetznerBareMetalHost.Spec.ServerID)); err != nil {
 		s.handleRobotRateLimitExceeded(err, "DeleteBootRescue")
 		return fmt.Errorf("failed to delete boot rescue: %w", err)
 	}
 	// Rescue system is still not active - activate again
 	if _, err := s.scope.RobotClient.SetBootRescue(
-		s.scope.HetznerBareMetalHost.Spec.ServerID,
+		int(s.scope.HetznerBareMetalHost.Spec.ServerID),
 		s.scope.HetznerBareMetalHost.Status.SSHStatus.RescueKey.Fingerprint,
 	); err != nil {
 		s.handleRobotRateLimitExceeded(err, "SetBootRescue")
@@ -504,7 +504,7 @@ func (s *Service) handleSSHRebootFailed(ctx context.Context, isSSHTimeoutError, 
 		// Check if software reboot is available. If it is not, choose hardware reboot.
 		rebootType := rebootTypeAfterTimeout(s.scope.HetznerBareMetalHost)
 
-		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
+		if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), rebootType); err != nil {
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
@@ -545,7 +545,7 @@ func (s *Service) handleSoftwareRebootFailed(ctx context.Context, isSSHTimeoutEr
 			}
 		}
 		// Perform hardware reboot
-		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav2.RebootTypeHardware); err != nil {
+		if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), infrav2.RebootTypeHardware); err != nil {
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
@@ -576,7 +576,7 @@ func (s *Service) handleHardwareRebootFailed(ctx context.Context, isSSHTimeoutEr
 			}
 		}
 
-		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav2.RebootTypeHardware); err != nil {
+		if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), infrav2.RebootTypeHardware); err != nil {
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return false, fmt.Errorf(errMsgFailedReboot, err)
 		}
@@ -630,7 +630,7 @@ func hasTimedOut(ongoingReboot *infrav2.OngoingReboot, timeout time.Duration) bo
 }
 
 func (s *Service) ensureRescueMode() error {
-	rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
+	rescue, err := s.scope.RobotClient.GetBootRescue(int(s.scope.HetznerBareMetalHost.Spec.ServerID))
 	if err != nil {
 		s.handleRobotRateLimitExceeded(err, "GetBootRescue")
 		return fmt.Errorf("failed to get boot rescue: %w", err)
@@ -638,7 +638,7 @@ func (s *Service) ensureRescueMode() error {
 	if !rescue.Active {
 		// Rescue system is still not active - activate again
 		if _, err := s.scope.RobotClient.SetBootRescue(
-			s.scope.HetznerBareMetalHost.Spec.ServerID,
+			int(s.scope.HetznerBareMetalHost.Spec.ServerID),
 			s.scope.HetznerBareMetalHost.Status.SSHStatus.RescueKey.Fingerprint,
 		); err != nil {
 			s.handleRobotRateLimitExceeded(err, "SetBootRescue")
@@ -913,7 +913,7 @@ func getHardwareDetails(ctx context.Context, sshClient sshclient.Client) (infrav
 	}
 
 	return infrav2.HardwareDetails{
-		RAMGB:   mebiBytes / gbToMebiBytes,
+		RAMGB:   int32(mebiBytes / gbToMebiBytes), //nolint:gosec // the RAM of a server in GB is far below the int32 limit
 		NIC:     nics,
 		Storage: storage,
 		CPU:     cpu,
@@ -965,7 +965,7 @@ func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, i
 }
 
 func (s *Service) rebootTriggered() (bool, error) {
-	rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
+	rescue, err := s.scope.RobotClient.GetBootRescue(int(s.scope.HetznerBareMetalHost.Spec.ServerID))
 	if err != nil {
 		s.handleRobotRateLimitExceeded(err, "GetBootRescue")
 		return false, fmt.Errorf("failed to get boot rescue: %w", err)
@@ -1036,7 +1036,7 @@ func obtainHardwareDetailsNics(ctx context.Context, sshClient sshclient.Client) 
 			Model:     nic.Model,
 			MAC:       nic.MAC,
 			IP:        nic.IP,
-			SpeedMbps: speedMbps,
+			SpeedMbps: int32(speedMbps), //nolint:gosec // a NIC speed in Mbps is far below the int32 limit
 		})
 
 		if nic.IP != "" {
@@ -1187,7 +1187,7 @@ func getCPUClockGigahertz(ctx context.Context, sshClient sshclient.Client) (infr
 	return infrav2.ClockSpeed(stdOut), nil
 }
 
-func getCPUThreads(ctx context.Context, sshClient sshclient.Client) (int, error) {
+func getCPUThreads(ctx context.Context, sshClient sshclient.Client) (int32, error) {
 	out := sshClient.GetHardwareDetailsCPUThreads(ctx)
 	if err := handleSSHError(out); err != nil {
 		return 0, err
@@ -1198,12 +1198,12 @@ func getCPUThreads(ctx context.Context, sshClient sshclient.Client) (int, error)
 		return 0, fmt.Errorf(errMsgInvalidSSHStdOut, err)
 	}
 
-	threads, err := strconv.Atoi(stdOut)
+	threads, err := strconv.ParseInt(stdOut, 10, 32)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse string to int. Stdout %s: %w", stdOut, err)
 	}
 
-	return threads, nil
+	return int32(threads), nil
 }
 
 func handleSSHError(out sshclient.Output) error {
@@ -1448,7 +1448,7 @@ func (s *Service) actionImageInstallingCustomProvisioner(ctx context.Context, ss
 		s.scope.Info("CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 
 		// Update name in robot API
-		if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
+		if _, err := s.scope.RobotClient.SetBMServerName(int(s.scope.HetznerBareMetalHost.Spec.ServerID), s.scope.Hostname()); err != nil {
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
@@ -1965,7 +1965,7 @@ func (s *Service) actionImageInstallingFinished(ctx context.Context, sshClient s
 	s.scope.Info("InstallImageOutput", "output", output)
 
 	// Update name in robot API
-	if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
+	if _, err := s.scope.RobotClient.SetBMServerName(int(s.scope.HetznerBareMetalHost.Spec.ServerID), s.scope.Hostname()); err != nil {
 		if errors.Is(err, os.ErrDeadlineExceeded) {
 			// If the Hetzner API returns this, we just want to retry later:
 			// Post "https://robot-ws.your-server.de/server/1234": net/http: TLS handshake timeout
@@ -2752,7 +2752,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		} else {
 			// Hardware reboot: trigger via the Hetzner Robot API.
 			rebootType = infrav2.RebootTypeHardware
-			if _, err := s.scope.RobotClient.RebootBMServer(host.Spec.ServerID, rebootType); err != nil {
+			if _, err := s.scope.RobotClient.RebootBMServer(int(host.Spec.ServerID), rebootType); err != nil {
 				// If Robot API returned "unauthorized" error - mark condition RobotCredentialsAvailable as false
 				// with reason RobotCredentialsInvalidReason and stop reconciling.
 				if models.IsError(err, models.ErrorCodeUnauthorized) {
@@ -2882,7 +2882,7 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 	// Update server name via RobotAPI, strip "bm-" from the desired hostname.
 	// Example: If the hostname is "bm-abc-1-2356799" it should be renamed to "abc-1-2356799".
 	if _, err := s.scope.RobotClient.SetBMServerName(
-		s.scope.HetznerBareMetalHost.Spec.ServerID,
+		int(s.scope.HetznerBareMetalHost.Spec.ServerID),
 		strings.TrimPrefix(s.scope.Hostname(), infrav2.BareMetalHostNamePrefix),
 	); err != nil {
 		if models.IsError(err, models.ErrorCodeUnauthorized) {

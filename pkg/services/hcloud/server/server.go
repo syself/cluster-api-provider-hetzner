@@ -368,7 +368,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcil
 
 	// ActionIDCreateServer gets stored by createServerFromCustomProvisioner before the boot state becomes
 	// Initializing. This guard catches it early if that behavior ever changes.
-	if hm.Status.ExternalIDs.ActionIDCreateServer == 0 {
+	if hm.Status.ExternalIDs.ActionIDCreateServer == nil {
 		msg := "ActionIDCreateServer is missing in the status.externalIDs, cannot check whether the server is provisioned. Machine will be remediated"
 		s.scope.Error(nil, msg)
 		err := s.scope.SetErrorAndRemediate(ctx, msg)
@@ -390,8 +390,8 @@ func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcil
 	// the server create action is finished, which means the server is provisioned and unlocked. After
 	// that the rescue system can be enabled. Once finished, ActionIDCreateServer is set to actionDone
 	// so a later EnableRescueSystem retry does not fetch the finished action again.
-	if hm.Status.ExternalIDs.ActionIDCreateServer != actionDone {
-		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ExternalIDs.ActionIDCreateServer)
+	if *hm.Status.ExternalIDs.ActionIDCreateServer != actionDone {
+		action, err := s.scope.HCloudClient.GetAction(ctx, *hm.Status.ExternalIDs.ActionIDCreateServer)
 		if err != nil {
 			if handleUnauthorized(hm, err) {
 				return reconcile.Result{}, nil
@@ -453,7 +453,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcil
 		}
 
 		// The server create action finished successfully.
-		hm.Status.ExternalIDs.ActionIDCreateServer = actionDone
+		hm.Status.ExternalIDs.ActionIDCreateServer = ptr.To(int64(actionDone))
 	}
 
 	// The server create action is finished. The server is provisioned and still powered off.
@@ -498,7 +498,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcil
 
 	// The API of hetzner is async. We get an Action-ID as result. We need to wait until the action
 	// is done. After that we can power the server on, so that it boots into the rescue system.
-	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = result.Action.ID
+	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = ptr.To(result.Action.ID)
 
 	s.setBootState(infrav2.HCloudBootStateEnablingRescue)
 
@@ -532,7 +532,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.
 
 	// ActionIDEnableRescueSystem gets stored by handleBootStateInitializing before the boot
 	// state becomes EnablingRescue. This guard catches it early if that behavior ever changes.
-	if hm.Status.ExternalIDs.ActionIDEnableRescueSystem == 0 {
+	if hm.Status.ExternalIDs.ActionIDEnableRescueSystem == nil {
 		msg := "ActionIDEnableRescueSystem is missing in the status.externalIDs, cannot check whether the rescue system is enabled. Machine will be remediated"
 		s.scope.Error(nil, msg)
 		err := s.scope.SetErrorAndRemediate(ctx, msg)
@@ -550,8 +550,8 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.
 		return reconcile.Result{}, nil
 	}
 
-	if hm.Status.ExternalIDs.ActionIDEnableRescueSystem != actionDone {
-		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ExternalIDs.ActionIDEnableRescueSystem)
+	if *hm.Status.ExternalIDs.ActionIDEnableRescueSystem != actionDone {
+		action, err := s.scope.HCloudClient.GetAction(ctx, *hm.Status.ExternalIDs.ActionIDEnableRescueSystem)
 		if err != nil {
 			if handleUnauthorized(hm, err) {
 				return reconcile.Result{}, nil
@@ -617,7 +617,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.
 			"finishedSince", time.Since(action.Finished),
 			"actionStatus", action.Status)
 
-		hm.Status.ExternalIDs.ActionIDEnableRescueSystem = actionDone
+		hm.Status.ExternalIDs.ActionIDEnableRescueSystem = ptr.To(int64(actionDone))
 		deprecatedv1beta1conditions.MarkFalse(hm, infrav2.ServerProvisionedV1Beta1Condition,
 			"EnablingRescueActionDone", clusterv1.ConditionSeverityInfo,
 			"Action RescueEnabled is finished")
@@ -1087,8 +1087,8 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconci
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	// Clean up old Status fields
-	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = 0
-	hm.Status.ExternalIDs.ActionIDCreateServer = 0
+	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = nil
+	hm.Status.ExternalIDs.ActionIDCreateServer = nil
 
 	deprecatedv1beta1conditions.MarkTrue(hm, infrav2.ServerProvisionedV1Beta1Condition)
 	// Provisioning is complete.
@@ -1562,7 +1562,7 @@ func (s *Service) createServerFromCustomProvisioner(ctx context.Context) (*hclou
 	}
 
 	// handleBootStateInitializing waits for this action before enabling the rescue system.
-	hm.Status.ExternalIDs.ActionIDCreateServer = result.Action.ID
+	hm.Status.ExternalIDs.ActionIDCreateServer = ptr.To(result.Action.ID)
 
 	s.setBootState(infrav2.HCloudBootStateInitializing)
 	return result.Server, image, nil

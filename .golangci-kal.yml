@@ -21,6 +21,7 @@ linters:
               - "conditions" # Ensure conditions have the correct json tags and markers.
               - "conflictingmarkers"
               - "duplicatemarkers" # Ensure there are no exact duplicate markers. for types and fields.
+              - "integers" # Ensure only int32 and int64 are used for integers.
               - "jsontags" # Ensure every field has a json tag.
               - "maxlength" # Ensure all strings and arrays have maximum lengths/maximum items.
               - "nobools" # Bools do not evolve over time, should use enums instead.
@@ -38,7 +39,6 @@ linters:
 
             # The linters below still have findings in api/v1beta2.
             # Each linter moves to the enable list above together with the fixes for its findings.
-            # - "integers" # Ensure only int32 and int64 are used for integers.
             # - "noreferences" # Ensure that field names use Ref instead of Reference.
             # - "optionalfields" # Ensure that all fields marked as optional adhere to being pointers and
             #                    # having the `omitempty` value in their `json` tag where appropriate.
@@ -124,6 +124,12 @@ linters:
       # Every key gets a default, so an empty key object is filled by the API server.
       - path: "^api/v1beta2/types.go"
         text: "requiredfields: field Key has a valid zero value"
+        linters:
+          - kubeapilinter
+
+      ## These fields become pointers in a later change, together with the other defaulted fields.
+      - path: "^api/v1beta2/hetznerbaremetalmachine_types.go"
+        text: "integers: field (Swraid|SwraidLevel|PortAfterInstallImage|PortAfterCloudInit) should not use an int"
         linters:
           - kubeapilinter
 

@@ -106,7 +106,7 @@ var _ = Describe("createOptsFromSpec", func() {
 					Algorithm: infrav2.LoadBalancerAlgorithmTypeLeastConnections,
 					Type:      lbType,
 					Region:    infrav2.Region(lbRegion),
-					Port:      lbPort,
+					Port:      int32(lbPort),
 				},
 				ControlPlaneEndpoint: infrav2.APIEndpoint{Port: int32(controlPlaneEndpointPort)},
 			},
@@ -190,9 +190,9 @@ var _ = Describe("createOptsFromSpec", func() {
 	It("carries an http health check into the kube-API service", func() {
 		hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav2.LoadBalancerHealthCheckSpec{
 			Protocol:        "http",
-			IntervalSeconds: ptr.To(5),
-			TimeoutSeconds:  ptr.To(2),
-			Retries:         ptr.To(5),
+			IntervalSeconds: 5,
+			TimeoutSeconds:  2,
+			Retries:         5,
 			Domain:          ptr.To("example.com"),
 			Path:            ptr.To("/readyz"),
 			Response:        ptr.To("ok"),
@@ -201,7 +201,7 @@ var _ = Describe("createOptsFromSpec", func() {
 
 		createOpts := createOptsFromSpec(hetznerCluster)
 
-		port := hetznerCluster.Spec.ControlPlaneLoadBalancer.Port
+		port := int(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
 		interval := 5 * time.Second
 		timeout := 2 * time.Second
 		retries := 5
@@ -232,9 +232,9 @@ var _ = Describe("health check option builders", func() {
 	spec := func(protocol string) *infrav2.LoadBalancerHealthCheckSpec {
 		return &infrav2.LoadBalancerHealthCheckSpec{
 			Protocol:        protocol,
-			IntervalSeconds: ptr.To(5),
-			TimeoutSeconds:  ptr.To(2),
-			Retries:         ptr.To(5),
+			IntervalSeconds: 5,
+			TimeoutSeconds:  2,
+			Retries:         5,
 			Domain:          ptr.To("example.com"),
 			Path:            ptr.To("/readyz"),
 		}
@@ -267,7 +267,7 @@ var _ = Describe("health check option builders", func() {
 
 		It("uses the spec's Port when set", func() {
 			hc := spec("tcp")
-			hc.Port = ptr.To(8443)
+			hc.Port = 8443
 			opts := healthCheckCreateOpts(hc, servicePort)
 			Expect(*opts.Port).To(Equal(8443))
 		})
@@ -312,10 +312,10 @@ var _ = Describe("health check option builders", func() {
 		It("reports no update needed when the spec matches the live state", func() {
 			want := &infrav2.LoadBalancerHealthCheckSpec{
 				Protocol:        "http",
-				Port:            ptr.To(4711),
-				IntervalSeconds: ptr.To(15),
-				TimeoutSeconds:  ptr.To(10),
-				Retries:         ptr.To(3),
+				Port:            4711,
+				IntervalSeconds: 15,
+				TimeoutSeconds:  10,
+				Retries:         3,
 				Domain:          ptr.To("example.com"),
 				Path:            ptr.To("/"),
 				Response:        ptr.To(`{"status": "ok"}`),
@@ -325,14 +325,14 @@ var _ = Describe("health check option builders", func() {
 		})
 
 		It("ignores fields the spec leaves unset", func() {
-			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "http", Port: ptr.To(4711)}
+			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "http", Port: 4711}
 			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeFalse())
 		})
 
 		It("treats status codes as a set, ignoring order", func() {
 			want := &infrav2.LoadBalancerHealthCheckSpec{
 				Protocol:    "http",
-				Port:        ptr.To(4711),
+				Port:        4711,
 				StatusCodes: []string{"3??", "2??"},
 			}
 			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeFalse())
@@ -351,8 +351,8 @@ var _ = Describe("health check option builders", func() {
 		It("reports an update when the interval differs", func() {
 			want := &infrav2.LoadBalancerHealthCheckSpec{
 				Protocol:        "http",
-				Port:            ptr.To(4711),
-				IntervalSeconds: ptr.To(30),
+				Port:            4711,
+				IntervalSeconds: 30,
 			}
 			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeTrue())
 		})
@@ -360,7 +360,7 @@ var _ = Describe("health check option builders", func() {
 		It("reports an update when the path differs", func() {
 			want := &infrav2.LoadBalancerHealthCheckSpec{
 				Protocol: "http",
-				Port:     ptr.To(4711),
+				Port:     4711,
 				Path:     ptr.To("/readyz"),
 			}
 			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeTrue())
@@ -369,14 +369,14 @@ var _ = Describe("health check option builders", func() {
 		It("reports an update when statusCodes differ", func() {
 			want := &infrav2.LoadBalancerHealthCheckSpec{
 				Protocol:    "http",
-				Port:        ptr.To(4711),
+				Port:        4711,
 				StatusCodes: []string{"200"},
 			}
 			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeTrue())
 		})
 
 		It("reports an update when switching from http to https", func() {
-			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "https", Port: ptr.To(4711)}
+			want := &infrav2.LoadBalancerHealthCheckSpec{Protocol: "https", Port: 4711}
 			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeTrue())
 		})
 

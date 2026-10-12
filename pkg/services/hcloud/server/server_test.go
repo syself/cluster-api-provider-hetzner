@@ -586,7 +586,7 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDEnableRescueSystem: 123456,
+					ActionIDEnableRescueSystem: ptr.To(int64(123456)),
 				},
 			},
 		}
@@ -612,7 +612,7 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDEnableRescueSystem: 123456,
+					ActionIDEnableRescueSystem: ptr.To(int64(123456)),
 				},
 			},
 		}
@@ -642,7 +642,7 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDEnableRescueSystem: 123456,
+					ActionIDEnableRescueSystem: ptr.To(int64(123456)),
 				},
 			},
 		}
@@ -677,7 +677,7 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDEnableRescueSystem: actionDone,
+					ActionIDEnableRescueSystem: ptr.To(int64(actionDone)),
 				},
 			},
 		}
@@ -710,7 +710,7 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDEnableRescueSystem: actionDone,
+					ActionIDEnableRescueSystem: ptr.To(int64(actionDone)),
 				},
 			},
 		}
@@ -740,7 +740,7 @@ var _ = Describe("handleBootStateInitializing", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDCreateServer: 998877,
+					ActionIDCreateServer: ptr.To(int64(998877)),
 				},
 			},
 		}
@@ -799,7 +799,7 @@ var _ = Describe("handleBootStateInitializing", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDCreateServer: 998877,
+					ActionIDCreateServer: ptr.To(int64(998877)),
 				},
 			},
 		}
@@ -826,7 +826,7 @@ var _ = Describe("handleBootStateInitializing", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDCreateServer: 998877,
+					ActionIDCreateServer: ptr.To(int64(998877)),
 				},
 			},
 		}
@@ -889,7 +889,7 @@ var _ = Describe("handleBootStateInitializing", func() {
 				Status: infrav2.HCloudMachineStatus{
 					BootStateSince: metav1.Now(),
 					ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-						ActionIDCreateServer: actionDone,
+						ActionIDCreateServer: ptr.To(int64(actionDone)),
 					},
 				},
 			},
@@ -1743,7 +1743,7 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring the existing server was adopted, with the create action treated as already finished")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav2.HCloudBootStateInitializing))
-		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDCreateServer).To(Equal(int64(actionDone)))
+		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDCreateServer).To(Equal(ptr.To(int64(actionDone))))
 		Expect(*service.scope.HCloudMachine.Spec.ProviderID).To(Equal("hcloud://42"))
 		Expect(deprecatedv1beta1conditions.IsTrue(service.scope.HCloudMachine, infrav2.ServerCreateSucceededV1Beta1Condition)).To(BeTrue())
 		Expect(isPresentWithStatusAndReason(service.scope.HCloudMachine, infrav2.HCloudMachineServerCreatedCondition, metav1.ConditionTrue, infrav2.HCloudMachineServerCreatedReason)).To(BeTrue())
@@ -1834,7 +1834,7 @@ var _ = Describe("Reconcile", func() {
 		By("ensuring the bootstate has transitioned to Initializing and the server create action is stored")
 
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav2.HCloudBootStateInitializing))
-		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDCreateServer).To(Equal(int64(998877)))
+		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDCreateServer).To(Equal(ptr.To(int64(998877))))
 
 		By("reconciling again: server create action not finished yet")
 		startTime := time.Now()

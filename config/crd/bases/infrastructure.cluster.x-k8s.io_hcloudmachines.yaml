@@ -778,13 +778,17 @@ spec:
                   process
                 properties:
                   actionIdCreateServer:
-                    description: actionIdCreateServer is the hcloud API Action result
-                      of CreateServer.
+                    description: |-
+                      actionIdCreateServer is the hcloud API Action result of CreateServer.
+                      It is unset before the action starts, has the action ID while the action runs, and is -1 when
+                      the action is done.
                     format: int64
                     type: integer
                   actionIdEnableRescueSystem:
-                    description: actionIdEnableRescueSystem is the hcloud API Action
-                      result of EnableRescueSystem.
+                    description: |-
+                      actionIdEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
+                      It is unset before the action starts, has the action ID while the action runs, and is -1 when
+                      the action is done.
                     format: int64
                     type: integer
                 type: object

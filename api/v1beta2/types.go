@@ -134,6 +134,7 @@ type HCloudPlacementGroupSpec struct {
 type HCloudPlacementGroupStatus struct {
 	// id is the ID of the placement group in HCloud.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ID int64 `json:"id,omitempty"`
 
 	// servers are the IDs of the HCloud servers in the placement group.
@@ -271,7 +272,7 @@ type LoadBalancerSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=6443
-	Port int `json:"port,omitempty"`
+	Port int32 `json:"port,omitempty"`
 
 	// extraServices defines how traffic will be routed from the load balancer to your target server.
 	// The limit is more than twice the Hetzner limit of 30 services on a load balancer. A higher Hetzner limit then still works.
@@ -411,14 +412,14 @@ type LoadBalancerHealthCheckSpec struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	Port *int `json:"port,omitempty"`
+	Port int32 `json:"port,omitempty"`
 
 	// intervalSeconds is the time in seconds between two consecutive health checks. If omitted,
 	// Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec above).
 	// +optional
 	// +kubebuilder:validation:Minimum=3
 	// +kubebuilder:validation:Maximum=60
-	IntervalSeconds *int `json:"intervalSeconds,omitempty"`
+	IntervalSeconds int32 `json:"intervalSeconds,omitempty"`
 
 	// timeoutSeconds is the time in seconds to wait for a health check attempt to succeed. If
 	// omitted, Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec
@@ -426,7 +427,7 @@ type LoadBalancerHealthCheckSpec struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=60
-	TimeoutSeconds *int `json:"timeoutSeconds,omitempty"`
+	TimeoutSeconds int32 `json:"timeoutSeconds,omitempty"`
 
 	// retries is the number of consecutive failed health checks before a target is considered
 	// unhealthy. The same number of successful checks makes it healthy again. If omitted,
@@ -434,7 +435,7 @@ type LoadBalancerHealthCheckSpec struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=5
-	Retries *int `json:"retries,omitempty"`
+	Retries int32 `json:"retries,omitempty"`
 
 	// path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
 	// protocol is http or https.
@@ -477,19 +478,20 @@ type LoadBalancerServiceSpec struct {
 	// +required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	ListenPort int `json:"listenPort,omitempty"`
+	ListenPort int32 `json:"listenPort,omitempty"`
 
 	// destinationPort defines the port on the server. It must be a valid port range (1-65535).
 	// +required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	DestinationPort int `json:"destinationPort,omitempty"`
+	DestinationPort int32 `json:"destinationPort,omitempty"`
 }
 
 // LoadBalancerStatus defines the observed state of the control plane load balancer.
 type LoadBalancerStatus struct {
 	// id is the ID of the load balancer in HCloud.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ID int64 `json:"id,omitempty"`
 
 	// ipv4 is the public IPv4 address of the load balancer.
@@ -538,6 +540,7 @@ type LoadBalancerTarget struct {
 
 	// serverID is the ID of the HCloud server. It is only set when type is server.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ServerID int64 `json:"serverID,omitempty"`
 
 	// ip is the IP address of the target. It is only set when type is ip.
@@ -580,6 +583,7 @@ type HCloudNetworkSpec struct {
 type NetworkStatus struct {
 	// id is the ID of the network in HCloud.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	ID int64 `json:"id,omitempty"`
 
 	// attachedServers are the IDs of the HCloud servers that are attached to the network.

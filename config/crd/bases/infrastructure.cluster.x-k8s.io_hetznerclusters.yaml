@@ -874,6 +874,7 @@ spec:
                         destinationPort:
                           description: destinationPort defines the port on the server.
                             It must be a valid port range (1-65535).
+                          format: int32
                           maximum: 65535
                           minimum: 1
                           type: integer
@@ -881,6 +882,7 @@ spec:
                           description: listenPort defines the incoming port (source
                             port) open on the load balancer. It must be a valid port
                             range (1-65535).
+                          format: int32
                           maximum: 65535
                           minimum: 1
                           type: integer
@@ -940,6 +942,7 @@ spec:
                         description: |-
                           intervalSeconds is the time in seconds between two consecutive health checks. If omitted,
                           Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec above).
+                        format: int32
                         maximum: 60
                         minimum: 3
                         type: integer
@@ -954,6 +957,7 @@ spec:
                           port is the target port the check runs against. It defaults to the service's destination
                           port. Set it when the health-check endpoint is served on a different port than the API
                           server itself.
+                        format: int32
                         maximum: 65535
                         minimum: 1
                         type: integer
@@ -978,6 +982,7 @@ spec:
                           retries is the number of consecutive failed health checks before a target is considered
                           unhealthy. The same number of successful checks makes it healthy again. If omitted,
                           Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec above).
+                        format: int32
                         maximum: 5
                         minimum: 1
                         type: integer
@@ -999,6 +1004,7 @@ spec:
                           timeoutSeconds is the time in seconds to wait for a health check attempt to succeed. If
                           omitted, Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec
                           above).
+                        format: int32
                         maximum: 60
                         minimum: 1
                         type: integer
@@ -1012,6 +1018,7 @@ spec:
                     default: 6443
                     description: port defines the API Server port. It must be a valid
                       port range (1-65535). If omitted, the default value is 6443.
+                    format: int32
                     maximum: 65535
                     minimum: 1
                     type: integer
@@ -1367,6 +1374,7 @@ spec:
                   id:
                     description: id is the ID of the load balancer in HCloud.
                     format: int64
+                    minimum: 1
                     type: integer
                   internalIP:
                     description: |-
@@ -1414,6 +1422,7 @@ spec:
                           description: serverID is the ID of the HCloud server. It
                             is only set when type is server.
                           format: int64
+                          minimum: 1
                           type: integer
                         type:
                           description: type is the type of the target, server or ip.
@@ -1539,6 +1548,7 @@ spec:
                     id:
                       description: id is the ID of the placement group in HCloud.
                       format: int64
+                      minimum: 1
                       type: integer
                     name:
                       description: |-
@@ -1602,6 +1612,7 @@ spec:
                   id:
                     description: id is the ID of the network in HCloud.
                     format: int64
+                    minimum: 1
                     type: integer
                 type: object
             type: object
