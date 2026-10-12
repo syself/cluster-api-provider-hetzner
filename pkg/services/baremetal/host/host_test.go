@@ -1340,9 +1340,9 @@ var _ = Describe("actionPreparing", func() {
 	})
 
 	type testCaseActionPreparingInRescue struct {
-		rebootOutput          sshclient.Output
-		expectedHostErrorType infrav2.ErrorType
-		expectRobotReset      bool
+		rebootOutput       sshclient.Output
+		expectedRebootType infrav2.RebootType
+		expectRobotReset   bool
 	}
 
 	DescribeTable("host is already in rescue",
@@ -1382,8 +1382,8 @@ var _ = Describe("actionPreparing", func() {
 			actResult := service.actionPreparing(context.Background())
 
 			Expect(actResult).To(BeAssignableToTypeOf(actionComplete{}))
-			Expect(host.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
-			Expect(host.Status.RebootTriggeredAt.IsZero()).To(BeFalse())
+			Expect(host.Status.OngoingReboot).ToNot(BeNil())
+			Expect(host.Status.OngoingReboot.Type).To(Equal(tc.expectedRebootType))
 			Expect(robotMock.AssertCalled(GinkgoT(), "SetBootRescue", mock.Anything, sshFingerprint)).To(BeTrue())
 			Expect(rescueSSHMock.AssertCalled(GinkgoT(), "Reboot", mock.Anything)).To(BeTrue())
 			if tc.expectRobotReset {
@@ -1393,14 +1393,14 @@ var _ = Describe("actionPreparing", func() {
 			}
 		},
 		Entry("reboots via ssh instead of the robot API", testCaseActionPreparingInRescue{
-			rebootOutput:          sshclient.Output{},
-			expectedHostErrorType: infrav2.ErrorTypeSSHRebootTriggered,
-			expectRobotReset:      false,
+			rebootOutput:       sshclient.Output{},
+			expectedRebootType: infrav2.RebootTypeSSH,
+			expectRobotReset:   false,
 		}),
 		Entry("falls back to the robot reset when the ssh reboot fails", testCaseActionPreparingInRescue{
-			rebootOutput:          sshclient.Output{Err: errTest},
-			expectedHostErrorType: infrav2.ErrorTypeSoftwareRebootTriggered,
-			expectRobotReset:      true,
+			rebootOutput:       sshclient.Output{Err: errTest},
+			expectedRebootType: infrav2.RebootTypeSoftware,
+			expectRobotReset:   true,
 		}),
 	)
 })

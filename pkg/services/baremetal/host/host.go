@@ -293,9 +293,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		} else {
 			msg := "Rebooting into a fresh rescue system (was already in rescue)."
 			s.createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
-			s.scope.HetznerBareMetalHost.Status.RebootTriggeredAt = metav1.Now()
-			// we immediately set an error message in the host status to track the reboot we just performed
-			s.setHostError(infrav2.ErrorTypeSSHRebootTriggered, fmt.Sprintf("Phase %s, reboot via ssh: %s",
+			setOngoingReboot(s.scope.HetznerBareMetalHost, infrav2.RebootTypeSSH, fmt.Sprintf("Phase %s, reboot via ssh: %s",
 				s.scope.HetznerBareMetalHost.Status.ProvisioningState, msg))
 			return actionComplete{} // next: Registering
 		}
