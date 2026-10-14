@@ -125,7 +125,7 @@ We also use the issue tracker to track features. If you have an idea for a featu
 
 ## 💬 Contact
 
-For more information about Syself, our platform, or any generall information about the Cluster API Provider Hetzner, feel free to reach out to us. Below are some ways to contact our team:
+For more information about Syself, our platform, or any general information about the Cluster API Provider Hetzner, feel free to reach out to us. Below are some ways to contact our team:
 
 - **Email**: Send us questions at <contact@syself.com>
 - **Website**: Visit [our website](https://syself.com) for more information about Syself
