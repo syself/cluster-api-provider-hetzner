@@ -1,8 +1,7 @@
 ---
 title: Next steps
-metatitle: Move Your Management Cluster to the Cloud
-sidebar: Next steps
 description: How to move the Cluster API components out of your bootstrap cluster, and into the newly created cluster on Hetzner.
+metatitle: Move Your Management Cluster to the Cloud
 ---
 
 ## Switching to the workload cluster
@@ -21,11 +20,8 @@ To move the Cluster API objects from your bootstrap cluster to the new managemen
 clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
 ```
 
-{% callout %}
-
-For a specific version, use the flag `--infrastructure hetzner:vX.X.X` with the above command.
-
-{% /callout %}
+> [!NOTE]
+> For a specific version, use the flag `--infrastructure hetzner:vX.X.X` with the above command.
 
 You can switch back to the management cluster with the following command. This assumes the management cluster's kubeconfig is at `~/.kube/config` (which is the default when you set up the bootstrap cluster with `kind`). If your management kubeconfig lives elsewhere, point `KUBECONFIG` at that file instead.
 

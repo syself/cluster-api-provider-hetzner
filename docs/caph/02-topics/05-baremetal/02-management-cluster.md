@@ -1,8 +1,7 @@
 ---
 title: Management cluster setup for bare metal
-metatitle: Configure Your Management Cluster for Handling Hetzner Bare Metal Servers
-sidebar: Management cluster setup for bare metal
 description: Learn how to provision a management cluster ready to manage bare metal servers.
+metatitle: Configure Your Management Cluster for Handling Hetzner Bare Metal Servers
 ---
 
 ## Creating a bootstrap cluster
@@ -53,14 +52,11 @@ Optional Variables:
   - WORKER_MACHINE_COUNT         (defaults to 3)
 ```
 
-{% callout %}
-
-`clusterctl` needs a specific infrastructure provider version when rendering provider-specific templates.
-If the version is not already known in your local `clusterctl` state, auto-detection can fail.
-
-You can find available CAPH versions on the [GitHub tags page](https://github.com/syself/cluster-api-provider-hetzner/tags).
-
-{% /callout %}
+> [!NOTE]
+> `clusterctl` needs a specific infrastructure provider version when rendering provider-specific templates.
+> If the version is not already known in your local `clusterctl` state, auto-detection can fail.
+>
+> You can find available CAPH versions on the [GitHub tags page](https://github.com/syself/cluster-api-provider-hetzner/tags).
 
 These variables are used during the deployment of Hetzner infrastructure provider in the cluster.
 
@@ -113,11 +109,8 @@ Above command will create a public and private key in your `~/.ssh` directory.
 
 You can use the public key `~/.ssh/caph.pub` and upload it to your hcloud project. Go to your project and under `Security` -> `SSH Keys` click on `Add SSH key` and add your public key there and in the `Name` of ssh key you'll use the name `my-caph-ssh-key`.
 
-{% callout %}
-
-There is also a helper CLI called [hcloud](https://github.com/hetznercloud/cli) that can be used for the purpose of uploading the SSH key.
-
-{% /callout %}
+> [!NOTE]
+> There is also a helper CLI called [hcloud](https://github.com/hetznercloud/cli) that can be used for the purpose of uploading the SSH key.
 
 In the above step, the name of the ssh-key that is recognized by hcloud is `my-caph-ssh-key`. This is important because we will reference the name of the ssh-key later.
 
@@ -131,11 +124,8 @@ sshKeys:
     - name: my-caph-ssh-key
 ```
 
-{% callout %}
-
-If you want to use some other name then you can modify it accordingly.
-
-{% /callout %}
+> [!NOTE]
+> If you want to use some other name then you can modify it accordingly.
 
 ## Create Secrets In Management Cluster (Hcloud + Robot)
 
@@ -168,11 +158,8 @@ kubectl create secret generic robot-ssh --from-literal=sshkey-name=$SSH_KEY_NAME
         --from-file=ssh-publickey=$HETZNER_SSH_PUB_PATH
 ```
 
-{% callout %}
-
-`sshkey-name` (from SSH_KEY_NAME) should must match the name that is present in Hetzner otherwise the controller will not know how to reach the machine. You can upload ssh-keys via the Robot UI (Server / Key Management).
-
-{% /callout %}
+> [!NOTE]
+> `sshkey-name` (from SSH_KEY_NAME) should must match the name that is present in Hetzner otherwise the controller will not know how to reach the machine. You can upload ssh-keys via the Robot UI (Server / Key Management).
 
 Patch the created secrets so that they get automatically moved to the target cluster later. The following command helps you do that:
 
@@ -259,22 +246,16 @@ sdb  disk 0x500a07511bb48b25
 
 Since, we are now confirmed about wwn of the two disks, we can use either of them. We will use `kubectl edit` and update the following information in the `HetznerBareMetalHost` object.
 
-{% callout %}
-
-Defining `rootDeviceHints` on your baremetal server is important otherwise the baremetal server will not be able join the cluster.
-
-{% /callout %}
+> [!NOTE]
+> Defining `rootDeviceHints` on your baremetal server is important otherwise the baremetal server will not be able join the cluster.
 
 ```yaml
 rootDeviceHints:
   wwn: "0x500a07511bb48992"
 ```
 
-{% callout %}
-
-If you've more than one disk then it's recommended to use smaller disk for OS installation so that we can retain the data in between provisioning of machine.
-
-{% /callout %}
+> [!NOTE]
+> If you've more than one disk then it's recommended to use smaller disk for OS installation so that we can retain the data in between provisioning of machine.
 
 We will apply this file in the cluster and the provisioning of the machine will be successful.
 
@@ -283,11 +264,8 @@ To summarize, if you don't know the WWN of your server then there are two ways t
 1. Create the HetznerBareMetalHost without WWN and wait for the controller to fetch all information about the available storage devices. Afterwards, look at status of `HetznerBareMetalHost` by running `kubectl get hetznerbaremetalhost <name-of-hetzner-baremetalhost> -o yaml` in your management cluster. There you will find `hardwareDetails` of all of your bare metal hosts, in which you can see a list of all the relevant storage devices as well as their properties. You can copy+paste the WWN of your desired storage device into the `rootDeviceHints` of your `HetznerBareMetalHost` objects.
 2. SSH into the rescue system of the server and use `lsblk --nodeps --output name,type,wwn`
 
-{% callout %}
-
-There might be cases where you've more than one disk.
-
-{% /callout %}
+> [!NOTE]
+> There might be cases where you've more than one disk.
 
 ```shell
 lsblk -d -o name,type,wwn,size

@@ -1,8 +1,7 @@
 ---
 title: Developing Cluster API Provider Hetzner
-metatitle: Developing Cluster API Provider Hetzner with Tilt
-sidebar: Developing Cluster API Provider Hetzner
 description: Learn how to set up an environment to develop the Cluster API Provider Hetzner, using Tilt and kind.
+metatitle: Developing Cluster API Provider Hetzner with Tilt
 ---
 
 Developing our provider is quite easy. Please follow the steps mentioned below:
@@ -23,12 +22,12 @@ This ensures the following:
 - helmfile
 - kind (required)
 - kubectl (required)
-- tilt
-- hcloud cli-tool.
+- tilt (required)
+- hcloud
 
 ## Preparing Hetzner project
 
-For more information, please see the [Hetzner project preparation](/docs/caph/01-getting-started/03-preparation.md) guide.
+For more information, please see [here](/docs/caph/01-getting-started/03-preparation.md).
 
 ## Developing without Tilt
 
@@ -63,11 +62,8 @@ To build a kind cluster and to start Tilt, run:
 make tilt-up
 ```
 
-{% callout %}
-
-To access the Tilt UI, please go to: `http://localhost:10351`
-
-{% /callout %}
+> [!NOTE]
+> To access the Tilt UI, please go to: `http://localhost:10351`
 
 Once your kind management cluster is up and running, you can deploy a workload cluster. This could
 be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create
