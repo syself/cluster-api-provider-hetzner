@@ -159,7 +159,7 @@ func (c *realClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBal
 }
 
 func (c *realClient) DeleteLoadBalancer(ctx context.Context, id int64) error {
-	_, err := c.client.LoadBalancer.Delete(ctx, &hcloud.LoadBalancer{ID: id})
+	_, _, err := c.client.LoadBalancer.DeleteWithResult(ctx, &hcloud.LoadBalancer{ID: id})
 	return wrapUnauthorized(err)
 }
 
