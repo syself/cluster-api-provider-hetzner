@@ -78,6 +78,11 @@ func main() {
       fmt.Println("Error creating new SSH session from existing connection", err)
    }
 
+   // No `client.Connect` necessary as an existing SSH connection will be used.
+  
+   // Open a file
+   f, _ := os.Open("/path/to/local/file")
+
    /* .. same as above .. */
 }
 ```
