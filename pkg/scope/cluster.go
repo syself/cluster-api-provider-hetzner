@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
@@ -48,7 +48,7 @@ type ClusterScopeParams struct {
 	HetznerSecret  *corev1.Secret
 	HCloudClient   hcloudclient.Client
 	Cluster        *clusterv1.Cluster
-	HetznerCluster *infrav2.HetznerCluster
+	HetznerCluster *infrav1.HetznerCluster
 	EventRecorder  record.EventRecorder
 }
 
@@ -105,7 +105,7 @@ type ClusterScope struct {
 	HCloudClient hcloudclient.Client
 
 	Cluster        *clusterv1.Cluster
-	HetznerCluster *infrav2.HetznerCluster
+	HetznerCluster *infrav1.HetznerCluster
 	EventRecorder  record.EventRecorder
 }
 
@@ -133,7 +133,7 @@ func (s *ClusterScope) Close(ctx context.Context) error {
 	readyCondition, err := conditions.NewSummaryCondition(
 		s.HetznerCluster,
 		clusterv1.ReadyCondition,
-		infrav2.HetznerClusterSummaryOpts()...,
+		infrav1.HetznerClusterSummaryOpts()...,
 	)
 	if err != nil {
 		// Note, this could only happen if we hit edge cases in computing the summary, which should not
@@ -160,12 +160,12 @@ func (s *ClusterScope) PatchObject(ctx context.Context) error {
 }
 
 // GetSpecRegion returns a region.
-func (s *ClusterScope) GetSpecRegion() []infrav2.Region {
+func (s *ClusterScope) GetSpecRegion() []infrav1.Region {
 	return s.HetznerCluster.Spec.ControlPlaneRegions
 }
 
 // SetStatusFailureDomain sets the region for the status.
-func (s *ClusterScope) SetStatusFailureDomain(regions []infrav2.Region) {
+func (s *ClusterScope) SetStatusFailureDomain(regions []infrav1.Region) {
 	s.HetznerCluster.Status.FailureDomains = make([]clusterv1.FailureDomain, 0, len(regions))
 	for _, region := range regions {
 		s.HetznerCluster.Status.FailureDomains = append(s.HetznerCluster.Status.FailureDomains, clusterv1.FailureDomain{
@@ -186,14 +186,14 @@ func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig
 }
 
 // ListMachines returns HCloudMachines.
-func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, []*infrav2.HCloudMachine, error) {
+func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, []*infrav1.HCloudMachine, error) {
 	// get and index Machines by HCloudMachine name
 	var machineListRaw clusterv1.MachineList
 	machineByHCloudMachineName := make(map[string]*clusterv1.Machine)
 	if err := s.Client.List(ctx, &machineListRaw, client.InNamespace(s.Namespace())); err != nil {
 		return nil, nil, err
 	}
-	expectedGK := infrav2.GroupVersion.WithKind("HCloudMachine").GroupKind()
+	expectedGK := infrav1.GroupVersion.WithKind("HCloudMachine").GroupKind()
 	for pos := range machineListRaw.Items {
 		m := &machineListRaw.Items[pos]
 		actualGK := schema.GroupKind{Group: m.Spec.InfrastructureRef.APIGroup, Kind: m.Spec.InfrastructureRef.Kind}
@@ -205,13 +205,13 @@ func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, 
 	}
 
 	// match HCloudMachines to Machines
-	var hcloudMachineListRaw infrav2.HCloudMachineList
+	var hcloudMachineListRaw infrav1.HCloudMachineList
 	if err := s.Client.List(ctx, &hcloudMachineListRaw, client.InNamespace(s.Namespace())); err != nil {
 		return nil, nil, err
 	}
 
 	machineList := make([]*clusterv1.Machine, 0, len(hcloudMachineListRaw.Items))
-	hcloudMachineList := make([]*infrav2.HCloudMachine, 0, len(hcloudMachineListRaw.Items))
+	hcloudMachineList := make([]*infrav1.HCloudMachine, 0, len(hcloudMachineListRaw.Items))
 
 	for pos := range hcloudMachineListRaw.Items {
 		hm := &hcloudMachineListRaw.Items[pos]
@@ -233,27 +233,27 @@ func clusterpatchOpts() []patch.Option {
 		// owned deprecated v1beta1 conditions.
 		patch.WithOwnedV1Beta1Conditions{Conditions: []clusterv1.ConditionType{
 			clusterv1.ReadyV1Beta1Condition,
-			infrav2.HCloudTokenAvailableV1Beta1Condition,
-			infrav2.HetznerAPIReachableV1Beta1Condition,
-			infrav2.NetworkReadyV1Beta1Condition,
-			infrav2.LoadBalancerReadyV1Beta1Condition,
-			infrav2.PlacementGroupsSyncedV1Beta1Condition,
-			infrav2.ControlPlaneEndpointSetV1Beta1Condition,
-			infrav2.TargetClusterReadyV1Beta1Condition,
-			infrav2.TargetClusterSecretReadyV1Beta1Condition,
+			infrav1.HCloudTokenAvailableV1Beta1Condition,
+			infrav1.HetznerAPIReachableV1Beta1Condition,
+			infrav1.NetworkReadyV1Beta1Condition,
+			infrav1.LoadBalancerReadyV1Beta1Condition,
+			infrav1.PlacementGroupsSyncedV1Beta1Condition,
+			infrav1.ControlPlaneEndpointSetV1Beta1Condition,
+			infrav1.TargetClusterReadyV1Beta1Condition,
+			infrav1.TargetClusterSecretReadyV1Beta1Condition,
 		}},
 		// owned conditions.
 		patch.WithOwnedConditions{Conditions: []string{
 			clusterv1.ReadyCondition,
-			infrav2.HCloudTokenAvailableCondition,
-			infrav2.HCloudRateLimitExceededCondition,
-			infrav2.HetznerClusterDeletingCondition,
-			infrav2.HetznerClusterNetworkReadyCondition,
-			infrav2.HetznerClusterLoadBalancerReadyCondition,
-			infrav2.HetznerClusterPlacementGroupsSyncedCondition,
-			infrav2.HetznerClusterControlPlaneEndpointSetCondition,
-			infrav2.HetznerClusterTargetClusterReadyCondition,
-			infrav2.HetznerClusterTargetClusterSecretReadyCondition,
+			infrav1.HCloudTokenAvailableCondition,
+			infrav1.HCloudRateLimitExceededCondition,
+			infrav1.HetznerClusterDeletingCondition,
+			infrav1.HetznerClusterNetworkReadyCondition,
+			infrav1.HetznerClusterLoadBalancerReadyCondition,
+			infrav1.HetznerClusterPlacementGroupsSyncedCondition,
+			infrav1.HetznerClusterControlPlaneEndpointSetCondition,
+			infrav1.HetznerClusterTargetClusterReadyCondition,
+			infrav1.HetznerClusterTargetClusterSecretReadyCondition,
 		}},
 	}
 }
@@ -283,7 +283,7 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 // until the last of them is replaced. It returns false (no error) while the cluster has no
 // control-plane infrastructure machines yet.
 func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx context.Context) (bool, error) {
-	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation, "proxy protocol")
+	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation, "proxy protocol")
 }
 
 // AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck returns true when every control-plane
@@ -292,7 +292,7 @@ func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx
 // control-plane infrastructure machine template's spec.template.metadata. It works the same way
 // as AllControlPlaneInfraMachinesAnnotatedForProxyProtocol.
 func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(ctx context.Context) (bool, error) {
-	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav2.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, "http health check")
+	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav1.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, "http health check")
 }
 
 // allControlPlaneInfraMachinesAnnotated returns true when every control-plane infrastructure
@@ -310,7 +310,7 @@ func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context
 
 	found := 0
 
-	hcloudMachines := &infrav2.HCloudMachineList{}
+	hcloudMachines := &infrav1.HCloudMachineList{}
 	if err := s.Client.List(ctx, hcloudMachines, listOptions...); err != nil {
 		return false, fmt.Errorf("failed to list control-plane HCloudMachines: %w", err)
 	}
@@ -324,7 +324,7 @@ func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context
 		found++
 	}
 
-	bmMachines := &infrav2.HetznerBareMetalMachineList{}
+	bmMachines := &infrav1.HetznerBareMetalMachineList{}
 	if err := s.Client.List(ctx, bmMachines, listOptions...); err != nil {
 		return false, fmt.Errorf("failed to list control-plane HetznerBareMetalMachines: %w", err)
 	}

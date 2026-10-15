@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 )
@@ -51,7 +51,7 @@ func NewService(scope *scope.HCloudRemediationScope) *Service {
 
 // Reconcile implements reconcilement of HCloudRemediation.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
-	if s.scope.HCloudMachine.Status.BootState != infrav2.HCloudBootStateOperatingSystemRunning {
+	if s.scope.HCloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
 		err := s.setOwnerRemediatedConditionToFailed(ctx,
 			fmt.Sprintf("exit remediation because infra machine is in BootState %s (no need to try a reboot)", s.scope.HCloudMachine.Status.BootState))
 		if err != nil {
@@ -112,7 +112,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 
 	remediationType := s.scope.HCloudRemediation.Spec.Strategy.Type
 
-	if remediationType != infrav2.RemediationTypeReboot {
+	if remediationType != infrav1.RemediationTypeReboot {
 		s.scope.Info("unsupported remediation strategy")
 		s.scope.EventRecorder.Eventf(
 			s.scope.HCloudRemediation,
@@ -150,13 +150,13 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 
 	// If no phase set, default to running
 	if s.scope.HCloudRemediation.Status.Phase == "" {
-		s.scope.HCloudRemediation.Status.Phase = infrav2.PhaseRunning
+		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseRunning
 	}
 
 	switch s.scope.HCloudRemediation.Status.Phase {
-	case infrav2.PhaseRunning:
+	case infrav1.PhaseRunning:
 		return s.handlePhaseRunning(ctx, server)
-	case infrav2.PhaseWaiting:
+	case infrav1.PhaseWaiting:
 		return s.handlePhaseWaiting(ctx)
 	}
 
@@ -206,7 +206,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 
 	// check whether retry limit has been reached
 	if !s.scope.HasRetriesLeft() {
-		s.scope.HCloudRemediation.Status.Phase = infrav2.PhaseWaiting
+		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseWaiting
 	}
 
 	// check when next remediation should be scheduled
@@ -334,7 +334,7 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 		msg,
 	)
 
-	s.scope.HCloudRemediation.Status.Phase = infrav2.PhaseDeleting
+	s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
 	return nil
 }
 
@@ -379,7 +379,7 @@ func (s *Service) markRemediationSucceeded(ctx context.Context, msg string) erro
 		msg,
 	)
 
-	s.scope.HCloudRemediation.Status.Phase = infrav2.PhaseSucceeded
+	s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseSucceeded
 	return nil
 }
 
@@ -397,14 +397,14 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 	deprecatedv1beta1conditions.MarkFalse(
 		s.scope.Machine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
-		infrav2.RemediationCooldownTriggeredV1Beta1Reason,
+		infrav1.RemediationCooldownTriggeredV1Beta1Reason,
 		clusterv1.ConditionSeverityWarning,
 		"Remediation cooldown active (machine will be deleted): %s", msg,
 	)
 	conditions.Set(s.scope.Machine, metav1.Condition{
 		Type:    clusterv1.MachineOwnerRemediatedCondition,
 		Status:  metav1.ConditionFalse,
-		Reason:  infrav2.RemediationCooldownTriggeredReason,
+		Reason:  infrav1.RemediationCooldownTriggeredReason,
 		Message: fmt.Sprintf("Remediation cooldown active (machine will be deleted): %s", msg),
 	})
 
@@ -419,7 +419,7 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 		msg,
 	)
 
-	s.scope.HCloudRemediation.Status.Phase = infrav2.PhaseDeleting
+	s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
 	return nil
 }
 

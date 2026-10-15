@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -43,11 +43,11 @@ import (
 
 var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 	var (
-		host                        *infrav2.HetznerBareMetalHost
-		hetznerBareMetalRemediation *infrav2.HetznerBareMetalRemediation
-		hetznerBaremetalMachine     *infrav2.HetznerBareMetalMachine
+		host                        *infrav1.HetznerBareMetalHost
+		hetznerBareMetalRemediation *infrav1.HetznerBareMetalRemediation
+		hetznerBaremetalMachine     *infrav1.HetznerBareMetalMachine
 		machineName                 string
-		hetznerCluster              *infrav2.HetznerCluster
+		hetznerCluster              *infrav1.HetznerCluster
 
 		capiMachine *clusterv1.Machine
 		capiCluster *clusterv1.Cluster
@@ -120,7 +120,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 
 		capiMachineKey = client.ObjectKey{Name: machineName, Namespace: testNs.Name}
 
-		hetznerCluster = &infrav2.HetznerCluster{
+		hetznerCluster = &infrav1.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "hetzner-test1",
 				Namespace: testNs.Name,
@@ -138,7 +138,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		}
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
-		hetznerBaremetalMachine = &infrav2.HetznerBareMetalMachine{
+		hetznerBaremetalMachine = &infrav1.HetznerBareMetalMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      machineName,
 				Namespace: testNs.Name,
@@ -158,7 +158,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 			Spec: getDefaultHetznerBareMetalMachineSpec(),
 		}
 
-		hetznerBareMetalRemediation = &infrav2.HetznerBareMetalRemediation{
+		hetznerBareMetalRemediation = &infrav1.HetznerBareMetalRemediation{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "hetzner-baremetal-remediation",
 				Namespace: testNs.Name,
@@ -171,9 +171,9 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 					},
 				},
 			},
-			Spec: infrav2.HetznerBareMetalRemediationSpec{
-				Strategy: &infrav2.BareMetalRemediationStrategy{
-					RemediationStrategy: infrav2.RemediationStrategy{
+			Spec: infrav1.HetznerBareMetalRemediationSpec{
+				Strategy: &infrav1.BareMetalRemediationStrategy{
+					RemediationStrategy: infrav1.RemediationStrategy{
 						Type:           "Reboot",
 						RetryLimit:     ptr.To(int32(1)),
 						TimeoutSeconds: 1,
@@ -216,13 +216,13 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		osSSHClientAfterInstallImage.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
 		osSSHClientAfterInstallImage.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 		osSSHClientAfterInstallImage.On("GetHostName", mock.Anything).Return(sshclient.Output{
-			StdOut: infrav2.BareMetalHostNamePrefix + machineName,
+			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
 		osSSHClientAfterCloudInit.On("Reboot", mock.Anything).Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("GetHostName", mock.Anything).Return(sshclient.Output{
-			StdOut: infrav2.BareMetalHostNamePrefix + machineName,
+			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
@@ -277,7 +277,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 
 				It("should not remediate if HetznerBareMetalHost does not exist anymore", func() {
 					hetznerBaremetalMachine.Annotations = map[string]string{
-						infrav2.HostAnnotation: fmt.Sprintf("%s/%s", testNs.Name, hostName),
+						infrav1.HostAnnotation: fmt.Sprintf("%s/%s", testNs.Name, hostName),
 					}
 					Expect(testEnv.Create(ctx, hetznerBaremetalMachine)).To(Succeed())
 					Expect(testEnv.Create(ctx, hetznerBareMetalRemediation)).To(Succeed())
@@ -307,7 +307,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 
 					By("creating hetznerBaremetalMachine")
 					hetznerBaremetalMachine.Annotations = map[string]string{
-						infrav2.HostAnnotation: fmt.Sprintf("%s/%s", testNs.Name, hostName),
+						infrav1.HostAnnotation: fmt.Sprintf("%s/%s", testNs.Name, hostName),
 					}
 					Expect(testEnv.Create(ctx, hetznerBaremetalMachine)).To(Succeed())
 
@@ -317,7 +317,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						return host.Status.ProvisioningState == infrav2.StateProvisioned
+						return host.Status.ProvisioningState == infrav1.StateProvisioned
 					}, timeout).Should(BeTrue())
 				})
 
@@ -347,12 +347,12 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						rebootAnnotationArguments := infrav2.RebootAnnotationArguments{Type: infrav2.RebootTypeHardware}
+						rebootAnnotationArguments := infrav1.RebootAnnotationArguments{Type: infrav1.RebootTypeHardware}
 
 						b, err := json.Marshal(rebootAnnotationArguments)
 						Expect(err).NotTo(HaveOccurred())
 
-						val, ok := host.Annotations[infrav2.RebootAnnotation]
+						val, ok := host.Annotations[infrav1.RebootAnnotation]
 						if !ok {
 							return false
 						}
@@ -370,7 +370,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 					hetznerBaremetalRemediationPatchHelper, err := patch.NewHelper(hetznerBareMetalRemediation, testEnv.GetClient())
 					Expect(err).NotTo(HaveOccurred())
 
-					hetznerBareMetalRemediation.Status.Phase = infrav2.PhaseWaiting
+					hetznerBareMetalRemediation.Status.Phase = infrav1.PhaseWaiting
 					hetznerBareMetalRemediation.Status.LastRemediated = metav1.Time{Time: time.Now().Add(-2 * time.Second)}
 
 					Expect(hetznerBaremetalRemediationPatchHelper.Patch(ctx, hetznerBareMetalRemediation)).NotTo(HaveOccurred())
@@ -381,7 +381,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						return hetznerBareMetalRemediation.Status.Phase == infrav2.PhaseDeleting &&
+						return hetznerBareMetalRemediation.Status.Phase == infrav1.PhaseDeleting &&
 							isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) &&
 							isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason)
 					}, timeout).Should(BeTrue())
@@ -403,8 +403,8 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						if !hetznerBareMetalRemediation.Status.LastRemediated.IsZero() {
 							return fmt.Errorf("expected LastRemediated to be zero")
 						}
-						if hetznerBareMetalRemediation.Status.Phase != infrav2.PhaseDeleting {
-							return fmt.Errorf("expected Phase %q, got %q", infrav2.PhaseDeleting, hetznerBareMetalRemediation.Status.Phase)
+						if hetznerBareMetalRemediation.Status.Phase != infrav1.PhaseDeleting {
+							return fmt.Errorf("expected Phase %q, got %q", infrav1.PhaseDeleting, hetznerBareMetalRemediation.Status.Phase)
 						}
 						if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
 							return fmt.Errorf("MachineOwnerRemediatedCondition not set")
@@ -442,8 +442,8 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						if !hetznerBareMetalRemediation.Status.LastRemediated.IsZero() {
 							return fmt.Errorf("expected LastRemediated to be zero")
 						}
-						if hetznerBareMetalRemediation.Status.Phase != infrav2.PhaseDeleting {
-							return fmt.Errorf("expected Phase %q, got %q", infrav2.PhaseDeleting, hetznerBareMetalRemediation.Status.Phase)
+						if hetznerBareMetalRemediation.Status.Phase != infrav1.PhaseDeleting {
+							return fmt.Errorf("expected Phase %q, got %q", infrav1.PhaseDeleting, hetznerBareMetalRemediation.Status.Phase)
 						}
 						if !isPresentAndFalseWithReasonDeprecatedV1Beta1(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason) {
 							return fmt.Errorf("MachineOwnerRemediatedCondition not set")
@@ -471,7 +471,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 
 				By("creating hetznerBaremetalMachine")
 				hetznerBaremetalMachine.Annotations = map[string]string{
-					infrav2.HostAnnotation: fmt.Sprintf("%s/%s", testNs.Name, hostName),
+					infrav1.HostAnnotation: fmt.Sprintf("%s/%s", testNs.Name, hostName),
 				}
 				Expect(testEnv.Create(ctx, hetznerBaremetalMachine)).To(Succeed())
 			})

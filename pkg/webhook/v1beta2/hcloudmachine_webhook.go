@@ -22,7 +22,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -34,18 +34,18 @@ var hcloudmachinelog = utils.GetDefaultLogger("info").WithName("hcloudmachine-re
 
 // SetupWebhookWithManager initializes webhook manager for HCloudMachine.
 func (webhook *HCloudMachineWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav2.HCloudMachine{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HCloudMachine{}).
 		WithDefaulter(webhook).
 		WithValidator(webhook).
 		Complete()
 }
 
-var _ admission.Defaulter[*infrav2.HCloudMachine] = &HCloudMachineWebhook{}
+var _ admission.Defaulter[*infrav1.HCloudMachine] = &HCloudMachineWebhook{}
 
 // Default implements admission.Defaulter so a webhook will be registered for HCloudMachine.
-func (*HCloudMachineWebhook) Default(_ context.Context, r *infrav2.HCloudMachine) error {
+func (*HCloudMachineWebhook) Default(_ context.Context, r *infrav1.HCloudMachine) error {
 	if r.Spec.PublicNetwork == nil {
-		r.Spec.PublicNetwork = &infrav2.PublicNetworkSpec{
+		r.Spec.PublicNetwork = &infrav1.PublicNetworkSpec{
 			EnableIPv4: true,
 			EnableIPv6: true,
 		}
@@ -53,10 +53,10 @@ func (*HCloudMachineWebhook) Default(_ context.Context, r *infrav2.HCloudMachine
 	return nil
 }
 
-var _ admission.Validator[*infrav2.HCloudMachine] = &HCloudMachineWebhook{}
+var _ admission.Validator[*infrav1.HCloudMachine] = &HCloudMachineWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HCloudMachine.
-func (*HCloudMachineWebhook) ValidateCreate(_ context.Context, r *infrav2.HCloudMachine) (admission.Warnings, error) {
+func (*HCloudMachineWebhook) ValidateCreate(_ context.Context, r *infrav1.HCloudMachine) (admission.Warnings, error) {
 	hcloudmachinelog.V(1).Info("validate create", "name", r.Name)
 
 	allErrs := validateHCloudMachineSpec(r.Spec)
@@ -65,7 +65,7 @@ func (*HCloudMachineWebhook) ValidateCreate(_ context.Context, r *infrav2.HCloud
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HCloudMachine.
-func (*HCloudMachineWebhook) ValidateUpdate(_ context.Context, oldM, r *infrav2.HCloudMachine) (admission.Warnings, error) {
+func (*HCloudMachineWebhook) ValidateUpdate(_ context.Context, oldM, r *infrav1.HCloudMachine) (admission.Warnings, error) {
 	hcloudmachinelog.V(1).Info("validate update", "name", r.Name)
 
 	allErrs := validateHCloudMachineSpecUpdate(oldM.Spec, r.Spec)
@@ -74,6 +74,6 @@ func (*HCloudMachineWebhook) ValidateUpdate(_ context.Context, oldM, r *infrav2.
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HCloudMachine.
-func (*HCloudMachineWebhook) ValidateDelete(context.Context, *infrav2.HCloudMachine) (admission.Warnings, error) {
+func (*HCloudMachineWebhook) ValidateDelete(context.Context, *infrav1.HCloudMachine) (admission.Warnings, error) {
 	return nil, nil
 }
