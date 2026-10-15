@@ -183,7 +183,7 @@ linters:
       - linters:
           - staticcheck
         path: .*(api|types)\/.*\/conversion.*\.go$
-        text: 'SA1019: in.(.+) is deprecated'
+        text: 'SA1019: (in\.(.+)|\(.+\)\.Conditions) is deprecated'
       - linters:
           - staticcheck
         path: pkg/services/baremetal/baremetal/baremetal.go
@@ -197,23 +197,29 @@ linters:
       # separate field)
       - linters:
           - staticcheck
-        text: 'SA1019: "sigs\.k8s\.io/cluster-api/api/core/v1beta1" is deprecated'
+        text: 'SA1019: "?sigs\.k8s\.io/cluster-api/api/core/v1beta1"? is deprecated'
       - linters:
           - staticcheck
-        text: 'SA1019: "sigs\.k8s\.io/cluster-api/util/deprecated/v1beta1/(patch|conditions(/v1beta2)?)" is deprecated'
+        text: 'SA1019: "?sigs\.k8s\.io/cluster-api/util/deprecated/v1beta1/(patch|conditions(/v1beta2)?)"? is deprecated'
       # CAPI deprecated the v1beta1 condition typedefs (Condition, Conditions, ConditionType,
       # ConditionSeverity) in core/v1beta2 when the v1beta2 condition list landed. We intentionally
       # store deprecated v1beta1 conditions as these core/v1beta2 copies under
       # status.deprecated.v1beta1.conditions, and test helpers assert against legacy-shadow conditions.
       - linters:
           - staticcheck
-        text: 'SA1019: clusterv1\.Condition(Type|Severity|s)? is deprecated'
+        text: 'SA1019: (clusterv1\.|sigs\.k8s\.io/cluster-api/api/core/v1beta2\.)Condition(Type|Severity|s)? is deprecated'
       # controller-runtime v0.23 deprecated mgr.GetEventRecorderFor in favor of GetEventRecorder.
       # CAPI has not migrated to the new Events API yet, so we intentionally keep
       # using the deprecated mgr.GetEventRecorderFor until CAPI adopts the new API.
       - linters:
           - staticcheck
-        text: 'SA1019: mgr\.GetEventRecorderFor is deprecated'
+        text: 'SA1019: (mgr\.|\(sigs\.k8s\.io/controller-runtime\.Manager\)\.)GetEventRecorderFor is deprecated'
+      # controller-runtime deprecated reconcile.Result.Requeue in favor of RequeueAfter. The
+      # controllers rely on Requeue: true (a rate-limited requeue), which RequeueAfter does not
+      # replace one to one, so we keep it until the controllers are reworked.
+      - linters:
+          - staticcheck
+        text: 'SA1019: \(sigs\.k8s\.io/controller-runtime(/pkg/reconcile)?\.Result\)\.Requeue is deprecated'
       - linters:
           - revive
         path: .*(api|types|test)\/.*\/conversion.*\.go$

@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: hetznerclustertemplates.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
@@ -113,17 +113,13 @@ spec:
                           for customizing control plane behavior.
                         properties:
                           algorithm:
-                            allOf:
-                            - enum:
-                              - round_robin
-                              - least_connections
-                            - enum:
-                              - round_robin
-                              - least_connections
                             default: round_robin
                             description: Algorithm defines the type of load balancer
                               algorithm. It could be round_robin or least_connection.
                               The default value is "round_robin".
+                            enum:
+                            - round_robin
+                            - least_connections
                             type: string
                           enableProxyProtocol:
                             description: |-
@@ -634,17 +630,13 @@ spec:
                           for customizing control plane behavior.
                         properties:
                           algorithm:
-                            allOf:
-                            - enum:
-                              - round_robin
-                              - least_connections
-                            - enum:
-                              - round_robin
-                              - least_connections
                             default: round_robin
                             description: algorithm defines the type of load balancer
                               algorithm. It could be round_robin or least_connections.
                               The default value is "round_robin".
+                            enum:
+                            - round_robin
+                            - least_connections
                             type: string
                           enableProxyProtocol:
                             description: |-

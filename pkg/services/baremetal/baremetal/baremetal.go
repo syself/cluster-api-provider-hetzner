@@ -22,15 +22,15 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 	"net"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -588,8 +588,7 @@ func skipHost(labelSelector labels.Selector, hbmm *infrav2.HetznerBareMetalMachi
 
 func reasonString(mapOfSkipReasons map[string]int, unusedHostsCounter int) string {
 	reasons := make([]string, 0, len(mapOfSkipReasons))
-	keys := maps.Keys(mapOfSkipReasons)
-	slices.Sort(keys)
+	keys := slices.Sorted(maps.Keys(mapOfSkipReasons))
 	for _, key := range keys {
 		value := mapOfSkipReasons[key]
 		if value == 0 {
