@@ -51,10 +51,10 @@ To verify the first control plane is up, use the following command:
 kubectl get kubeadmcontrolplane
 ```
 
-Wait until the `INITIALIZED` column reports `True` before moving on. The `READY` column will stay `False` until we install a CNI in the next step — that is expected. If you'd like to follow the progression live, run `kubectl get kubeadmcontrolplane -w`.
+Wait until the `INITIALIZED` column reports `true` before moving on. The `READY` column will stay at `0` until we install a CNI in the next step — that is expected. If you'd like to follow the progression live, run `kubectl get kubeadmcontrolplane -w`.
 
 > [!NOTE]
-> If you fetch the kubeconfig (next step) before `INITIALIZED` is `True`, kube-apiserver will not be listening yet and `helm` / `kubectl` calls will fail with `Kubernetes cluster unreachable: ... EOF`.
+> If you fetch the kubeconfig (next step) before `INITIALIZED` is `true`, kube-apiserver will not be listening yet and `helm` / `kubectl` calls will fail with `Kubernetes cluster unreachable: ... EOF`.
 
 Once initialized, retrieve the kubeconfig of the workload cluster:
 

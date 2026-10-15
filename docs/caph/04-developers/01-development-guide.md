@@ -80,7 +80,7 @@ You can use `make watch` to get an overview. It shows continuously:
 - logs of caph and capi controller
 - events
 
-To tear down the workload cluster, press the **"Delete Workload Cluster"** button. After a few
+To tear down the workload cluster, press the **"Delete Cluster"** button. After a few
 minutes, the resources should be deleted.
 
 To tear down the kind cluster, use:
@@ -151,8 +151,13 @@ If you are interested in running the E2E tests locally, then you can use the fol
 ```shell
 export HCLOUD_TOKEN=<your-hcloud-token>
 export CAPH_LATEST_VERSION=<latest-version>
+export CAPH_CONTAINER_TAG=<image-tag>
 export HETZNER_ROBOT_USER=<your robot user>
 export HETZNER_ROBOT_PASSWORD=<your robot password>
+export SSH_KEY_NAME=<ssh-key-name>
+export HCLOUD_REGION=nbg1
+export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx32
+export HCLOUD_WORKER_MACHINE_TYPE=cpx22
 export HETZNER_SSH_PUB_PATH=$HOME/.ssh/my-caph-ssh-key.pub
 export HETZNER_SSH_PRIV_PATH=$HOME/.ssh/my-caph-ssh-key
 HETZNER_SSH_PUB=$(base64 -w0 "$HETZNER_SSH_PUB_PATH")
