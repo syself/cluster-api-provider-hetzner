@@ -222,7 +222,7 @@ func Test_Image_String(t *testing.T) {
 			"",
 		},
 		{
-			Image{
+			Image{ //nolint:gosec // test fixture, not a real credential
 				URL:  "https://user:pwd@example.com/images/Ubuntu-2404-noble-amd64-custom.tar.gz",
 				Name: "Ubuntu-2404-noble",
 				Path: "",

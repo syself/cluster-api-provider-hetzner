@@ -66,7 +66,7 @@ func do() error {
 		}
 		fmt.Printf("Using env var %s", e2e.HetznerPrivateKeyContent)
 	} else {
-		privKey, err := os.ReadFile(*sshPrivKey)
+		privKey, err := os.ReadFile(*sshPrivKey) //nolint:gosec // the path comes from a flag of this CLI
 		if err != nil {
 			return err
 		}
@@ -76,7 +76,7 @@ func do() error {
 		}
 	}
 
-	if err := os.MkdirAll(*outputDir, 0o750); err != nil {
+	if err := os.MkdirAll(*outputDir, 0o750); err != nil { //nolint:gosec // the path comes from a flag of this CLI
 		return fmt.Errorf("create output directory: %w", err)
 	}
 
