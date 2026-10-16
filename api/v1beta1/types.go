@@ -518,6 +518,11 @@ const (
 	// waits for the rescue system to be reachable. Then it starts the image-url-command.
 	HCloudBootStateBootingToRescue HCloudBootState = "BootingToRescue"
 
+	// HCloudBootStatePowerCyclingToRescue indicates that reaching the rescue system failed and the
+	// controller is powering the server off and on again, so the server gets another chance to boot
+	// into the rescue system.
+	HCloudBootStatePowerCyclingToRescue HCloudBootState = "PowerCyclingToRescue"
+
 	// HCloudBootStateRunningImageCommand indicates the controller waits for the
 	// image-url-command, and then switches BootState to BootingToRealOS (no additional reboot gets
 	// done).
