@@ -990,7 +990,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 		})
 
 		DescribeTable("fails if hardware reboot times out",
-			func(isRebootIntoRescue, isTimeOut bool) {
+			func(isRebootIntoRescue bool) {
 				robotMock := robotmock.Client{}
 				robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
 
@@ -1006,46 +1006,48 @@ var _ = Describe("handleIncompleteBoot", func() {
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
 				ctx := context.Background()
-				failed, err := service.handleIncompleteBoot(ctx, isRebootIntoRescue, isTimeOut, false)
+				failed, err := service.handleIncompleteBoot(ctx, isRebootIntoRescue, true, false)
 				Expect(err).ToNot(Succeed())
 				Expect(failed).To(BeTrue())
 				Expect(host.Status.OngoingReboot).ToNot(BeNil())
 				Expect(host.Status.OngoingReboot.Type).To(Equal(infrav2.RebootTypeHardware))
+				Expect(conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition).Reason).To(Equal(infrav2.HetznerBareMetalHostRebootTimeoutReachedReason))
 				Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
 			},
-			Entry("rescue, ssh timeout", true, true),
-			Entry("rescue, wrong boot", true, false),
-			Entry("node, ssh timeout", false, true),
-			Entry("node, wrong boot", false, false),
+			Entry("rescue", true),
+			Entry("node", false),
 		)
 
-		It("waits for the hardware reboot and does not reset again after a wrong boot", func() {
-			robotMock := robotmock.Client{}
-			robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
+		DescribeTable("fails right away if the server booted into the wrong system after the hardware reboot",
+			func(isRebootIntoRescue bool) {
+				robotMock := robotmock.Client{}
+				robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
 
-			triggeredAt := metav1.NewTime(time.Now().Add(-2 * time.Minute))
-			host := helpers.BareMetalHost("test-host", "default",
-				helpers.WithRebootTypes([]infrav2.RebootType{
-					infrav2.RebootTypeSoftware,
-					infrav2.RebootTypeHardware,
-					infrav2.RebootTypePower,
-				}),
-				helpers.WithSSHStatus(),
-				helpers.WithOngoingReboot(infrav2.RebootTypeHardware, triggeredAt),
-			)
-			service := newTestService(host, &robotMock, nil, nil, nil)
+				// the hardware reset was sent 2 minutes ago, so hardwareResetTimeout has not passed yet
+				host := helpers.BareMetalHost("test-host", "default",
+					helpers.WithRebootTypes([]infrav2.RebootType{
+						infrav2.RebootTypeSoftware,
+						infrav2.RebootTypeHardware,
+						infrav2.RebootTypePower,
+					}),
+					helpers.WithSSHStatus(),
+					helpers.WithOngoingReboot(infrav2.RebootTypeHardware, metav1.NewTime(time.Now().Add(-2*time.Minute))),
+				)
+				service := newTestService(host, &robotMock, nil, nil, nil)
 
-			ctx := context.Background()
-			failed, err := service.handleIncompleteBoot(ctx, true, false, false)
-			Expect(err).To(Succeed())
-			Expect(failed).To(BeFalse())
-
-			// the hardware timeout counts from the hardware reset
-			Expect(host.Status.OngoingReboot).ToNot(BeNil())
-			Expect(host.Status.OngoingReboot.Type).To(Equal(infrav2.RebootTypeHardware))
-			Expect(host.Status.OngoingReboot.TriggeredAt).To(Equal(triggeredAt))
-			Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
-		})
+				ctx := context.Background()
+				failed, err := service.handleIncompleteBoot(ctx, isRebootIntoRescue, false, false)
+				Expect(err).ToNot(Succeed())
+				Expect(failed).To(BeTrue())
+				Expect(host.Status.OngoingReboot).ToNot(BeNil())
+				Expect(host.Status.OngoingReboot.Type).To(Equal(infrav2.RebootTypeHardware))
+				Expect(conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition).Reason).To(Equal(infrav2.HetznerBareMetalHostBootedIntoWrongSystemReason))
+				Expect(deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition).Reason).To(Equal(infrav2.BootedIntoWrongSystemV1Beta1Reason))
+				Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
+			},
+			Entry("rescue", true),
+			Entry("node", false),
+		)
 	})
 
 	Context("hostname rescue vs machinename", func() {
