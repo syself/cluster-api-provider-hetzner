@@ -882,11 +882,7 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 			addresses = append(addresses, a.Address)
 		}
 
-		id := ""
-		if hm.Spec.ProviderID != nil {
-			id = *hm.Spec.ProviderID
-		}
-		log("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
+		log("HCloudMachine: " + hm.Name + " " + hm.Spec.ProviderID + " " + strings.Join(addresses, " "))
 		log("  ProvisioningState: " + string(hm.Status.InstanceState))
 
 		readyC := conditions.Get(hm, clusterv1.ReadyCondition)
@@ -954,10 +950,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		}
 
 		// log infos about that hbmh.
-		hbmmName := ""
-		if hbmh.Spec.ConsumerRef != nil {
-			hbmmName = hbmh.Spec.ConsumerRef.Name
-		}
+		hbmmName := hbmh.Spec.ConsumerRef.Name
 		logMsg := "BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID) +
 			" | IPv4: " + hbmh.Status.IPv4
 		if hbmmName != "" {

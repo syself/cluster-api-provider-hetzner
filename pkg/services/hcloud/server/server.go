@@ -184,7 +184,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{}, nil
 	}
 
-	if hm.Spec.ProviderID != nil && *hm.Spec.ProviderID != "" && hm.Spec.CustomProvisioner == nil {
+	if hm.Spec.ProviderID != "" && !hm.Spec.CustomProvisioner.IsDefined() {
 		// This machine seems to be an existing machine which was created before introducing
 		// Status.BootState.
 
@@ -213,7 +213,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	// SSH private key. Check that before creating the server, so that no server gets created
 	// when the key is misconfigured. Other failures could also mean a network failure while
 	// trying to access the api-server, so they get retried.
-	if hm.Spec.CustomProvisioner != nil {
+	if hm.Spec.CustomProvisioner.IsDefined() {
 		_, err := s.getSSHPrivateKey(ctx)
 		if err != nil {
 			s.scope.Error(err, "")
@@ -368,7 +368,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcil
 
 	// ActionIDCreateServer gets stored by createServerFromCustomProvisioner before the boot state becomes
 	// Initializing. This guard catches it early if that behavior ever changes.
-	if hm.Status.ExternalIDs.ActionIDCreateServer == 0 {
+	if hm.Status.ExternalIDs.ActionIDCreateServer == nil {
 		msg := "ActionIDCreateServer is missing in the status.externalIDs, cannot check whether the server is provisioned. Machine will be remediated"
 		s.scope.Error(nil, msg)
 		err := s.scope.SetErrorAndRemediate(ctx, msg)
@@ -390,8 +390,8 @@ func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcil
 	// the server create action is finished, which means the server is provisioned and unlocked. After
 	// that the rescue system can be enabled. Once finished, ActionIDCreateServer is set to actionDone
 	// so a later EnableRescueSystem retry does not fetch the finished action again.
-	if hm.Status.ExternalIDs.ActionIDCreateServer != actionDone {
-		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ExternalIDs.ActionIDCreateServer)
+	if *hm.Status.ExternalIDs.ActionIDCreateServer != actionDone {
+		action, err := s.scope.HCloudClient.GetAction(ctx, *hm.Status.ExternalIDs.ActionIDCreateServer)
 		if err != nil {
 			if handleUnauthorized(hm, err) {
 				return reconcile.Result{}, nil
@@ -453,7 +453,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcil
 		}
 
 		// The server create action finished successfully.
-		hm.Status.ExternalIDs.ActionIDCreateServer = actionDone
+		hm.Status.ExternalIDs.ActionIDCreateServer = ptr.To(int64(actionDone))
 	}
 
 	// The server create action is finished. The server is provisioned and still powered off.
@@ -498,7 +498,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context) (res reconcil
 
 	// The API of hetzner is async. We get an Action-ID as result. We need to wait until the action
 	// is done. After that we can power the server on, so that it boots into the rescue system.
-	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = result.Action.ID
+	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = ptr.To(result.Action.ID)
 
 	s.setBootState(infrav2.HCloudBootStateEnablingRescue)
 
@@ -532,7 +532,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.
 
 	// ActionIDEnableRescueSystem gets stored by handleBootStateInitializing before the boot
 	// state becomes EnablingRescue. This guard catches it early if that behavior ever changes.
-	if hm.Status.ExternalIDs.ActionIDEnableRescueSystem == 0 {
+	if hm.Status.ExternalIDs.ActionIDEnableRescueSystem == nil {
 		msg := "ActionIDEnableRescueSystem is missing in the status.externalIDs, cannot check whether the rescue system is enabled. Machine will be remediated"
 		s.scope.Error(nil, msg)
 		err := s.scope.SetErrorAndRemediate(ctx, msg)
@@ -550,8 +550,8 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.
 		return reconcile.Result{}, nil
 	}
 
-	if hm.Status.ExternalIDs.ActionIDEnableRescueSystem != actionDone {
-		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ExternalIDs.ActionIDEnableRescueSystem)
+	if *hm.Status.ExternalIDs.ActionIDEnableRescueSystem != actionDone {
+		action, err := s.scope.HCloudClient.GetAction(ctx, *hm.Status.ExternalIDs.ActionIDEnableRescueSystem)
 		if err != nil {
 			if handleUnauthorized(hm, err) {
 				return reconcile.Result{}, nil
@@ -617,7 +617,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context) (reconcile.
 			"finishedSince", time.Since(action.Finished),
 			"actionStatus", action.Status)
 
-		hm.Status.ExternalIDs.ActionIDEnableRescueSystem = actionDone
+		hm.Status.ExternalIDs.ActionIDEnableRescueSystem = ptr.To(int64(actionDone))
 		deprecatedv1beta1conditions.MarkFalse(hm, infrav2.ServerProvisionedV1Beta1Condition,
 			"EnablingRescueActionDone", clusterv1.ConditionSeverityInfo,
 			"Action RescueEnabled is finished")
@@ -1087,8 +1087,8 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context) (res reconci
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	// Clean up old Status fields
-	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = 0
-	hm.Status.ExternalIDs.ActionIDCreateServer = 0
+	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = nil
+	hm.Status.ExternalIDs.ActionIDCreateServer = nil
 
 	deprecatedv1beta1conditions.MarkTrue(hm, infrav2.ServerProvisionedV1Beta1Condition)
 	// Provisioning is complete.
@@ -1209,7 +1209,7 @@ func (s *Service) getLiveServer(ctx context.Context) (server *hcloud.Server, res
 		// The server no longer exists in HCloud, it was deleted.
 		// We set MachineError. CAPI will delete machine.
 		msg := fmt.Sprintf("hcloud server (%q) no longer available. Setting MachineError.",
-			*s.scope.HCloudMachine.Spec.ProviderID)
+			s.scope.HCloudMachine.Spec.ProviderID)
 
 		s.scope.Error(errors.New(msg), msg)
 
@@ -1295,7 +1295,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	s.scope.HCloudMachine.Status.InstanceState = infrav2.InstanceStateDeleting
 
 	// Nothing to do if ProviderID was never set.
-	if s.scope.HCloudMachine.Spec.ProviderID == nil {
+	if s.scope.HCloudMachine.Spec.ProviderID == "" {
 		return reconcile.Result{}, nil
 	}
 
@@ -1313,11 +1313,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 
 	// if no server has been found, then nothing can be deleted
 	if server == nil {
-		providerID := "nil"
-		if s.scope.HCloudMachine.Spec.ProviderID != nil {
-			providerID = *s.scope.HCloudMachine.Spec.ProviderID
-		}
-		msg := fmt.Sprintf("Unable to delete HCloud server. Could not find matching server for %s. ProviderID: %q", s.scope.Name(), providerID)
+		msg := fmt.Sprintf("Unable to delete HCloud server. Could not find matching server for %s. ProviderID: %q", s.scope.Name(), s.scope.HCloudMachine.Spec.ProviderID)
 		s.scope.V(1).Info(msg)
 		s.scope.EventRecorder.Event(
 			s.scope.HCloudMachine,
@@ -1329,7 +1325,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	// control planes have to be deleted as targets of server
-	if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
+	if s.scope.IsControlPlane() && ptr.Deref(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled, false) {
 		for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
 			if target.Type == infrav2.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
 				if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
@@ -1562,7 +1558,7 @@ func (s *Service) createServerFromCustomProvisioner(ctx context.Context) (*hclou
 	}
 
 	// handleBootStateInitializing waits for this action before enabling the rescue system.
-	hm.Status.ExternalIDs.ActionIDCreateServer = result.Action.ID
+	hm.Status.ExternalIDs.ActionIDCreateServer = ptr.To(result.Action.ID)
 
 	s.setBootState(infrav2.HCloudBootStateInitializing)
 	return result.Server, image, nil
@@ -1643,8 +1639,8 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 		StartAfterCreate: &startAfterCreate,
 		UserData:         string(userData),
 		PublicNet: &hcloud.ServerCreatePublicNet{
-			EnableIPv4: hm.Spec.PublicNetwork.EnableIPv4,
-			EnableIPv6: hm.Spec.PublicNetwork.EnableIPv6,
+			EnableIPv4: ptr.Deref(hm.Spec.PublicNetwork.EnableIPv4, infrav2.DefaultEnableIPv4),
+			EnableIPv6: ptr.Deref(hm.Spec.PublicNetwork.EnableIPv6, infrav2.DefaultEnableIPv6),
 		},
 	}
 
@@ -1695,7 +1691,7 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 	}
 
 	// if no private network exists, there must be an IPv4 for the load balancer
-	if !s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled {
+	if !ptr.Deref(s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled, false) {
 		opts.PublicNet.EnableIPv4 = true
 	}
 
@@ -1822,7 +1818,7 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 	}
 
 	// always add ssh key from secret if one is found
-	sshKeyName := s.scope.HetznerSecret().Data[s.scope.HetznerCluster.Spec.HetznerSecret.Key.SSHKey]
+	sshKeyName := s.scope.HetznerSecret().Data[s.scope.HetznerCluster.Spec.HetznerSecret.Key.GetSSHKey()]
 	if len(sshKeyName) > 0 {
 		// Check if the SSH key name already exists
 		keyExists := false
@@ -2334,7 +2330,8 @@ func updateHCloudMachineStatusFromServer(hm *infrav2.HCloudMachine, server *hclo
 // It reads the key from the Kubernetes secret referenced by HetznerCluster.Spec.SSHKeys.RescueSecretRef.
 // On failure it sets SSHPrivateKeyAvailableCondition with a specific reason describing the root cause.
 func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
-	robotSecretName := s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Name
+	rescueSecretRef := ptr.Deref(s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef, infrav2.SSHSecretRef{})
+	robotSecretName := rescueSecretRef.Name
 	if robotSecretName == "" {
 		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HCloudMachine,
@@ -2378,7 +2375,7 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
 	}
 
-	privateKey := string(robotSecret.Data[s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey])
+	privateKey := string(robotSecret.Data[rescueSecretRef.Key.PrivateKey])
 	if privateKey == "" {
 		deprecatedv1beta1conditions.MarkFalse(
 			s.scope.HCloudMachine,
@@ -2386,17 +2383,17 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 			infrav2.SSHPrivateKeyFieldEmptyV1Beta1Reason,
 			clusterv1.ConditionSeverityError,
 			"key %q in secret %q is missing or empty",
-			s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey,
+			rescueSecretRef.Key.PrivateKey,
 			robotSecretName,
 		)
 		conditions.Set(s.scope.HCloudMachine, metav1.Condition{
 			Type:    infrav2.HCloudMachineSSHPrivateKeyAvailableCondition,
 			Status:  metav1.ConditionFalse,
 			Reason:  infrav2.HCloudMachineSSHPrivateKeyFieldEmptyReason,
-			Message: fmt.Sprintf("key %q in secret %q is missing or empty", s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey, robotSecretName),
+			Message: fmt.Sprintf("key %q in secret %q is missing or empty", rescueSecretRef.Key.PrivateKey, robotSecretName),
 		})
 		return "", fmt.Errorf("key %q in secret %q is missing or empty. Failed to get ssh-private-key",
-			s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey,
+			rescueSecretRef.Key.PrivateKey,
 			robotSecretName)
 	}
 

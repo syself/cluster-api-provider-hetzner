@@ -89,7 +89,7 @@ func getAndValidateHCloudToken(ctx context.Context, namespace string, hetznerClu
 		return "", nil, err
 	}
 
-	hcloudToken := string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.HCloudToken])
+	hcloudToken := string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.GetHCloudToken()])
 
 	// Validate token
 	if hcloudToken == "" {

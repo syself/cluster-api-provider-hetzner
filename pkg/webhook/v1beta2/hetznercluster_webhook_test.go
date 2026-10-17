@@ -33,7 +33,7 @@ func validHetznerCluster(lb infrav2.LoadBalancerSpec) *infrav2.HetznerCluster {
 			ControlPlaneLoadBalancer: lb,
 			HetznerSecret: infrav2.HetznerSecretRef{
 				Key: infrav2.HetznerSecretKeyRef{
-					HCloudToken: "token",
+					HCloudToken: ptr.To("token"),
 				},
 			},
 		},
@@ -51,26 +51,26 @@ func TestValidateUpdateProxyProtocol(t *testing.T) {
 	}{
 		{
 			name:        "disabling proxy protocol is not allowed",
-			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: true},
-			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: false},
+			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: ptr.To(true)},
+			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: ptr.To(false)},
 			expectError: true,
 		},
 		{
 			name:        "enabling proxy protocol is allowed",
-			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: false},
-			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: true},
+			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: ptr.To(false)},
+			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: ptr.To(true)},
 			expectError: false,
 		},
 		{
 			name:        "keeping proxy protocol enabled is allowed",
-			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: true},
-			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: true},
+			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: ptr.To(true)},
+			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: ptr.To(true)},
 			expectError: false,
 		},
 		{
 			name:        "keeping proxy protocol disabled is allowed",
-			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: false},
-			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: false},
+			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: ptr.To(false)},
+			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: ptr.To(false)},
 			expectError: false,
 		},
 	}
@@ -140,4 +140,110 @@ func TestValidateLoadBalancerHealthCheck(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateUpdateHCloudNetworkUnsetEnabled(t *testing.T) {
+	webhook := &HetznerClusterWebhook{}
+	cluster := func(enabled *bool) *infrav2.HetznerCluster {
+		c := validHetznerCluster(infrav2.LoadBalancerSpec{})
+		c.Spec.HCloudNetwork.Enabled = enabled
+		return c
+	}
+
+	// An object read from storage has enabled false. An update request that leaves enabled out means false too.
+	_, err := webhook.ValidateUpdate(context.Background(), cluster(ptr.To(false)), cluster(nil))
+	require.NoError(t, err)
+
+	_, err = webhook.ValidateUpdate(context.Background(), cluster(ptr.To(false)), cluster(ptr.To(true)))
+	require.ErrorContains(t, err, "spec.hcloudNetwork: Invalid value")
+}
+
+// TestValidateUpdateLoadBalancerEnabled checks that controlPlaneLoadBalancer.enabled is immutable,
+// and that an unset enabled means false.
+func TestValidateUpdateLoadBalancerEnabled(t *testing.T) {
+	webhook := &HetznerClusterWebhook{}
+
+	tests := []struct {
+		name    string
+		oldLB   infrav2.LoadBalancerSpec
+		newLB   infrav2.LoadBalancerSpec
+		wantErr bool
+	}{
+		{
+			name:  "unset enabled after false is accepted",
+			oldLB: infrav2.LoadBalancerSpec{Enabled: ptr.To(false)},
+			newLB: infrav2.LoadBalancerSpec{},
+		},
+		{
+			name:  "false after unset enabled is accepted",
+			oldLB: infrav2.LoadBalancerSpec{},
+			newLB: infrav2.LoadBalancerSpec{Enabled: ptr.To(false)},
+		},
+		{
+			name:  "true after true is accepted",
+			oldLB: infrav2.LoadBalancerSpec{Enabled: ptr.To(true)},
+			newLB: infrav2.LoadBalancerSpec{Enabled: ptr.To(true)},
+		},
+		{
+			name:    "true after false is rejected",
+			oldLB:   infrav2.LoadBalancerSpec{Enabled: ptr.To(false)},
+			newLB:   infrav2.LoadBalancerSpec{Enabled: ptr.To(true)},
+			wantErr: true,
+		},
+		{
+			name:    "unset enabled after true is rejected",
+			oldLB:   infrav2.LoadBalancerSpec{Enabled: ptr.To(true)},
+			newLB:   infrav2.LoadBalancerSpec{},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := webhook.ValidateUpdate(context.Background(), validHetznerCluster(tt.oldLB), validHetznerCluster(tt.newLB))
+			if tt.wantErr {
+				require.ErrorContains(t, err, "spec.controlPlaneLoadBalancer.enabled: Invalid value")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestHetznerClusterTemplateValidateUpdateUnsetFields(t *testing.T) {
+	template := func(spec infrav2.HetznerClusterSpec) *infrav2.HetznerClusterTemplate {
+		return &infrav2.HetznerClusterTemplate{
+			Spec: infrav2.HetznerClusterTemplateSpec{
+				Template: infrav2.HetznerClusterTemplateResource{Spec: spec},
+			},
+		}
+	}
+	// stored is a spec as it is read from storage: the conversion from v1beta1 sets every field that
+	// has a meaning when unset. A controlPlaneLoadBalancer or hcloudNetwork that was left out stays a
+	// zero struct.
+	stored := infrav2.HetznerClusterSpec{
+		HetznerSecret: infrav2.HetznerSecretRef{
+			Name: "hetzner",
+			Key: infrav2.HetznerSecretKeyRef{
+				HCloudToken:          ptr.To("token"),
+				HetznerRobotUser:     ptr.To("hetzner-robot-user"),
+				HetznerRobotPassword: ptr.To("hetzner-robot-password"),
+				SSHKey:               ptr.To("hcloud-ssh-key-name"),
+			},
+		},
+		SkipCreatingHetznerSecretInWorkloadCluster: ptr.To(false),
+	}
+	unset := infrav2.HetznerClusterSpec{
+		SSHKeys:       infrav2.HetznerSSHKeys{RescueSecretRef: &infrav2.SSHSecretRef{}},
+		HetznerSecret: infrav2.HetznerSecretRef{Name: "hetzner"},
+	}
+	webhook := &HetznerClusterTemplateWebhook{}
+
+	_, err := webhook.ValidateUpdate(context.Background(), template(stored), template(unset))
+	require.NoError(t, err)
+
+	changed := unset
+	changed.SkipCreatingHetznerSecretInWorkloadCluster = ptr.To(true)
+	_, err = webhook.ValidateUpdate(context.Background(), template(stored), template(changed))
+	require.ErrorContains(t, err, "HetznerClusterTemplate.Spec is immutable")
 }

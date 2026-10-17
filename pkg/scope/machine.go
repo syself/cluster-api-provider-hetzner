@@ -287,21 +287,20 @@ func (m *MachineScope) SetRegion(region string) {
 
 // SetProviderID sets the providerID field on the machine.
 func (m *MachineScope) SetProviderID(serverID int64) {
-	providerID := fmt.Sprintf("hcloud://%d", serverID)
-	m.HCloudMachine.Spec.ProviderID = &providerID
+	m.HCloudMachine.Spec.ProviderID = fmt.Sprintf("hcloud://%d", serverID)
 }
 
 // ServerIDFromProviderID converts the ProviderID (hcloud://NNNN) to the ServerID.
 func (m *MachineScope) ServerIDFromProviderID() (int64, error) {
-	if m.HCloudMachine.Spec.ProviderID == nil || *m.HCloudMachine.Spec.ProviderID == "" {
+	if m.HCloudMachine.Spec.ProviderID == "" {
 		return 0, ErrEmptyProviderID
 	}
 	prefix := "hcloud://"
-	if !strings.HasPrefix(*m.HCloudMachine.Spec.ProviderID, prefix) {
+	if !strings.HasPrefix(m.HCloudMachine.Spec.ProviderID, prefix) {
 		return 0, ErrInvalidProviderID
 	}
 
-	serverID, err := strconv.ParseInt(strings.TrimPrefix(*m.HCloudMachine.Spec.ProviderID, prefix), 10, 64)
+	serverID, err := strconv.ParseInt(strings.TrimPrefix(m.HCloudMachine.Spec.ProviderID, prefix), 10, 64)
 	if err != nil {
 		return 0, ErrInvalidServerID
 	}

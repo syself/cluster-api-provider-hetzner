@@ -274,7 +274,7 @@ var _ = Describe("handleBootStateUnset", func() {
 				Namespace: "default",
 			},
 			Spec: infrav2.HCloudMachineSpec{
-				CustomProvisioner: &infrav2.HCloudCustomProvisioner{
+				CustomProvisioner: infrav2.HCloudCustomProvisioner{
 					URL:     "oci://example.com/repo/image:v1",
 					Command: "custom-provisioner-test.sh",
 				},
@@ -288,7 +288,7 @@ var _ = Describe("handleBootStateUnset", func() {
 		service.scope.HetznerCluster = &infrav2.HetznerCluster{
 			Spec: infrav2.HetznerClusterSpec{
 				SSHKeys: infrav2.HetznerSSHKeys{
-					RescueSecretRef: infrav2.SSHSecretRef{
+					RescueSecretRef: &infrav2.SSHSecretRef{
 						Name: "", // empty name causes getSSHPrivateKey to fail immediately
 					},
 				},
@@ -330,7 +330,7 @@ var _ = Describe("Delete", func() {
 				Namespace: "default",
 			},
 			Spec: infrav2.HCloudMachineSpec{
-				ProviderID: ptr.To("hcloud://1234567"),
+				ProviderID: "hcloud://1234567",
 			},
 		}
 		hcloudClient := &mocks.Client{}
@@ -454,7 +454,7 @@ var _ = Describe("findServer", func() {
 				Namespace: "default",
 			},
 			Spec: infrav2.HCloudMachineSpec{
-				ProviderID: ptr.To("hcloud://1234567"),
+				ProviderID: "hcloud://1234567",
 			},
 		}
 		hcloudClient := mocks.NewClient(GinkgoT())
@@ -516,7 +516,7 @@ var _ = Describe("Delete", func() {
 				Initialization: infrav2.HCloudMachineInitializationStatus{Provisioned: ptr.To(true)},
 			},
 			Spec: infrav2.HCloudMachineSpec{
-				ProviderID: ptr.To("hcloud://1234567"),
+				ProviderID: "hcloud://1234567",
 			},
 		}
 		hcloudClient := mocks.NewClient(GinkgoT())
@@ -546,7 +546,7 @@ var _ = Describe("Delete", func() {
 				DeletionTimestamp: &metav1.Time{Time: time.Now()},
 			},
 			Spec: infrav2.HCloudMachineSpec{
-				ProviderID: ptr.To("hcloud://1234567"),
+				ProviderID: "hcloud://1234567",
 			},
 		}
 		// A provisioned, running server must be gracefully shut down before it is deleted. ServerAvailable
@@ -586,7 +586,7 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDEnableRescueSystem: 123456,
+					ActionIDEnableRescueSystem: ptr.To(int64(123456)),
 				},
 			},
 		}
@@ -612,7 +612,7 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDEnableRescueSystem: 123456,
+					ActionIDEnableRescueSystem: ptr.To(int64(123456)),
 				},
 			},
 		}
@@ -642,7 +642,7 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDEnableRescueSystem: 123456,
+					ActionIDEnableRescueSystem: ptr.To(int64(123456)),
 				},
 			},
 		}
@@ -672,12 +672,12 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 				Namespace: "default",
 			},
 			Spec: infrav2.HCloudMachineSpec{
-				ProviderID: ptr.To("hcloud://1"),
+				ProviderID: "hcloud://1",
 			},
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDEnableRescueSystem: actionDone,
+					ActionIDEnableRescueSystem: ptr.To(int64(actionDone)),
 				},
 			},
 		}
@@ -705,12 +705,12 @@ var _ = Describe("handleBootStateEnablingRescue", func() {
 				Namespace: "default",
 			},
 			Spec: infrav2.HCloudMachineSpec{
-				ProviderID: ptr.To("hcloud://1"),
+				ProviderID: "hcloud://1",
 			},
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDEnableRescueSystem: actionDone,
+					ActionIDEnableRescueSystem: ptr.To(int64(actionDone)),
 				},
 			},
 		}
@@ -740,7 +740,7 @@ var _ = Describe("handleBootStateInitializing", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDCreateServer: 998877,
+					ActionIDCreateServer: ptr.To(int64(998877)),
 				},
 			},
 		}
@@ -799,7 +799,7 @@ var _ = Describe("handleBootStateInitializing", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDCreateServer: 998877,
+					ActionIDCreateServer: ptr.To(int64(998877)),
 				},
 			},
 		}
@@ -826,7 +826,7 @@ var _ = Describe("handleBootStateInitializing", func() {
 			Status: infrav2.HCloudMachineStatus{
 				BootStateSince: metav1.Now(),
 				ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-					ActionIDCreateServer: 998877,
+					ActionIDCreateServer: ptr.To(int64(998877)),
 				},
 			},
 		}
@@ -872,7 +872,7 @@ var _ = Describe("handleBootStateInitializing", func() {
 					HetznerSecret: infrav2.HetznerSecretRef{
 						Name: "secretname",
 						Key: infrav2.HetznerSecretKeyRef{
-							SSHKey: "hcloud-ssh-key-name",
+							SSHKey: ptr.To("hcloud-ssh-key-name"),
 						},
 					},
 				},
@@ -884,12 +884,12 @@ var _ = Describe("handleBootStateInitializing", func() {
 					Namespace: "default",
 				},
 				Spec: infrav2.HCloudMachineSpec{
-					ProviderID: ptr.To("hcloud://1"),
+					ProviderID: "hcloud://1",
 				},
 				Status: infrav2.HCloudMachineStatus{
 					BootStateSince: metav1.Now(),
 					ExternalIDs: infrav2.HCloudMachineStatusExternalIDs{
-						ActionIDCreateServer: actionDone,
+						ActionIDCreateServer: ptr.To(int64(actionDone)),
 					},
 				},
 			},
@@ -996,7 +996,7 @@ var _ = Describe("getSSHKeys", func() {
 					HetznerSecret: infrav2.HetznerSecretRef{
 						Name: "secretname",
 						Key: infrav2.HetznerSecretKeyRef{
-							SSHKey: "hcloud-ssh-key-name",
+							SSHKey: ptr.To("hcloud-ssh-key-name"),
 						},
 					},
 				},
@@ -1276,12 +1276,12 @@ var _ = Describe("Reconcile", func() {
 				HetznerSecret: infrav2.HetznerSecretRef{
 					Name: "secretname",
 					Key: infrav2.HetznerSecretKeyRef{
-						SSHKey: "hcloud-ssh-key-name",
+						SSHKey: ptr.To("hcloud-ssh-key-name"),
 					},
 				},
 				SSHKeys: infrav2.HetznerSSHKeys{
 					HCloud: []infrav2.SSHKey{},
-					RescueSecretRef: infrav2.SSHSecretRef{
+					RescueSecretRef: &infrav2.SSHSecretRef{
 						Name: "rescue-ssh-secret",
 						Key: infrav2.SSHSecretKeyRef{
 							Name:       "sshkey-name",
@@ -1435,7 +1435,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 
 		By("setting the ProviderID on the HCloudMachine")
-		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://1234567")
+		service.scope.HCloudMachine.Spec.ProviderID = "hcloud://1234567"
 		err = testEnv.Update(ctx, service.scope.HCloudMachine)
 		Expect(err).To(BeNil())
 
@@ -1602,7 +1602,7 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring the existing server was adopted instead of failing forever")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav2.HCloudBootStateBootingToRealOS))
-		Expect(*service.scope.HCloudMachine.Spec.ProviderID).To(Equal("hcloud://42"))
+		Expect(service.scope.HCloudMachine.Spec.ProviderID).To(Equal("hcloud://42"))
 		Expect(deprecatedv1beta1conditions.IsTrue(service.scope.HCloudMachine, infrav2.ServerCreateSucceededV1Beta1Condition)).To(BeTrue())
 		Expect(isPresentWithStatusAndReason(service.scope.HCloudMachine, infrav2.HCloudMachineServerCreatedCondition, metav1.ConditionTrue, infrav2.HCloudMachineServerCreatedReason)).To(BeTrue())
 	})
@@ -1685,7 +1685,7 @@ var _ = Describe("Reconcile", func() {
 		})
 		Expect(err).To(BeNil())
 		service.scope.HCloudMachine.Spec.ImageName = ""
-		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		service.scope.HCloudMachine.Spec.CustomProvisioner = infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
 			Command: "custom-provisioner-test.sh",
 		}
@@ -1743,8 +1743,8 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring the existing server was adopted, with the create action treated as already finished")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav2.HCloudBootStateInitializing))
-		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDCreateServer).To(Equal(int64(actionDone)))
-		Expect(*service.scope.HCloudMachine.Spec.ProviderID).To(Equal("hcloud://42"))
+		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDCreateServer).To(Equal(ptr.To(int64(actionDone))))
+		Expect(service.scope.HCloudMachine.Spec.ProviderID).To(Equal("hcloud://42"))
 		Expect(deprecatedv1beta1conditions.IsTrue(service.scope.HCloudMachine, infrav2.ServerCreateSucceededV1Beta1Condition)).To(BeTrue())
 		Expect(isPresentWithStatusAndReason(service.scope.HCloudMachine, infrav2.HCloudMachineServerCreatedCondition, metav1.ConditionTrue, infrav2.HCloudMachineServerCreatedReason)).To(BeTrue())
 
@@ -1774,7 +1774,7 @@ var _ = Describe("Reconcile", func() {
 		})
 		Expect(err).To(BeNil())
 		service.scope.HCloudMachine.Spec.ImageName = ""
-		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		service.scope.HCloudMachine.Spec.CustomProvisioner = infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
 			Command: "custom-provisioner-test.sh",
 		}
@@ -1834,7 +1834,7 @@ var _ = Describe("Reconcile", func() {
 		By("ensuring the bootstate has transitioned to Initializing and the server create action is stored")
 
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav2.HCloudBootStateInitializing))
-		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDCreateServer).To(Equal(int64(998877)))
+		Expect(service.scope.HCloudMachine.Status.ExternalIDs.ActionIDCreateServer).To(Equal(ptr.To(int64(998877))))
 
 		By("reconciling again: server create action not finished yet")
 		startTime := time.Now()
@@ -1973,11 +1973,11 @@ var _ = Describe("Reconcile", func() {
 		By("setting bootstrap data ready and machine in RunningImageCommand state")
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 		service.scope.HCloudMachine.Spec.ImageName = ""
-		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		service.scope.HCloudMachine.Spec.CustomProvisioner = infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
 			Command: "custom-provisioner-test.sh",
 		}
-		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Spec.ProviderID = "hcloud://42"
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
@@ -2018,11 +2018,11 @@ var _ = Describe("Reconcile", func() {
 		By("setting bootstrap data ready and machine in RunningImageCommand state")
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 		service.scope.HCloudMachine.Spec.ImageName = ""
-		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		service.scope.HCloudMachine.Spec.CustomProvisioner = infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
 			Command: "custom-provisioner-test.sh",
 		}
-		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Spec.ProviderID = "hcloud://42"
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
@@ -2061,11 +2061,11 @@ var _ = Describe("Reconcile", func() {
 		By("setting bootstrap data ready and machine in RunningImageCommand state")
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 		service.scope.HCloudMachine.Spec.ImageName = ""
-		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		service.scope.HCloudMachine.Spec.CustomProvisioner = infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
 			Command: "custom-provisioner-test.sh",
 		}
-		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Spec.ProviderID = "hcloud://42"
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
@@ -2099,11 +2099,11 @@ var _ = Describe("Reconcile", func() {
 		By("setting bootstrap data ready and machine in RunningImageCommand state")
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 		service.scope.HCloudMachine.Spec.ImageName = ""
-		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		service.scope.HCloudMachine.Spec.CustomProvisioner = infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
 			Command: "custom-provisioner-test.sh",
 		}
-		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Spec.ProviderID = "hcloud://42"
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
@@ -2131,11 +2131,11 @@ var _ = Describe("Reconcile", func() {
 		By("setting bootstrap data ready and machine in RunningImageCommand state")
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 		service.scope.HCloudMachine.Spec.ImageName = ""
-		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		service.scope.HCloudMachine.Spec.CustomProvisioner = infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
 			Command: "custom-provisioner-test.sh",
 		}
-		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Spec.ProviderID = "hcloud://42"
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
@@ -2163,11 +2163,11 @@ var _ = Describe("Reconcile", func() {
 		By("setting bootstrap data ready and machine in RunningImageCommand state")
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 		service.scope.HCloudMachine.Spec.ImageName = ""
-		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		service.scope.HCloudMachine.Spec.CustomProvisioner = infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
 			Command: "custom-provisioner-test.sh",
 		}
-		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Spec.ProviderID = "hcloud://42"
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
@@ -2195,11 +2195,11 @@ var _ = Describe("Reconcile", func() {
 		By("setting bootstrap data ready and machine in RunningImageCommand state")
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 		service.scope.HCloudMachine.Spec.ImageName = ""
-		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		service.scope.HCloudMachine.Spec.CustomProvisioner = infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
 			Command: "custom-provisioner-test.sh",
 		}
-		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Spec.ProviderID = "hcloud://42"
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateRunningImageCommand
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
@@ -2244,11 +2244,11 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 		service.scope.HCloudMachine.Spec.ImageName = ""
-		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		service.scope.HCloudMachine.Spec.CustomProvisioner = infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
 			Command: "custom-provisioner-test.sh",
 		}
-		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://42")
+		service.scope.HCloudMachine.Spec.ProviderID = "hcloud://42"
 		service.scope.HCloudMachine.Status.BootState = infrav2.HCloudBootStateBootingToRescue
 		service.scope.HCloudMachine.Status.BootStateSince = metav1.Now()
 
@@ -2377,7 +2377,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 
 		By("setting the ProviderID on the HCloudMachine")
-		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://1234567")
+		service.scope.HCloudMachine.Spec.ProviderID = "hcloud://1234567"
 
 		By("reconciling once: the pre-BootState migration path sets BootingToRealOS without calling GetServer")
 		_, err := service.Reconcile(ctx)
@@ -2434,7 +2434,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 
 		By("setting the ProviderID on the HCloudMachine and marking it as fully provisioned")
-		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://1234567")
+		service.scope.HCloudMachine.Spec.ProviderID = "hcloud://1234567"
 		err = testEnv.Update(ctx, service.scope.HCloudMachine)
 		Expect(err).To(BeNil())
 		service.scope.HCloudMachine.Status.Initialization.Provisioned = ptr.To(true)
@@ -2488,7 +2488,7 @@ var _ = Describe("Reconcile", func() {
 
 		By("setting customProvisioner with a command that does not exist in the command directory")
 		service.scope.HCloudMachine.Spec.ImageName = ""
-		service.scope.HCloudMachine.Spec.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+		service.scope.HCloudMachine.Spec.CustomProvisioner = infrav2.HCloudCustomProvisioner{
 			URL:     "oci://example.com/repo/image:v1",
 			Command: "custom-provisioner-nonexistent.sh",
 		}

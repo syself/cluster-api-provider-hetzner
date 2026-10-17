@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -199,7 +200,7 @@ func (s *BareMetalHostScope) SSHAfterInstallImageEnabled() bool {
 	if s.HetznerBareMetalMachine == nil {
 		return false
 	}
-	return !s.HetznerBareMetalMachine.Spec.SSHSpec.NoSSHAfterInstallImage
+	return !ptr.Deref(s.HetznerBareMetalMachine.Spec.SSHSpec.NoSSHAfterInstallImage, false)
 }
 
 // errActionFailure is the error the log entry of SetHostError is keyed on.

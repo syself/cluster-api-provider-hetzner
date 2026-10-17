@@ -70,7 +70,7 @@ var _ = Describe("chooseHost", func() {
 			Namespace: defaultNamespace,
 		},
 		Spec: infrav2.HetznerBareMetalHostSpec{
-			ConsumerRef: &infrav2.HetznerBareMetalHostConsumerReference{
+			ConsumerRef: infrav2.HetznerBareMetalHostConsumerReference{
 				Name:     "bm-machine",
 				Kind:     "HetznerBareMetalMachine",
 				APIGroup: infrav2.GroupVersion.Group,
@@ -87,7 +87,7 @@ var _ = Describe("chooseHost", func() {
 			Namespace: defaultNamespace,
 		},
 		Spec: infrav2.HetznerBareMetalHostSpec{
-			ConsumerRef: &infrav2.HetznerBareMetalHostConsumerReference{
+			ConsumerRef: infrav2.HetznerBareMetalHostConsumerReference{
 				Name:     "bm-machine-other",
 				Kind:     "HetznerBareMetalMachine",
 				APIGroup: infrav2.GroupVersion.Group,
@@ -240,7 +240,7 @@ var _ = Describe("chooseHost", func() {
 			scheme := runtime.NewScheme()
 			utilruntime.Must(infrav2.AddToScheme(scheme))
 			c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(tc.Hosts...).Build()
-			bmMachine.Spec.HostSelector = tc.HostSelector
+			bmMachine.Spec.HostSelector = &tc.HostSelector
 			service := newTestService(bmMachine, c)
 
 			hosts := &infrav2.HetznerBareMetalHostList{}
@@ -310,11 +310,11 @@ var _ = Describe("chooseHost", func() {
 	)
 
 	DescribeTable("chooseHost(): customProvisioner uses its swraid setting",
-		func(swraid int, expectedHostName string) {
+		func(swraid int32, expectedHostName string) {
 			bmMachine := &infrav2.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "bmMachine", Namespace: defaultNamespace},
 				Spec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{Swraid: swraid},
+					CustomProvisioner: infrav2.CustomProvisioner{Swraid: ptr.To(swraid)},
 				},
 			}
 
@@ -324,15 +324,15 @@ var _ = Describe("chooseHost", func() {
 			Expect(host).ToNot(BeNil())
 			Expect(host.Name).To(Equal(expectedHostName))
 		},
-		Entry("swraid 1 chooses the RAID host", 1, "hostWithRaidWwnConfig"),
-		Entry("swraid 0 chooses the non-RAID host", 0, "hostWithNonRaidWwnConfig"),
+		Entry("swraid 1 chooses the RAID host", int32(1), "hostWithRaidWwnConfig"),
+		Entry("swraid 0 chooses the non-RAID host", int32(0), "hostWithNonRaidWwnConfig"),
 	)
 
 	type testCaseChooseHostWithReason struct {
 		hosts            []client.Object
 		expectedHostName string
 		expectedReason   string
-		swraid           int
+		swraid           int32
 	}
 
 	DescribeTable(
@@ -345,8 +345,8 @@ var _ = Describe("chooseHost", func() {
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{Name: "bmMachine", Namespace: defaultNamespace},
 				Spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Swraid: tc.swraid,
+					InstallImage: infrav2.InstallImage{
+						Swraid: ptr.To(tc.swraid),
 					},
 				},
 			}
@@ -953,7 +953,7 @@ var _ = Describe("Test analyzePatchError", func() {
 var _ = Describe("Test GenerateProviderID", func() {
 	type testCaseGenerateProviderID struct {
 		hetznerCluster     *infrav2.HetznerCluster
-		serverNumber       int
+		serverNumber       int64
 		expectedProviderID string
 	}
 
@@ -1572,8 +1572,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		Expect(res.RequeueAfter).To(Equal(requeueAfter))
 
 		Expect(ptr.Deref(bareMetalMachine.Status.Initialization.Provisioned, false)).To(BeTrue())
-		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
-		Expect(*bareMetalMachine.Spec.ProviderID).NotTo(BeEmpty())
+		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeEmpty())
 		Expect(deprecatedv1beta1conditions.IsFalse(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(BeTrue())
 		Expect(deprecatedv1beta1conditions.GetReason(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(Equal("WaitingForAPIServer"))
 		Expect(conditions.IsFalse(bareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
@@ -1609,7 +1608,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		Expect(res).To(Equal(reconcile.Result{}))
 
 		Expect(ptr.Deref(bareMetalMachine.Status.Initialization.Provisioned, false)).To(BeTrue())
-		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
+		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeEmpty())
 		Expect(deprecatedv1beta1conditions.IsTrue(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(BeTrue())
 		Expect(conditions.IsTrue(bareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
 	})
@@ -1625,7 +1624,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		Expect(res).To(Equal(reconcile.Result{}))
 
 		Expect(ptr.Deref(bareMetalMachine.Status.Initialization.Provisioned, false)).To(BeTrue())
-		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
+		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeEmpty())
 		Expect(deprecatedv1beta1conditions.IsTrue(bareMetalMachine, infrav2.ServerAvailableV1Beta1Condition)).To(BeTrue())
 		Expect(conditions.IsTrue(bareMetalMachine, infrav2.HetznerBareMetalMachineServerAvailableCondition)).To(BeTrue())
 	})
@@ -1641,7 +1640,7 @@ var _ = Describe("Delete", func() {
 		host := &infrav2.HetznerBareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{Name: "bm-host", Namespace: ns},
 			Spec: infrav2.HetznerBareMetalHostSpec{
-				ConsumerRef: &infrav2.HetznerBareMetalHostConsumerReference{
+				ConsumerRef: infrav2.HetznerBareMetalHostConsumerReference{
 					Name:     "bm-machine",
 					Kind:     "HetznerBareMetalMachine",
 					APIGroup: infrav2.GroupVersion.Group,

@@ -447,7 +447,7 @@ func TestHetznerSecretToHCloudMachines(t *testing.T) {
 			Spec: infrav2.HetznerClusterSpec{
 				HetznerSecret: infrav2.HetznerSecretRef{
 					Name: secret,
-					Key:  infrav2.HetznerSecretKeyRef{HCloudToken: "hcloud-token"},
+					Key:  infrav2.HetznerSecretKeyRef{HCloudToken: ptr.To("hcloud-token")},
 				},
 			},
 		}
@@ -934,7 +934,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 		Context("without network", func() {
 			BeforeEach(func() {
-				hetznerCluster.Spec.HCloudNetwork.Enabled = false
+				hetznerCluster.Spec.HCloudNetwork.Enabled = ptr.To(false)
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
 			})
@@ -1009,8 +1009,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		Context("with public network specs", func() {
 			BeforeEach(func() {
 				hcloudMachine.Spec.PublicNetwork = &infrav2.PublicNetworkSpec{
-					EnableIPv4: false,
-					EnableIPv6: false,
+					EnableIPv4: ptr.To(false),
+					EnableIPv6: ptr.To(false),
 				}
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 				Eventually(func() bool {

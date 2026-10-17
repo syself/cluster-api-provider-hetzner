@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -229,7 +230,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	var hetznerBareMetalMachine *infrav2.HetznerBareMetalMachine
 	var machine *clusterv1.Machine
 
-	if bmHost.Spec.ConsumerRef != nil {
+	if bmHost.Spec.ConsumerRef.IsDefined() {
 		// The consuming HetznerBareMetalMachine always lives in the namespace of the host.
 		hbmm := &infrav2.HetznerBareMetalMachine{}
 		name := client.ObjectKey{
@@ -375,7 +376,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(
 	switch bmHost.Status.ProvisioningState {
 	// Handle StateNone: check whether needs to be provisioned or deleted.
 	case infrav2.StateNone:
-		if !bmHost.DeletionTimestamp.IsZero() && bmHost.Spec.ConsumerRef == nil {
+		if !bmHost.DeletionTimestamp.IsZero() && !bmHost.Spec.ConsumerRef.IsDefined() {
 			bmHost.Status.ProvisioningState = infrav2.StateDeleting
 			conditions.Set(bmHost, metav1.Condition{
 				Type:   infrav2.HetznerBareMetalHostDeletingCondition,
@@ -459,7 +460,8 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
 		}
 
-		rescueSSHSecretNamespacedName := types.NamespacedName{Namespace: bmHost.Namespace, Name: hetznerCluster.Spec.SSHKeys.RescueSecretRef.Name}
+		rescueSecretRef := ptr.Deref(hetznerCluster.Spec.SSHKeys.RescueSecretRef, infrav2.SSHSecretRef{})
+		rescueSSHSecretNamespacedName := types.NamespacedName{Namespace: bmHost.Namespace, Name: rescueSecretRef.Name}
 		rescueSSHSecret, err = secretManager.AcquireSecret(ctx, rescueSSHSecretNamespacedName, hetznerCluster, false, hetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -514,22 +516,24 @@ func getAndValidateRobotCredentials(
 		return robotclient.Credentials{}, err
 	}
 
+	robotUserKey := hetznerCluster.Spec.HetznerSecret.Key.GetHetznerRobotUser()
+	robotPasswordKey := hetznerCluster.Spec.HetznerSecret.Key.GetHetznerRobotPassword()
 	creds := robotclient.Credentials{
-		Username: string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]),
-		Password: string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]),
+		Username: string(hetznerSecret.Data[robotUserKey]),
+		Password: string(hetznerSecret.Data[robotPasswordKey]),
 	}
 
 	// Validate token
 	if creds.Username == "" {
 		return robotclient.Credentials{}, &bmclient.CredentialsValidationError{
 			Message: fmt.Sprintf("secret %s/%s: Missing Hetzner robot api connection detail '%s' in credentials",
-				namespace, hetznerCluster.Spec.HetznerSecret.Name, hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser),
+				namespace, hetznerCluster.Spec.HetznerSecret.Name, robotUserKey),
 		}
 	}
 	if creds.Password == "" {
 		return robotclient.Credentials{}, &bmclient.CredentialsValidationError{
 			Message: fmt.Sprintf("secret %s/%s: Missing Hetzner robot api connection detail '%s' in credentials",
-				namespace, hetznerCluster.Spec.HetznerSecret.Name, hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword),
+				namespace, hetznerCluster.Spec.HetznerSecret.Name, robotPasswordKey),
 		}
 	}
 

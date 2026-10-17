@@ -592,8 +592,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: HetznerBareMetalMachineSpec defines the desired state of
-              HetznerBareMetalMachine.
+            description: spec is the desired state of HetznerBareMetalMachine.
+            minProperties: 1
             properties:
               customProvisioner:
                 description: |-
@@ -604,15 +604,15 @@ spec:
                     description: |-
                       command is the basename of a command file below /shared on the controller pod. CAPH copies
                       that command into the rescue system and executes it there to provision the machine from url.
+                    maxLength: 255
                     minLength: 1
                     type: string
                   deviceStringType:
                     description: |-
                       deviceStringType instructs CAPH to either use the short device name, or the WWN when calling
-                      command. "" and "short" both pass the short device name (e.g. "sda"); "wwn" passes the WWN
+                      command. "short" or not set passes the short device name (e.g. "sda"); "wwn" passes the WWN
                       (e.g. "eui.00253885910c8cec").
                     enum:
-                    - ""
                     - short
                     - wwn
                     type: string
@@ -624,50 +624,58 @@ spec:
                     enum:
                     - 0
                     - 1
+                    format: int32
                     type: integer
                   url:
                     description: |-
                       url is the location of the image that command provisions the machine from. CAPH passes it to
                       command in the rescue system.
+                      The limit is 8 KiB, the default URL length limit of common HTTP servers.
+                    maxLength: 8192
                     minLength: 1
                     type: string
                 required:
                 - command
-                - url
                 type: object
               hostSelector:
                 description: |-
                   hostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
                   This is used to limit the set of HetznerBareMetalHost objects considered for
-                  claiming for a HetznerBareMetalMachine.
+                  claiming for a HetznerBareMetalMachine. When it is not set, every HetznerBareMetalHost matches.
                 properties:
                   matchExpressions:
-                    description: matchExpressions defines the label match expressions
-                      that must be true on a chosen BareMetalHost.
+                    description: |-
+                      matchExpressions defines the label match expressions that must be true on a chosen BareMetalHost.
+                      The limit is far above the number of expressions that a host selector needs.
                     items:
                       description: HostSelectorRequirement defines a requirement used
                         for MatchExpressions to select host machines.
                       properties:
                         key:
-                          description: key defines the key of the label that should
-                            be matched in the host object.
+                          description: |-
+                            key defines the key of the label that should be matched in the host object.
+                            The limit is above the longest Kubernetes label key, which has 317 characters.
+                          maxLength: 512
+                          minLength: 1
                           type: string
                         operator:
                           description: operator defines the selection operator.
                           type: string
                         values:
-                          description: values define the values whose relation to
-                            the label value in the host machine is defined by the
-                            selection operator.
+                          description: |-
+                            values define the values whose relation to the label value in the host machine is defined by the selection operator.
+                            The limits are far above what a host selector needs. A Kubernetes label value has at most 63 characters.
                           items:
+                            maxLength: 512
                             type: string
+                          maxItems: 512
                           type: array
                           x-kubernetes-list-type: atomic
                       required:
                       - key
                       - operator
-                      - values
                       type: object
+                    maxItems: 512
                     type: array
                     x-kubernetes-list-type: atomic
                   matchLabels:
@@ -683,26 +691,34 @@ spec:
                   Exactly one of installImage or customProvisioner must be set.
                 properties:
                   btrfsDefinitions:
-                    description: btrfsDefinitions define the btrfs subvolume definitions
-                      to be created.
+                    description: |-
+                      btrfsDefinitions define the btrfs subvolume definitions to be created.
+                      The limit is the same as for partitions.
                     items:
                       description: BTRFSDefinition defines the btrfs subvolume definitions
                         to be created.
                       properties:
                         mount:
                           description: mount defines the mountpath.
+                          maxLength: 4096
+                          minLength: 1
                           type: string
                         subvolume:
                           description: subvolume defines the subvolume name.
+                          maxLength: 4096
+                          minLength: 1
                           type: string
                         volume:
                           description: volume defines the btrfs volume name.
+                          maxLength: 128
+                          minLength: 1
                           type: string
                       required:
                       - mount
                       - subvolume
                       - volume
                       type: object
+                    maxItems: 128
                     type: array
                     x-kubernetes-list-type: atomic
                   image:
@@ -712,19 +728,27 @@ spec:
                       name:
                         description: name defines the archive name after download.
                           This has to be a valid name for Installimage.
+                        maxLength: 255
+                        minLength: 1
                         type: string
                       path:
                         description: path is the local path for a preinstalled image
                           from upstream.
+                        maxLength: 4096
+                        minLength: 1
                         type: string
                       url:
-                        description: url defines the remote URL for downloading a
-                          tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
+                        description: |-
+                          url defines the remote URL for downloading a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
+                          The limit is 8 KiB, the default URL length limit of common HTTP servers.
+                        maxLength: 8192
+                        minLength: 1
                         type: string
                     type: object
                   logicalVolumeDefinitions:
-                    description: logicalVolumeDefinitions defines the logical volume
-                      definitions to be created.
+                    description: |-
+                      logicalVolumeDefinitions defines the logical volume definitions to be created.
+                      The limit is the same as for partitions.
                     items:
                       description: LVMDefinition defines the logical volume definitions
                         to be created.
@@ -732,18 +756,28 @@ spec:
                         filesystem:
                           description: filesystem defines the filesystem for this
                             logical volume.
+                          maxLength: 128
+                          minLength: 1
                           type: string
                         mount:
                           description: mount defines the mountpath.
+                          maxLength: 4096
+                          minLength: 1
                           type: string
                         name:
                           description: name defines the volume name.
+                          maxLength: 128
+                          minLength: 1
                           type: string
                         size:
                           description: size defines the size in M/G/T or MiB/GiB/TiB.
+                          maxLength: 32
+                          minLength: 1
                           type: string
                         vg:
                           description: vg defines the vg name.
+                          maxLength: 128
+                          minLength: 1
                           type: string
                       required:
                       - filesystem
@@ -752,11 +786,13 @@ spec:
                       - size
                       - vg
                       type: object
+                    maxItems: 128
                     type: array
                     x-kubernetes-list-type: atomic
                   partitions:
-                    description: partitions define the additional partitions to be
-                      created in installimage.
+                    description: |-
+                      partitions define the additional partitions to be created in installimage.
+                      The limit is the number of entries in a default GPT partition table.
                     items:
                       description: Partition defines the additional Partitions to
                         be created.
@@ -765,6 +801,8 @@ spec:
                           description: |-
                             fileSystem can be ext2, ext3, ext4, btrfs, reiserfs, xfs, swap
                             or name of the LVM volume group (VG), if this PART is a VG.
+                          maxLength: 128
+                          minLength: 1
                           type: string
                         mount:
                           description: |-
@@ -773,23 +811,32 @@ spec:
                             Identifier 'btrfs.X' to use this PART as volume for
                             btrfs subvolumes. X can be replaced with a unique
                             alphanumeric keyword. NOTE: no support for btrfs multi-device volumes.
+                          maxLength: 4096
+                          minLength: 1
                           type: string
                         size:
                           description: |-
                             size can use the keyword 'all' to assign all the remaining space of the drive to the last partition.
                             You can use M/G/T for unit specification in MiB/GiB/TiB.
+                          maxLength: 32
+                          minLength: 1
                           type: string
                       required:
                       - fileSystem
                       - mount
                       - size
                       type: object
+                    maxItems: 128
+                    minItems: 1
                     type: array
                     x-kubernetes-list-type: atomic
                   postInstallScript:
                     description: |-
                       postInstallScript (Bash) is used for configuring commands that should be executed after installimage.
                       It is passed along with the installimage command.
+                      The limit is the Linux limit for one command argument, because CAPH sends the script to the server in one SSH command.
+                    maxLength: 131072
+                    minLength: 1
                     type: string
                   swraid:
                     default: 0
@@ -798,6 +845,7 @@ spec:
                     enum:
                     - 0
                     - 1
+                    format: int32
                     type: integer
                   swraidLevel:
                     default: 1
@@ -810,9 +858,9 @@ spec:
                     - 5
                     - 6
                     - 10
+                    format: int32
                     type: integer
                 required:
-                - image
                 - partitions
                 type: object
               providerID:
@@ -823,11 +871,14 @@ spec:
                   by default (hcloud://bm-NNNN), except the Annotation
                   `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
                   `"true"`.
+                maxLength: 512
+                minLength: 1
                 type: string
               skipCheckDisk:
                 description: |-
                   skipCheckDisk skips the CheckDisk step during provisioning.
                   This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
+                  Not set means false.
                 type: boolean
               sshSpec:
                 description: sshSpec gives a reference on the secret where SSH details
@@ -836,13 +887,15 @@ spec:
                   noSSHAfterInstallImage:
                     description: |-
                       noSSHAfterInstallImage disables SSH access to the machine after installimage
-                      completed successfully.
+                      completed successfully. Not set means false.
                     type: boolean
                   portAfterInstallImage:
                     default: 22
                     description: |-
                       portAfterInstallImage specifies the port that has to be used to connect to the machine
                       by reaching the server via SSH after installing the image successfully.
+                    format: int32
+                    maximum: 65535
                     type: integer
                   secretRef:
                     description: secretRef gives reference to the secret where the
@@ -851,38 +904,40 @@ spec:
                       key:
                         description: key contains details about the keys used in the
                           data of the secret.
+                        minProperties: 1
                         properties:
                           name:
                             description: name is the key in the secret's data where
                               the SSH key's name is stored.
+                            maxLength: 253
+                            minLength: 1
                             type: string
                           privateKey:
                             description: privateKey is the key in the secret's data
                               where the SSH key's private key is stored.
+                            maxLength: 253
+                            minLength: 1
                             type: string
                           publicKey:
                             description: publicKey is the key in the secret's data
                               where the SSH key's public key is stored.
+                            maxLength: 253
+                            minLength: 1
                             type: string
-                        required:
-                        - name
-                        - privateKey
-                        - publicKey
                         type: object
                       name:
                         description: name is the name of the secret.
+                        maxLength: 253
+                        minLength: 1
                         type: string
-                    required:
-                    - key
-                    - name
                     type: object
                 required:
                 - secretRef
                 type: object
             type: object
           status:
-            description: HetznerBareMetalMachineStatus defines the observed state
-              of HetznerBareMetalMachine.
+            description: status is the observed state of HetznerBareMetalMachine.
+            minProperties: 1
             properties:
               addresses:
                 description: |-
@@ -911,6 +966,7 @@ spec:
                   - address
                   - type
                   type: object
+                maxItems: 256
                 type: array
                 x-kubernetes-list-type: atomic
               conditions:
@@ -1042,9 +1098,6 @@ spec:
                           - type
                           type: object
                         type: array
-                        x-kubernetes-list-map-keys:
-                        - type
-                        x-kubernetes-list-type: map
                     type: object
                 type: object
               initialization:

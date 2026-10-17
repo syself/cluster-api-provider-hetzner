@@ -174,10 +174,10 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				},
 			},
 			Spec: infrav2.HCloudRemediationSpec{
-				Strategy: &infrav2.RemediationStrategy{
+				Strategy: infrav2.RemediationStrategy{
 					Type:           "Reboot",
 					RetryLimit:     ptr.To(int32(1)),
-					TimeoutSeconds: 1,
+					TimeoutSeconds: ptr.To(int32(1)),
 				},
 			},
 		}
@@ -222,7 +222,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			}, timeout).ShouldNot(HaveOccurred())
 
 			By("deleting the server associated with the hcloudMachine")
-			providerID, err := hcloudutil.ServerIDFromProviderID(hcloudMachine.Spec.ProviderID)
+			providerID, err := hcloudutil.ServerIDFromProviderID(&hcloudMachine.Spec.ProviderID)
 			Expect(err).NotTo(HaveOccurred())
 
 			hcloudClient := testEnv.HCloudClientFactory.NewClient("fake-token")
@@ -256,8 +256,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err != nil {
 					return err
 				}
-				if hcloudMachine.Spec.ProviderID == nil {
-					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
+				if hcloudMachine.Spec.ProviderID == "" {
+					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still empty")
 				}
 				if hcloudMachine.Status.BootState != infrav2.HCloudBootStateOperatingSystemRunning {
 					return fmt.Errorf("hcloudMachine.Status.BootState is not HCloudBootStateOperatingSystemRunning, but: %q", hcloudMachine.Status.BootState)
@@ -289,8 +289,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err != nil {
 					return err
 				}
-				if hcloudMachine.Spec.ProviderID == nil {
-					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
+				if hcloudMachine.Spec.ProviderID == "" {
+					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still empty")
 				}
 				if hcloudMachine.Status.BootState != infrav2.HCloudBootStateOperatingSystemRunning {
 					return fmt.Errorf("Expected HCloudBootStateOperatingSystemRunning, but: %q",
@@ -343,8 +343,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err := testEnv.Client.Get(ctx, hcloudMachineKey, hcloudMachine); err != nil {
 					return err
 				}
-				if hcloudMachine.Spec.ProviderID == nil {
-					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
+				if hcloudMachine.Spec.ProviderID == "" {
+					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still empty")
 				}
 				if hcloudMachine.Status.BootState != infrav2.HCloudBootStateOperatingSystemRunning {
 					return fmt.Errorf("hcloudMachine.Status.BootState is not HCloudBootStateOperatingSystemRunning, but: %q", hcloudMachine.Status.BootState)
@@ -386,8 +386,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err := testEnv.Client.Get(ctx, hcloudMachineKey, hcloudMachine); err != nil {
 					return err
 				}
-				if hcloudMachine.Spec.ProviderID == nil {
-					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
+				if hcloudMachine.Spec.ProviderID == "" {
+					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still empty")
 				}
 				if hcloudMachine.Status.BootState != infrav2.HCloudBootStateOperatingSystemRunning {
 					return fmt.Errorf("hcloudMachine.Status.BootState is not HCloudBootStateOperatingSystemRunning, but: %q", hcloudMachine.Status.BootState)
@@ -507,7 +507,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					return err
 				}
 				providerID := hcloudutil.ProviderIDFromServerID(int(server.ID))
-				hcloudMachine.Spec.ProviderID = &providerID
+				hcloudMachine.Spec.ProviderID = providerID
 				return testEnv.Update(ctx, hcloudMachine)
 			}, timeout).Should(Succeed())
 
@@ -568,10 +568,10 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					Namespace: hcloudMachine.Namespace,
 				},
 				Spec: infrav2.HCloudRemediationSpec{
-					Strategy: &infrav2.RemediationStrategy{
+					Strategy: infrav2.RemediationStrategy{
 						Type:           infrav2.RemediationTypeReboot,
 						RetryLimit:     ptr.To(int32(5)),
-						TimeoutSeconds: 60,
+						TimeoutSeconds: ptr.To(int32(60)),
 					},
 				},
 			}
