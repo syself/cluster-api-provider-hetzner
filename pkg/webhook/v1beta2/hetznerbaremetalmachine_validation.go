@@ -173,9 +173,6 @@ func normalizeHetznerBareMetalMachineSpec(spec infrav2.HetznerBareMetalMachineSp
 	if spec.SSHSpec.PortAfterInstallImage == nil {
 		spec.SSHSpec.PortAfterInstallImage = ptr.To(infrav2.DefaultPortAfterInstallImage)
 	}
-	if spec.SSHSpec.PortAfterCloudInit == nil { //nolint:staticcheck // the deprecated field is still part of the immutable sshSpec
-		spec.SSHSpec.PortAfterCloudInit = ptr.To[int32](0) //nolint:staticcheck // the deprecated field is still part of the immutable sshSpec
-	}
 	if spec.SkipCheckDisk == nil {
 		spec.SkipCheckDisk = ptr.To(false)
 	}

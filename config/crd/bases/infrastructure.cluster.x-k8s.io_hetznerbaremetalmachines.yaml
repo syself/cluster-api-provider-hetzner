@@ -889,13 +889,6 @@ spec:
                       noSSHAfterInstallImage disables SSH access to the machine after installimage
                       completed successfully. Not set means false.
                     type: boolean
-                  portAfterCloudInit:
-                    description: |-
-                      portAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
-
-                      Deprecated: This field is not used anymore.
-                    format: int32
-                    type: integer
                   portAfterInstallImage:
                     default: 22
                     description: |-

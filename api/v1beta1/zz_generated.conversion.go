@@ -3024,7 +3024,7 @@ func autoConvert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in *SSHSpec, out *v1beta2.SS
 		return err
 	}
 	// WARNING: in.PortAfterInstallImage requires manual conversion: inconvertible types (int vs *int32)
-	// WARNING: in.PortAfterCloudInit requires manual conversion: inconvertible types (int vs *int32)
+	// WARNING: in.PortAfterCloudInit requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -3036,7 +3036,6 @@ func autoConvert_v1beta2_SSHSpec_To_v1beta1_SSHSpec(in *v1beta2.SSHSpec, out *SS
 		return err
 	}
 	// WARNING: in.PortAfterInstallImage requires manual conversion: inconvertible types (*int32 vs int)
-	// WARNING: in.PortAfterCloudInit requires manual conversion: inconvertible types (*int32 vs int)
 	return nil
 }
 

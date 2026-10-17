@@ -959,7 +959,7 @@ func TestConvertDefaultedFieldsKeepZeroValues(t *testing.T) {
 		}
 	})
 
-	t.Run("sshSpec portAfterInstallImage and portAfterCloudInit", func(t *testing.T) {
+	t.Run("sshSpec portAfterInstallImage", func(t *testing.T) {
 		// A port of 0 is valid when noSSHAfterInstallImage is true, because the port is then never used.
 		src := SSHSpec{NoSSHAfterInstallImage: true, PortAfterInstallImage: 0, PortAfterCloudInit: 0}
 
@@ -969,7 +969,7 @@ func TestConvertDefaultedFieldsKeepZeroValues(t *testing.T) {
 		}
 		want := infrav2.SSHSpec{NoSSHAfterInstallImage: ptr.To(true), PortAfterInstallImage: ptr.To[int32](0)}
 		if !reflect.DeepEqual(hub, want) {
-			t.Fatalf("sshSpec = %#v, want portAfterInstallImage pointer to 0 and portAfterCloudInit nil", hub)
+			t.Fatalf("sshSpec = %#v, want portAfterInstallImage pointer to 0", hub)
 		}
 
 		var back SSHSpec
@@ -2583,10 +2583,13 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 				in.HostSelector = nil
 			}
 		},
-		// HetznerBareMetalMachine v1beta1 spec: v1beta2 stores an unset providerID as "", which converts
-		// back to nil. So a pointer to "" does not round trip.
+		// HetznerBareMetalMachine v1beta1 spec: portAfterCloudInit is dropped in v1beta2, so zero it: it
+		// does not round-trip. Scoped to the machine spec rather than to SSHSpec, because the host carries
+		// its own sshSpec through the data annotation, where the field does survive. v1beta2 stores an
+		// unset providerID as "", which converts back to nil. So a pointer to "" does not round trip.
 		func(in *HetznerBareMetalMachineSpec, c randfill.Continue) {
 			c.FillNoCustom(in)
+			in.SSHSpec.PortAfterCloudInit = 0
 			if in.ProviderID != nil && *in.ProviderID == "" {
 				in.ProviderID = nil
 			}
@@ -2600,8 +2603,8 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 		},
 		// SSHSpec v1beta2 (hub side): v1beta1 stores noSSHAfterInstallImage as a bool, so nil converts
-		// back as false. v1beta1 stores the ports as ints: an unset portAfterInstallImage converts back
-		// as its default 22, and portAfterCloudInit 0 converts back to nil.
+		// back as false. v1beta1 stores portAfterInstallImage as an int: an unset value converts back
+		// as its default 22.
 		func(in *infrav2.SSHSpec, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.NoSSHAfterInstallImage == nil {
@@ -2609,9 +2612,6 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 			if in.PortAfterInstallImage == nil {
 				in.PortAfterInstallImage = ptr.To[int32](22)
-			}
-			if in.PortAfterCloudInit != nil && *in.PortAfterCloudInit == 0 {
-				in.PortAfterCloudInit = nil
 			}
 		},
 		// HCloudMachine v1beta2 external IDs (hub side): v1beta1 stores an unset action ID as 0, and 0

@@ -1002,28 +1002,22 @@ func Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(in *infrav2.InstallIma
 // webhook then rejects the write, because sshSpec is immutable. A port of 0 is valid when
 // noSSHAfterInstallImage is true, because the port is then never used.
 //
-// portAfterCloudInit has no default, so 0 maps to nil and nothing is lost.
+// portAfterCloudInit has no v1beta2 equivalent and is never read, so it is not converted.
 func Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in *SSHSpec, out *infrav2.SSHSpec, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in, out, s); err != nil {
 		return err
 	}
 	out.PortAfterInstallImage = ptr.To(int32(in.PortAfterInstallImage)) //nolint:gosec // real ports are far below the int32 limit
-	if in.PortAfterCloudInit == 0 {
-		out.PortAfterCloudInit = nil //nolint:staticcheck // the deprecated field still needs a conversion
-	} else {
-		out.PortAfterCloudInit = ptr.To(int32(in.PortAfterCloudInit)) //nolint:gosec,staticcheck // real ports are far below the int32 limit
-	}
 	return nil
 }
 
 // Convert_v1beta2_SSHSpec_To_v1beta1_SSHSpec converts a v1beta2 SSHSpec back to v1beta1. An unset
-// portAfterInstallImage maps to 22, the default of the field. An unset portAfterCloudInit maps to 0.
+// portAfterInstallImage maps to 22, the default of the field.
 func Convert_v1beta2_SSHSpec_To_v1beta1_SSHSpec(in *infrav2.SSHSpec, out *SSHSpec, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta2_SSHSpec_To_v1beta1_SSHSpec(in, out, s); err != nil {
 		return err
 	}
 	out.PortAfterInstallImage = int(ptr.Deref(in.PortAfterInstallImage, infrav2.DefaultPortAfterInstallImage))
-	out.PortAfterCloudInit = int(ptr.Deref(in.PortAfterCloudInit, 0))
 	return nil
 }
 
