@@ -84,6 +84,15 @@ func validateHCloudMachineSpec(spec infrav2.HCloudMachineSpec) field.ErrorList {
 		allErrs = append(allErrs, validateHCloudCustomProvisioner(*spec.CustomProvisioner)...)
 	}
 
+	// Server recycling reuses a pre-existing server by rebuilding it with the HCloudMachine's
+	// bootstrap data. A custom provisioner installs via the rescue system, which a rebuild cannot
+	// reproduce, so recycling is only supported with imageName.
+	if spec.Recycle != nil && spec.Recycle.Enabled && spec.CustomProvisioner != nil {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "recycle", "enabled"), spec.Recycle.Enabled,
+				"server recycling is only supported with imageName, not customProvisioner"))
+	}
+
 	return allErrs
 }
 
