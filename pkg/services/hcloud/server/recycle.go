@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math/rand/v2"
 	"sort"
 	"strconv"
 	"strings"
@@ -160,12 +161,15 @@ func (s *Service) tryClaimRecyclableServer(ctx context.Context, opts hcloud.Serv
 		return nil, nil
 	}
 
-	// Claim the candidate with the lowest ID, so that concurrent reconciles contend on the same server
-	// rather than scattering across the pool. Contention is detected and resolved on the next reconcile;
-	// scattering would quietly consume several servers to provision one machine.
-	sort.Slice(candidates, func(i, j int) bool { return candidates[i].ID < candidates[j].ID })
-
-	candidate := candidates[0]
+	// Pick a random candidate. With a fixed order every HCloudMachine goes for the same server, so
+	// under contention only one of them wins a round and the rest have to retry. Spreading the picks
+	// keeps concurrent claims apart.
+	//
+	// The trade-off: a claim that was written but is not visible in the listing yet now leads to a
+	// claim on a different server instead of the same one again, so an HCloudMachine can briefly hold
+	// two. pendingClaims releases the extra ones on the next reconcile, which costs a reconcile and
+	// not a server.
+	candidate := candidates[rand.IntN(len(candidates))] //nolint:gosec // Spreading claims over the pool, not a security decision.
 	if err := s.writeClaim(ctx, candidate); err != nil {
 		return nil, err
 	}

@@ -250,24 +250,26 @@ func Test_tryClaimRecyclableServer_emptyPool(t *testing.T) {
 	require.Nil(t, claimed, "an empty pool means fall through to a normal create")
 }
 
-func Test_tryClaimRecyclableServer_picksLowestID(t *testing.T) {
+// Test_tryClaimRecyclableServer_claimsExactlyOneCandidate checks that a claim takes one of the
+// matching servers and leaves the rest of the pool alone. Which one it takes is deliberately not
+// asserted: the candidate is picked at random so that concurrent claims do not all target the same
+// server.
+func Test_tryClaimRecyclableServer_claimsExactlyOneCandidate(t *testing.T) {
 	client := fakehcloudclient.NewHCloudClientFactory().NewClient("")
 	svc := &Service{scope: newRecycleScope(t, "worker-1", client)}
 
-	// Two matching available servers; the fake assigns ascending IDs, so "pool-low" gets the lower ID.
-	low := seedRecyclableServer(t, client, "pool-low", recycleTestType, recycleTestLocation, true)
-	high := seedRecyclableServer(t, client, "pool-high", recycleTestType, recycleTestLocation, true)
-	require.Less(t, low.ID, high.ID)
+	first := seedRecyclableServer(t, client, "pool-a", recycleTestType, recycleTestLocation, true)
+	second := seedRecyclableServer(t, client, "pool-b", recycleTestType, recycleTestLocation, true)
 
 	claimed, err := claimRecyclable(t, svc, recycleCreateOpts("worker-1"), &hcloud.Image{ID: 42}, nil)
 	require.NoError(t, err)
 	require.NotNil(t, claimed)
-	require.Equal(t, low.ID, claimed.ID, "the lowest-ID candidate must be claimed first")
+	require.Contains(t, []int64{first.ID, second.ID}, claimed.ID)
 
-	// The higher-ID server is untouched and still available.
+	// Exactly the other server is untouched and still available.
 	remaining := listAvailableRecyclable(t, client)
 	require.Len(t, remaining, 1)
-	require.Equal(t, high.ID, remaining[0].ID)
+	require.NotEqual(t, claimed.ID, remaining[0].ID)
 }
 
 // Test_tryClaimRecyclableServer_losesClaimToLaterWriter is the race the two-reconcile split exists for:
