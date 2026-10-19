@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -76,7 +76,7 @@ func (s *Service) recyclingEnabled() bool {
 // isRecyclableServer reports whether a server participates in recycling and must therefore be
 // returned to the recyclable set on deletion instead of being deleted.
 func isRecyclableServer(server *hcloud.Server) bool {
-	return server != nil && server.Labels[infrav1.ServerRecycleLabelKey] == labelValueTrue
+	return server != nil && server.Labels[infrav2.ServerRecycleLabelKey] == labelValueTrue
 }
 
 // tryClaimRecyclableServer looks for an available recyclable server that matches the machine's server
@@ -106,7 +106,7 @@ func (s *Service) tryClaimRecyclableServer(ctx context.Context, opts hcloud.Serv
 	// free. Filtering in memory keeps this to a single API call per reconcile.
 	listOpts := hcloud.ServerListOpts{}
 	listOpts.LabelSelector = utils.LabelsToLabelSelector(map[string]string{
-		infrav1.ServerRecycleLabelKey: labelValueTrue,
+		infrav2.ServerRecycleLabelKey: labelValueTrue,
 	})
 
 	servers, err := s.scope.HCloudClient.ListServers(ctx, listOpts)
@@ -138,7 +138,7 @@ func (s *Service) tryClaimRecyclableServer(ctx context.Context, opts hcloud.Serv
 	candidates := make([]*hcloud.Server, 0, len(servers))
 	rejected := make([]string, 0, len(servers))
 	for _, server := range servers {
-		if server.Labels[infrav1.ServerRecycleAvailableLabelKey] != labelValueTrue {
+		if server.Labels[infrav2.ServerRecycleAvailableLabelKey] != labelValueTrue {
 			// In use or claimed by someone else. Not a mismatch worth reporting.
 			continue
 		}
@@ -174,7 +174,7 @@ func (s *Service) tryClaimRecyclableServer(ctx context.Context, opts hcloud.Serv
 
 // claimedByThisMachine reports whether a server carries this machine's claim.
 func (s *Service) claimedByThisMachine(server *hcloud.Server) bool {
-	return server.Labels[infrav1.ServerRecycleClaimantLabelKey] == s.scope.Name()
+	return server.Labels[infrav2.ServerRecycleClaimantLabelKey] == s.scope.Name()
 }
 
 // pendingClaims returns the servers currently claimed by this machine, lowest ID first.
@@ -240,7 +240,7 @@ func (s *Service) completeClaim(ctx context.Context, reserved *hcloud.Server, op
 func (s *Service) reapAbandonedClaims(ctx context.Context, servers []*hcloud.Server) int {
 	reaped := 0
 	for _, server := range servers {
-		claimant := server.Labels[infrav1.ServerRecycleClaimantLabelKey]
+		claimant := server.Labels[infrav2.ServerRecycleClaimantLabelKey]
 		if claimant == "" || s.claimedByThisMachine(server) {
 			continue
 		}
@@ -257,8 +257,8 @@ func (s *Service) reapAbandonedClaims(ctx context.Context, servers []*hcloud.Ser
 		}
 
 		labels := map[string]string{
-			infrav1.ServerRecycleLabelKey:          labelValueTrue,
-			infrav1.ServerRecycleAvailableLabelKey: labelValueTrue,
+			infrav2.ServerRecycleLabelKey:          labelValueTrue,
+			infrav2.ServerRecycleAvailableLabelKey: labelValueTrue,
 		}
 		if _, err := s.scope.HCloudClient.UpdateServer(ctx, server, hcloud.ServerUpdateOpts{Labels: labels}); err != nil {
 			s.scope.Error(err, "failed to return an abandoned recyclable server to the pool",
@@ -296,7 +296,7 @@ func capStrings(items []string, n int) []string {
 
 // claimTimestamp reads the time at which a server's claim was written.
 func claimTimestamp(server *hcloud.Server) (time.Time, bool) {
-	raw := server.Labels[infrav1.ServerRecycleClaimedAtLabelKey]
+	raw := server.Labels[infrav2.ServerRecycleClaimedAtLabelKey]
 	if raw == "" {
 		return time.Time{}, false
 	}
@@ -377,9 +377,9 @@ func placementGroupSatisfiable(server *hcloud.Server, opts hcloud.ServerCreateOp
 // later, in tryClaimRecyclableServer.
 func (s *Service) writeClaim(ctx context.Context, server *hcloud.Server) error {
 	labels := map[string]string{
-		infrav1.ServerRecycleLabelKey:          labelValueTrue,
-		infrav1.ServerRecycleClaimantLabelKey:  s.scope.Name(),
-		infrav1.ServerRecycleClaimedAtLabelKey: strconv.FormatInt(time.Now().Unix(), 10),
+		infrav2.ServerRecycleLabelKey:          labelValueTrue,
+		infrav2.ServerRecycleClaimantLabelKey:  s.scope.Name(),
+		infrav2.ServerRecycleClaimedAtLabelKey: strconv.FormatInt(time.Now().Unix(), 10),
 	}
 	if _, err := s.scope.HCloudClient.UpdateServer(ctx, server, hcloud.ServerUpdateOpts{Labels: labels}); err != nil {
 		return fmt.Errorf("failed to claim server %d: %w", server.ID, err)
@@ -498,7 +498,7 @@ func (s *Service) finalizeReservation(ctx context.Context, server *hcloud.Server
 	if labels == nil {
 		labels = map[string]string{}
 	}
-	labels[infrav1.ServerRecycleLabelKey] = labelValueTrue
+	labels[infrav2.ServerRecycleLabelKey] = labelValueTrue
 	// The claimant, claimed-at and available markers are intentionally not carried over: the server is
 	// now owned, and ownership is expressed by the machine identity labels.
 
@@ -531,8 +531,8 @@ func (s *Service) releaseReservation(ctx context.Context, server *hcloud.Server)
 	}
 
 	labels := map[string]string{
-		infrav1.ServerRecycleLabelKey:          labelValueTrue,
-		infrav1.ServerRecycleAvailableLabelKey: labelValueTrue,
+		infrav2.ServerRecycleLabelKey:          labelValueTrue,
+		infrav2.ServerRecycleAvailableLabelKey: labelValueTrue,
 	}
 	if _, err := s.scope.HCloudClient.UpdateServer(ctx, server, hcloud.ServerUpdateOpts{Labels: labels}); err != nil {
 		s.scope.Error(err, "failed to release a recyclable server claim; it may need to be relabeled manually", "serverID", server.ID)
@@ -553,7 +553,7 @@ func (s *Service) returnServerToRecycling(ctx context.Context, server *hcloud.Se
 	// A deleted machine must only return a server it still owns. Because findServer resolves by
 	// ProviderID, a machine that lost its server to another claimant would otherwise arrive here and
 	// shut down and re-pool a server the new owner is actively running.
-	if owner := server.Labels[infrav1.MachineNameTagKey]; owner != s.scope.Name() {
+	if owner := server.Labels[infrav2.MachineNameTagKey]; owner != s.scope.Name() {
 		msg := fmt.Sprintf("not returning server %d to the recyclable set: it is owned by %q, not by this machine",
 			server.ID, owner)
 		s.scope.Info(msg, "serverID", server.ID, "owner", owner)
@@ -581,8 +581,8 @@ func (s *Service) returnServerToRecycling(ctx context.Context, server *hcloud.Se
 	}
 
 	labels := map[string]string{
-		infrav1.ServerRecycleLabelKey:          labelValueTrue,
-		infrav1.ServerRecycleAvailableLabelKey: labelValueTrue,
+		infrav2.ServerRecycleLabelKey:          labelValueTrue,
+		infrav2.ServerRecycleAvailableLabelKey: labelValueTrue,
 	}
 	if _, err := s.scope.HCloudClient.UpdateServer(ctx, server, hcloud.ServerUpdateOpts{Labels: labels}); err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to return server %d to recycling: %w", server.ID, err)
@@ -610,7 +610,7 @@ func (s *Service) assertRecycledServerStillOwned(ctx context.Context, server *hc
 	if server == nil || !s.recyclingEnabled() {
 		return true, nil
 	}
-	owner := server.Labels[infrav1.MachineNameTagKey]
+	owner := server.Labels[infrav2.MachineNameTagKey]
 	if owner == s.scope.Name() {
 		return true, nil
 	}

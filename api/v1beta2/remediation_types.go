@@ -50,21 +50,21 @@ const (
 
 // RemediationStrategy describes how to remediate machines.
 type RemediationStrategy struct {
-	// Type represents the type of the remediation strategy. At the moment, only "Reboot" is supported.
+	// type represents the type of the remediation strategy. At the moment, only "Reboot" is supported.
 	// +kubebuilder:default=Reboot
 	// +optional
 	Type RemediationType `json:"type,omitempty"`
 
-	// RetryLimit sets the maximum number of remediation retries. Zero retries if not set.
+	// retryLimit sets the maximum number of remediation retries. Zero retries if not set.
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	RetryLimit *int32 `json:"retryLimit,omitempty"`
 
-	// TimeoutSeconds sets the timeout, in seconds, between remediation retries.
+	// timeoutSeconds sets the timeout, in seconds, between remediation retries.
 	// +kubebuilder:validation:Minimum=0
 	TimeoutSeconds int32 `json:"timeoutSeconds"`
 
-	// CooldownSeconds is the minimum time, in seconds, between successive
+	// cooldownSeconds is the minimum time, in seconds, between successive
 	// remediations of the same machine. If a new remediation starts within this
 	// window of the previous successful one, the reboot is skipped and the
 	// machine is deleted. An explicit 0 disables the guard and is distinct from an

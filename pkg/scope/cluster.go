@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
@@ -35,7 +36,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
@@ -49,6 +49,7 @@ type ClusterScopeParams struct {
 	HCloudClient   hcloudclient.Client
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav2.HetznerCluster
+	EventRecorder  record.EventRecorder
 }
 
 // NewClusterScope creates a new Scope from the supplied parameters.
@@ -65,6 +66,9 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	}
 	if params.APIReader == nil {
 		return nil, errors.New("failed to generate new scope from nil APIReader")
+	}
+	if params.EventRecorder == nil {
+		return nil, errors.New("failed to generate new scope from nil EventRecorder")
 	}
 
 	emptyLogger := logr.Logger{}
@@ -86,6 +90,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		HCloudClient:   params.HCloudClient,
 		patchHelper:    helper,
 		hetznerSecret:  params.HetznerSecret,
+		EventRecorder:  params.EventRecorder,
 	}, nil
 }
 
@@ -101,6 +106,7 @@ type ClusterScope struct {
 
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav2.HetznerCluster
+	EventRecorder  record.EventRecorder
 }
 
 // Name returns the HetznerCluster name.
@@ -318,7 +324,7 @@ func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context
 		found++
 	}
 
-	bmMachines := &infrav1.HetznerBareMetalMachineList{}
+	bmMachines := &infrav2.HetznerBareMetalMachineList{}
 	if err := s.Client.List(ctx, bmMachines, listOptions...); err != nil {
 		return false, fmt.Errorf("failed to list control-plane HetznerBareMetalMachines: %w", err)
 	}

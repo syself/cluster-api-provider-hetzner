@@ -24,7 +24,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
@@ -42,5 +42,5 @@ func shouldSkipReconciliationForNamespace(ctx context.Context, c client.Reader, 
 		return false, fmt.Errorf("failed to fetch namespace %q: %w", namespace, err)
 	}
 
-	return ns.GetAnnotations()[infrav1.SkipNamespaceAnnotation] == "true", nil
+	return ns.GetAnnotations()[infrav2.SkipNamespaceAnnotation] == "true", nil
 }

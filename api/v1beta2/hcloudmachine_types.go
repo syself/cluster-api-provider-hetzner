@@ -31,11 +31,11 @@ const (
 
 // HCloudMachineSpec defines the desired state of HCloudMachine.
 type HCloudMachineSpec struct {
-	// ProviderID is the unique identifier as specified by the cloud provider.
+	// providerID is the unique identifier as specified by the cloud provider.
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
-	// Type is the HCloud Machine Type for this machine. It defines the desired server type of
+	// type is the HCloud Machine Type for this machine. It defines the desired server type of
 	// server in Hetzner's Cloud API. You can use the hcloud CLI to get server names (`hcloud
 	// server-type list`) or on https://www.hetzner.com/cloud
 	//
@@ -44,23 +44,59 @@ type HCloudMachineSpec struct {
 	//
 	// N is a number, and V is the version of this machine type. Example: cpx32.
 	//
-	// The list of valid machine types gets changed by Hetzner from time to time. CAPH no longer
-	// validates this string. It is up to you to use a valid type. Not all types are available in all
+	// The list of valid machine types gets changed by Hetzner from time to time. CAPH does not
+	// validate this string. It is up to you to use a valid type. Not all types are available in all
 	// locations.
 	Type HCloudMachineType `json:"type"`
 
-	// ImageName is the reference to the Machine Image from which to create the machine instance.
+	// imageName is the reference to the Machine Image from which to create the machine instance.
 	// It can reference an image uploaded to Hetzner API in two ways: either directly as the name of an image or as the label of an image.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Optional
 	// +optional
 	ImageName string `json:"imageName,omitempty"`
 
-	// ImageURL gets used for installing custom node images. If that field is set, the controller
-	// boots a new HCloud machine into rescue mode. Then the command referenced by
-	// ImageURLCommand will be copied into the rescue system and executed.
+	// customProvisioner provisions the machine with a custom command instead of an HCloud image.
+	// Exactly one of imageName or customProvisioner must be set.
+	// +optional
+	CustomProvisioner *HCloudCustomProvisioner `json:"customProvisioner,omitempty"`
+
+	// sshKeys define machine-specific SSH keys and override cluster-wide SSH keys.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
+
+	// placementGroupName defines the placement group of the machine in HCloud API that must reference an existing placement group.
+	// +optional
+	PlacementGroupName *string `json:"placementGroupName,omitempty"`
+
+	// publicNetwork specifies information for public networks. It defines the specs about
+	// the primary IP address of the server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled.
+	// +optional
+	PublicNetwork *PublicNetworkSpec `json:"publicNetwork,omitempty"`
+
+	// recycle enables server recycling for this HCloudMachine. When enabled, the controller does not
+	// create a new server. It claims a pre-existing server that is labelled as recyclable and matches
+	// this HCloudMachine's type and location, and rebuilds it with the HCloudMachine's bootstrap data.
+	// On deletion the server is returned to the recyclable set instead of being deleted. This lets a
+	// fixed set of servers back a MachineDeployment, so nodes are reused instead of provisioned and
+	// destroyed on every scale event.
 	//
-	// The controller uses url.ParseRequestURI (Go function) to validate the URL.
+	// Recycling requires imageName and cannot be combined with customProvisioner. It is best-effort:
+	// if no matching recyclable server is available, a new server is created as usual.
+	// +optional
+	Recycle *ServerRecycling `json:"recycle,omitempty"`
+}
+
+// HCloudCustomProvisioner defines the configuration for provisioning an HCloud machine with a
+// custom command in the rescue system instead of creating it from an HCloud image.
+type HCloudCustomProvisioner struct {
+	// url gets used for installing custom node images. If customProvisioner is set, the controller
+	// boots a new HCloud machine into rescue mode. Then the command referenced by
+	// command will be copied into the rescue system and executed.
+	//
+	// The controller uses url.ParseRequestURI (Go function) to validate the url.
 	//
 	// It is up to the script to provision the disk of the hcloud machine accordingly. The process
 	// is considered successful if the last line in the output contains
@@ -70,61 +106,22 @@ type HCloudMachineSpec struct {
 	// A Kubernetes event will be created in both (success, failure) cases containing the output
 	// (stdout and stderr) of the script. If the script takes longer than 20 minutes, the
 	// controller cancels the provisioning.
-	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
-	//
-	// ImageURL is mutually exclusive to "ImageName".
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:Optional
-	// +optional
-	ImageURL string `json:"imageURL,omitempty"`
+	URL string `json:"url"`
 
-	// ImageURLCommand is the basename of a command file below /shared on the controller pod which
-	// provisions a machine from ImageURL. CAPH copies that command into the rescue system and
+	// command is the basename of a command file below /shared on the controller pod which
+	// provisions a machine from url. CAPH copies that command into the rescue system and
 	// executes it there.
-	//
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
-	//
-	// ImageURLCommand must be set if ImageURL is set. ImageURLCommand must be empty if ImageURL is
-	// empty.
-	// +kubebuilder:validation:Optional
-	// +optional
-	ImageURLCommand string `json:"imageURLCommand,omitempty"`
-
-	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
-
-	// PlacementGroupName defines the placement group of the machine in HCloud API that must reference an existing placement group.
-	// +optional
-	PlacementGroupName *string `json:"placementGroupName,omitempty"`
-
-	// PublicNetwork specifies information for public networks. It defines the specs about
-	// the primary IP address of the server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled.
-	// +optional
-	PublicNetwork *PublicNetworkSpec `json:"publicNetwork,omitempty"`
-
-	// Recycle enables server recycling for this machine. When enabled, instead of creating a new
-	// HCloud server, the controller claims a pre-existing server that is labelled as recyclable and
-	// matches this machine's Type and location, and rebuilds it with the machine's bootstrap data. On
-	// deletion the server is returned to the recyclable set instead of being deleted. This lets a fixed
-	// set of servers back a MachineDeployment, so nodes are reused instead of provisioned and destroyed
-	// on every scale event.
-	//
-	// Recycling is only supported together with ImageName (snapshot provisioning) and is a best-effort
-	// optimization: if no matching recyclable server is available, a new server is created as usual.
-	// +optional
-	Recycle *ServerRecycling `json:"recycle,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	Command string `json:"command"`
 }
 
 // ServerRecycling configures the reuse of pre-existing servers for an HCloudMachine.
 //
-// A server becomes recyclable by carrying the label "caph-recycle": "true". A recyclable server that
-// is not currently claimed by a machine additionally carries "caph-recycle-available": "true".
+// A server becomes recyclable by carrying the Hetzner Cloud label "caph-recycle": "true". A
+// recyclable server that no HCloudMachine has claimed also carries "caph-recycle-available": "true".
 type ServerRecycling struct {
-	// Enabled turns server recycling on for this machine.
+	// enabled turns server recycling on for this HCloudMachine.
 	// +optional
 	// +kubebuilder:default=false
 	Enabled bool `json:"enabled,omitempty"`
@@ -133,7 +130,7 @@ type ServerRecycling struct {
 // HCloudMachineStatus defines the observed state of HCloudMachine.
 type HCloudMachineStatus struct {
 	// conditions represents the observations of an HCloudMachine's current state.
-	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded, ServerCreated, ServerProvisioned and ServerAvailable.
+	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded, ServerCreated, SSHPrivateKeyAvailable, ServerProvisioned and ServerAvailable.
 	// +optional
 	// +listType=map
 	// +listMapKey=type
@@ -145,52 +142,51 @@ type HCloudMachineStatus struct {
 	// +optional
 	Initialization HCloudMachineInitializationStatus `json:"initialization,omitempty,omitzero"`
 
-	// Addresses contain the server's associated addresses.
+	// addresses contain the server's associated addresses.
 	// +optional
 	// +listType=atomic
 	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
 
-	// Region contains the name of the HCloud location the server is running.
+	// region contains the name of the HCloud location the server is running.
 	// +optional
 	Region Region `json:"region,omitempty"`
 
-	// SSHKeys specifies the ssh keys that were used for provisioning the server.
+	// sshKeys specifies the ssh keys that were used for provisioning the server.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
 	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
 
-	// InstanceState is the state of the server for this machine.
+	// instanceState is the state of the server for this machine.
 	// +optional
 	InstanceState InstanceState `json:"instanceState,omitempty"`
 
-	// BootState indicates the current state during provisioning.
+	// bootState indicates the current state during provisioning.
 	//
-	// If Spec.ImageName is set the states will be:
+	// If spec.imageName is set the states will be:
 	//   1. BootingToRealOS
 	//   2. OperatingSystemRunning
 	//
-	// If Spec.ImageURL is set the states will be:
+	// If spec.customProvisioner is set the states will be:
 	//   1. Initializing
 	//   2. EnablingRescue
 	//   3. BootingToRescue
 	//   4. RunningImageCommand
 	//   5. BootingToRealOS
 	//   6. OperatingSystemRunning
-
 	// +optional
 	BootState HCloudBootState `json:"bootState"`
 
-	// BootStateSince is the timestamp of the last change to BootState. It is used to timeout
+	// bootStateSince is the timestamp of the last change to bootState. It is used to timeout
 	// provisioning if a state takes too long.
 	// +optional
 	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`
 
-	// ExternalIDs contains temporary data during the provisioning process
+	// externalIDs contains temporary data during the provisioning process
 	// +optional
 	ExternalIDs HCloudMachineStatusExternalIDs `json:"externalIDs,omitempty"`
 
-	// LastRemediatedAt records when the most recent successful remediation completed.
+	// lastRemediatedAt records when the most recent successful remediation completed.
 	// Used to prevent reboot loops across successive MHC incidents.
 	// +optional
 	LastRemediatedAt metav1.Time `json:"lastRemediatedAt,omitempty,omitzero"`
@@ -234,7 +230,8 @@ type HCloudMachineV1Beta1DeprecatedStatus struct {
 // InstanceState is the state of the HCloud server that backs an HCloudMachine. It is set from the
 // Hetzner Cloud server status, with additional CAPH owned states for lifecycle phases that Hetzner does
 // not report on its own, such as deletion driven by CAPH. The field may hold any status the Hetzner API
-// reports; the constants below name the states CAPH handles explicitly.
+// reports. The constants below name common Hetzner Cloud server statuses and the deleting state that
+// CAPH sets.
 type InstanceState string
 
 const (
@@ -256,11 +253,11 @@ const (
 
 // HCloudMachineStatusExternalIDs holds temporary data during the provisioning process.
 type HCloudMachineStatusExternalIDs struct {
-	// ActionIDEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
+	// actionIdEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
 	// +optional
 	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`
 
-	// ActionIDCreateServer is the hcloud API Action result of CreateServer.
+	// actionIdCreateServer is the hcloud API Action result of CreateServer.
 	// +optional
 	ActionIDCreateServer int64 `json:"actionIdCreateServer,omitzero"`
 }
@@ -322,7 +319,7 @@ func (r *HCloudMachine) SetV1Beta1Conditions(conditions clusterv1.Conditions) {
 // operational importance:
 //  1. HCloudTokenAvailable    - invalid credentials block everything.
 //  2. HCloudRateLimitExceeded - rate-limit issues (negative polarity).
-//  3. SSHPrivateKeyAvailable  - the rescue SSH key (imageURL flow) is a precondition for creating and provisioning the server.
+//  3. SSHPrivateKeyAvailable  - the rescue SSH key (customProvisioner flow) is a precondition for creating and provisioning the server.
 //  4. ServerCreated           - server existence precedes later lifecycle stages; bootstrap readiness is folded in as a reason.
 //  5. ServerProvisioned       - provisioning precedes availability.
 //  6. ServerAvailable
@@ -378,7 +375,7 @@ func HCloudMachineSummaryOpts() []conditions.SummaryOption {
 	}
 }
 
-// SetBootState sets Status.BootStates and updates Status.BootStateSince.
+// SetBootState sets Status.BootState and updates Status.BootStateSince.
 func (r *HCloudMachine) SetBootState(bootState HCloudBootState) {
 	if r.Status.BootState == bootState {
 		return

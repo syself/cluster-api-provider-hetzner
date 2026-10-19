@@ -21,10 +21,13 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 )
 
 const (
@@ -54,11 +57,11 @@ const (
 // the details to be specified. HardwareDetails in the host's status can be used to find the correct device.
 // Currently, you can specify one disk or a raid setup.
 type RootDeviceHints struct {
-	// WWN is a unique storage identifier used for non-raid setups. The hint
+	// wwn is a unique storage identifier used for non-raid setups. The hint
 	// must match the actual value exactly.
 	// +optional
 	WWN string `json:"wwn,omitempty"`
-	// Raid is used to specify multiple storage devices. It provides the controller with information
+	// raid is used to specify multiple storage devices. It provides the controller with information
 	// on which disks a raid can be established.
 	// +optional
 	Raid Raid `json:"raid,omitempty"`
@@ -94,48 +97,37 @@ func (rdh *RootDeviceHints) ListOfWWN() []string {
 
 // Raid can be used instead of WWN to point to multiple storage devices.
 type Raid struct {
-	// WWN defines a list of unique storage identifiers used for raid setups.
+	// wwn defines a list of unique storage identifiers used for raid setups.
 	WWN []string `json:"wwn,omitempty"`
 }
 
-// ErrorType indicates the class of problem that has caused the Host resource
-// to enter an error state.
+// ErrorType is an error that the controllers act on.
 type ErrorType string
 
 const (
-	// ErrorTypeSSHRebootTriggered is an error condition that triggers the SSH reboot.
-	ErrorTypeSSHRebootTriggered ErrorType = "ssh reboot triggered"
-	// ErrorTypeSoftwareRebootTriggered is an error condition that triggers the software reboot.
-	ErrorTypeSoftwareRebootTriggered ErrorType = "software reboot triggered"
-	// ErrorTypeHardwareRebootTriggered is an error condition that triggers the hardware reboot.
-	ErrorTypeHardwareRebootTriggered ErrorType = "hardware reboot triggered"
+	// ErrorTypeFatal leads to the CAPI Machine being replaced. Deprovisioning clears it.
+	ErrorTypeFatal ErrorType = "fatal error"
 
-	// ErrorTypeConnectionError ErrorType is an error condition indicating that the SSH command returned a connection refused error.
-	ErrorTypeConnectionError ErrorType = "connection refused error of SSH command"
-
-	// RegistrationError is an error condition occurring when the
-	// controller is unable to retrieve information on a specific server via robot.
-	RegistrationError ErrorType = "registration error"
-
-	// PreparationError is an error condition occurring when something fails while preparing host reconciliation.
-	PreparationError ErrorType = "preparation error"
-
-	// ProvisioningError is an error condition occurring when the controller
-	// fails to provision or deprovision the Host.
-	ProvisioningError ErrorType = "provisioning error"
-
-	// FatalError is a fatal error that triggers a failureMessage in the bm machine.
-	FatalError ErrorType = "fatal error"
-
-	// PermanentError is like a fatal error but stays on the host machine.
-	PermanentError ErrorType = "permanent error"
+	// ErrorTypePermanent is like ErrorTypeFatal, but deprovisioning keeps it on the
+	// HetznerBareMetalHost. It stays until someone removes the permanent error annotation.
+	ErrorTypePermanent ErrorType = "permanent error"
 )
+
+// OngoingReboot represents a reboot request we sent and are waiting to complete.
+type OngoingReboot struct {
+	// type is the kind of reboot we sent.
+	// +required
+	// +kubebuilder:validation:Enum=ssh;sw;hw
+	Type RebootType `json:"type,omitempty"`
+
+	// triggeredAt is when we sent the reboot.
+	// +required
+	TriggeredAt metav1.Time `json:"triggeredAt,omitzero"`
+}
 
 const (
 	// ErrorMessageMissingRootDeviceHints specifies the error message when no root device hints are specified.
 	ErrorMessageMissingRootDeviceHints = "no root device hints specified"
-	// ErrorMessageInvalidRootDeviceHints specifies the error message when invalid root device hints are specified.
-	ErrorMessageInvalidRootDeviceHints = "invalid root device hints specified"
 	// ErrorMessageMissingHetznerSecret specifies the error message when no Hetzner secret is found.
 	ErrorMessageMissingHetznerSecret = "could not find HetznerSecret"
 	// ErrorMessageMissingRescueSSHSecret specifies the error message when no RescueSSH secret is found.
@@ -195,7 +187,7 @@ const (
 	RebootTypeSSH RebootType = "ssh"
 )
 
-// VerboseRebootType returns the verbose namem of a reboot Type.
+// VerboseRebootType returns the verbose name of a reboot Type.
 // The string is CamelCase.
 func VerboseRebootType(rebootType RebootType) string {
 	return map[RebootType]string{
@@ -215,21 +207,21 @@ type RebootAnnotationArguments struct {
 // HetznerBareMetalHostConsumerReference is a reference to the HetznerBareMetalMachine
 // that is using a HetznerBareMetalHost.
 type HetznerBareMetalHostConsumerReference struct {
-	// Kind is the kind of the resource being referenced.
+	// kind is the kind of the resource being referenced.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
 	// +kubebuilder:validation:Pattern=`^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$`
 	Kind string `json:"kind,omitempty"`
 
-	// Name is the name of the resource being referenced.
+	// name is the name of the resource being referenced.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	Name string `json:"name,omitempty"`
 
-	// APIGroup is the group of the resource being referenced.
+	// apiGroup is the group of the resource being referenced.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
@@ -239,26 +231,26 @@ type HetznerBareMetalHostConsumerReference struct {
 
 // HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
 type HetznerBareMetalHostSpec struct {
-	// ServerID defines the ID of the server provided by Hetzner.
+	// serverID defines the ID of the server provided by Hetzner.
 	// Find it on your Hetzner robot dashboard.
 	ServerID int `json:"serverID"`
 
-	// RootDeviceHints provides guidance about how to choose the device for the image
+	// rootDeviceHints provides guidance about how to choose the device for the image
 	// being provisioned. They need to be specified to provision the host.
 	// +optional
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
-	// ConsumerRef is a reference to the HetznerBareMetalMachine
+	// consumerRef is a reference to the HetznerBareMetalMachine
 	// that is using this host. When it is not empty, the host is considered "in use".
 	// +optional
 	ConsumerRef *HetznerBareMetalHostConsumerReference `json:"consumerRef,omitempty"`
 
-	// MaintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
+	// maintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
 	// will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
 	// machine. Additionally, the host won't be selected by any Hetzner bare metal machine.
 	MaintenanceMode *bool `json:"maintenanceMode,omitempty"`
 
-	// Description is a human-entered text used to help identify the host.
+	// description is a human-entered text used to help identify the host.
 	// It can be used to store some valuable information about the host.
 	// +optional
 	Description string `json:"description,omitempty"`
@@ -287,7 +279,8 @@ type HetznerBareMetalHostStatus struct {
 	// +optional
 	SSHStatus SSHStatus `json:"sshStatus,omitempty"`
 
-	// errorType indicates the type of failure encountered.
+	// errorType is the fatal or permanent error of the host. It is empty when the host has neither.
+	// +kubebuilder:validation:Enum="fatal error";"permanent error"
 	// +optional
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
@@ -295,9 +288,10 @@ type HetznerBareMetalHostStatus struct {
 	// +optional
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
 
-	// rebootTriggeredAt is the timestamp when the reboot was initiated.
+	// ongoingReboot is the reboot request we sent and are waiting to complete. It is empty when we
+	// are not waiting for a reboot.
 	// +optional
-	RebootTriggeredAt metav1.Time `json:"rebootTriggeredAt,omitempty,omitzero"`
+	OngoingReboot *OngoingReboot `json:"ongoingReboot,omitempty"`
 
 	// rebooted shows whether the server is currently being rebooted.
 	// +optional
@@ -341,7 +335,7 @@ type HetznerBareMetalHostV1Beta1DeprecatedStatus struct {
 	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
 }
 
-// GetIPAddress returns the IPv6 if set, otherwise the IPv4.
+// GetIPAddress returns the IPv4 if set, otherwise the IPv6.
 func (sts HetznerBareMetalHostStatus) GetIPAddress() string {
 	if sts.IPv4 == "" {
 		return sts.IPv6
@@ -351,7 +345,7 @@ func (sts HetznerBareMetalHostStatus) GetIPAddress() string {
 
 // HasFatalError returns true, if the corresponding capi machine should get deleted.
 func (sts HetznerBareMetalHostStatus) HasFatalError() bool {
-	return sts.ErrorType == FatalError || sts.ErrorType == PermanentError
+	return sts.ErrorType == ErrorTypeFatal || sts.ErrorType == ErrorTypePermanent
 }
 
 // GetConditions returns the conditions for the HetznerBareMetalHost object.
@@ -383,22 +377,94 @@ func (host *HetznerBareMetalHost) SetV1Beta1Conditions(conditions clusterv1.Cond
 	host.Status.Deprecated.V1Beta1.Conditions = conditions
 }
 
+// HetznerBareMetalHostSummaryOpts returns the summary options for a HetznerBareMetalHost.
+//
+// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
+// when multiple conditions are unhealthy, the summary lists all of them in priority
+// order (highest-priority first). Credentials and provisioning problems must outrank
+// Deleting, since deletion may itself need credentials to succeed.
+//  1. RobotCredentialsAvailable - invalid Robot credentials block every Robot API call.
+//  2. RobotRateLimitExceeded    - a rate limit blocks every Robot API call (negative polarity).
+//  3. SSHKeysAvailable          - missing/invalid SSH keys block (de)provisioning.
+//  4. RootDeviceHintsValidated  - device hints must validate before provisioning.
+//  5. ActionCompleted           - the action the host is running did not complete.
+//  6. ProvisionSucceeded        - provisioning state (rescue -> image -> OS).
+//  7. RebootSucceeded           - post-provision reboot via annotation.
+//  8. NodeBootIDRetrieved       - workload-cluster Node check after provisioning.
+//  9. Deleting                  - deletion state (negative polarity).
+func HetznerBareMetalHostSummaryOpts() []conditions.SummaryOption {
+	return []conditions.SummaryOption{
+		// ForConditionTypes lists every condition that contributes to Ready, in
+		// priority order. When multiple conditions are unhealthy the summary
+		// surfaces them in this order, so the most important issue is listed first.
+		conditions.ForConditionTypes{
+			HetznerBareMetalHostRobotCredentialsAvailableCondition,
+			HetznerBareMetalHostRobotRateLimitExceededCondition,
+			HetznerBareMetalHostSSHKeysAvailableCondition,
+			HetznerBareMetalHostRootDeviceHintsValidatedCondition,
+			HetznerBareMetalHostActionCompletedCondition,
+			HetznerBareMetalHostProvisionSucceededCondition,
+			HetznerBareMetalHostRebootSucceededCondition,
+			HetznerBareMetalHostNodeBootIDRetrievedCondition,
+			HetznerBareMetalHostDeletingCondition,
+		},
+		// IgnoreTypesIfMissing tells the summary not to treat the absence of a
+		// listed condition as Unknown. Several reconcile paths exit before every
+		// condition has been set (for example, before Robot credentials are
+		// checked or before the host has been provisioned), and we don't want
+		// those early exits to flip Ready to Unknown.
+		conditions.IgnoreTypesIfMissing{
+			HetznerBareMetalHostRobotRateLimitExceededCondition,
+			HetznerBareMetalHostSSHKeysAvailableCondition,
+			HetznerBareMetalHostRootDeviceHintsValidatedCondition,
+			HetznerBareMetalHostActionCompletedCondition,
+			HetznerBareMetalHostProvisionSucceededCondition,
+			HetznerBareMetalHostRebootSucceededCondition,
+			HetznerBareMetalHostNodeBootIDRetrievedCondition,
+			HetznerBareMetalHostDeletingCondition,
+		},
+		// CustomMergeStrategy is used only to override the merge reasons, so
+		// the Ready summary uses CAPI's standard Ready reasons (Ready /
+		// NotReady / ReadyUnknown) instead of the generic merge defaults
+		// (IssuesReported / UnknownReported / InfoReported).
+		//
+		// Negative polarity is passed directly into GetDefaultMergePriorityFunc
+		// here. When a CustomMergeStrategy is provided, NewSummaryCondition
+		// skips the path that wires up the NegativePolarityConditionTypes
+		// SummaryOption into the default strategy, so the negative-polarity
+		// types must be specified explicitly inside the strategy.
+		conditions.CustomMergeStrategy{
+			MergeStrategy: conditions.DefaultMergeStrategy(
+				conditions.GetPriorityFunc(conditions.GetDefaultMergePriorityFunc(
+					// conditions with negative polarity
+					HetznerBareMetalHostRobotRateLimitExceededCondition,
+					HetznerBareMetalHostDeletingCondition,
+				)),
+				conditions.ComputeReasonFunc(conditions.GetDefaultComputeMergeReasonFunc(
+					clusterv1.NotReadyReason,
+					clusterv1.ReadyUnknownReason,
+					clusterv1.ReadyReason,
+				)),
+			),
+		},
+	}
+}
+
 // SSHStatus contains all status information about SSHStatus.
 type SSHStatus struct {
-	// CurrentRescue gives information about the secret where the rescue ssh key is stored.
+	// currentRescue gives information about the secret where the rescue ssh key is stored.
 	CurrentRescue *SecretStatus `json:"currentRescue,omitempty"`
-	// CurrentOS gives information about the secret where the os ssh key is stored.
+	// currentOS gives information about the secret where the os ssh key is stored.
 	CurrentOS *SecretStatus `json:"currentOS,omitempty"`
-	// OSKey contains name and fingerprint of the in HetznerBareMetalMachine spec specified SSH key.
+	// osKey contains name and fingerprint of the in HetznerBareMetalMachine spec specified SSH key.
 	OSKey *SSHKey `json:"osKey,omitempty"`
-	// RescueKey contains name and fingerprint of the in HetznerCluster spec specified SSH key.
+	// rescueKey contains name and fingerprint of the in HetznerCluster spec specified SSH key.
 	RescueKey *SSHKey `json:"rescueKey,omitempty"`
 }
 
-// SecretStatus contains the reference and version of the last secret that was used.
+// SecretStatus contains the reference and the data hash of the last secret that was used.
 type SecretStatus struct {
 	Reference *corev1.SecretReference `json:"credentials,omitempty"`
-	Version   string                  `json:"credentialsVersion,omitempty"`
 	DataHash  []byte                  `json:"credentialsDataHash,omitempty"`
 }
 
@@ -440,53 +506,53 @@ type CPU struct {
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
 type Storage struct {
-	// The Linux device name of the disk, e.g. "/dev/sda". Note that this
+	// name is the Linux device name of the disk, e.g. "/dev/sda". Note that this
 	// may not be stable across reboots.
 	Name string `json:"name,omitempty"`
 
-	// SizeBytes is the size of the disk in Bytes.
+	// sizeBytes is the size of the disk in Bytes.
 	SizeBytes Capacity `json:"sizeBytes,omitempty"`
 
-	// SizeGB is the size of the disk in GB.
+	// sizeGB is the size of the disk in GB.
 	SizeGB Capacity `json:"sizeGB,omitempty"`
 
-	// Vendor is the name of the vendor of the device.
+	// vendor is the name of the vendor of the device.
 	Vendor string `json:"vendor,omitempty"`
 
-	// Model represents the Hardware model.
+	// model represents the Hardware model.
 	Model string `json:"model,omitempty"`
 
-	// SerialNumber denotes the serial number of the device.
+	// serialNumber denotes the serial number of the device.
 	SerialNumber string `json:"serialNumber,omitempty"`
 
-	// WWN defines the WWN of the device.
+	// wwn defines the WWN of the device.
 	WWN string `json:"wwn,omitempty"`
 
-	// HCTL defines the SCSI location of the device.
+	// hctl defines the SCSI location of the device.
 	HCTL string `json:"hctl,omitempty"`
 
-	// Rota defines if it's an HDD device or not.
+	// rota defines if it's an HDD device or not.
 	Rota bool `json:"rota,omitempty"`
 }
 
 // NIC describes one network interface on the host.
 type NIC struct {
-	// The name of the network interface, e.g. "en0"
+	// name is the name of the network interface, e.g. "en0"
 	Name string `json:"name,omitempty"`
 
-	// The vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
+	// model is the vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
 	Model string `json:"model,omitempty"`
 
-	// The device MAC address
+	// mac is the device MAC address
 	// +kubebuilder:validation:Pattern=`[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}`
 	MAC string `json:"mac,omitempty"`
 
-	// The IP address of the interface. This will be an IPv4 or IPv6 address
+	// ip is the IP address of the interface. This will be an IPv4 or IPv6 address
 	// if one is present.  If both IPv4 and IPv6 addresses are present in a
 	// dual-stack environment, two nics will be output, one with each IP.
 	IP string `json:"ip,omitempty"`
 
-	// The speed of the device in Gigabits per second
+	// speedMbps is the speed of the device in Megabits per second
 	SpeedMbps int `json:"speedMbps,omitempty"`
 }
 
@@ -513,8 +579,8 @@ type HardwareDetails struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
 // +kubebuilder:printcolumn:name="IPv4",type="string",JSONPath=".status.ipv4",description="IPv4 of the host",priority=1
 // +kubebuilder:printcolumn:name="IPv6",type="string",JSONPath=".status.ipv6",description="IPv6 of the host",priority=1
-// +kubebuilder:printcolumn:name="CPU",type="string",JSONPath=".status.hardwareDetails.cpu.threads",description="CPU threads",priority=1
-// +kubebuilder:printcolumn:name="RAM",type="string",JSONPath=".status.hardwareDetails.ramGB",description="RAM in GB",priority=1
+// +kubebuilder:printcolumn:name="CPU",type=integer,JSONPath=".status.hardwareDetails.cpu.threads",description="CPU threads",priority=1
+// +kubebuilder:printcolumn:name="RAM",type=integer,JSONPath=".status.hardwareDetails.ramGB",description="RAM in GB",priority=1
 // +kubebuilder:printcolumn:name="Server ID",type="integer",JSONPath=".spec.serverID",description="Server ID of the host",priority=1
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason",priority=1
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message",priority=1
@@ -597,6 +663,78 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 		}
 	}
 	return false
+}
+
+// SetError sets the error type on the status and puts errorMessage on the ActionCompleted condition.
+// It also clears the ongoing reboot, because the controllers stop waiting for a reboot when the host
+// has a fatal or permanent error. For a permanent error the message also names the annotation that
+// an operator has to remove.
+//
+// When errorType is ErrorTypePermanent, it returns permanentErrorSet as true along with the message
+// that callers holding an EventRecorder should emit as a "PermanentErrorSet" warning event.
+func (host *HetznerBareMetalHost) SetError(errorType ErrorType, errorMessage string) (permanentErrorSet bool, message string) {
+	host.Status.ErrorType = errorType
+	host.Status.OngoingReboot = nil
+
+	message = errorMessage
+	if errorType == ErrorTypePermanent {
+		// A permanent error stays on the host until someone removes the annotation. The condition has
+		// to name the annotation.
+		message = fmt.Sprintf("%s. Remove annotation %q, if you want the controller to use the hbmh again.",
+			errorMessage, PermanentErrorAnnotation)
+	}
+
+	var reason, v1beta1Reason string
+	switch errorType {
+	case ErrorTypeFatal:
+		reason = HetznerBareMetalHostActionCompletedFatalErrorReason
+		v1beta1Reason = ActionCompletedFatalErrorV1Beta1Reason
+	case ErrorTypePermanent:
+		reason = HetznerBareMetalHostActionCompletedPermanentErrorReason
+		v1beta1Reason = ActionCompletedPermanentErrorV1Beta1Reason
+	default:
+		reason = HetznerBareMetalHostActionCompletedUnknownErrorReason
+		v1beta1Reason = ActionCompletedUnknownErrorV1Beta1Reason
+	}
+
+	conditions.Set(host, metav1.Condition{
+		Type:    HetznerBareMetalHostActionCompletedCondition,
+		Status:  metav1.ConditionFalse,
+		Reason:  reason,
+		Message: message,
+	})
+
+	// Clients that read the host through the v1beta1 API see the same condition in status.conditions.
+	deprecatedv1beta1conditions.MarkFalse(host, ActionCompletedV1Beta1Condition,
+		v1beta1Reason, clusterv1.ConditionSeverityError, "%s", message)
+
+	if errorType != ErrorTypePermanent {
+		return false, ""
+	}
+
+	if host.Annotations == nil {
+		host.Annotations = make(map[string]string, 1)
+	}
+	host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
+
+	return true, message
+}
+
+// ClearError clears the error type and removes the ActionCompleted condition from both surfaces.
+func (host *HetznerBareMetalHost) ClearError() {
+	host.Status.ErrorType = ""
+	conditions.Delete(host, HetznerBareMetalHostActionCompletedCondition)
+	deprecatedv1beta1conditions.Delete(host, ActionCompletedV1Beta1Condition)
+}
+
+// ErrorMessage returns the message of the ActionCompleted condition. It returns an empty string
+// when the host does not have an ActionCompleted condition.
+func (host *HetznerBareMetalHost) ErrorMessage() string {
+	actionCompleted := conditions.Get(host, HetznerBareMetalHostActionCompletedCondition)
+	if actionCompleted == nil {
+		return ""
+	}
+	return actionCompleted.Message
 }
 
 // HasRebootAnnotation checks for the existence of reboot annotations and returns true if at least one exists.

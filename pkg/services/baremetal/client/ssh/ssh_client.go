@@ -21,6 +21,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	_ "embed"
 	"encoding/base64"
 	"errors"
@@ -33,6 +34,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -45,9 +47,28 @@ const (
 	sshTimeOut time.Duration = 5 * time.Second
 	sshUser                  = "root"
 
-	imageURLCommandLog   = "/root/image-url-command.log"
+	customProvisionerLog = "/root/image-url-command.log"
 	outputJSONPath       = "/root/output.json"
 	outputJSONMaxRetries = 10
+
+	// connIdleTimeout is how long a pooled connection may sit unused before the
+	// idle sweep closes it. It is comfortably above the ~10s poll interval used
+	// while a host is in the rescue system, but short enough that an
+	// abandoned/failed/deleted host's connection doesn't linger.
+	connIdleTimeout = 2 * time.Minute
+
+	// connSweepInterval is how often the idle sweep runs.
+	connSweepInterval = 30 * time.Second
+
+	// connKeepAliveRequest is used to cheaply check whether a pooled connection
+	// is still alive before handing it out. It is not a real SSH protocol
+	// feature: the "name@domain" form (RFC 4251 4.6.1) marks it as a
+	// vendor-specific global request, so it can never collide with a name an
+	// RFC or another implementation defines. OpenSSH originated this
+	// particular name for exactly this liveness-probing purpose, and other
+	// implementations copied the convention; the peer is never expected to
+	// recognize it. See isConnAlive for why that's fine.
+	connKeepAliveRequest = "keepalive@openssh.com"
 )
 
 //go:embed detect-linux-on-another-disk.sh
@@ -105,22 +126,22 @@ const (
 	InstallImageStateFinished InstallImageState = "finished"
 )
 
-// ImageURLCommandState is the command which reads the imageURL of and provisions the machine accordingly. It gets copied to the server running in the rescue system.
-type ImageURLCommandState string
+// CustomProvisionerState defines the states of the custom provisioner command running in the rescue system.
+type CustomProvisionerState string
 
 const (
-	// ImageURLCommandStateNotStarted indicates that the command was not started yet.
-	ImageURLCommandStateNotStarted ImageURLCommandState = "ImageURLCommandStateNotStarted"
+	// CustomProvisionerStateNotStarted indicates that the command was not started yet.
+	CustomProvisionerStateNotStarted CustomProvisionerState = "NotStarted"
 
-	// ImageURLCommandStateRunning indicates that the command is running.
-	ImageURLCommandStateRunning ImageURLCommandState = "ImageURLCommandStateRunning"
+	// CustomProvisionerStateRunning indicates that the command is running.
+	CustomProvisionerStateRunning CustomProvisionerState = "Running"
 
-	// ImageURLCommandStateFinishedSuccessfully indicates that the command is finished with IMAGE_URL_DONE in
+	// CustomProvisionerStateFinishedSuccessfully indicates that the command is finished with IMAGE_URL_DONE in
 	// stdout.
-	ImageURLCommandStateFinishedSuccessfully ImageURLCommandState = "ImageURLCommandStateFinishedSuccessfully"
+	CustomProvisionerStateFinishedSuccessfully CustomProvisionerState = "FinishedSuccessfully"
 
-	// ImageURLCommandStateFailed indicates that the command is finished, but failed.
-	ImageURLCommandStateFailed ImageURLCommandState = "ImageURLCommandStateFailed"
+	// CustomProvisionerStateFailed indicates that the command is finished, but failed.
+	CustomProvisionerStateFailed CustomProvisionerState = "Failed"
 )
 
 func (o Output) String() string {
@@ -179,8 +200,8 @@ type Client interface {
 	CreateAutoSetup(ctx context.Context, data string) Output
 
 	// DownloadImage is a synchronous process. This means the controller waits until the
-	// download is finished. Note: We should use StartImageURLCommand(), similar to the handling
-	// of ImageURLCommand.
+	// download is finished. Note: We should use StartCustomProvisioner(), similar to the handling
+	// of the custom provisioner.
 	DownloadImage(ctx context.Context, path, url string) Output
 
 	CreatePostInstallScript(ctx context.Context, data string) Output
@@ -206,18 +227,18 @@ type Client interface {
 	// A non-zero exit status will indicate that provisioning should not start.
 	ExecutePreProvisionCommand(ctx context.Context, preProvisionCommand string) (exitStatus int, stdoutAndStderr string, err error)
 
-	// StartImageURLCommand calls the command provided via image-url-command.
+	// StartCustomProvisioner calls the command provided via customProvisioner.command.
 	// It gets called by the controller after the rescue system of the new machine
 	// is reachable. The env var `OCI_REGISTRY_AUTH_TOKEN` gets set to the same value of the
 	// corresponding env var of the controller.
-	// This gets used when imageURL set.
+	// This gets used when customProvisioner is set.
 	// For hcloud deviceNames is always {"sda"}. For baremetal it corresponds to the WWNs
 	// of RootDeviceHints.
-	StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (exitStatus int, stdoutAndStderr string, err error)
+	StartCustomProvisioner(ctx context.Context, command, url string, bootstrapData []byte, machineName string, deviceNames []string) (exitStatus int, stdoutAndStderr string, err error)
 
-	// StateOfImageURLCommand returns the current states of the ImageURLCommand. States can
+	// StateOfCustomProvisioner returns the current states of the custom provisioner. States can
 	// be: NotStarted, Running, Failed, FinishedSuccesfully.
-	StateOfImageURLCommand(ctx context.Context) (state ImageURLCommandState, logFile string, err error)
+	StateOfCustomProvisioner(ctx context.Context) (state CustomProvisionerState, logFile string, err error)
 
 	// ReadOutputJSON reads /root/output.json from the rescue system. It retries up to
 	// outputJSONMaxRetries times when the content does not end with '}', which guards against
@@ -229,16 +250,73 @@ type Client interface {
 // Factory is the interface for creating new Client objects.
 type Factory interface {
 	NewClient(Input) Client
+
+	// EvictConnectionsForIP closes and removes any pooled connection to the
+	// given IP, regardless of port or private key. Callers should call this
+	// once a host leaves the rescue-related states, so the connection pool
+	// doesn't linger beyond the window where reuse is actually useful.
+	EvictConnectionsForIP(ip string)
 }
 
-type sshFactory struct{}
-
-// NewFactory creates a new factory for SSH clients.
-func NewFactory() Factory {
-	return &sshFactory{}
+// connKey identifies a pooled connection. It includes the private key, so a
+// pooled connection is only reused with the key it was opened with. When the
+// SSH secret changes, e.g. the host needs the OS key after installimage, we
+// open a new connection.
+type connKey struct {
+	ip      string
+	port    int
+	keyHash [sha256.Size]byte
 }
 
-var _ = Factory(&sshFactory{})
+// pooledConn wraps a shared *ssh.Client. Its mutex serializes get-or-create
+// and evict operations for this one entry, so concurrent callers for the same
+// connKey neither dial twice nor race on lastUsed or client. See getSSHClient
+// for why the lock is held across the liveness probe and dial, not just the
+// map/field access.
+type pooledConn struct {
+	mu       sync.Mutex
+	client   *ssh.Client
+	lastUsed time.Time
+	// inUse is the number of commands that currently use client. It is used to
+	// determine idle connections. A connection is only idle when inUse is 0.
+	inUse int
+}
+
+type sshFactory struct {
+	mu    sync.RWMutex
+	conns map[connKey]*pooledConn
+
+	idleTimeout   time.Duration
+	sweepInterval time.Duration
+}
+
+// NewFactory creates a new factory for SSH clients. When ctx is done, the
+// factory stops its idle sweep and closes all pooled connections. ctx should be
+// the controller manager's long-lived context, not a per-Reconcile context: the
+// factory and its pooled connections must outlive any single Reconcile call.
+func NewFactory(ctx context.Context) Factory {
+	return newFactory(ctx, connIdleTimeout, connSweepInterval)
+}
+
+// newFactory is the actual constructor; tests use it with a shorter idle
+// timeout/sweep interval so they don't have to wait connIdleTimeout for real.
+func newFactory(ctx context.Context, idleTimeout, sweepInterval time.Duration) *sshFactory {
+	f := &sshFactory{
+		conns:         make(map[connKey]*pooledConn),
+		idleTimeout:   idleTimeout,
+		sweepInterval: sweepInterval,
+	}
+
+	// Close idle connections periodically
+	go f.sweepIdleConns(ctx)
+
+	// Close all pooled connections when ctx is done
+	context.AfterFunc(ctx, f.closeAllConns)
+
+	return f
+}
+
+var _ Factory = (*sshFactory)(nil)
 
 // NewClient implements the NewClient method of the factory interface.
 func (f *sshFactory) NewClient(in Input) Client {
@@ -246,6 +324,149 @@ func (f *sshFactory) NewClient(in Input) Client {
 		privateSSHKey: in.PrivateKey,
 		ip:            in.IP,
 		port:          in.Port,
+		factory:       f,
+	}
+}
+
+// getOrCreatePooledConn returns the pooled entry for key, creating an empty one
+// if necessary. The returned entry's client may be nil, meaning no connection
+// is cached yet.
+func (f *sshFactory) getOrCreatePooledConn(key connKey) *pooledConn {
+	f.mu.RLock()
+	pc, ok := f.conns[key]
+	f.mu.RUnlock()
+	if ok {
+		return pc
+	}
+
+	// Before inserting a new connection for the key we need to check again
+	// that it is really not set yet. In theory, some other goroutine could
+	// have inserted it in the mean time.
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if pc, ok := f.conns[key]; ok {
+		return pc
+	}
+	pc = &pooledConn{}
+	f.conns[key] = pc
+	return pc
+}
+
+// release decreases inUse and sets lastUsed.
+func (pc *pooledConn) release() {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	pc.inUse--
+	pc.lastUsed = time.Now()
+}
+
+// closeClient closes pc's pooled client, if any, and clears it so the entry
+// is ready to dial a fresh connection next time.
+func (pc *pooledConn) closeClient() {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if pc.client != nil {
+		_ = pc.client.Close()
+		pc.client = nil
+	}
+}
+
+// evictConn removes the pooled entry for key from the map first and closes the
+// connection afterwards, outside of f.mu.
+//
+// Deleting from the map does not destroy the pooledConn: pc is a pointer, and
+// the local variable (plus any goroutine that already looked the entry up)
+// keeps the object alive, so it is still safe to use after the delete. What
+// the delete does achieve is that no *new* caller can find this entry; anyone
+// arriving from now on creates a fresh entry and dials a new connection.
+//
+// Closing outside of f.mu matters because Close() writes to the network and
+// can block. Holding the map lock across it would stall every other pool
+// operation for the duration.
+func (f *sshFactory) evictConn(key connKey) {
+	f.mu.Lock()
+	pc, ok := f.conns[key]
+	if ok {
+		delete(f.conns, key)
+	}
+	f.mu.Unlock()
+	if !ok {
+		return
+	}
+
+	pc.closeClient()
+}
+
+// EvictConnectionsForIP implements the EvictConnectionsForIP method of the
+// factory interface. It is a no-op if no pooled connection exists for ip:
+// callers use it as best-effort cleanup after a state transition, without
+// checking beforehand whether a connection is actually pooled.
+//
+// It removes the entries from the map before closing them, for the same
+// reasons as evictConn() above.
+func (f *sshFactory) EvictConnectionsForIP(ip string) {
+	f.mu.Lock()
+	var toClose []*pooledConn
+	for key, pc := range f.conns {
+		if key.ip == ip {
+			toClose = append(toClose, pc)
+			delete(f.conns, key)
+		}
+	}
+	f.mu.Unlock()
+
+	for _, pc := range toClose {
+		pc.closeClient()
+	}
+}
+
+// sweepIdleConns periodically closes pooled connections that have been idle
+// for longer than connIdleTimeout. It runs until ctx is done.
+func (f *sshFactory) sweepIdleConns(ctx context.Context) {
+	ticker := time.NewTicker(f.sweepInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			f.evictIdleConns()
+		}
+	}
+}
+
+func (f *sshFactory) evictIdleConns() {
+	now := time.Now()
+
+	f.mu.Lock()
+	var toClose []*pooledConn
+	for key, pc := range f.conns {
+		pc.mu.Lock()
+		// An entry whose dial failed has no client, but it still needs to be
+		// removed, so do not check client here.
+		idle := pc.inUse == 0 && now.Sub(pc.lastUsed) > f.idleTimeout
+		pc.mu.Unlock()
+		if idle {
+			toClose = append(toClose, pc)
+			delete(f.conns, key)
+		}
+	}
+	f.mu.Unlock()
+
+	for _, pc := range toClose {
+		pc.closeClient()
+	}
+}
+
+func (f *sshFactory) closeAllConns() {
+	f.mu.Lock()
+	conns := f.conns
+	f.conns = make(map[connKey]*pooledConn)
+	f.mu.Unlock()
+
+	for _, pc := range conns {
+		pc.closeClient()
 	}
 }
 
@@ -253,6 +474,50 @@ type sshClient struct {
 	ip            string
 	privateSSHKey string
 	port          int
+	factory       *sshFactory
+}
+
+func (c *sshClient) connKey() connKey {
+	return connKey{
+		ip:      c.ip,
+		port:    c.port,
+		keyHash: sha256.Sum256([]byte(c.privateSSHKey)),
+	}
+}
+
+// isTransportError reports whether err indicates a problem with the
+// underlying SSH transport (dead connection, broken session) rather than a
+// remote command that simply exited non-zero. Only transport errors should
+// evict a pooled connection; a remote command exiting non-zero is a normal,
+// expected outcome that must not throw away a healthy connection.
+//
+// Note: *ssh.ExitMissingError (session torn down without an exit status) is
+// treated as a transport error here, even though it is also the expected
+// outcome for a command like "reboot" that kills its own session: the
+// golang.org/x/crypto/ssh session layer returns this exact error both when a
+// session is closed cleanly without an exit status and when the underlying
+// connection dies mid-command, so the two cannot be told apart at this
+// level. That's fine because evicting only ever removes the pooled entry; it
+// does not alter or retry the command, so it cannot corrupt the returned
+// Output the way a retry-and-replace would.
+func isTransportError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var exitErr *ssh.ExitError
+	return !errors.As(err, &exitErr)
+}
+
+// evictConnUnlessCanceled evicts the pooled connection for this client, unless
+// ctx was canceled. The scp-based methods below evict on any copy failure,
+// since go-scp does not expose a way to distinguish a genuine transport
+// failure from a remote-side protocol error (e.g. "no such file"). But a
+// canceled ctx only means that the caller stopped waiting. It does not tell
+// us anything about the connection, so it must not trigger an eviction.
+func (c *sshClient) evictConnUnlessCanceled(ctx context.Context) {
+	if ctx.Err() == nil {
+		c.factory.evictConn(c.connKey())
+	}
 }
 
 var _ = Client(&sshClient{})
@@ -612,7 +877,73 @@ func IsTimeoutError(err error) bool {
 	return strings.Contains(err.Error(), ErrTimeout.Error())
 }
 
-func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, error) {
+// getSSHClient returns a shared *ssh.Client for this machine, reusing a
+// pooled connection when one exists and is still alive, dialing a fresh one
+// otherwise. The returned client must not be closed by the caller: it is
+// owned by the pool and may be in use by other callers concurrently or
+// reused by a later call for the same machine.
+//
+// pc.mu is held for the entire call, including the liveness probe and, on a
+// miss, the full dial (TCP connect + SSH handshake), which takes around
+// 2*sshTimeOut at worst. That serializes concurrent callers targeting the same
+// (ip, port, keyHash), which is deliberate: it guarantees at most one dial in
+// flight per pooled entry, so two callers racing to establish the same
+// connection can't both pay for a handshake or clobber each other's pc.client
+// write. Releasing the lock before dialing would remove that guarantee. This
+// is a non-issue in practice because each host is normally driven by a single
+// reconciler goroutine at a time; if that ever changes for a given (ip, port,
+// key), calls to it will queue up behind this lock rather than run
+// concurrently.
+func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, func(), error) {
+	pc := c.factory.getOrCreatePooledConn(c.connKey())
+
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+
+	if pc.client != nil && !isConnAlive(pc.client) {
+		_ = pc.client.Close()
+		pc.client = nil
+	}
+
+	if pc.client == nil {
+		client, err := c.dial(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		pc.client = client
+	}
+
+	pc.inUse++
+	return pc.client, pc.release, nil
+}
+
+// isConnAlive does a cheap liveness probe on an existing connection so a
+// pooled connection killed by the remote end (reboot, idle timeout, ...)
+// isn't handed out as if it were still usable.
+//
+// The probe works because the SSH protocol (RFC 4254 4) requires a peer that
+// gets a global request it doesn't understand to still reply, with failure,
+// if a reply was requested. So client.SendRequest is expected to come back
+// with ok=false here. Only err is checked: err == nil means
+// some reply arrived at all, i.e. the transport is still processing
+// messages; err != nil (or the timeout below firing first) means it isn't.
+func isConnAlive(client *ssh.Client) bool {
+	done := make(chan bool, 1)
+	go func() {
+		_, _, err := client.SendRequest(connKeepAliveRequest, true, nil)
+		done <- err == nil
+	}()
+
+	select {
+	case ok := <-done:
+		return ok
+	case <-time.After(sshTimeOut):
+		return false
+	}
+}
+
+// dial opens a brand new TCP connection and performs the SSH handshake.
+func (c *sshClient) dial(ctx context.Context) (*ssh.Client, error) {
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(c.privateSSHKey))
 	if err != nil {
@@ -657,32 +988,41 @@ func (c *sshClient) getSSHClient(ctx context.Context) (*ssh.Client, error) {
 	return ssh.NewClient(sshConn, chans, reqs), nil
 }
 
+// runSSH runs command over the pooled connection for this machine. If the
+// command fails due to a transport-level problem (dead connection, broken
+// session) rather than merely exiting non-zero, the pooled entry is evicted
+// so the next call dials a fresh connection. The failed command itself is
+// not retried here: retrying blindly risks re-issuing a non-idempotent
+// command that may already have run on the remote side before the transport
+// failed, and the reconcile loop's own polling already re-issues it safely.
 func (c *sshClient) runSSH(ctx context.Context, command string) Output {
 	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
 
-	client, err := c.getSSHClient(ctx)
+	client, release, err := c.getSSHClient(ctx)
 	if err != nil {
 		return Output{Err: err}
 	}
-	defer func() {
-		if err := client.Close(); err != nil {
-			logger.Error(err, "failed to close ssh client")
-		}
-	}()
-
-	// If ctx fires, close the transport so any in-flight call (NewSession,
-	// sess.Run) returns. stop() deregisters the callback on normal exit.
-	stop := context.AfterFunc(ctx, func() { _ = client.Close() })
-	defer stop()
+	defer release()
 
 	sess, err := client.NewSession()
 	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return Output{Err: ctxErr}
 		}
+		c.factory.evictConn(c.connKey())
 		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}
 	}
+
+	// sess.Run waits until the command ends. The deferred sess.Close below only
+	// runs when runSSH returns. It cannot stop a command that is still running.
+	// Therefore, when ctx is canceled, we close the session here, so that
+	// sess.Run returns.
+	stop := context.AfterFunc(ctx, func() { _ = sess.Close() })
+	defer stop()
+
 	defer func() {
+		// If ctx was canceled, the session is already closed and Close returns
+		// io.EOF. We ignore that error.
 		if err := sess.Close(); err != nil && !errors.Is(err, io.EOF) {
 			logger.Error(err, "failed to close ssh session")
 		}
@@ -701,6 +1041,10 @@ func (c *sshClient) runSSH(ctx context.Context, command string) Output {
 			StdErr: stderrBuffer.String(),
 			Err:    ctxErr,
 		}
+	}
+
+	if isTransportError(err) {
+		c.factory.evictConn(c.connKey())
 	}
 	if err != nil {
 		err = fmt.Errorf("ssh command failed (%s): %w", c.connectionDetails(), err)
@@ -765,20 +1109,15 @@ func removeUselessLinesFromCloudInitOutput(s string) string {
 }
 
 func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command string) (int, string, error) {
-	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
-
-	client, err := c.getSSHClient(ctx)
+	client, release, err := c.getSSHClient(ctx)
 	if err != nil {
 		return 0, "", err
 	}
-	defer func() {
-		if err := client.Close(); err != nil {
-			logger.Error(err, "failed to close ssh client")
-		}
-	}()
+	defer release()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
+		c.factory.evictConn(c.connKey())
 		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
 	}
 
@@ -793,6 +1132,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	dest := "/root/" + baseName
 	err = scpClient.CopyFromFile(ctx, *f, dest, "0700")
 	if err != nil {
+		c.evictConnUnlessCanceled(ctx)
 		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
 	}
 
@@ -808,7 +1148,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	return exitStatus, s, nil
 }
 
-func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
+func (c *sshClient) StartCustomProvisioner(ctx context.Context, command, url string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
 	logger := ctrl.LoggerFrom(ctx).WithName("ssh-client")
 
 	// validate deviceNames
@@ -825,31 +1165,28 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	}
 
 	if command == "" {
-		return 0, "", fmt.Errorf("image-url-command is empty")
+		return 0, "", fmt.Errorf("custom provisioner command is empty")
 	}
 
 	fdCommand, err := os.Open(command) //nolint:gosec // the variable was valided.
 	if err != nil {
-		return 0, "", fmt.Errorf("error opening image-url-command %q: %w", command, err)
+		return 0, "", fmt.Errorf("error opening custom provisioner command %q: %w", command, err)
 	}
 	defer func() {
 		if err := fdCommand.Close(); err != nil {
-			logger.Error(err, "failed to close image-url-command file", "path", command)
+			logger.Error(err, "failed to close custom provisioner command file", "path", command)
 		}
 	}()
 
-	client, err := c.getSSHClient(ctx)
+	client, release, err := c.getSSHClient(ctx)
 	if err != nil {
 		return 0, "", err
 	}
-	defer func() {
-		if err := client.Close(); err != nil {
-			logger.Error(err, "failed to close ssh client")
-		}
-	}()
+	defer release()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
+		c.factory.evictConn(c.connKey())
 		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
 	}
 
@@ -859,6 +1196,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	dest := "/root/" + baseName
 	err = scpClient.CopyFromFile(ctx, *fdCommand, dest, "0700")
 	if err != nil {
+		c.evictConnUnlessCanceled(ctx)
 		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
 	}
 
@@ -866,14 +1204,15 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	dest = "/root/bootstrap.data"
 	err = scpClient.CopyFile(ctx, reader, dest, "0700")
 	if err != nil {
+		c.evictConnUnlessCanceled(ctx)
 		return 0, "", fmt.Errorf("error copying bootstrap data to %s:%d:%s %w", c.ip, c.port, dest, err)
 	}
 
 	cmd := fmt.Sprintf(`#!/usr/bin/bash
 OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/image-url-command '%s' /root/bootstrap.data '%s' '%s' >%s 2>&1 </dev/null &
 echo $! > /root/image-url-command.pid
-`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL, machineName, strings.Join(deviceNames, " "),
-		imageURLCommandLog)
+`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), url, machineName, strings.Join(deviceNames, " "),
+		customProvisionerLog)
 
 	out := c.runSSH(ctx, cmd)
 
@@ -888,47 +1227,47 @@ echo $! > /root/image-url-command.pid
 	return exitStatus, s, nil
 }
 
-func (c *sshClient) StateOfImageURLCommand(ctx context.Context) (state ImageURLCommandState, stdoutStderr string, err error) {
+func (c *sshClient) StateOfCustomProvisioner(ctx context.Context) (state CustomProvisionerState, stdoutStderr string, err error) {
 	out := c.runSSH(ctx, `[ -e /root/image-url-command.pid ]`)
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
-		return ImageURLCommandStateNotStarted, "", fmt.Errorf("getting exit status of custom provisioner failed: %w", err)
+		return CustomProvisionerStateNotStarted, "", fmt.Errorf("getting exit status of custom provisioner failed: %w", err)
 	}
 	if exitStatus > 0 {
 		// file does exists
-		return ImageURLCommandStateNotStarted, "", nil
+		return CustomProvisionerStateNotStarted, "", nil
 	}
 
 	out = c.runSSH(ctx, `ps -p "$(cat /root/image-url-command.pid)" -o args= | grep -q image-url-command`)
 	exitStatus, err = out.ExitStatus()
 	if err != nil {
-		return ImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if image-url-command is still running failed: %w", err)
+		return CustomProvisionerStateNotStarted, "", fmt.Errorf("detecting if the custom provisioner is still running failed: %w", err)
 	}
 
-	logFile, err := c.getImageURLCommandOutput(ctx)
+	logFile, err := c.getCustomProvisionerOutput(ctx)
 	if err != nil {
-		return ImageURLCommandStateFailed, logFile, err
+		return CustomProvisionerStateFailed, logFile, err
 	}
 
 	if exitStatus == 0 {
-		return ImageURLCommandStateRunning, logFile, nil
+		return CustomProvisionerStateRunning, logFile, nil
 	}
 
-	out = c.runSSH(ctx, fmt.Sprintf("tail -n 1 %s | grep -q IMAGE_URL_DONE", imageURLCommandLog))
+	out = c.runSSH(ctx, fmt.Sprintf("tail -n 1 %s | grep -q IMAGE_URL_DONE", customProvisionerLog))
 	exitStatus, err = out.ExitStatus()
 	if err != nil {
-		return ImageURLCommandStateNotStarted, logFile, fmt.Errorf("detecting if image-url-command was successful failed: %w", err)
+		return CustomProvisionerStateNotStarted, logFile, fmt.Errorf("detecting if the custom provisioner was successful failed: %w", err)
 	}
 
 	if exitStatus > 0 {
-		return ImageURLCommandStateFailed,
-			fmt.Sprintf("IMAGE_URL_DONE not found in %s:\n%s", imageURLCommandLog, logFile), nil
+		return CustomProvisionerStateFailed,
+			fmt.Sprintf("IMAGE_URL_DONE not found in %s:\n%s", customProvisionerLog, logFile), nil
 	}
-	return ImageURLCommandStateFinishedSuccessfully, logFile, nil
+	return CustomProvisionerStateFinishedSuccessfully, logFile, nil
 }
 
-func (c *sshClient) getImageURLCommandOutput(ctx context.Context) (string, error) {
-	out := c.runSSH(ctx, fmt.Sprintf("cat %s", imageURLCommandLog)) // TODO: implement getFile for sshClient.
+func (c *sshClient) getCustomProvisionerOutput(ctx context.Context) (string, error) {
+	out := c.runSSH(ctx, fmt.Sprintf("cat %s", customProvisionerLog)) // TODO: implement getFile for sshClient.
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
 		return "", fmt.Errorf("getting logs of custom provisioner failed: %w", err)
@@ -940,14 +1279,15 @@ func (c *sshClient) getImageURLCommandOutput(ctx context.Context) (string, error
 }
 
 func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
-	client, err := c.getSSHClient(ctx)
+	client, release, err := c.getSSHClient(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get ssh client: %w", err)
 	}
-	defer client.Close()
+	defer release()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
+		c.factory.evictConn(c.connKey())
 		return "", fmt.Errorf("failed to create scp client: %w", err)
 	}
 	defer scpClient.Close()
@@ -964,6 +1304,7 @@ func (c *sshClient) ReadOutputJSON(ctx context.Context) (string, error) {
 
 		var buf bytes.Buffer
 		if err := scpClient.CopyFromRemotePassThru(ctx, &buf, outputJSONPath, nil); err != nil {
+			c.evictConnUnlessCanceled(ctx)
 			return "", fmt.Errorf("failed to copy output.json from rescue system to caph: %w", err)
 		}
 

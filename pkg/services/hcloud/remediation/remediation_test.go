@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
@@ -103,6 +104,7 @@ var _ = Describe("Test rate limit condition", func() {
 		service := Service{scope: &scope.HCloudRemediationScope{
 			HCloudClient:      hcloudClient,
 			HCloudRemediation: hcloudRemediation,
+			EventRecorder:     record.NewFakeRecorder(10),
 		}}
 
 		_, err := service.handlePhaseRunning(context.Background(), &hcloud.Server{ID: 1234567, Name: "my-server"})

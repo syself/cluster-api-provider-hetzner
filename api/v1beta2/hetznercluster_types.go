@@ -70,24 +70,24 @@ const (
 
 // HetznerClusterSpec defines the desired state of HetznerCluster.
 type HetznerClusterSpec struct {
-	// HCloudNetwork defines details about the private Network for Hetzner Cloud. If left empty, no private Network is configured.
+	// hcloudNetwork defines details about the private Network for Hetzner Cloud. If left empty, no private Network is configured.
 	// +optional
 	HCloudNetwork HCloudNetworkSpec `json:"hcloudNetwork"`
 
-	// ControlPlaneRegion consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
+	// controlPlaneRegions consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
 	// have a very low latency we could assume in some use cases that a region is behaving like a zone.
 	// https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
 	// +listType=set
 	ControlPlaneRegions []Region `json:"controlPlaneRegions"`
 
-	// SSHKeys are cluster wide. Valid values are a valid SSH key name.
+	// sshKeys are cluster wide. Valid values are a valid SSH key name.
 	SSHKeys HetznerSSHKeys `json:"sshKeys"`
 
-	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
+	// controlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
 	ControlPlaneEndpoint APIEndpoint `json:"controlPlaneEndpoint,omitempty,omitzero"`
 
-	// ControlPlaneLoadBalancer is an optional configuration for customizing control plane behavior.
+	// controlPlaneLoadBalancer is an optional configuration for customizing control plane behavior.
 	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
 
 	// +optional
@@ -95,14 +95,14 @@ type HetznerClusterSpec struct {
 	// +listMapKey=name
 	HCloudPlacementGroups []HCloudPlacementGroupSpec `json:"hcloudPlacementGroups,omitempty"`
 
-	// HetznerSecretRef is a reference to a token to be used when reconciling this cluster.
+	// hetznerSecretRef is a reference to a token to be used when reconciling this cluster.
 	// This is generated in the security section under API TOKENS. Read & write is necessary.
 	HetznerSecret HetznerSecretRef `json:"hetznerSecretRef"`
 
-	// SkipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be
+	// skipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be
 	// created in the workload cluster. By default the secret gets created, so that the ccm (running
 	// in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
-	// wl-cluster, you can set this to value to false, so that the secret is not created. Be sure to
+	// wl-cluster, you can set this to true, so that the secret is not created. Be sure to
 	// run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
 	// +optional
 	SkipCreatingHetznerSecretInWorkloadCluster bool `json:"skipCreatingHetznerSecretInWorkloadCluster,omitempty"`
@@ -111,13 +111,13 @@ type HetznerClusterSpec struct {
 // APIEndpoint represents a reachable Kubernetes API endpoint.
 // +kubebuilder:validation:MinProperties=1
 type APIEndpoint struct {
-	// Host is the hostname on which the API server is serving.
+	// host is the hostname on which the API server is serving.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=512
 	Host string `json:"host,omitempty"`
 
-	// Port is the port on which the API server is serving.
+	// port is the port on which the API server is serving.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
@@ -198,7 +198,7 @@ type HetznerClusterV1Beta1DeprecatedStatus struct {
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this HetznerCluster belongs"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status",description="Cluster infrastructure is ready for Nodes"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of HetznerCluster"
-// +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".spec.controlPlaneEndpoint",description="API Endpoint",priority=1
+// +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".spec.controlPlaneEndpoint.host",description="API Endpoint",priority=1
 // +kubebuilder:printcolumn:name="Regions",type="string",JSONPath=".spec.controlPlaneRegions",description="Control plane regions",priority=1
 // +kubebuilder:printcolumn:name="Network enabled",type="boolean",JSONPath=".spec.hcloudNetwork.enabled",description="Indicates if private network is enabled.",priority=1
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason",priority=1

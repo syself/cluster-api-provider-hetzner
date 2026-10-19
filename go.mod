@@ -5,10 +5,10 @@ go 1.25.12
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bramvdbogaerde/go-scp v1.5.0
-	github.com/go-logr/logr v1.4.3
+	github.com/go-logr/logr v1.4.4
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/go-cmp v0.7.0
-	github.com/guettli/check-conditions v0.0.33
+	github.com/guettli/check-conditions v0.0.59
 	github.com/hetznercloud/hcloud-go/v2 v2.47.0
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/onsi/ginkgo/v2 v2.28.3
@@ -28,7 +28,6 @@ require (
 	k8s.io/apiserver v0.35.5
 	k8s.io/client-go v0.35.5
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kubectl v0.35.4
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
 	sigs.k8s.io/cluster-api v1.13.4
 	sigs.k8s.io/cluster-api/test v1.13.4

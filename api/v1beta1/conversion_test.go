@@ -215,7 +215,7 @@ func TestConvertHetznerBareMetalHostConsumerRefInvalidAPIVersion(t *testing.T) {
 // TestHetznerBareMetalHostConvertToMovesStatusToSubresource verifies that converting a v1beta1
 // HetznerBareMetalHost to v1beta2 moves spec.status into the status subresource, promotes the staged
 // v1beta2 conditions to status.conditions, demotes the v1beta1 conditions to
-// status.deprecated.v1beta1.conditions, and maps rebootTriggeredAt from a pointer to a value.
+// status.deprecated.v1beta1.conditions.
 func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
 	legacyConditions := clusterv1beta1.Conditions{
 		{
@@ -244,8 +244,6 @@ func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
 			Message:            "legacy condition",
 		},
 	}
-	rebootTriggeredAt := metav1.Unix(3, 0)
-
 	src := &HetznerBareMetalHost{
 		Spec: HetznerBareMetalHostSpec{
 			ServerID: 42,
@@ -255,7 +253,6 @@ func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
 				ProvisioningState: StateProvisioned,
 				ErrorType:         FatalError,
 				RebootTypes:       []RebootType{RebootTypeSoftware, RebootTypeHardware},
-				RebootTriggeredAt: &rebootTriggeredAt,
 				NodeBootID:        "boot-id",
 				Conditions:        legacyConditions,
 				V1Beta2:           &HetznerBareMetalHostV1Beta2Status{Conditions: v1beta2Conditions},
@@ -271,7 +268,7 @@ func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
 	if dst.Status.IPv4 != "1.2.3.4" || dst.Status.IPv6 != "2001:db8::1" {
 		t.Fatalf("status addresses not moved to the subresource: %#v", dst.Status)
 	}
-	if dst.Status.ProvisioningState != infrav2.StateProvisioned || dst.Status.ErrorType != infrav2.FatalError {
+	if dst.Status.ProvisioningState != infrav2.StateProvisioned || dst.Status.ErrorType != infrav2.ErrorTypeFatal {
 		t.Fatalf("status fields not moved to the subresource: %#v", dst.Status)
 	}
 	if dst.Status.NodeBootID != "boot-id" {
@@ -279,9 +276,6 @@ func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
 	}
 	if !reflect.DeepEqual(dst.Status.RebootTypes, []infrav2.RebootType{infrav2.RebootTypeSoftware, infrav2.RebootTypeHardware}) {
 		t.Fatalf("status.rebootTypes mismatch: %#v", dst.Status.RebootTypes)
-	}
-	if !dst.Status.RebootTriggeredAt.Equal(&rebootTriggeredAt) {
-		t.Fatalf("status.rebootTriggeredAt mismatch: %#v", dst.Status.RebootTriggeredAt)
 	}
 	if !reflect.DeepEqual(dst.Status.Conditions, v1beta2Conditions) {
 		t.Fatalf("status.conditions mismatch:\n got: %#v\nwant: %#v", dst.Status.Conditions, v1beta2Conditions)
@@ -408,30 +402,160 @@ func TestHetznerBareMetalHostRoundTripPreservesDroppedStatusFields(t *testing.T)
 	}
 }
 
-// TestHetznerBareMetalHostRebootTriggeredAtNilRoundTrip verifies that a nil spec.status.rebootTriggeredAt
-// in v1beta1 converts to the zero value in v1beta2 and back to a nil pointer in v1beta1.
-func TestHetznerBareMetalHostRebootTriggeredAtNilRoundTrip(t *testing.T) {
-	src := &HetznerBareMetalHost{
-		Spec: HetznerBareMetalHostSpec{
-			ServerID: 1,
-			Status:   ControllerGeneratedStatus{RebootTriggeredAt: nil},
+// TestConvertHetznerBareMetalHostErrorTypeToV1Beta2 verifies how the v1beta1 errorType and
+// rebootTriggeredAt are split into the v1beta2 errorType and ongoingReboot.
+func TestConvertHetznerBareMetalHostErrorTypeToV1Beta2(t *testing.T) {
+	triggeredAt := metav1.Unix(3, 0)
+
+	tests := []struct {
+		name              string
+		errorType         ErrorType
+		rebootTriggeredAt *metav1.Time
+		wantErrorType     infrav2.ErrorType
+		wantOngoingReboot *infrav2.OngoingReboot
+	}{
+		{
+			name:          "fatal error is copied",
+			errorType:     FatalError,
+			wantErrorType: infrav2.ErrorTypeFatal,
+		},
+		{
+			name:          "permanent error is copied",
+			errorType:     PermanentError,
+			wantErrorType: infrav2.ErrorTypePermanent,
+		},
+		{
+			name:              "fatal error with rebootTriggeredAt does not get an ongoing reboot",
+			errorType:         FatalError,
+			rebootTriggeredAt: &triggeredAt,
+			wantErrorType:     infrav2.ErrorTypeFatal,
+		},
+		{
+			name:              "ssh reboot becomes an ongoing reboot",
+			errorType:         ErrorTypeSSHRebootTriggered,
+			rebootTriggeredAt: &triggeredAt,
+			wantOngoingReboot: &infrav2.OngoingReboot{Type: infrav2.RebootTypeSSH, TriggeredAt: triggeredAt},
+		},
+		{
+			name:              "software reboot becomes an ongoing reboot",
+			errorType:         ErrorTypeSoftwareRebootTriggered,
+			rebootTriggeredAt: &triggeredAt,
+			wantOngoingReboot: &infrav2.OngoingReboot{Type: infrav2.RebootTypeSoftware, TriggeredAt: triggeredAt},
+		},
+		{
+			name:              "hardware reboot becomes an ongoing reboot",
+			errorType:         ErrorTypeHardwareRebootTriggered,
+			rebootTriggeredAt: &triggeredAt,
+			wantOngoingReboot: &infrav2.OngoingReboot{Type: infrav2.RebootTypeHardware, TriggeredAt: triggeredAt},
+		},
+		{
+			name:      "reboot without rebootTriggeredAt does not get an ongoing reboot",
+			errorType: ErrorTypeSSHRebootTriggered,
+		},
+		{
+			name:              "rebootTriggeredAt without reboot does not get an ongoing reboot",
+			rebootTriggeredAt: &triggeredAt,
+		},
+		{
+			name:      "registration error is not copied",
+			errorType: RegistrationError,
+		},
+		{
+			name:      "preparation error is not copied",
+			errorType: PreparationError,
+		},
+		{
+			name:      "provisioning error is not copied",
+			errorType: ProvisioningError,
+		},
+		{
+			name:      "connection error is not copied",
+			errorType: ErrorTypeConnectionError,
 		},
 	}
 
-	hub := &infrav2.HetznerBareMetalHost{}
-	if err := src.ConvertTo(hub); err != nil {
-		t.Fatalf("failed to convert to v1beta2: %v", err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			src := &HetznerBareMetalHost{
+				Spec: HetznerBareMetalHostSpec{
+					Status: ControllerGeneratedStatus{
+						ErrorType:         tc.errorType,
+						RebootTriggeredAt: tc.rebootTriggeredAt,
+					},
+				},
+			}
+
+			dst := &infrav2.HetznerBareMetalHost{}
+			if err := src.ConvertTo(dst); err != nil {
+				t.Fatalf("failed to convert to v1beta2: %v", err)
+			}
+
+			if dst.Status.ErrorType != tc.wantErrorType {
+				t.Fatalf("status.errorType = %q, want %q", dst.Status.ErrorType, tc.wantErrorType)
+			}
+			if !reflect.DeepEqual(dst.Status.OngoingReboot, tc.wantOngoingReboot) {
+				t.Fatalf("status.ongoingReboot = %#v, want %#v", dst.Status.OngoingReboot, tc.wantOngoingReboot)
+			}
+		})
 	}
-	if !hub.Status.RebootTriggeredAt.IsZero() {
-		t.Fatalf("expected a zero rebootTriggeredAt in v1beta2, got %#v", hub.Status.RebootTriggeredAt)
+}
+
+// TestConvertHetznerBareMetalHostOngoingRebootToV1Beta1 verifies that the v1beta2 errorType and
+// ongoingReboot are written back into the v1beta1 errorType and rebootTriggeredAt.
+func TestConvertHetznerBareMetalHostOngoingRebootToV1Beta1(t *testing.T) {
+	triggeredAt := metav1.Unix(3, 0)
+
+	tests := []struct {
+		name                  string
+		errorType             infrav2.ErrorType
+		ongoingReboot         *infrav2.OngoingReboot
+		wantErrorType         ErrorType
+		wantRebootTriggeredAt *metav1.Time
+	}{
+		{
+			name: "no error and no ongoing reboot",
+		},
+		{
+			name:          "fatal error",
+			errorType:     infrav2.ErrorTypeFatal,
+			wantErrorType: FatalError,
+		},
+		{
+			name:                  "ongoing reboot",
+			ongoingReboot:         &infrav2.OngoingReboot{Type: infrav2.RebootTypeSoftware, TriggeredAt: triggeredAt},
+			wantErrorType:         ErrorTypeSoftwareRebootTriggered,
+			wantRebootTriggeredAt: &triggeredAt,
+		},
+		{
+			name:                  "errorType keeps the permanent error when there is also an ongoing reboot",
+			errorType:             infrav2.ErrorTypePermanent,
+			ongoingReboot:         &infrav2.OngoingReboot{Type: infrav2.RebootTypeHardware, TriggeredAt: triggeredAt},
+			wantErrorType:         PermanentError,
+			wantRebootTriggeredAt: &triggeredAt,
+		},
 	}
 
-	restored := &HetznerBareMetalHost{}
-	if err := restored.ConvertFrom(hub); err != nil {
-		t.Fatalf("failed to convert back to v1beta1: %v", err)
-	}
-	if restored.Spec.Status.RebootTriggeredAt != nil {
-		t.Fatalf("expected a nil rebootTriggeredAt in v1beta1, got %#v", restored.Spec.Status.RebootTriggeredAt)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			src := &infrav2.HetznerBareMetalHost{
+				Status: infrav2.HetznerBareMetalHostStatus{
+					ErrorType:     tc.errorType,
+					OngoingReboot: tc.ongoingReboot,
+				},
+			}
+
+			dst := &HetznerBareMetalHost{}
+			if err := dst.ConvertFrom(src); err != nil {
+				t.Fatalf("failed to convert from v1beta2: %v", err)
+			}
+
+			if dst.Spec.Status.ErrorType != tc.wantErrorType {
+				t.Fatalf("spec.status.errorType = %q, want %q", dst.Spec.Status.ErrorType, tc.wantErrorType)
+			}
+			if !reflect.DeepEqual(dst.Spec.Status.RebootTriggeredAt, tc.wantRebootTriggeredAt) {
+				t.Fatalf("spec.status.rebootTriggeredAt = %#v, want %#v", dst.Spec.Status.RebootTriggeredAt, tc.wantRebootTriggeredAt)
+			}
+		})
 	}
 }
 
@@ -452,6 +576,8 @@ func TestConvertHetznerBareMetalMachineCustomProvisioner(t *testing.T) {
 			Image:            Image{URL: "oci://ghcr.io/example/ubuntu:v1"},
 			ImageURLCommand:  "image-url-command-bm-test.sh",
 			DeviceStringType: DeviceStringTypeWWN,
+			Partitions:       []Partition{},
+			Swraid:           1,
 		},
 	}
 
@@ -466,6 +592,7 @@ func TestConvertHetznerBareMetalMachineCustomProvisioner(t *testing.T) {
 		URL:              "oci://ghcr.io/example/ubuntu:v1",
 		Command:          "image-url-command-bm-test.sh",
 		DeviceStringType: infrav2.DeviceStringTypeWWN,
+		Swraid:           1,
 	}
 	if !reflect.DeepEqual(hub.CustomProvisioner, wantCustom) {
 		t.Fatalf("customProvisioner mismatch:\n got: %#v\nwant: %#v", hub.CustomProvisioner, wantCustom)
@@ -477,6 +604,39 @@ func TestConvertHetznerBareMetalMachineCustomProvisioner(t *testing.T) {
 	}
 	if !reflect.DeepEqual(back.InstallImage, src.InstallImage) {
 		t.Fatalf("round trip installImage mismatch:\n got: %#v\nwant: %#v", back.InstallImage, src.InstallImage)
+	}
+	// See the partitions comment in Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec.
+	if back.InstallImage.Partitions == nil {
+		t.Fatalf("partitions must be an empty list, not nil")
+	}
+}
+
+// TestConvertHCloudMachineCustomProvisioner verifies that v1beta1 imageURL and imageURLCommand
+// convert to a v1beta2 customProvisioner and back to the same flat fields.
+func TestConvertHCloudMachineCustomProvisioner(t *testing.T) {
+	src := HCloudMachineSpec{
+		ImageURL:        "oci://ghcr.io/example/ubuntu:v1",
+		ImageURLCommand: "image-url-command-hcloud-test.sh",
+	}
+
+	var hub infrav2.HCloudMachineSpec
+	if err := Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(&src, &hub, nil); err != nil {
+		t.Fatalf("convert to v1beta2 failed: %v", err)
+	}
+	wantCustom := &infrav2.HCloudCustomProvisioner{
+		URL:     "oci://ghcr.io/example/ubuntu:v1",
+		Command: "image-url-command-hcloud-test.sh",
+	}
+	if !reflect.DeepEqual(hub.CustomProvisioner, wantCustom) {
+		t.Fatalf("customProvisioner mismatch:\n got: %#v\nwant: %#v", hub.CustomProvisioner, wantCustom)
+	}
+
+	var back HCloudMachineSpec
+	if err := Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(&hub, &back, nil); err != nil {
+		t.Fatalf("convert back to v1beta1 failed: %v", err)
+	}
+	if !reflect.DeepEqual(back, src) {
+		t.Fatalf("round trip mismatch:\n got: %#v\nwant: %#v", back, src)
 	}
 }
 
@@ -822,6 +982,128 @@ func TestRemediationDurationToSeconds(t *testing.T) {
 				t.Fatalf("expected %d, got %d", tc.want, got)
 			}
 		})
+	}
+}
+
+// TestHCloudMachineTemplateConvertToPromoteV1Beta2Shape verifies that converting a v1beta1
+// HCloudMachineTemplate to v1beta2 promotes the staged v1beta2 conditions to status.conditions and
+// demotes the old v1beta1 conditions into status.deprecated.v1beta1.conditions.
+func TestHCloudMachineTemplateConvertToPromoteV1Beta2Shape(t *testing.T) {
+	legacyConditions := clusterv1beta1.Conditions{
+		{
+			Type:               clusterv1beta1.ConditionType("LegacyReady"),
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyReady",
+			Message:            "legacy condition",
+		},
+	}
+	v1beta2Conditions := []metav1.Condition{
+		{
+			Type:               infrav2.HCloudMachineTemplateAvailableCondition,
+			Status:             metav1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(2, 0),
+			Reason:             infrav2.HCloudMachineTemplateAvailableReason,
+			Message:            "template is available",
+		},
+	}
+
+	src := &HCloudMachineTemplate{
+		Status: HCloudMachineTemplateStatus{
+			OwnerType:  "Cluster",
+			Conditions: legacyConditions,
+			V1Beta2: &HCloudMachineTemplateV1Beta2Status{
+				Conditions: v1beta2Conditions,
+			},
+		},
+	}
+
+	dst := &infrav2.HCloudMachineTemplate{}
+	if err := src.ConvertTo(dst); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+
+	if !reflect.DeepEqual(dst.Status.Conditions, v1beta2Conditions) {
+		t.Fatalf("v1beta2 status.conditions mismatch:\n got: %#v\nwant: %#v", dst.Status.Conditions, v1beta2Conditions)
+	}
+	if got := dst.GetV1Beta1Conditions(); len(got) != 1 || got[0].Reason != "LegacyReady" {
+		t.Fatalf("deprecated v1beta1 conditions were not preserved: %#v", got)
+	}
+	if dst.Status.OwnerType != "Cluster" {
+		t.Fatalf("status.ownerType = %q, want %q", dst.Status.OwnerType, "Cluster")
+	}
+}
+
+// TestHCloudMachineTemplateConvertFromDemoteV1Beta2Shape verifies that converting a v1beta2
+// HCloudMachineTemplate back to v1beta1 demotes v1beta2-only fields into the compatibility locations
+// used by the v1beta1 API.
+func TestHCloudMachineTemplateConvertFromDemoteV1Beta2Shape(t *testing.T) {
+	legacyConditions := clusterv1.Conditions{
+		{
+			Type:               clusterv1.ConditionType("LegacyReady"),
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(1, 0),
+			Reason:             "LegacyReady",
+			Message:            "legacy condition",
+		},
+	}
+	v1beta2Conditions := []metav1.Condition{
+		{
+			Type:               infrav2.HCloudMachineTemplateAvailableCondition,
+			Status:             metav1.ConditionTrue,
+			LastTransitionTime: metav1.Unix(2, 0),
+			Reason:             infrav2.HCloudMachineTemplateOwnedByClusterClassReason,
+			Message:            "template is available",
+		},
+	}
+
+	src := &infrav2.HCloudMachineTemplate{
+		Status: infrav2.HCloudMachineTemplateStatus{
+			OwnerType:  "ClusterClass",
+			Conditions: v1beta2Conditions,
+			Deprecated: &infrav2.HCloudMachineTemplateDeprecatedStatus{
+				V1Beta1: &infrav2.HCloudMachineTemplateV1Beta1DeprecatedStatus{
+					Conditions: legacyConditions,
+				},
+			},
+		},
+	}
+
+	dst := &HCloudMachineTemplate{}
+	if err := dst.ConvertFrom(src); err != nil {
+		t.Fatalf("failed to convert from v1beta2: %v", err)
+	}
+
+	if dst.Status.V1Beta2 == nil || !reflect.DeepEqual(dst.Status.V1Beta2.Conditions, v1beta2Conditions) {
+		t.Fatalf("staged status.v1beta2.conditions mismatch: %#v", dst.Status.V1Beta2)
+	}
+	if len(dst.Status.Conditions) != 1 || dst.Status.Conditions[0].Reason != "LegacyReady" {
+		t.Fatalf("deprecated v1beta1 conditions were not restored: %#v", dst.Status.Conditions)
+	}
+	if dst.Status.OwnerType != "ClusterClass" {
+		t.Fatalf("status.ownerType = %q, want %q", dst.Status.OwnerType, "ClusterClass")
+	}
+}
+
+// TestHCloudMachineTemplateConditionsNilRoundTrip verifies that a template with no conditions on
+// either surface converts both ways without growing an empty conditions wrapper.
+func TestHCloudMachineTemplateConditionsNilRoundTrip(t *testing.T) {
+	src := &HCloudMachineTemplate{Status: HCloudMachineTemplateStatus{OwnerType: "Cluster"}}
+
+	hub := &infrav2.HCloudMachineTemplate{}
+	if err := src.ConvertTo(hub); err != nil {
+		t.Fatalf("failed to convert to v1beta2: %v", err)
+	}
+	if hub.Status.Conditions != nil || hub.Status.Deprecated != nil {
+		t.Fatalf("empty status grew condition fields: %#v", hub.Status)
+	}
+
+	restored := &HCloudMachineTemplate{}
+	if err := restored.ConvertFrom(hub); err != nil {
+		t.Fatalf("failed to convert back to v1beta1: %v", err)
+	}
+	if restored.Status.Conditions != nil || restored.Status.V1Beta2 != nil {
+		t.Fatalf("empty status grew condition fields on the way back: %#v", restored.Status)
 	}
 }
 
@@ -1305,6 +1587,15 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			c.FillNoCustom(in)
 			in.V1Beta2 = nil
 		},
+		// credentialsVersion and labels do not exist in v1beta2, so they do not round-trip.
+		func(in *SecretStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.Version = ""
+		},
+		func(in *NetworkStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.Labels = nil
+		},
 		// HCloudMachine v1beta1 status: collapse empty condition slices to nil, drop the V1Beta2 wrapper
 		// unless it carries conditions, collapse a pointer to the empty instanceState to nil, and collapse
 		// a non-nil pointer to the zero time to nil so the round trip matches. failureReason/failureMessage
@@ -1342,9 +1633,33 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 				in.Deprecated = nil
 			}
 		},
+		// HCloudMachineTemplate v1beta1 status: collapse empty condition slices to nil, and drop the
+		// V1Beta2 wrapper unless it carries conditions, so the bare v1beta2 status.conditions round trips.
+		// Both fields are omitempty, so an empty list and a nil list are the same on the wire and a
+		// stored object never tells them apart.
 		func(in *HCloudMachineTemplateStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
-			in.V1Beta2 = nil
+			if len(in.Conditions) == 0 {
+				in.Conditions = nil
+			}
+			if in.V1Beta2 != nil && len(in.V1Beta2.Conditions) == 0 {
+				in.V1Beta2 = nil
+			}
+		},
+		// HCloudMachineTemplate v1beta2 status (hub side): conditions and the deprecated wrapper have the
+		// same empty-vs-nil ambiguity, so normalize them to make the round trip match. The deprecated
+		// wrapper survives only when it carries conditions.
+		func(in *infrav2.HCloudMachineTemplateStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if len(in.Conditions) == 0 {
+				in.Conditions = nil
+			}
+			if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil && len(in.Deprecated.V1Beta1.Conditions) == 0 {
+				in.Deprecated.V1Beta1.Conditions = nil
+			}
+			if in.Deprecated != nil && (in.Deprecated.V1Beta1 == nil || in.Deprecated.V1Beta1.Conditions == nil) {
+				in.Deprecated = nil
+			}
 		},
 		// HetznerBareMetalMachine v1beta1 status: collapse empty condition slices to nil, drop the
 		// V1Beta2 wrapper unless it carries conditions, and collapse a non-nil pointer to the zero time
@@ -1389,19 +1704,25 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		func(in *InstallImage, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.UsesImageURLCommand() {
-				// custom provisioner flow: only image.url, imageURLCommand and deviceStringType survive.
+				// custom provisioner flow: only image.url, imageURLCommand, deviceStringType and swraid survive.
 				in.Image.Name = ""
 				in.Image.Path = ""
 				in.PostInstallScript = ""
 				in.Partitions = nil
 				in.LVMDefinitions = nil
 				in.BTRFSDefinitions = nil
-				in.Swraid = 0
 				in.SwraidLevel = 0
 			} else {
 				// installimage flow: deviceStringType belongs to the custom provisioner flow.
 				in.DeviceStringType = ""
 			}
+		},
+		// HetznerBareMetalMachine v1beta1 spec: portAfterCloudInit is dropped in v1beta2, so zero it: it
+		// does not round-trip. Scoped to the machine spec rather than to SSHSpec, because the host carries
+		// its own sshSpec through the data annotation, where the field does survive.
+		func(in *HetznerBareMetalMachineSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			in.SSHSpec.PortAfterCloudInit = 0
 		},
 		// HetznerBareMetalMachine v1beta2 spec (hub side): installImage and customProvisioner are mutually
 		// exclusive, so keep exactly one set. customProvisioner needs a command because that is what selects
@@ -1416,6 +1737,15 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 				}
 			case in.InstallImage == nil:
 				in.InstallImage = &infrav2.InstallImage{}
+			}
+		},
+		// HCloudMachine v1beta2 spec (hub side): an empty customProvisioner flattens to empty v1beta1
+		// imageURL and imageURLCommand, which convert back to no customProvisioner. The CRD requires both
+		// fields to be non-empty, so collapse the empty struct to nil.
+		func(in *infrav2.HCloudMachineSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.CustomProvisioner != nil && *in.CustomProvisioner == (infrav2.HCloudCustomProvisioner{}) {
+				in.CustomProvisioner = nil
 			}
 		},
 		// HCloudRemediation v1beta1 status: keep retryCount in the non-negative v1beta2 int32 range,
@@ -1559,6 +1889,20 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			if status.RebootTriggeredAt != nil && status.RebootTriggeredAt.IsZero() {
 				status.RebootTriggeredAt = nil
 			}
+			// errorType and rebootTriggeredAt are split into errorType and ongoingReboot in v1beta2,
+			// and only some pairs convert back to the same values. Keep the fuzzed pair inside that subset.
+			// TestConvertHetznerBareMetalHostErrorTypeToV1Beta2 covers the other pairs.
+			switch status.ErrorType {
+			case FatalError, PermanentError:
+				status.RebootTriggeredAt = nil
+			case ErrorTypeSSHRebootTriggered, ErrorTypeSoftwareRebootTriggered, ErrorTypeHardwareRebootTriggered:
+				if status.RebootTriggeredAt == nil {
+					status.ErrorType = ""
+				}
+			default:
+				status.ErrorType = ""
+				status.RebootTriggeredAt = nil
+			}
 			if status.LastUpdated != nil && status.LastUpdated.IsZero() {
 				status.LastUpdated = nil
 			}
@@ -1585,6 +1929,23 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 			if in.Status.Deprecated == nil || in.Status.Deprecated.V1Beta1 == nil || len(in.Status.Deprecated.V1Beta1.Conditions) == 0 {
 				in.Status.Deprecated = nil
+			}
+
+			// v1beta1 stores errorType and ongoingReboot in one errorType field. Keep the fuzzed pair
+			// inside the subset that converts back to the same values.
+			// TestConvertHetznerBareMetalHostOngoingRebootToV1Beta1 covers the other pairs.
+			if in.Status.ErrorType != infrav2.ErrorTypeFatal && in.Status.ErrorType != infrav2.ErrorTypePermanent {
+				in.Status.ErrorType = ""
+			}
+			if ongoingReboot := in.Status.OngoingReboot; ongoingReboot != nil {
+				switch ongoingReboot.Type {
+				case infrav2.RebootTypeSSH, infrav2.RebootTypeSoftware, infrav2.RebootTypeHardware:
+				default:
+					ongoingReboot.Type = infrav2.RebootTypeSSH
+				}
+				if in.Status.ErrorType != "" || ongoingReboot.TriggeredAt.IsZero() {
+					in.Status.OngoingReboot = nil
+				}
 			}
 
 			if in.Spec.ConsumerRef == nil {

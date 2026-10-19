@@ -22,8 +22,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
@@ -31,11 +34,17 @@ var _ = Describe("updateSSHKey", func() {
 	type testCaseUpdateSSHKey struct {
 		osSecretData             map[string][]byte
 		rescueSecretData         map[string][]byte
-		currentState             infrav1.ProvisioningState
+		currentState             infrav2.ProvisioningState
 		expectedActionResult     actionResult
-		expectedNextState        infrav1.ProvisioningState
+		expectedNextState        infrav2.ProvisioningState
 		expectedOSSecretData     map[string][]byte
 		expectedRescueSecretData map[string][]byte
+		// expectedSSHKeysAvailableReason is the reason of the SSHKeysAvailable condition when it is
+		// set to False. It is empty when the condition is not set to False.
+		expectedSSHKeysAvailableReason string
+		// expectedCredentialsAvailableV1Beta1Reason is the reason of the v1beta1 CredentialsAvailable
+		// condition when it is set to False.
+		expectedCredentialsAvailableV1Beta1Reason string
 	}
 
 	DescribeTable("updateSSHKey",
@@ -44,36 +53,35 @@ var _ = Describe("updateSSHKey", func() {
 				"test-host",
 				"default",
 				helpers.WithSSHStatus(),
-				helpers.WithSSHSpecInclPorts(23),
 			)
 
-			dataHashOS, err := infrav1.HashOfSecretData(tc.osSecretData)
+			dataHashOS, err := infrav2.HashOfSecretData(tc.osSecretData)
 			Expect(err).To(BeNil())
 
-			dataHashRescue, err := infrav1.HashOfSecretData(tc.rescueSecretData)
+			dataHashRescue, err := infrav2.HashOfSecretData(tc.rescueSecretData)
 			Expect(err).To(BeNil())
 
-			expectedDataHashOS, err := infrav1.HashOfSecretData(tc.expectedOSSecretData)
+			expectedDataHashOS, err := infrav2.HashOfSecretData(tc.expectedOSSecretData)
 			Expect(err).To(BeNil())
 
-			expectedDataHashRescue, err := infrav1.HashOfSecretData(tc.expectedRescueSecretData)
+			expectedDataHashRescue, err := infrav2.HashOfSecretData(tc.expectedRescueSecretData)
 			Expect(err).To(BeNil())
 
-			host.Spec.Status.SSHStatus.CurrentOS = &infrav1.SecretStatus{
+			host.Status.SSHStatus.CurrentOS = &infrav2.SecretStatus{
 				Reference: &corev1.SecretReference{
 					Name:      osSSHKeyName,
 					Namespace: "default",
 				},
 				DataHash: dataHashOS,
 			}
-			host.Spec.Status.SSHStatus.CurrentRescue = &infrav1.SecretStatus{
+			host.Status.SSHStatus.CurrentRescue = &infrav2.SecretStatus{
 				Reference: &corev1.SecretReference{
 					Name:      rescueSSHKeyName,
 					Namespace: "default",
 				},
 				DataHash: dataHashRescue,
 			}
-			host.Spec.Status.ProvisioningState = tc.currentState
+			host.Status.ProvisioningState = tc.currentState
 
 			osSSHSecret := helpers.GetDefaultSSHSecret(osSSHKeyName, "default")
 			osSSHSecret.ResourceVersion = "1"
@@ -87,14 +95,14 @@ var _ = Describe("updateSSHKey", func() {
 			actResult := hsm.updateSSHKey()
 
 			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
-			Expect(*host.Spec.Status.SSHStatus.CurrentRescue).Should(Equal(infrav1.SecretStatus{
+			Expect(*host.Status.SSHStatus.CurrentRescue).Should(Equal(infrav2.SecretStatus{
 				Reference: &corev1.SecretReference{
 					Name:      rescueSSHKeyName,
 					Namespace: "default",
 				},
 				DataHash: expectedDataHashRescue,
 			}))
-			Expect(*host.Spec.Status.SSHStatus.CurrentOS).Should(Equal(infrav1.SecretStatus{
+			Expect(*host.Status.SSHStatus.CurrentOS).Should(Equal(infrav2.SecretStatus{
 				Reference: &corev1.SecretReference{
 					Name:      osSSHKeyName,
 					Namespace: "default",
@@ -102,6 +110,17 @@ var _ = Describe("updateSSHKey", func() {
 				DataHash: expectedDataHashOS,
 			}))
 			Expect(hsm.nextState).Should(Equal(tc.expectedNextState))
+			if tc.expectedSSHKeysAvailableReason != "" {
+				sshKeysAvailable := conditions.Get(host, infrav2.HetznerBareMetalHostSSHKeysAvailableCondition)
+				Expect(sshKeysAvailable).ToNot(BeNil())
+				Expect(sshKeysAvailable.Status).To(Equal(metav1.ConditionFalse))
+				Expect(sshKeysAvailable.Reason).To(Equal(tc.expectedSSHKeysAvailableReason))
+				credentialsAvailableV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.CredentialsAvailableV1Beta1Condition)
+				Expect(credentialsAvailableV1Beta1).ToNot(BeNil())
+				Expect(credentialsAvailableV1Beta1.Status).To(Equal(corev1.ConditionFalse))
+				Expect(credentialsAvailableV1Beta1.Reason).To(Equal(tc.expectedCredentialsAvailableV1Beta1Reason))
+				Expect(conditions.Get(host, infrav2.HetznerBareMetalHostActionCompletedCondition)).To(BeNil())
+			}
 		},
 		Entry("nothing changed", testCaseUpdateSSHKey{
 			osSecretData: map[string][]byte{
@@ -114,9 +133,9 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-name"),
 				"public-key":  []byte("my-public-key"),
 			},
-			currentState:         infrav1.StateRegistering,
+			currentState:         infrav2.StateRegistering,
 			expectedActionResult: actionComplete{},
-			expectedNextState:    infrav1.StateRegistering,
+			expectedNextState:    infrav2.StateRegistering,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-name"),
@@ -139,9 +158,9 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-name"),
 				"public-key":  []byte("my-public-key"),
 			},
-			currentState:         infrav1.StateRegistering,
+			currentState:         infrav2.StateRegistering,
 			expectedActionResult: actionComplete{},
-			expectedNextState:    infrav1.StateRegistering,
+			expectedNextState:    infrav2.StateRegistering,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-name"),
@@ -164,9 +183,11 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-name"),
 				"public-key":  []byte("my-public-key"),
 			},
-			currentState:         infrav1.StateProvisioned,
-			expectedActionResult: actionFailed{},
-			expectedNextState:    infrav1.StateProvisioned,
+			currentState:                              infrav2.StateProvisioned,
+			expectedActionResult:                      actionContinue{},
+			expectedNextState:                         infrav2.StateProvisioned,
+			expectedSSHKeysAvailableReason:            infrav2.HetznerBareMetalHostSSHSecretModifiedReason,
+			expectedCredentialsAvailableV1Beta1Reason: infrav2.SSHSecretModifiedV1Beta1Reason,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-old-name"),
@@ -189,9 +210,9 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-name"),
 				"public-key":  []byte("my-public-key"),
 			},
-			currentState:         infrav1.StateImageInstalling,
+			currentState:         infrav2.StateImageInstalling,
 			expectedActionResult: actionComplete{},
-			expectedNextState:    infrav1.StateImageInstalling,
+			expectedNextState:    infrav2.StateImageInstalling,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-name"),
@@ -214,9 +235,9 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-old-name"),
 				"public-key":  []byte("my-old-public-key"),
 			},
-			currentState:         infrav1.StateRegistering,
+			currentState:         infrav2.StateRegistering,
 			expectedActionResult: actionComplete{},
-			expectedNextState:    infrav1.StateNone,
+			expectedNextState:    infrav2.StateNone,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-name"),
@@ -229,4 +250,56 @@ var _ = Describe("updateSSHKey", func() {
 			},
 		}),
 	)
+})
+
+var _ = Describe("provisioningCancelled", func() {
+	It("returns false when the consuming machine exists and is not being deleted", func() {
+		host := helpers.BareMetalHost("test-host", "default")
+		service := newTestService(host, nil, nil, nil, nil)
+		hsm := newTestHostStateMachine(host, service)
+
+		Expect(hsm.provisioningCancelled()).To(BeFalse())
+	})
+
+	It("returns true when the consuming machine is being deleted", func() {
+		host := helpers.BareMetalHost("test-host", "default")
+		service := newTestService(host, nil, nil, nil, nil)
+		hsm := newTestHostStateMachine(host, service)
+
+		now := metav1.Now()
+		service.scope.HetznerBareMetalMachine.DeletionTimestamp = &now
+
+		Expect(hsm.provisioningCancelled()).To(BeTrue())
+	})
+
+	It("returns true when the consuming machine is gone", func() {
+		host := helpers.BareMetalHost("test-host", "default")
+		service := newTestService(host, nil, nil, nil, nil)
+		hsm := newTestHostStateMachine(host, service)
+
+		service.scope.HetznerBareMetalMachine = nil
+
+		Expect(hsm.provisioningCancelled()).To(BeTrue())
+	})
+
+	It("returns false while only the owner CAPI machine is being deleted", func() {
+		host := helpers.BareMetalHost("test-host", "default")
+		service := newTestService(host, nil, nil, nil, nil)
+		hsm := newTestHostStateMachine(host, service)
+
+		now := metav1.Now()
+		service.scope.Machine.DeletionTimestamp = &now
+
+		Expect(hsm.provisioningCancelled()).To(BeFalse())
+	})
+
+	It("returns false when the owner CAPI machine is not set", func() {
+		host := helpers.BareMetalHost("test-host", "default")
+		service := newTestService(host, nil, nil, nil, nil)
+		hsm := newTestHostStateMachine(host, service)
+
+		service.scope.Machine = nil
+
+		Expect(hsm.provisioningCancelled()).To(BeFalse())
+	})
 })

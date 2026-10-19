@@ -104,7 +104,7 @@ func validateCustomProvisioner(customProvisioner infrav2.CustomProvisioner) fiel
 		allErrs = append(allErrs, field.Invalid(base.Child("url"), customProvisioner.URL, err.Error()))
 	}
 
-	if err := utils.ValidateImageURLCommandName(customProvisioner.Command); err != nil {
+	if err := utils.ValidateCustomProvisionerCommandName(customProvisioner.Command); err != nil {
 		allErrs = append(allErrs, field.Invalid(base.Child("command"), customProvisioner.Command, err.Error()))
 	}
 

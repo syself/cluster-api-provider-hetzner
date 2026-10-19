@@ -45,14 +45,12 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/cluster-api/test/framework/ginkgoextensions"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
-	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -924,7 +922,7 @@ func logCaphDeployment(ctx context.Context, c client.Client) error {
 }
 
 func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
-	hbmhList := &infrav1.HetznerBareMetalHostList{}
+	hbmhList := &infrav2.HetznerBareMetalHostList{}
 	err := c.List(ctx, hbmhList)
 	if err != nil {
 		return err
@@ -951,7 +949,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 	var allErrors []error
 	for i := range hbmhList.Items {
 		hbmh := &hbmhList.Items[i]
-		if hbmh.Spec.Status.ProvisioningState == "" {
+		if hbmh.Status.ProvisioningState == "" {
 			continue
 		}
 
@@ -961,23 +959,28 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 			hbmmName = hbmh.Spec.ConsumerRef.Name
 		}
 		logMsg := "BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID) +
-			" | IPv4: " + hbmh.Spec.Status.IPv4
+			" | IPv4: " + hbmh.Status.IPv4
 		if hbmmName != "" {
 			logMsg += " | HBMM: " + hbmmName
 		}
 		log(logMsg)
 
-		// Show an Error, if set.
-		eMsg := string(hbmh.Spec.Status.ErrorType) + " " + hbmh.Spec.Status.ErrorMessage
+		// Show an Error, if set. The message for the current error is on the ActionCompleted
+		// condition.
+		errMessage := ""
+		if ac := conditions.Get(hbmh, infrav2.HetznerBareMetalHostActionCompletedCondition); ac != nil {
+			errMessage = ac.Message
+		}
+		eMsg := string(hbmh.Status.ErrorType) + " " + errMessage
 		eMsg = strings.TrimSpace(eMsg)
 		if eMsg != "" {
 			log("  Error: " + eMsg)
-			if hbmh.Spec.Status.ErrorType == infrav1.PermanentError {
+			if hbmh.Status.ErrorType == infrav2.ErrorTypePermanent {
 				allErrors = append(allErrors, fmt.Errorf("%w on HetznerBareMetalHost (stopping e2e test now) %q: %s", errPermanentHBMH, hbmh.Name, eMsg))
 			}
 		}
 
-		readyC := v1beta1conditions.Get(hbmh, clusterv1beta1.ReadyCondition)
+		readyC := conditions.Get(hbmh, clusterv1.ReadyCondition)
 		msg := ""
 		reason := ""
 		state := "?"
@@ -986,13 +989,13 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 			reason = readyC.Reason
 			state = string(readyC.Status)
 		}
-		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState) + " | Ready Condition: " + state + " " + reason + " " + msg)
+		log("  ProvisioningState: " + string(hbmh.Status.ProvisioningState) + " | Ready Condition: " + state + " " + reason + " " + msg)
 	}
 	return errors.Join(allErrors...)
 }
 
 func checkBareMetalMachineNoAvailableHost(ctx context.Context, c client.Client) error {
-	machineList := &infrav1.HetznerBareMetalMachineList{}
+	machineList := &infrav2.HetznerBareMetalMachineList{}
 	if err := c.List(ctx, machineList); err != nil {
 		return fmt.Errorf("failed to list HetznerBareMetalMachines: %w", err)
 	}
@@ -1000,8 +1003,8 @@ func checkBareMetalMachineNoAvailableHost(ctx context.Context, c client.Client) 
 		if machine.DeletionTimestamp != nil {
 			continue
 		}
-		cond := v1beta1conditions.Get(&machine, infrav1.HostAssociateSucceededCondition)
-		if cond != nil && cond.Status == corev1.ConditionFalse && cond.Reason == string(infrav1.NoAvailableHostReason) {
+		cond := conditions.Get(&machine, infrav2.HetznerBareMetalMachineHostAssociatedCondition)
+		if cond != nil && cond.Status == metav1.ConditionFalse && cond.Reason == infrav2.HetznerBareMetalMachineNoAvailableHostReason {
 			return fmt.Errorf("%w: HetznerBareMetalMachine %s/%s: %s", errNoAvailableHost, machine.Namespace, machine.Name, cond.Message)
 		}
 	}

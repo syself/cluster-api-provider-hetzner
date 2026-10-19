@@ -25,14 +25,14 @@ const (
 	RebootAnnotation = "capi.syself.com/reboot"
 
 	// PermanentErrorAnnotation indicates that the bare metal host has an error which needs to be resolved manually.
-	// After the permanent error the annotation got removed (usually by a human), the controller removes
-	// ErrorType, ErrorCount and ErrorMessages, so that the hbmh will be usable again.
+	// After the annotation is removed (usually by a human), the controller clears the error, so that the
+	// HetznerBareMetalHost is usable again.
 	PermanentErrorAnnotation = "capi.syself.com/permanent-error"
 )
 
 // HetznerBareMetalRemediationSpec defines the desired state of HetznerBareMetalRemediation.
 type HetznerBareMetalRemediationSpec struct {
-	// Strategy field defines the remediation strategy to be applied.
+	// strategy field defines the remediation strategy to be applied.
 	Strategy *BareMetalRemediationStrategy `json:"strategy,omitempty"`
 }
 
@@ -62,7 +62,7 @@ type BareMetalRemediationStrategy struct {
 	// The shared remediation fields (type, retryLimit, timeoutSeconds, cooldownSeconds).
 	RemediationStrategy `json:",inline"`
 
-	// OnExhaustion selects what happens when remediation runs out of retries and
+	// onExhaustion selects what happens when remediation runs out of retries and
 	// the node is still unhealthy. Reuse deletes the machine and frees the host to be
 	// provisioned again. Note: When unset it behaves like Reuse. Retire sets a permanent
 	// error on the host, which deletes the machine and keeps the host out of the pool
@@ -74,17 +74,17 @@ type BareMetalRemediationStrategy struct {
 
 // HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation.
 type HetznerBareMetalRemediationStatus struct {
-	// Phase represents the current phase of machine remediation.
+	// phase represents the current phase of machine remediation.
 	// E.g. Running, Waiting, Deleting machine, Succeeded.
 	// +optional
 	Phase string `json:"phase,omitempty"`
 
-	// RetryCount records how many times the remediation controller has tried to
+	// retryCount records how many times the remediation controller has tried to
 	// remediate the node, for example the number of reboots.
 	// +optional
 	RetryCount *int32 `json:"retryCount,omitempty"`
 
-	// LastRemediated identifies when the host was last remediated.
+	// lastRemediated identifies when the host was last remediated.
 	// A zero value is treated as absent.
 	// +optional
 	LastRemediated metav1.Time `json:"lastRemediated,omitempty,omitzero"`
@@ -97,10 +97,10 @@ type HetznerBareMetalRemediationStatus struct {
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=".status.phase",description="Phase of the remediation"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of the remediation"
 // +kubebuilder:printcolumn:name="Strategy",type=string,JSONPath=".spec.strategy.type",description="Type of the remediation strategy",priority=1
-// +kubebuilder:printcolumn:name="Retry limit",type=string,JSONPath=".spec.strategy.retryLimit",description="How many times remediation controller should attempt to remediate the host",priority=1
-// +kubebuilder:printcolumn:name="Timeout",type=string,JSONPath=".spec.strategy.timeoutSeconds",description="Timeout for the remediation",priority=1
+// +kubebuilder:printcolumn:name="Retry limit",type=integer,JSONPath=".spec.strategy.retryLimit",description="How many times remediation controller should attempt to remediate the host",priority=1
+// +kubebuilder:printcolumn:name="Timeout",type=integer,JSONPath=".spec.strategy.timeoutSeconds",description="Timeout for the remediation",priority=1
 // +kubebuilder:printcolumn:name="Last Remediated",type=string,JSONPath=".status.lastRemediated",description="Timestamp of the last remediation attempt",priority=1
-// +kubebuilder:printcolumn:name="Retry count",type=string,JSONPath=".status.retryCount",description="How many times remediation controller has tried to remediate the node",priority=1
+// +kubebuilder:printcolumn:name="Retry count",type=integer,JSONPath=".status.retryCount",description="How many times remediation controller has tried to remediate the node",priority=1
 
 // HetznerBareMetalRemediation is the Schema for the hetznerbaremetalremediations API.
 type HetznerBareMetalRemediation struct {

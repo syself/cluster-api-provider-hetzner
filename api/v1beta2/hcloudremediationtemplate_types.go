@@ -27,13 +27,13 @@ type HCloudRemediationTemplateSpec struct {
 
 // HCloudRemediationTemplateResource describes the data needed to create a HCloudRemediation from a template.
 type HCloudRemediationTemplateResource struct {
-	// Spec is the specification of the desired behavior of the HCloudRemediation.
+	// spec is the specification of the desired behavior of the HCloudRemediation.
 	Spec HCloudRemediationSpec `json:"spec"`
 }
 
 // HCloudRemediationTemplateStatus defines the observed state of HCloudRemediationTemplate.
 type HCloudRemediationTemplateStatus struct {
-	// HCloudRemediationStatus defines the observed state of HCloudRemediation
+	// status defines the observed state of HCloudRemediation
 	Status HCloudRemediationStatus `json:"status"`
 }
 
@@ -42,8 +42,8 @@ type HCloudRemediationTemplateStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Strategy",type=string,JSONPath=".spec.template.spec.strategy.type",description="Type of the remediation strategy"
-// +kubebuilder:printcolumn:name="Retry limit",type=string,JSONPath=".spec.template.spec.strategy.retryLimit",description="How many times remediation controller should attempt to remediate the node"
-// +kubebuilder:printcolumn:name="Timeout",type=string,JSONPath=".spec.template.spec.strategy.timeoutSeconds",description="Timeout for the remediation"
+// +kubebuilder:printcolumn:name="Retry limit",type=integer,JSONPath=".spec.template.spec.strategy.retryLimit",description="How many times remediation controller should attempt to remediate the node"
+// +kubebuilder:printcolumn:name="Timeout",type=integer,JSONPath=".spec.template.spec.strategy.timeoutSeconds",description="Timeout for the remediation"
 
 // HCloudRemediationTemplate is the Schema for the hcloudremediationtemplates API.
 type HCloudRemediationTemplate struct {

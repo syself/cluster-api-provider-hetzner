@@ -482,11 +482,13 @@ func TestHetznerBareMetalHost_SetError(t *testing.T) {
 			},
 		},
 	}
-	host.SetError(PermanentError, "some error")
+	permanentErrorSet, message := host.SetError(PermanentError, "some error")
 	require.Equal(t, []string{PermanentErrorAnnotation, "other-annotation"}, mapKeys(host.Annotations))
 
 	wantMessage := fmt.Sprintf("some error. Remove annotation %q, if you want the controller to use the hbmh again.",
 		PermanentErrorAnnotation)
+	require.True(t, permanentErrorSet)
+	require.Equal(t, wantMessage, message)
 
 	actionCompletedCondition := v1beta2conditions.Get(&host, HetznerBareMetalHostActionCompletedV1Beta2Condition)
 	require.NotNil(t, actionCompletedCondition)
@@ -519,8 +521,10 @@ func TestHetznerBareMetalHost_SetError(t *testing.T) {
 			},
 		},
 	}
-	host.SetError(ProvisioningError, "some error")
+	permanentErrorSet, message = host.SetError(ProvisioningError, "some error")
 	require.Equal(t, []string{"other-annotation"}, mapKeys(host.Annotations))
 	require.Nil(t, v1beta2conditions.Get(&host, HetznerBareMetalHostActionCompletedV1Beta2Condition))
 	require.Nil(t, v1beta1conditions.Get(&host, ActionCompletedCondition))
+	require.False(t, permanentErrorSet)
+	require.Empty(t, message)
 }

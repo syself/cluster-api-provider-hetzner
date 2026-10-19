@@ -22,12 +22,12 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1" // HetznerBareMetalMachine is still on v1beta1
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
@@ -36,9 +36,10 @@ type BareMetalRemediationScopeParams struct {
 	Logger               *logr.Logger
 	Client               client.Client
 	Machine              *clusterv1.Machine
-	BareMetalMachine     *infrav1.HetznerBareMetalMachine
+	BareMetalMachine     *infrav2.HetznerBareMetalMachine
 	HetznerCluster       *infrav2.HetznerCluster
 	BareMetalRemediation *infrav2.HetznerBareMetalRemediation
+	EventRecorder        record.EventRecorder
 }
 
 // NewBareMetalRemediationScope creates a new Scope from the supplied parameters.
@@ -56,6 +57,9 @@ func NewBareMetalRemediationScope(params BareMetalRemediationScopeParams) (*Bare
 	if params.BareMetalMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil BareMetalMachine")
 	}
+	if params.EventRecorder == nil {
+		return nil, errors.New("failed to generate new scope from nil EventRecorder")
+	}
 
 	patchHelper, err := patch.NewHelper(params.BareMetalRemediation, params.Client)
 	if err != nil {
@@ -69,6 +73,7 @@ func NewBareMetalRemediationScope(params BareMetalRemediationScopeParams) (*Bare
 		Machine:              params.Machine,
 		BareMetalMachine:     params.BareMetalMachine,
 		BareMetalRemediation: params.BareMetalRemediation,
+		EventRecorder:        params.EventRecorder,
 	}, nil
 }
 
@@ -78,8 +83,9 @@ type BareMetalRemediationScope struct {
 	Client               client.Client
 	patchHelper          *patch.Helper
 	Machine              *clusterv1.Machine
-	BareMetalMachine     *infrav1.HetznerBareMetalMachine
+	BareMetalMachine     *infrav2.HetznerBareMetalMachine
 	BareMetalRemediation *infrav2.HetznerBareMetalRemediation
+	EventRecorder        record.EventRecorder
 }
 
 // Close closes the current scope persisting the cluster configuration and status.

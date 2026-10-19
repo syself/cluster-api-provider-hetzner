@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -30,12 +31,9 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
-	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch" // patches the still-v1beta1 HetznerBareMetalHost
 	"sigs.k8s.io/cluster-api/util/patch"
-	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1" // HetznerBareMetalHost is still on v1beta1
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
@@ -64,7 +62,12 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 
 		// retry
 		err := fmt.Errorf("failed to find the unhealthy host (will retry): %w", err)
-		record.Warn(s.scope.BareMetalRemediation, "FailedToFindHost", err.Error())
+		s.scope.EventRecorder.Event(
+			s.scope.BareMetalRemediation,
+			corev1.EventTypeWarning,
+			"FailedToFindHost",
+			err.Error(),
+		)
 		return reconcile.Result{}, err
 	}
 
@@ -83,18 +86,16 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			"exit remediation because Node is missing (no reboot performed)")
 	}
 
-	if host.Spec.Status.HasFatalError() {
+	if host.Status.HasFatalError() {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
-			fmt.Sprintf("exit remediation because host has error: %s: %s",
-				host.Spec.Status.ErrorType,
-				host.Spec.Status.ErrorMessage))
+			fmt.Sprintf("exit remediation because host has error: %s: %s", host.Status.ErrorType, host.ErrorMessage()))
 	}
 
 	// if host is not provisioned, do not try to reboot server
-	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
+	if host.Status.ProvisioningState != infrav2.StateProvisioned {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
 			fmt.Sprintf("exit remediation because host is not provisioned. Provisioning state: %s.",
-				host.Spec.Status.ProvisioningState))
+				host.Status.ProvisioningState))
 	}
 
 	// host is in maintenance mode, do not try to reboot server
@@ -104,7 +105,12 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	if s.scope.BareMetalRemediation.Spec.Strategy.Type != infrav2.RemediationTypeReboot {
-		record.Warn(s.scope.BareMetalRemediation, "UnsupportedRemediationStrategy", "unsupported remediation strategy")
+		s.scope.EventRecorder.Event(
+			s.scope.BareMetalRemediation,
+			corev1.EventTypeWarning,
+			"UnsupportedRemediationStrategy",
+			"unsupported remediation strategy",
+		)
 		return reconcile.Result{}, nil
 	}
 
@@ -112,14 +118,19 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	// Only evaluated on a fresh CR (Phase is empty) to avoid interrupting in-progress remediations.
 	if s.scope.BareMetalRemediation.Status.Phase == "" {
 		cooldown := s.scope.BareMetalRemediation.Spec.Strategy.EffectiveCooldown()
-		if cooldown > 0 && s.scope.BareMetalMachine.Status.LastRemediatedAt != nil {
+		if cooldown > 0 && !s.scope.BareMetalMachine.Status.LastRemediatedAt.IsZero() {
 			since := time.Since(s.scope.BareMetalMachine.Status.LastRemediatedAt.Time)
 			if since < cooldown {
 				err := s.markRemediationSkipped(ctx,
 					fmt.Sprintf("skipping reboot: last remediation completed %s ago (cooldown window: %s)",
 						since.Round(time.Second), cooldown.Round(time.Second)))
 				if err != nil {
-					record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
+					s.scope.EventRecorder.Event(
+						s.scope.BareMetalRemediation,
+						corev1.EventTypeWarning,
+						"FailedSettingConditionOnMachine",
+						err.Error(),
+					)
 					return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 				}
 				return reconcile.Result{}, nil
@@ -144,12 +155,17 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	}
 }
 
-func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
+func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav2.HetznerBareMetalHost) (res reconcile.Result, err error) {
 	// retryLimit 0 disables reboots (see RemediationStrategy.RetryLimit), so there
 	// is no remediation to perform. Mark the machine for deletion by CAPI.
 	if !s.scope.HasRetriesLeft() && s.scope.BareMetalRemediation.Status.LastRemediated.IsZero() {
 		if err := s.setOwnerRemediatedConditionToFailed(ctx, "exit remediation because retryLimit is 0 (no reboot performed)"); err != nil {
-			record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
+			s.scope.EventRecorder.Event(
+				s.scope.BareMetalRemediation,
+				corev1.EventTypeWarning,
+				"FailedSettingConditionOnMachine",
+				err.Error(),
+			)
 			return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 		}
 		return reconcile.Result{}, nil
@@ -183,10 +199,10 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerB
 	return res, nil
 }
 
-func (s *Service) remediate(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
+func (s *Service) remediate(ctx context.Context, host *infrav2.HetznerBareMetalHost) error {
 	var err error
 
-	patchHelper, err := v1beta1patch.NewHelper(host, s.scope.Client)
+	patchHelper, err := patch.NewHelper(host, s.scope.Client)
 	if err != nil {
 		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
@@ -194,7 +210,12 @@ func (s *Service) remediate(ctx context.Context, host *infrav1.HetznerBareMetalH
 	// add annotation to host so that it reboots
 	host.Annotations, err = addRebootAnnotation(host.Annotations)
 	if err != nil {
-		record.Warn(s.scope.BareMetalRemediation, "FailedAddingRebootAnnotation", err.Error())
+		s.scope.EventRecorder.Event(
+			s.scope.BareMetalRemediation,
+			corev1.EventTypeWarning,
+			"FailedAddingRebootAnnotation",
+			err.Error(),
+		)
 		return fmt.Errorf("failed to add reboot annotation: %w", err)
 	}
 
@@ -202,7 +223,12 @@ func (s *Service) remediate(ctx context.Context, host *infrav1.HetznerBareMetalH
 		return fmt.Errorf("failed to patch: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
 
-	record.Event(s.scope.BareMetalRemediation, "AnnotationAdded", "Reboot annotation is added to the BareMetalHost")
+	s.scope.EventRecorder.Event(
+		s.scope.BareMetalRemediation,
+		corev1.EventTypeNormal,
+		"AnnotationAdded",
+		"Reboot annotation is added to the BareMetalHost",
+	)
 
 	// update status of BareMetalRemediation object
 	now := metav1.Now()
@@ -212,7 +238,7 @@ func (s *Service) remediate(ctx context.Context, host *infrav1.HetznerBareMetalH
 	return nil
 }
 
-func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
+func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav2.HetznerBareMetalHost) (res reconcile.Result, err error) {
 	nextCheck := s.timeUntilNextRemediation(time.Now())
 
 	if nextCheck > 0 {
@@ -244,8 +270,8 @@ func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerB
 // being reused. The permanent error deletes the machine through the HasFatalError path,
 // and skipHost keeps the host out of selection (the error is not cleared on deprovision)
 // until a human removes the permanent-error annotation.
-func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetalHost, capiMachine *clusterv1.Machine) error {
-	patchHelper, err := v1beta1patch.NewHelper(host, s.scope.Client)
+func (s *Service) retireHost(ctx context.Context, host *infrav2.HetznerBareMetalHost, capiMachine *clusterv1.Machine) error {
+	patchHelper, err := patch.NewHelper(host, s.scope.Client)
 	if err != nil {
 		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
@@ -265,13 +291,25 @@ func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetal
 			reason = fmt.Sprintf("node still unhealthy after %d failed reboot(s)", retryCount)
 		}
 	}
-	host.SetError(infrav1.PermanentError, reason)
+	if permanentErrorSet, message := host.SetError(infrav2.ErrorTypePermanent, reason); permanentErrorSet {
+		s.scope.EventRecorder.Event(
+			host,
+			corev1.EventTypeWarning,
+			"PermanentErrorSet",
+			message,
+		)
+	}
 
 	if err := patchHelper.Patch(ctx, host); err != nil {
 		return fmt.Errorf("failed to patch: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
 
-	record.Warn(s.scope.BareMetalRemediation, "HostRetired", reason)
+	s.scope.EventRecorder.Event(
+		s.scope.BareMetalRemediation,
+		corev1.EventTypeWarning,
+		"HostRetired",
+		reason,
+	)
 
 	s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseDeleting
 	return nil
@@ -304,7 +342,12 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 			// Maybe a network error. Retry
 			return fmt.Errorf("failed to get capi machine: %w", err)
 		}
-		record.Event(s.scope.BareMetalRemediation, "CapiMachineGone", "CAPI machine does not exist. Remediation will be stopped. Infra Machine will be deleted soon by GC.")
+		s.scope.EventRecorder.Event(
+			s.scope.BareMetalRemediation,
+			corev1.EventTypeNormal,
+			"CapiMachineGone",
+			"CAPI machine does not exist. Remediation will be stopped. Infra Machine will be deleted soon by GC.",
+		)
 
 		// do not retry
 		s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseDeleting
@@ -321,8 +364,8 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
 	// moves control to CAPI machine controller. The owning controller will do
 	// preflight checks and handles the Machine deletion.
-	// Dual-write: deprecated v1beta1 list AND v1beta2 list. CAPI v1.13 MachineSet
-	// reads from the v1beta2 list to trigger Machine deletion.
+	// We set MachineOwnerRemediated in status.conditions, which the CAPI MachineSet controller
+	// reads, and the deprecated v1beta1 condition for clients that still read it.
 	deprecatedv1beta1conditions.MarkFalse(
 		capiMachine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
@@ -342,7 +385,12 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 		return fmt.Errorf("failed to patch: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
 	}
 
-	record.Event(s.scope.BareMetalRemediation, "ExitRemediation", msg)
+	s.scope.EventRecorder.Event(
+		s.scope.BareMetalRemediation,
+		corev1.EventTypeNormal,
+		"ExitRemediation",
+		msg,
+	)
 
 	// do not retry
 	s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseDeleting
@@ -376,14 +424,18 @@ func (s *Service) markRemediationSucceeded(ctx context.Context, capiMachine *clu
 		return fmt.Errorf("failed to init patch helper for baremetal machine: %w", err)
 	}
 
-	now := metav1.Now()
-	s.scope.BareMetalMachine.Status.LastRemediatedAt = &now
+	s.scope.BareMetalMachine.Status.LastRemediatedAt = metav1.Now()
 
 	if err := bareMetalMachinePatchHelper.Patch(ctx, s.scope.BareMetalMachine); err != nil {
 		return fmt.Errorf("failed to patch baremetal machine: %w", err)
 	}
 
-	record.Event(s.scope.BareMetalRemediation, "RemediationSucceeded", msg)
+	s.scope.EventRecorder.Event(
+		s.scope.BareMetalRemediation,
+		corev1.EventTypeNormal,
+		"RemediationSucceeded",
+		msg,
+	)
 
 	s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseSucceeded
 	return nil
@@ -398,7 +450,12 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 		if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get capi machine: %w", err)
 		}
-		record.Event(s.scope.BareMetalRemediation, "CapiMachineGone", "CAPI machine does not exist. Remediation will be stopped. Infra Machine will be deleted soon by GC.")
+		s.scope.EventRecorder.Event(
+			s.scope.BareMetalRemediation,
+			corev1.EventTypeNormal,
+			"CapiMachineGone",
+			"CAPI machine does not exist. Remediation will be stopped. Infra Machine will be deleted soon by GC.",
+		)
 		s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseDeleting
 		return nil
 	}
@@ -408,8 +465,8 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
 	}
 
-	// Dual-write: deprecated v1beta1 list AND v1beta2 list. CAPI v1.13 MachineSet
-	// reads from the v1beta2 list to trigger Machine deletion.
+	// We set MachineOwnerRemediated in status.conditions, which the CAPI MachineSet controller
+	// reads, and the deprecated v1beta1 condition for clients that still read it.
 	deprecatedv1beta1conditions.MarkFalse(
 		capiMachine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
@@ -428,7 +485,12 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 		return fmt.Errorf("failed to patch: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
 	}
 
-	record.Event(s.scope.BareMetalRemediation, "RemediationSkipped", msg)
+	s.scope.EventRecorder.Event(
+		s.scope.BareMetalRemediation,
+		corev1.EventTypeNormal,
+		"RemediationSkipped",
+		msg,
+	)
 
 	s.scope.BareMetalRemediation.Status.Phase = infrav2.PhaseDeleting
 	return nil
@@ -436,7 +498,7 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 
 // addRebootAnnotation sets reboot annotation on unhealthy host.
 func addRebootAnnotation(annotations map[string]string) (map[string]string, error) {
-	rebootAnnotationArguments := infrav1.RebootAnnotationArguments{Type: infrav1.RebootTypeHardware}
+	rebootAnnotationArguments := infrav2.RebootAnnotationArguments{Type: infrav2.RebootTypeHardware}
 
 	b, err := json.Marshal(rebootAnnotationArguments)
 	if err != nil {
@@ -447,6 +509,6 @@ func addRebootAnnotation(annotations map[string]string) (map[string]string, erro
 		annotations = make(map[string]string)
 	}
 
-	annotations[infrav1.RebootAnnotation] = string(b)
+	annotations[infrav2.RebootAnnotation] = string(b)
 	return annotations, nil
 }

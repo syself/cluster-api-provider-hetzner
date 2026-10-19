@@ -32,12 +32,10 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	kinderrors "sigs.k8s.io/kind/pkg/errors"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
@@ -220,11 +218,11 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 
 	switch m.Spec.InfrastructureRef.Kind {
 	case "HetznerBareMetalMachine":
-		hbmm := &infrav1.HetznerBareMetalMachine{}
+		hbmm := &infrav2.HetznerBareMetalMachine{}
 		if err := c.Get(ctx, key, hbmm); err != nil {
 			return "", fmt.Errorf("get HetznerBareMetalMachine %s: %w", key, err)
 		}
-		hostIPAddr := externalIPFromAddresses(toV1Beta2Addresses(hbmm.Status.Addresses))
+		hostIPAddr := externalIPFromAddresses(hbmm.Status.Addresses)
 		if hostIPAddr != "" {
 			return hostIPAddr, nil
 		}
@@ -249,13 +247,13 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 	}
 }
 
-func externalIPFromAssociatedHost(ctx context.Context, c client.Client, hbmm *infrav1.HetznerBareMetalMachine) (string, error) {
+func externalIPFromAssociatedHost(ctx context.Context, c client.Client, hbmm *infrav2.HetznerBareMetalMachine) (string, error) {
 	host, hostKey, err := associatedHostFromHBMM(ctx, c, hbmm)
 	if err != nil {
 		return "", err
 	}
 
-	for _, candidate := range []string{host.Spec.Status.IPv4, host.Spec.Status.IPv6} {
+	for _, candidate := range []string{host.Status.IPv4, host.Status.IPv6} {
 		if candidate == "" {
 			continue
 		}
@@ -266,17 +264,17 @@ func externalIPFromAssociatedHost(ctx context.Context, c client.Client, hbmm *in
 		return hostIPAddr, nil
 	}
 
-	return "", fmt.Errorf("HetznerBareMetalHost %s has no usable IPv4/IPv6 (IPv4=%q, IPv6=%q)", hostKey, host.Spec.Status.IPv4, host.Spec.Status.IPv6)
+	return "", fmt.Errorf("HetznerBareMetalHost %s has no usable IPv4/IPv6 (IPv4=%q, IPv6=%q)", hostKey, host.Status.IPv4, host.Status.IPv6)
 }
 
-func associatedHostFromHBMM(ctx context.Context, c client.Client, hbmm *infrav1.HetznerBareMetalMachine) (*infrav1.HetznerBareMetalHost, client.ObjectKey, error) {
+func associatedHostFromHBMM(ctx context.Context, c client.Client, hbmm *infrav2.HetznerBareMetalMachine) (*infrav2.HetznerBareMetalHost, client.ObjectKey, error) {
 	if hbmm == nil {
 		return nil, client.ObjectKey{}, fmt.Errorf("hbmm is nil")
 	}
 
-	annotationValue, ok := hbmm.Annotations[infrav1.HostAnnotation]
+	annotationValue, ok := hbmm.Annotations[infrav2.HostAnnotation]
 	if !ok || annotationValue == "" {
-		return nil, client.ObjectKey{}, fmt.Errorf("annotation %q not found", infrav1.HostAnnotation)
+		return nil, client.ObjectKey{}, fmt.Errorf("annotation %q not found", infrav2.HostAnnotation)
 	}
 
 	hostNamespace := hbmm.Namespace
@@ -289,10 +287,10 @@ func associatedHostFromHBMM(ctx context.Context, c client.Client, hbmm *infrav1.
 		hostName = parts[1]
 	}
 	if hostName == "" {
-		return nil, client.ObjectKey{}, fmt.Errorf("associated host name in annotation %q is empty", infrav1.HostAnnotation)
+		return nil, client.ObjectKey{}, fmt.Errorf("associated host name in annotation %q is empty", infrav2.HostAnnotation)
 	}
 
-	host := &infrav1.HetznerBareMetalHost{}
+	host := &infrav2.HetznerBareMetalHost{}
 	hostKey := client.ObjectKey{
 		Namespace: hostNamespace,
 		Name:      hostName,
@@ -302,21 +300,6 @@ func associatedHostFromHBMM(ctx context.Context, c client.Client, hbmm *infrav1.
 	}
 
 	return host, hostKey, nil
-}
-
-// toV1Beta2Addresses converts legacy v1beta1 MachineAddresses (used by our
-// HCloudMachine / HetznerBareMetalMachine status) to the v1beta2 shape that
-// the CAPI 1.11 test framework helpers operate on. The two structs have
-// identical layout; only the containing package differs.
-func toV1Beta2Addresses(in []clusterv1beta1.MachineAddress) []clusterv1.MachineAddress {
-	out := make([]clusterv1.MachineAddress, len(in))
-	for i, a := range in {
-		out[i] = clusterv1.MachineAddress{
-			Type:    clusterv1.MachineAddressType(a.Type),
-			Address: a.Address,
-		}
-	}
-	return out
 }
 
 func externalIPFromAddresses(addresses []clusterv1.MachineAddress) string {

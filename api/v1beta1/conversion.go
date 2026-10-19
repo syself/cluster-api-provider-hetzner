@@ -370,7 +370,8 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_HetznerBareMetalHostS
 // spec.status into the v1beta2 status subresource:
 //   - status.v1beta2.conditions is promoted to status.conditions.
 //   - status.conditions is demoted to status.deprecated.v1beta1.conditions.
-//   - status.rebootTriggeredAt moves from a pointer to a value.
+//   - status.errorType and status.rebootTriggeredAt are split into status.errorType and
+//     status.ongoingReboot.
 //   - hetznerClusterRef, userData, installImage, sshSpec, errorCount, errorMessage, lastUpdated and
 //     hardwareDetails.cpu.flags have no v1beta2 equivalent; they are dropped here and stashed in the
 //     conversion data annotation at the object level (HetznerBareMetalHost.ConvertTo).
@@ -402,14 +403,31 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 	if err := Convert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(&in.SSHStatus, &out.SSHStatus, s); err != nil {
 		return err
 	}
-	out.ErrorType = infrav2.ErrorType(in.ErrorType)
 	out.ProvisioningState = infrav2.ProvisioningState(in.ProvisioningState)
 	out.Rebooted = in.Rebooted
 	out.NodeBootID = in.NodeBootID
 
-	// rebootTriggeredAt moves from a pointer to a value; a nil pointer maps to the zero time.
-	if in.RebootTriggeredAt != nil {
-		out.RebootTriggeredAt = *in.RebootTriggeredAt
+	// errorType only keeps fatal error and permanent error. A reboot value moves to ongoingReboot
+	// together with rebootTriggeredAt, when rebootTriggeredAt is set. We do not copy registration
+	// error, preparation error, provisioning error and connection refused error of SSH command,
+	// because the controller does not read them. We do not stash them in the conversion data
+	// annotation, because restoring them would overwrite newer values from the controller.
+	var rebootType infrav2.RebootType
+	switch in.ErrorType {
+	case FatalError, PermanentError:
+		out.ErrorType = infrav2.ErrorType(in.ErrorType)
+	case ErrorTypeSSHRebootTriggered:
+		rebootType = infrav2.RebootTypeSSH
+	case ErrorTypeSoftwareRebootTriggered:
+		rebootType = infrav2.RebootTypeSoftware
+	case ErrorTypeHardwareRebootTriggered:
+		rebootType = infrav2.RebootTypeHardware
+	}
+	if rebootType != "" && !in.RebootTriggeredAt.IsZero() {
+		out.OngoingReboot = &infrav2.OngoingReboot{
+			Type:        rebootType,
+			TriggeredAt: *in.RebootTriggeredAt,
+		}
 	}
 
 	return nil
@@ -419,7 +437,7 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 // status subresource back into the v1beta1 spec.status. It is the inverse of the function above:
 //   - status.conditions is demoted to the staged status.v1beta2.conditions.
 //   - status.deprecated.v1beta1.conditions is promoted back to status.conditions.
-//   - status.rebootTriggeredAt moves from a value to a pointer (zero time -> nil).
+//   - status.ongoingReboot moves back into status.errorType and status.rebootTriggeredAt.
 //   - hetznerClusterRef, userData, installImage, sshSpec, errorCount, errorMessage, lastUpdated and
 //     hardwareDetails.cpu.flags are restored from the conversion data annotation at the object level
 //     (HetznerBareMetalHost.ConvertFrom); they have no v1beta2 source field.
@@ -454,10 +472,23 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedSt
 	out.Rebooted = in.Rebooted
 	out.NodeBootID = in.NodeBootID
 
-	// rebootTriggeredAt moves from a value to a pointer; the zero time maps to a nil pointer.
-	if !in.RebootTriggeredAt.IsZero() {
-		rebootTriggeredAt := in.RebootTriggeredAt
-		out.RebootTriggeredAt = &rebootTriggeredAt
+	// v1beta1 stores the ongoing reboot in errorType and rebootTriggeredAt. When the host has a fatal
+	// or permanent error, errorType has that error instead of the reboot type.
+	if in.OngoingReboot != nil {
+		if in.ErrorType == "" {
+			switch in.OngoingReboot.Type {
+			case infrav2.RebootTypeSSH:
+				out.ErrorType = ErrorTypeSSHRebootTriggered
+			case infrav2.RebootTypeSoftware:
+				out.ErrorType = ErrorTypeSoftwareRebootTriggered
+			case infrav2.RebootTypeHardware:
+				out.ErrorType = ErrorTypeHardwareRebootTriggered
+			}
+		}
+		if !in.OngoingReboot.TriggeredAt.IsZero() {
+			triggeredAt := in.OngoingReboot.TriggeredAt
+			out.RebootTriggeredAt = &triggeredAt
+		}
 	}
 
 	return nil
@@ -538,6 +569,12 @@ func restoreV1Beta1OnlyStatus(from, to *ControllerGeneratedStatus) {
 		}
 		to.HardwareDetails.CPU.Flags = from.HardwareDetails.CPU.Flags
 	}
+}
+
+// Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus converts the v1beta1 SecretStatus to v1beta2.
+// v1beta2 does not have credentialsVersion, because CAPH never sets it.
+func Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in *SecretStatus, out *infrav2.SecretStatus, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(in, out, s)
 }
 
 // Convert_v1beta1_HCloudMachineStatus_To_v1beta2_HCloudMachineStatus converts the v1beta1
@@ -698,6 +735,40 @@ func Convert_v1beta2_HCloudMachineTemplateResource_To_v1beta1_HCloudMachineTempl
 	return Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(&in.Spec, &out.Spec, s)
 }
 
+// Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec converts the v1beta1 spec to v1beta2.
+// The flat v1beta1 imageURL and imageURLCommand become the v1beta2 customProvisioner. It is set when
+// either field is set, so a half-filled v1beta1 spec keeps its value through the round trip.
+func Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(in *HCloudMachineSpec, out *infrav2.HCloudMachineSpec, s apiconversion.Scope) error {
+	// The generated converter handles every field except imageURL and imageURLCommand, which it cannot map.
+	if err := autoConvert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(in, out, s); err != nil {
+		return err
+	}
+
+	if in.ImageURL != "" || in.ImageURLCommand != "" {
+		out.CustomProvisioner = &infrav2.HCloudCustomProvisioner{
+			URL:     in.ImageURL,
+			Command: in.ImageURLCommand,
+		}
+	}
+	return nil
+}
+
+// Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec converts the v1beta2 spec back to
+// v1beta1. It is the inverse of the mapping above: customProvisioner is flattened into imageURL and
+// imageURLCommand.
+func Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in *infrav2.HCloudMachineSpec, out *HCloudMachineSpec, s apiconversion.Scope) error {
+	// The generated converter handles every field except customProvisioner, which it cannot map.
+	if err := autoConvert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in, out, s); err != nil {
+		return err
+	}
+
+	if in.CustomProvisioner != nil {
+		out.ImageURL = in.CustomProvisioner.URL
+		out.ImageURLCommand = in.CustomProvisioner.Command
+	}
+	return nil
+}
+
 // Convert_v1beta1_HetznerBareMetalMachineTemplateResource_To_v1beta2_HetznerBareMetalMachineTemplateResource converts the
 // v1beta1 HetznerBareMetalMachineTemplateResource to v1beta2. The template metadata changes type from the deprecated
 // clusterv1beta1.ObjectMeta to clusterv1.ObjectMeta, which carry the same labels and annotations, so those are copied by
@@ -727,14 +798,15 @@ func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMach
 	}
 
 	if in.InstallImage.UsesImageURLCommand() {
-		// The custom provisioner flow uses only the image URL, command and device string.
+		// The custom provisioner flow uses only the image URL, command, device string and swraid.
 		// The v1beta1 webhook forbids image name and path when imageURLCommand is
-		// set, so those are always empty here. The remaining installImage fields (partitions, RAID,
-		// post-install script) have no equivalent on customProvisioner.
+		// set, so those are always empty here. The remaining installImage fields (partitions, RAID
+		// level, post-install script) have no equivalent on customProvisioner.
 		out.CustomProvisioner = &infrav2.CustomProvisioner{
 			URL:              in.InstallImage.Image.URL,
 			Command:          in.InstallImage.ImageURLCommand,
 			DeviceStringType: infrav2.DeviceStringType(in.InstallImage.DeviceStringType),
+			Swraid:           in.InstallImage.Swraid,
 		}
 		return nil
 	}
@@ -758,6 +830,12 @@ func Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMach
 			Image:            Image{URL: in.CustomProvisioner.URL},
 			ImageURLCommand:  in.CustomProvisioner.Command,
 			DeviceStringType: DeviceStringType(in.CustomProvisioner.DeviceStringType),
+			Swraid:           in.CustomProvisioner.Swraid,
+			// The v1beta1 schema requires partitions. The custom provisioner does not use them, and
+			// customProvisioner has no field to keep them. With a nil list, the stored object has no
+			// partitions field. A v1beta1 create of that object then fails with "partitions: Required
+			// value". We set an empty list to avoid this error.
+			Partitions: []Partition{},
 		}
 		return nil
 	}
@@ -775,10 +853,62 @@ func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out 
 	return autoConvert_v1beta1_InstallImage_To_v1beta2_InstallImage(in, out, s)
 }
 
-// Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus converts
-// the v1beta1 HCloudMachineTemplateStatus to v1beta2, dropping the V1Beta2 field.
-func Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus(in *HCloudMachineTemplateStatus, out *infrav2.HCloudMachineTemplateStatus, s apiconversion.Scope) error {
-	return autoConvert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus(in, out, s)
+// Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec converts a v1beta1 SSHSpec to v1beta2 without
+// portAfterCloudInit, which has no v1beta2 equivalent and is never read.
+func Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in *SSHSpec, out *infrav2.SSHSpec, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in, out, s)
+}
+
+// Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus converts the
+// v1beta1 HCloudMachineTemplateStatus to v1beta2. The v1beta1 status.conditions (old
+// clusterv1beta1.Conditions) and the v1beta2 status.conditions ([]metav1.Condition) share a field
+// name but not a type and do not correspond, so HCloudMachineTemplateStatus is excluded from
+// conversion-gen (+k8s:conversion-gen=false) and converted fully by hand here:
+//   - status.v1beta2.conditions is promoted to status.conditions.
+//   - status.conditions is demoted to status.deprecated.v1beta1.conditions (the old core/v1beta1
+//     conditions are converted to the structurally identical core/v1beta2 deprecated conditions).
+func Convert_v1beta1_HCloudMachineTemplateStatus_To_v1beta2_HCloudMachineTemplateStatus(in *HCloudMachineTemplateStatus, out *infrav2.HCloudMachineTemplateStatus, _ apiconversion.Scope) error {
+	// Promote the staged v1beta2 conditions to the v1beta2 status.conditions.
+	if in.V1Beta2 != nil {
+		out.Conditions = in.V1Beta2.Conditions
+	}
+
+	// Demote the old v1beta1 conditions to status.deprecated.v1beta1.conditions.
+	if len(in.Conditions) > 0 {
+		out.Deprecated = &infrav2.HCloudMachineTemplateDeprecatedStatus{
+			V1Beta1: &infrav2.HCloudMachineTemplateV1Beta1DeprecatedStatus{
+				Conditions: convertDeprecatedConditionsToV1Beta2(in.Conditions),
+			},
+		}
+	}
+
+	out.Capacity = in.Capacity
+	out.OwnerType = in.OwnerType
+
+	return nil
+}
+
+// Convert_v1beta2_HCloudMachineTemplateStatus_To_v1beta1_HCloudMachineTemplateStatus converts the
+// v1beta2 HCloudMachineTemplateStatus back to v1beta1. It is the inverse of the function above:
+//   - status.conditions is demoted to the staged status.v1beta2.conditions.
+//   - status.deprecated.v1beta1.conditions is promoted back to status.conditions.
+func Convert_v1beta2_HCloudMachineTemplateStatus_To_v1beta1_HCloudMachineTemplateStatus(in *infrav2.HCloudMachineTemplateStatus, out *HCloudMachineTemplateStatus, _ apiconversion.Scope) error {
+	// Demote the v1beta2 conditions back to the staged v1beta1 status.v1beta2.conditions.
+	if len(in.Conditions) > 0 {
+		out.V1Beta2 = &HCloudMachineTemplateV1Beta2Status{
+			Conditions: in.Conditions,
+		}
+	}
+
+	// Promote the deprecated v1beta1 conditions back to the old status.conditions.
+	if in.Deprecated != nil && in.Deprecated.V1Beta1 != nil {
+		out.Conditions = convertDeprecatedConditionsToV1Beta1(in.Deprecated.V1Beta1.Conditions)
+	}
+
+	out.Capacity = in.Capacity
+	out.OwnerType = in.OwnerType
+
+	return nil
 }
 
 // remediationRetryToPointer maps a v1beta1 int counter to the v1beta2 *int32 form. v1beta1 stores an
@@ -1029,6 +1159,12 @@ func Convert_v1beta2_HetznerBareMetalMachineStatus_To_v1beta1_HetznerBareMetalMa
 	out.Ready = ptr.Deref(in.Initialization.Provisioned, false)
 
 	return nil
+}
+
+// Convert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus converts the v1beta1 NetworkStatus to v1beta2.
+// v1beta2 does not have labels, because the field was never stored (json:"-").
+func Convert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus(in *NetworkStatus, out *infrav2.NetworkStatus, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_NetworkStatus_To_v1beta2_NetworkStatus(in, out, s)
 }
 
 // Convert_v1beta1_HetznerClusterStatus_To_v1beta2_HetznerClusterStatus converts the v1beta1

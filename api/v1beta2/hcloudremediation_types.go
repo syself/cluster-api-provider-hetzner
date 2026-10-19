@@ -24,29 +24,29 @@ import (
 
 // HCloudRemediationSpec defines the desired state of HCloudRemediation.
 type HCloudRemediationSpec struct {
-	// Strategy field defines remediation strategy.
+	// strategy field defines remediation strategy.
 	Strategy *RemediationStrategy `json:"strategy,omitempty"`
 }
 
 // HCloudRemediationStatus defines the observed state of HCloudRemediation.
 type HCloudRemediationStatus struct {
-	// Phase represents the current phase of machine remediation.
-	// E.g. Pending, Running, Done etc.
+	// phase represents the current phase of machine remediation.
+	// One of Running, Waiting, Deleting machine or Succeeded.
 	// +optional
 	Phase string `json:"phase,omitempty"`
 
-	// RetryCount records how many times the remediation controller has tried to
+	// retryCount records how many times the remediation controller has tried to
 	// remediate the node, for example the number of reboots.
 	// +optional
 	RetryCount *int32 `json:"retryCount,omitempty"`
 
-	// LastRemediated identifies when the host was last remediated.
+	// lastRemediated identifies when the host was last remediated.
 	// A zero value is treated as absent.
 	// +optional
 	LastRemediated metav1.Time `json:"lastRemediated,omitempty,omitzero"`
 
 	// conditions represents the observations of a HCloudRemediation's current state.
-	// Known condition types are Ready, HCloudTokenAvailable and HCloudRateLimitExceeded.
+	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded and RemediationSkipped.
 	// +optional
 	// +listType=map
 	// +listMapKey=type
@@ -85,10 +85,10 @@ type HCloudRemediationV1Beta1DeprecatedStatus struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of the remediation"
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message"
-// +kubebuilder:printcolumn:name="Timeout",type=string,JSONPath=".spec.strategy.timeoutSeconds",description="Timeout for the remediation",priority=1
+// +kubebuilder:printcolumn:name="Timeout",type=integer,JSONPath=".spec.strategy.timeoutSeconds",description="Timeout for the remediation",priority=1
 // +kubebuilder:printcolumn:name="Last Remediated",type=string,JSONPath=".status.lastRemediated",description="Timestamp of the last remediation attempt",priority=1
-// +kubebuilder:printcolumn:name="Retry count",type=string,JSONPath=".status.retryCount",description="How many times remediation controller has tried to remediate the node",priority=1
-// +kubebuilder:printcolumn:name="Retry limit",type=string,JSONPath=".spec.strategy.retryLimit",description="How many times remediation controller should attempt to remediate the node",priority=1
+// +kubebuilder:printcolumn:name="Retry count",type=integer,JSONPath=".status.retryCount",description="How many times remediation controller has tried to remediate the node",priority=1
+// +kubebuilder:printcolumn:name="Retry limit",type=integer,JSONPath=".spec.strategy.retryLimit",description="How many times remediation controller should attempt to remediate the node",priority=1
 
 // HCloudRemediation is the Schema for the hcloudremediations API.
 type HCloudRemediation struct {

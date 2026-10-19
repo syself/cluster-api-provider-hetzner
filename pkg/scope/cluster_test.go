@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
@@ -61,8 +60,8 @@ func controlPlaneHCloudMachine(namespace, name, clusterName string, annotated bo
 	}
 }
 
-func controlPlaneBareMetalMachine(namespace, name, clusterName string, annotated bool) *infrav1.HetznerBareMetalMachine {
-	return &infrav1.HetznerBareMetalMachine{
+func controlPlaneBareMetalMachine(namespace, name, clusterName string, annotated bool) *infrav2.HetznerBareMetalMachine {
+	return &infrav2.HetznerBareMetalMachine{
 		ObjectMeta: controlPlaneObjectMeta(namespace, name, clusterName, annotated),
 	}
 }
@@ -73,8 +72,8 @@ func controlPlaneHCloudMachineForHTTPHealthCheck(namespace, name, clusterName st
 	}
 }
 
-func controlPlaneBareMetalMachineForHTTPHealthCheck(namespace, name, clusterName string, annotated bool) *infrav1.HetznerBareMetalMachine {
-	return &infrav1.HetznerBareMetalMachine{
+func controlPlaneBareMetalMachineForHTTPHealthCheck(namespace, name, clusterName string, annotated bool) *infrav2.HetznerBareMetalMachine {
+	return &infrav2.HetznerBareMetalMachine{
 		ObjectMeta: controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, infrav2.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated),
 	}
 }
@@ -88,7 +87,6 @@ func TestAllControlPlaneInfraMachinesAnnotatedForProxyProtocol(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
-	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(infrav2.AddToScheme(scheme))
 
 	tests := []struct {
@@ -176,7 +174,6 @@ func TestAllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
-	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(infrav2.AddToScheme(scheme))
 
 	tests := []struct {

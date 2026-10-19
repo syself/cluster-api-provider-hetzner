@@ -1375,34 +1375,34 @@ func (_c *Client_ResetKubeadm_Call) RunAndReturn(run func(context.Context) sshcl
 	return _c
 }
 
-// StartImageURLCommand provides a mock function with given fields: ctx, command, imageURL, bootstrapData, machineName, deviceNames
-func (_m *Client) StartImageURLCommand(ctx context.Context, command string, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
-	ret := _m.Called(ctx, command, imageURL, bootstrapData, machineName, deviceNames)
+// StartCustomProvisioner provides a mock function with given fields: ctx, command, url, bootstrapData, machineName, deviceNames
+func (_m *Client) StartCustomProvisioner(ctx context.Context, command string, url string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
+	ret := _m.Called(ctx, command, url, bootstrapData, machineName, deviceNames)
 
 	if len(ret) == 0 {
-		panic("no return value specified for StartImageURLCommand")
+		panic("no return value specified for StartCustomProvisioner")
 	}
 
 	var r0 int
 	var r1 string
 	var r2 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte, string, []string) (int, string, error)); ok {
-		return rf(ctx, command, imageURL, bootstrapData, machineName, deviceNames)
+		return rf(ctx, command, url, bootstrapData, machineName, deviceNames)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte, string, []string) int); ok {
-		r0 = rf(ctx, command, imageURL, bootstrapData, machineName, deviceNames)
+		r0 = rf(ctx, command, url, bootstrapData, machineName, deviceNames)
 	} else {
 		r0 = ret.Get(0).(int)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string, []byte, string, []string) string); ok {
-		r1 = rf(ctx, command, imageURL, bootstrapData, machineName, deviceNames)
+		r1 = rf(ctx, command, url, bootstrapData, machineName, deviceNames)
 	} else {
 		r1 = ret.Get(1).(string)
 	}
 
 	if rf, ok := ret.Get(2).(func(context.Context, string, string, []byte, string, []string) error); ok {
-		r2 = rf(ctx, command, imageURL, bootstrapData, machineName, deviceNames)
+		r2 = rf(ctx, command, url, bootstrapData, machineName, deviceNames)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -1410,57 +1410,57 @@ func (_m *Client) StartImageURLCommand(ctx context.Context, command string, imag
 	return r0, r1, r2
 }
 
-// Client_StartImageURLCommand_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartImageURLCommand'
-type Client_StartImageURLCommand_Call struct {
+// Client_StartCustomProvisioner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartCustomProvisioner'
+type Client_StartCustomProvisioner_Call struct {
 	*mock.Call
 }
 
-// StartImageURLCommand is a helper method to define mock.On call
+// StartCustomProvisioner is a helper method to define mock.On call
 //   - ctx context.Context
 //   - command string
-//   - imageURL string
+//   - url string
 //   - bootstrapData []byte
 //   - machineName string
 //   - deviceNames []string
-func (_e *Client_Expecter) StartImageURLCommand(ctx interface{}, command interface{}, imageURL interface{}, bootstrapData interface{}, machineName interface{}, deviceNames interface{}) *Client_StartImageURLCommand_Call {
-	return &Client_StartImageURLCommand_Call{Call: _e.mock.On("StartImageURLCommand", ctx, command, imageURL, bootstrapData, machineName, deviceNames)}
+func (_e *Client_Expecter) StartCustomProvisioner(ctx interface{}, command interface{}, url interface{}, bootstrapData interface{}, machineName interface{}, deviceNames interface{}) *Client_StartCustomProvisioner_Call {
+	return &Client_StartCustomProvisioner_Call{Call: _e.mock.On("StartCustomProvisioner", ctx, command, url, bootstrapData, machineName, deviceNames)}
 }
 
-func (_c *Client_StartImageURLCommand_Call) Run(run func(ctx context.Context, command string, imageURL string, bootstrapData []byte, machineName string, deviceNames []string)) *Client_StartImageURLCommand_Call {
+func (_c *Client_StartCustomProvisioner_Call) Run(run func(ctx context.Context, command string, url string, bootstrapData []byte, machineName string, deviceNames []string)) *Client_StartCustomProvisioner_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].([]byte), args[4].(string), args[5].([]string))
 	})
 	return _c
 }
 
-func (_c *Client_StartImageURLCommand_Call) Return(exitStatus int, stdoutAndStderr string, err error) *Client_StartImageURLCommand_Call {
+func (_c *Client_StartCustomProvisioner_Call) Return(exitStatus int, stdoutAndStderr string, err error) *Client_StartCustomProvisioner_Call {
 	_c.Call.Return(exitStatus, stdoutAndStderr, err)
 	return _c
 }
 
-func (_c *Client_StartImageURLCommand_Call) RunAndReturn(run func(context.Context, string, string, []byte, string, []string) (int, string, error)) *Client_StartImageURLCommand_Call {
+func (_c *Client_StartCustomProvisioner_Call) RunAndReturn(run func(context.Context, string, string, []byte, string, []string) (int, string, error)) *Client_StartCustomProvisioner_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// StateOfImageURLCommand provides a mock function with given fields: ctx
-func (_m *Client) StateOfImageURLCommand(ctx context.Context) (sshclient.ImageURLCommandState, string, error) {
+// StateOfCustomProvisioner provides a mock function with given fields: ctx
+func (_m *Client) StateOfCustomProvisioner(ctx context.Context) (sshclient.CustomProvisionerState, string, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for StateOfImageURLCommand")
+		panic("no return value specified for StateOfCustomProvisioner")
 	}
 
-	var r0 sshclient.ImageURLCommandState
+	var r0 sshclient.CustomProvisionerState
 	var r1 string
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context) (sshclient.ImageURLCommandState, string, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (sshclient.CustomProvisionerState, string, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) sshclient.ImageURLCommandState); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.CustomProvisionerState); ok {
 		r0 = rf(ctx)
 	} else {
-		r0 = ret.Get(0).(sshclient.ImageURLCommandState)
+		r0 = ret.Get(0).(sshclient.CustomProvisionerState)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) string); ok {
@@ -1478,30 +1478,30 @@ func (_m *Client) StateOfImageURLCommand(ctx context.Context) (sshclient.ImageUR
 	return r0, r1, r2
 }
 
-// Client_StateOfImageURLCommand_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StateOfImageURLCommand'
-type Client_StateOfImageURLCommand_Call struct {
+// Client_StateOfCustomProvisioner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StateOfCustomProvisioner'
+type Client_StateOfCustomProvisioner_Call struct {
 	*mock.Call
 }
 
-// StateOfImageURLCommand is a helper method to define mock.On call
+// StateOfCustomProvisioner is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *Client_Expecter) StateOfImageURLCommand(ctx interface{}) *Client_StateOfImageURLCommand_Call {
-	return &Client_StateOfImageURLCommand_Call{Call: _e.mock.On("StateOfImageURLCommand", ctx)}
+func (_e *Client_Expecter) StateOfCustomProvisioner(ctx interface{}) *Client_StateOfCustomProvisioner_Call {
+	return &Client_StateOfCustomProvisioner_Call{Call: _e.mock.On("StateOfCustomProvisioner", ctx)}
 }
 
-func (_c *Client_StateOfImageURLCommand_Call) Run(run func(ctx context.Context)) *Client_StateOfImageURLCommand_Call {
+func (_c *Client_StateOfCustomProvisioner_Call) Run(run func(ctx context.Context)) *Client_StateOfCustomProvisioner_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context))
 	})
 	return _c
 }
 
-func (_c *Client_StateOfImageURLCommand_Call) Return(state sshclient.ImageURLCommandState, logFile string, err error) *Client_StateOfImageURLCommand_Call {
+func (_c *Client_StateOfCustomProvisioner_Call) Return(state sshclient.CustomProvisionerState, logFile string, err error) *Client_StateOfCustomProvisioner_Call {
 	_c.Call.Return(state, logFile, err)
 	return _c
 }
 
-func (_c *Client_StateOfImageURLCommand_Call) RunAndReturn(run func(context.Context) (sshclient.ImageURLCommandState, string, error)) *Client_StateOfImageURLCommand_Call {
+func (_c *Client_StateOfCustomProvisioner_Call) RunAndReturn(run func(context.Context) (sshclient.CustomProvisionerState, string, error)) *Client_StateOfCustomProvisioner_Call {
 	_c.Call.Return(run)
 	return _c
 }
