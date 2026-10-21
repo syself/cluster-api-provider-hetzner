@@ -1924,6 +1924,65 @@ var _ = Describe("actionRegistering", func() {
 		Expect(acV1Beta1.Message).To(ContainSubstring("hardware reboot (to rescue mode) timed out"))
 	})
 
+	It("shows a wrong ssh key error in status instead of leaving it stale", func() {
+		for len(testEventRecorder.Events) > 0 {
+			<-testEventRecorder.Events
+		}
+
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: sshclient.ErrAuthenticationFailed})
+
+		robotMock := robotmock.Client{}
+		robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
+
+		service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		actResult := service.actionRegistering(ctx)
+
+		Expect(actResult).To(Equal(actionContinue{delay: registeringSSHErrorRetryDelay}))
+		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
+		Expect(c).NotTo(BeNil())
+		Expect(c.Message).To(ContainSubstring("wrong ssh key"))
+		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
+		Expect(cV1Beta1).NotTo(BeNil())
+		Expect(cV1Beta1.Message).To(ContainSubstring("wrong ssh key"))
+
+		Expect(testEventRecorder.Events).To(HaveLen(1))
+		event := <-testEventRecorder.Events
+		Expect(event).To(ContainSubstring("SSHFailedWhileRegistering"))
+		Expect(event).To(ContainSubstring("wrong ssh key"))
+	})
+
+	It("returns actionError for registering errors unrelated to the ssh key, e.g. GetBootRescue failing", func() {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{Err: sshclient.ErrAuthenticationFailed})
+
+		robotMock := robotmock.Client{}
+		robotMock.On("GetBootRescue", mock.Anything).Return(nil, errTest)
+
+		service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		actResult := service.actionRegistering(ctx)
+
+		Expect(actResult).To(BeAssignableToTypeOf(actionError{}))
+	})
+
 	// SetError clears the ongoing reboot. This checks that the next reconcile of a host with a fatal
 	// error returns actionStop without sending a reboot.
 	It("does not send a reboot when the host already has a fatal error", func() {
