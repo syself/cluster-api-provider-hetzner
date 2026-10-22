@@ -167,6 +167,9 @@ type HCloudMachineStatus struct {
 	//   4. RunningImageCommand
 	//   5. BootingToRealOS
 	//   6. OperatingSystemRunning
+	//
+	// If the server fails to reach the rescue system, BootingToRescue goes to
+	// PowerCyclingToRescue once, and from there back to BootingToRescue.
 
 	// +optional
 	BootState HCloudBootState `json:"bootState"`
@@ -183,6 +186,12 @@ type HCloudMachineStatus struct {
 	// Used to prevent reboot loops across successive MHC incidents.
 	// +optional
 	LastRemediatedAt *metav1.Time `json:"lastRemediatedAt,omitempty"`
+
+	// RescuePowerCycleCount counts how often the controller powered the server off and on again
+	// because it failed to reach the rescue system. It bounds the retries: transitions reset
+	// BootStateSince, so the per-state timeouts alone cannot stop a loop.
+	// +optional
+	RescuePowerCycleCount int32 `json:"rescuePowerCycleCount,omitzero"`
 }
 
 // HCloudMachineV1Beta2Status groups all the fields that will be added or modified in HCloudMachineStatus with the V1Beta2 version.
@@ -205,6 +214,10 @@ type HCloudMachineStatusExternalIDs struct {
 	// ActionIDCreateServer is the hcloud API Action result of CreateServer.
 	// +optional
 	ActionIDCreateServer int64 `json:"actionIdCreateServer,omitzero"`
+
+	// ActionIDPowerOffServer is the hcloud API Action result of PowerOffServer.
+	// +optional
+	ActionIDPowerOffServer int64 `json:"actionIdPowerOffServer,omitzero"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.
