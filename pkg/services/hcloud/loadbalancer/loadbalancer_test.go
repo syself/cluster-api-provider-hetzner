@@ -480,7 +480,35 @@ var _ = Describe("reconcileServices health check migration", func() {
 
 		res, err := svc.reconcileServices(context.Background(), lb)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(res.RequeueAfter).NotTo(BeZero())
+		Expect(res.RequeueAfter).To(Equal(2 * time.Minute))
+
+		Expect(lb.Services).To(HaveLen(1))
+		Expect(string(lb.Services[0].HealthCheck.Protocol)).To(Equal("tcp"))
+		Expect(lb.Services[0].HealthCheck.HTTP).To(BeNil())
+
+		cond := v1beta2conditions.Get(svc.scope.HetznerCluster, infrav1.HetznerClusterLoadBalancerReadyV1Beta2Condition)
+		Expect(cond).NotTo(BeNil())
+		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+		Expect(cond.Reason).To(Equal(infrav1.HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckV1Beta2Reason))
+	})
+
+	It("switches the health check from http back to tcp without waiting for the annotation", func() {
+		checkPort := 8443
+		path := "/readyz"
+		tlsOff := false
+		// No machines at all, so the gate would block if this path went through it.
+		svc, lb := newServiceWithExistingCheck(&hcloud.LoadBalancerAddServiceOptsHealthCheck{
+			Protocol: hcloud.LoadBalancerServiceProtocolHTTP,
+			Port:     &checkPort,
+			HTTP:     &hcloud.LoadBalancerAddServiceOptsHealthCheckHTTP{Path: &path, TLS: &tlsOff},
+		})
+		svc.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerHealthCheckSpec{
+			Protocol: "tcp",
+		}
+
+		res, err := svc.reconcileServices(context.Background(), lb)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.RequeueAfter).To(BeZero())
 
 		Expect(lb.Services).To(HaveLen(1))
 		Expect(string(lb.Services[0].HealthCheck.Protocol)).To(Equal("tcp"))
