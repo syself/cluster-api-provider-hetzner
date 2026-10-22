@@ -5,7 +5,11 @@ on: # yamllint disable-line rule:truthy
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
     branches:
+      # Keep in sync with the branches in pr-e2e.yaml: a PR that gets e2e-tested
+      # should get unit-tested, too.
       - main
+      - release-1.1
+      - release-1.1-base
       - "releases/**"
       - "v1.1.x"
     paths:
