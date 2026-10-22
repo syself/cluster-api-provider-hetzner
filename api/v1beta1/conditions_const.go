@@ -305,6 +305,8 @@ const (
 	GetWorkloadClusterClientFailedReason = "GetWorkloadClusterClientFailed"
 	// GetNodeInWorkloadClusterFailedReason indicates failure in fetching the node object from the workload cluster.
 	GetNodeInWorkloadClusterFailedReason = "GetNodeInWorkloadClusterFailed"
+	// NodeNotFoundReason indicates the node object does not exist in the workload cluster.
+	NodeNotFoundReason = "NodeNotFound"
 	// BootIDEmptyReason indicates that an empty boot ID is present on the node object.
 	BootIDEmptyReason = "BootIDEmpty"
 )
@@ -347,6 +349,8 @@ const (
 	HCloudMachineTemplateWaitingForOwnerClusterV1Beta2Reason = "WaitingForOwnerCluster"
 	// HCloudMachineTemplateMissingInfrastructureRefV1Beta2Reason surfaces when the owner Cluster has no infrastructure reference.
 	HCloudMachineTemplateMissingInfrastructureRefV1Beta2Reason = "MissingInfrastructureRef"
+	// HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason surfaces when spec.template.spec.type is not a known HCloud server type.
+	HCloudMachineTemplateServerTypeNotFoundV1Beta2Reason = "ServerTypeNotFound"
 )
 
 const (
@@ -693,6 +697,8 @@ const (
 	HetznerBareMetalHostGettingWorkloadClusterClientFailedV1Beta2Reason = "GettingWorkloadClusterClientFailed"
 	// HetznerBareMetalHostGettingNodeInWorkloadClusterFailedV1Beta2Reason indicates fetching the node object from the workload cluster failed.
 	HetznerBareMetalHostGettingNodeInWorkloadClusterFailedV1Beta2Reason = "GettingNodeInWorkloadClusterFailed"
+	// HetznerBareMetalHostNodeNotFoundV1Beta2Reason indicates the node object does not exist in the workload cluster.
+	HetznerBareMetalHostNodeNotFoundV1Beta2Reason = "NodeNotFound"
 	// HetznerBareMetalHostBootIDEmptyV1Beta2Reason indicates the boot ID on the node object is empty.
 	HetznerBareMetalHostBootIDEmptyV1Beta2Reason = "BootIDEmpty"
 )
