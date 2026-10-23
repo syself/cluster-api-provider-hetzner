@@ -4,7 +4,7 @@ description: Explore advanced Certificate Signing Request options like using a c
 metatitle: Managing CSR Controller in Clusters Managed by CAPH
 ---
 
-For the secure operation of Kubernetes, it is necessary to sign the kubelet serving certificates. By default, these are self-signed by kubeadm. By using the kubelet flag `rotate-server-certificates: "true"`, which can be found in initConfiguration/joinConfiguration.nodeRegistration.kubeletExtraArgs, the kubelet will do a certificate signing request (CSR) to the certificates API of Kubernetes.
+For the secure operation of Kubernetes, it is necessary to sign the kubelet serving certificates. By default, these are self-signed by kubeadm. By adding the kubelet flag `rotate-server-certificates` with the value `"true"` to initConfiguration/joinConfiguration.nodeRegistration.kubeletExtraArgs, the kubelet will do a certificate signing request (CSR) to the certificates API of Kubernetes.
 
 These CSRs are not approved by default for security reasons. As described in the docs, this should be done manually by the cloud provider or with a custom approval controller.
 
@@ -14,9 +14,11 @@ Since the provider integration is the responsible cloud provider in a way, it ma
 
 For error-free operation, the following kubelet flags should not be set:
 
-```shell
-tls-cert-file: "/var/lib/kubelet/pki/kubelet-client-current.pem"
-tls-private-key-file: "/var/lib/kubelet/pki/kubelet-client-current.pem"
+```yaml
+- name: tls-cert-file
+  value: "/var/lib/kubelet/pki/kubelet-client-current.pem"
+- name: tls-private-key-file
+  value: "/var/lib/kubelet/pki/kubelet-client-current.pem"
 ```
 
 For more information, see:

@@ -98,7 +98,7 @@ Installing Provider="control-plane-kubeadm" Version="v1.13.4" TargetNamespace="c
 Great, cluster-API was upgraded.
 
 > [!NOTE]
-> If you want to update only one components or update components one by one then there are flags for that under `clusterctl upgrade apply` subcommand like `--bootstrap`, `--control-plane` and `--core`.
+> If you want to update only one component or update components one by one then there are flags for that under `clusterctl upgrade apply` subcommand like `--bootstrap`, `--control-plane` and `--core`.
 
 ## Upgrade CAPH
 
@@ -116,7 +116,7 @@ Deleting Provider="infrastructure-hetzner" Version="" Namespace="caph-system"
 Installing Provider="infrastructure-hetzner" Version="v1.0.1" TargetNamespace="caph-system"
 ```
 
-After the upgrade, you'll notice the new pod spinning up the `caph-system` namespace.
+After the upgrade, you'll notice the new pod spinning up in the `caph-system` namespace.
 
 ```console
 $ kubectl get pods -n caph-system
