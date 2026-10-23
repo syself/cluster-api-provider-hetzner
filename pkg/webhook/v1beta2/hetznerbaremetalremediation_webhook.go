@@ -22,7 +22,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // HetznerBareMetalRemediationWebhook implements admission webhooks for HetznerBareMetalRemediation.
@@ -30,32 +30,32 @@ type HetznerBareMetalRemediationWebhook struct{}
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalRemediation.
 func (webhook *HetznerBareMetalRemediationWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav2.HetznerBareMetalRemediation{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HetznerBareMetalRemediation{}).
 		WithValidator(webhook).
 		WithDefaulter(webhook).
 		Complete()
 }
 
-var _ admission.Defaulter[*infrav2.HetznerBareMetalRemediation] = &HetznerBareMetalRemediationWebhook{}
+var _ admission.Defaulter[*infrav1.HetznerBareMetalRemediation] = &HetznerBareMetalRemediationWebhook{}
 
 // Default implements admission.Defaulter so a webhook will be registered for HetznerBareMetalRemediation.
-func (*HetznerBareMetalRemediationWebhook) Default(context.Context, *infrav2.HetznerBareMetalRemediation) error {
+func (*HetznerBareMetalRemediationWebhook) Default(context.Context, *infrav1.HetznerBareMetalRemediation) error {
 	return nil
 }
 
-var _ admission.Validator[*infrav2.HetznerBareMetalRemediation] = &HetznerBareMetalRemediationWebhook{}
+var _ admission.Validator[*infrav1.HetznerBareMetalRemediation] = &HetznerBareMetalRemediationWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HetznerBareMetalRemediation.
-func (*HetznerBareMetalRemediationWebhook) ValidateCreate(context.Context, *infrav2.HetznerBareMetalRemediation) (admission.Warnings, error) {
+func (*HetznerBareMetalRemediationWebhook) ValidateCreate(context.Context, *infrav1.HetznerBareMetalRemediation) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HetznerBareMetalRemediation.
-func (*HetznerBareMetalRemediationWebhook) ValidateUpdate(_ context.Context, _, _ *infrav2.HetznerBareMetalRemediation) (admission.Warnings, error) {
+func (*HetznerBareMetalRemediationWebhook) ValidateUpdate(_ context.Context, _, _ *infrav1.HetznerBareMetalRemediation) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HetznerBareMetalRemediation.
-func (*HetznerBareMetalRemediationWebhook) ValidateDelete(context.Context, *infrav2.HetznerBareMetalRemediation) (admission.Warnings, error) {
+func (*HetznerBareMetalRemediationWebhook) ValidateDelete(context.Context, *infrav1.HetznerBareMetalRemediation) (admission.Warnings, error) {
 	return nil, nil
 }

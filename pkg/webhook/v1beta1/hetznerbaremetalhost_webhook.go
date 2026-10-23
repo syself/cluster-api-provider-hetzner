@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 // HetznerBareMetalHostWebhook implements validating and defaulting webhook for HetznerBareMetalHost.
@@ -39,7 +39,7 @@ func (webhook *HetznerBareMetalHostWebhook) SetupWebhookWithManager(mgr ctrl.Man
 	if webhook.Client == nil {
 		webhook.Client = mgr.GetClient()
 	}
-	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HetznerBareMetalHost{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1beta1.HetznerBareMetalHost{}).
 		WithValidator(webhook).
 		WithDefaulter(webhook).
 		Complete()
@@ -47,22 +47,22 @@ func (webhook *HetznerBareMetalHostWebhook) SetupWebhookWithManager(mgr ctrl.Man
 
 //+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=create;update,versions=v1beta1,name=mutation.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Defaulter[*infrav1.HetznerBareMetalHost] = &HetznerBareMetalHostWebhook{}
+var _ admission.Defaulter[*infrav1beta1.HetznerBareMetalHost] = &HetznerBareMetalHostWebhook{}
 
 // Default implements admission.Defaulter so a webhook will be registered for HetznerBareMetalHost.
-func (*HetznerBareMetalHostWebhook) Default(context.Context, *infrav1.HetznerBareMetalHost) error {
+func (*HetznerBareMetalHostWebhook) Default(context.Context, *infrav1beta1.HetznerBareMetalHost) error {
 	return nil
 }
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Validator[*infrav1.HetznerBareMetalHost] = &HetznerBareMetalHostWebhook{}
+var _ admission.Validator[*infrav1beta1.HetznerBareMetalHost] = &HetznerBareMetalHostWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HetznerBareMetalHost.
-func (webhook *HetznerBareMetalHostWebhook) ValidateCreate(ctx context.Context, host *infrav1.HetznerBareMetalHost) (admission.Warnings, error) {
+func (webhook *HetznerBareMetalHostWebhook) ValidateCreate(ctx context.Context, host *infrav1beta1.HetznerBareMetalHost) (admission.Warnings, error) {
 	var allErrs field.ErrorList
 
-	hetznerBareMetalHostList := &infrav1.HetznerBareMetalHostList{}
+	hetznerBareMetalHostList := &infrav1beta1.HetznerBareMetalHostList{}
 	if err := webhook.Client.List(ctx, hetznerBareMetalHostList, &client.ListOptions{}); err != nil {
 		return admission.Warnings{fmt.Sprintf("could not verify that the host has a unique serverID: %s", err.Error())}, nil
 	}
@@ -79,7 +79,7 @@ func (webhook *HetznerBareMetalHostWebhook) ValidateCreate(ctx context.Context, 
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HetznerBareMetalHost.
-func (*HetznerBareMetalHostWebhook) ValidateUpdate(_ context.Context, oldHost, newHost *infrav1.HetznerBareMetalHost) (admission.Warnings, error) {
+func (*HetznerBareMetalHostWebhook) ValidateUpdate(_ context.Context, oldHost, newHost *infrav1beta1.HetznerBareMetalHost) (admission.Warnings, error) {
 	var allErrs field.ErrorList
 
 	if newHost.Spec.ServerID != oldHost.Spec.ServerID {
@@ -92,6 +92,6 @@ func (*HetznerBareMetalHostWebhook) ValidateUpdate(_ context.Context, oldHost, n
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HetznerBareMetalHost.
-func (*HetznerBareMetalHostWebhook) ValidateDelete(context.Context, *infrav1.HetznerBareMetalHost) (admission.Warnings, error) {
+func (*HetznerBareMetalHostWebhook) ValidateDelete(context.Context, *infrav1beta1.HetznerBareMetalHost) (admission.Warnings, error) {
 	return nil, nil
 }
