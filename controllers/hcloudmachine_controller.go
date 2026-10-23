@@ -699,8 +699,8 @@ func IgnoreInsignificantHCloudMachineStatusUpdates(logger logr.Logger) predicate
 			// Otherwise the next Reconcile is likely to read outdated data, because
 			// the Status was not updated yet. PatchHelper updates three times in this order:
 			// Status.Conditions, Resource, Status.
-			oldHCloudMachine.Spec.ProviderID = nil
-			newHCloudMachine.Spec.ProviderID = nil
+			oldHCloudMachine.Spec.ProviderID = ""
+			newHCloudMachine.Spec.ProviderID = ""
 
 			oldHCloudMachine.Status = infrav1.HCloudMachineStatus{}
 			newHCloudMachine.Status = infrav1.HCloudMachineStatus{}

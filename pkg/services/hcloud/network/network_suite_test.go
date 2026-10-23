@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/utils/ptr"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -45,7 +46,7 @@ func TestNetwork(t *testing.T) {
 var _ = BeforeEach(func() {
 	hetznerCluster.Name = "hetzner-cluster"
 	hetznerCluster.Spec.HCloudNetwork = infrav1.HCloudNetworkSpec{
-		Enabled:         true,
+		Enabled:         ptr.To(true),
 		CIDRBlock:       networkCidr.String(),
 		SubnetCIDRBlock: subnetCidr.String(),
 		NetworkZone:     "eu-central",

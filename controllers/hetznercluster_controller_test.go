@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
@@ -56,7 +57,7 @@ import (
 func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 	return infrav1.HetznerClusterSpec{
 		ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-			Enabled:   true,
+			Enabled:   ptr.To(true),
 			Algorithm: "round_robin",
 			ExtraServices: []infrav1.LoadBalancerServiceSpec{
 				{
@@ -78,7 +79,7 @@ func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 		ControlPlaneRegions:  []infrav1.Region{"fsn1"},
 		HCloudNetwork: infrav1.HCloudNetworkSpec{
 			CIDRBlock:       "10.0.0.0/16",
-			Enabled:         true,
+			Enabled:         ptr.To(true),
 			NetworkZone:     "eu-central",
 			SubnetCIDRBlock: "10.0.0.0/24",
 		},
@@ -94,9 +95,9 @@ func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 		},
 		HetznerSecret: infrav1.HetznerSecretRef{
 			Key: infrav1.HetznerSecretKeyRef{
-				HCloudToken:          "hcloud",
-				HetznerRobotUser:     "robot-user",
-				HetznerRobotPassword: "robot-password",
+				HCloudToken:          ptr.To("hcloud"),
+				HetznerRobotUser:     ptr.To("robot-user"),
+				HetznerRobotPassword: ptr.To("robot-password"),
 			},
 			Name: "hetzner-secret",
 		},
@@ -106,7 +107,7 @@ func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 					Name: "testsshkey",
 				},
 			},
-			RescueSecretRef: infrav1.SSHSecretRef{
+			RescueSecretRef: &infrav1.SSHSecretRef{
 				Name: "rescue-ssh-secret",
 				Key: infrav1.SSHSecretKeyRef{
 					Name:       "sshkey-name",
@@ -621,10 +622,10 @@ func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 		Spec: getDefaultHetznerClusterSpec(),
 	}
 	hetznerCluster.Spec.HetznerSecret.Name = "hetzner"
-	hetznerCluster.Spec.HetznerSecret.Key.HCloudToken = "custom-token"
-	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = "custom-robot-user"
-	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = "custom-robot-password"
-	hetznerCluster.Spec.HCloudNetwork.Enabled = false
+	hetznerCluster.Spec.HetznerSecret.Key.HCloudToken = ptr.To("custom-token")
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = ptr.To("custom-robot-user")
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = ptr.To("custom-robot-password")
+	hetznerCluster.Spec.HCloudNetwork.Enabled = ptr.To(false)
 	hetznerCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 		Host: "198.51.100.10",
 		Port: 6443,
@@ -693,10 +694,10 @@ func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 		Spec: getDefaultHetznerClusterSpec(),
 	}
 	hetznerCluster.Spec.HetznerSecret.Name = "hetzner"
-	hetznerCluster.Spec.HetznerSecret.Key.HCloudToken = "custom-token"
-	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = "custom-robot-user"
-	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = "custom-robot-password"
-	hetznerCluster.Spec.HCloudNetwork.Enabled = false
+	hetznerCluster.Spec.HetznerSecret.Key.HCloudToken = ptr.To("custom-token")
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = ptr.To("custom-robot-user")
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = ptr.To("custom-robot-password")
+	hetznerCluster.Spec.HCloudNetwork.Enabled = ptr.To(false)
 	hetznerCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 		Host: "198.51.100.10",
 		Port: 6443,
@@ -765,9 +766,9 @@ func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing
 		Spec: getDefaultHetznerClusterSpec(),
 	}
 	hetznerCluster.Spec.HetznerSecret.Name = "hetzner"
-	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = "custom-robot-user"
-	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = "custom-robot-password"
-	hetznerCluster.Spec.HCloudNetwork.Enabled = false
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = ptr.To("custom-robot-user")
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = ptr.To("custom-robot-password")
+	hetznerCluster.Spec.HCloudNetwork.Enabled = ptr.To(false)
 	hetznerCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 		Host: "198.51.100.10",
 		Port: 6443,
@@ -840,9 +841,9 @@ func TestReconcileAllWorkloadClusterSecretsUpdatesRotatedCredentials(t *testing.
 		Spec: getDefaultHetznerClusterSpec(),
 	}
 	hetznerCluster.Spec.HetznerSecret.Name = "hetzner"
-	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = "custom-robot-user"
-	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = "custom-robot-password"
-	hetznerCluster.Spec.HCloudNetwork.Enabled = false
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = ptr.To("custom-robot-user")
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = ptr.To("custom-robot-password")
+	hetznerCluster.Spec.HCloudNetwork.Enabled = ptr.To(false)
 	hetznerCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 		Host: "198.51.100.10",
 		Port: 6443,
@@ -1212,7 +1213,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			})
 
 			It("should not create load balancer if disabled and the cluster should get ready", func() {
-				instance.Spec.ControlPlaneLoadBalancer.Enabled = false
+				instance.Spec.ControlPlaneLoadBalancer.Enabled = ptr.To(false)
 				instance.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 					Host: "my.test.host",
 					Port: 6443,
@@ -1387,7 +1388,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			It("should work with capi.syself.com/allow-empty-control-plane-address annotation error condition", func() {
 				instance.Annotations = make(map[string]string)
 				instance.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
-				instance.Spec.ControlPlaneLoadBalancer.Enabled = false
+				instance.Spec.ControlPlaneLoadBalancer.Enabled = ptr.To(false)
 				instance.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{}
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
@@ -1404,7 +1405,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			It("should work with capi.syself.com/allow-empty-control-plane-address annotation error condition custom port", func() {
 				instance.Annotations = make(map[string]string)
 				instance.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
-				instance.Spec.ControlPlaneLoadBalancer.Enabled = false
+				instance.Spec.ControlPlaneLoadBalancer.Enabled = ptr.To(false)
 				instance.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 					Host: "",
 					Port: 1234,
@@ -1424,7 +1425,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			It("should work with capi.syself.com/allow-empty-control-plane-address annotation success condition", func() {
 				instance.Annotations = make(map[string]string)
 				instance.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
-				instance.Spec.ControlPlaneLoadBalancer.Enabled = false
+				instance.Spec.ControlPlaneLoadBalancer.Enabled = ptr.To(false)
 				instance.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 					Host: "localhost",
 					Port: 6443,
@@ -1443,7 +1444,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 			It("should work with enabled load balancer success", func() {
 				instance.Annotations = make(map[string]string)
-				instance.Spec.ControlPlaneLoadBalancer.Enabled = true
+				instance.Spec.ControlPlaneLoadBalancer.Enabled = ptr.To(true)
 				instance.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 					Host: "localhost",
 					Port: 6443,
@@ -1478,7 +1479,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				By("creating a HetznerCluster that enables proxy protocol on this load balancer")
 				instance.Spec.ControlPlaneLoadBalancer.Name = &lbName
-				instance.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+				instance.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = ptr.To(true)
 				instance.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{
 					Host: "localhost",
 					Port: 6443,
@@ -1963,7 +1964,7 @@ var _ = Describe("HetznerCluster validation", func() {
 			hetznerCluster.Annotations = make(map[string]string)
 			hetznerCluster.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
 			hetznerCluster.Spec.ControlPlaneRegions = []infrav1.Region{}
-			hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = false
+			hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = ptr.To(false)
 			hetznerCluster.Spec.ControlPlaneEndpoint.Port = 443
 			hetznerCluster.Spec.ControlPlaneEndpoint.Host = "localhost"
 			Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
@@ -1973,7 +1974,7 @@ var _ = Describe("HetznerCluster validation", func() {
 			hetznerCluster.Annotations = make(map[string]string)
 			hetznerCluster.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
 			hetznerCluster.Spec.ControlPlaneRegions = []infrav1.Region{}
-			hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = false
+			hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = ptr.To(false)
 			hetznerCluster.Spec.ControlPlaneEndpoint.Port = 443
 			hetznerCluster.Spec.ControlPlaneEndpoint.Host = ""
 			Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
@@ -1983,7 +1984,7 @@ var _ = Describe("HetznerCluster validation", func() {
 			hetznerCluster.Annotations = make(map[string]string)
 			hetznerCluster.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
 			hetznerCluster.Spec.ControlPlaneRegions = []infrav1.Region{}
-			hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = false
+			hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = ptr.To(false)
 			hetznerCluster.Spec.ControlPlaneEndpoint = infrav1.APIEndpoint{}
 			Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 		})
@@ -2015,6 +2016,51 @@ var _ = Describe("HetznerCluster validation", func() {
 			})
 			Expect(testEnv.Create(ctx, hetznerCluster)).ToNot(Succeed())
 		})
+	})
+})
+
+var _ = Describe("HetznerCluster stored without controlPlaneLoadBalancer and hcloudNetwork", func() {
+	It("accepts a v1beta2 patch", func() {
+		testNs, finish, err := testEnv.ResetAndCreateNamespace(ctx, "hetznercluster-without-blocks")
+		finish()
+		Expect(err).NotTo(HaveOccurred())
+		defer func() {
+			Expect(testEnv.Cleanup(ctx, testNs)).To(Succeed())
+		}()
+
+		// The typed v1beta1 client always sends both blocks, so the object is created as unstructured.
+		v1beta1Cluster := &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "infrastructure.cluster.x-k8s.io/v1beta1",
+			"kind":       "HetznerCluster",
+			"metadata": map[string]interface{}{
+				"name":        "without-blocks",
+				"namespace":   testNs.Name,
+				"annotations": map[string]interface{}{infrav1.AllowEmptyControlPlaneAddressAnnotation: "true"},
+			},
+			"spec": map[string]interface{}{
+				"controlPlaneRegions": []interface{}{"fsn1"},
+				"sshKeys":             map[string]interface{}{},
+				"hetznerSecretRef": map[string]interface{}{
+					"name": "hetzner-secret",
+					"key":  map[string]interface{}{"hcloudToken": "hcloud"},
+				},
+			},
+		}}
+		Expect(testEnv.Create(ctx, v1beta1Cluster)).To(Succeed())
+
+		hetznerCluster := &infrav1.HetznerCluster{}
+		key := client.ObjectKey{Namespace: testNs.Name, Name: "without-blocks"}
+		Eventually(func() error {
+			return testEnv.Get(ctx, key, hetznerCluster)
+		}, timeout).Should(Succeed())
+
+		patchBase := client.MergeFrom(hetznerCluster.DeepCopy())
+		hetznerCluster.Finalizers = append(hetznerCluster.Finalizers, "test.syself.com/finalizer")
+		Expect(testEnv.Patch(ctx, hetznerCluster, patchBase)).To(Succeed())
+
+		patchBase = client.MergeFrom(hetznerCluster.DeepCopy())
+		hetznerCluster.Finalizers = nil
+		Expect(testEnv.Patch(ctx, hetznerCluster, patchBase)).To(Succeed())
 	})
 })
 
@@ -2085,7 +2131,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		hetznerCluster := &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{
 				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-					Enabled: false,
+					Enabled: ptr.To(false),
 				},
 				ControlPlaneEndpoint: infrav1.APIEndpoint{},
 			},
@@ -2106,7 +2152,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		hetznerCluster := &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{
 				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-					Enabled: false,
+					Enabled: ptr.To(false),
 				},
 				ControlPlaneEndpoint: infrav1.APIEndpoint{
 					Host: "xyz",
@@ -2138,7 +2184,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		hetznerCluster := &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{
 				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-					Enabled: true,
+					Enabled: ptr.To(true),
 				},
 				ControlPlaneEndpoint: infrav1.APIEndpoint{},
 			},
@@ -2178,7 +2224,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		hetznerCluster := &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{
 				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-					Enabled: true,
+					Enabled: ptr.To(true),
 				},
 			},
 		}
@@ -2194,7 +2240,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		hetznerCluster := &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{
 				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-					Enabled: true,
+					Enabled: ptr.To(true),
 					Port:    11,
 				},
 				ControlPlaneEndpoint: infrav1.APIEndpoint{},
@@ -2222,8 +2268,8 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Host set. Got: %s, Want: %s", hetznerCluster.Spec.ControlPlaneEndpoint.Host, hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4)
 		}
 
-		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) { //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
-			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != hetznerCluster.Spec.ControlPlaneLoadBalancer.Port {
+			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
 		}
 
 		if isHetznerClusterProvisioned(hetznerCluster) != true {
@@ -2235,7 +2281,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		hetznerCluster := &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{
 				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-					Enabled: true,
+					Enabled: ptr.To(true),
 					Port:    21,
 				},
 				ControlPlaneEndpoint: infrav1.APIEndpoint{
@@ -2256,8 +2302,8 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Host set. Got: %s, Want: %s", hetznerCluster.Spec.ControlPlaneEndpoint.Host, hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4)
 		}
 
-		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) { //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
-			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != hetznerCluster.Spec.ControlPlaneLoadBalancer.Port {
+			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
 		}
 
 		if isHetznerClusterProvisioned(hetznerCluster) != true {
@@ -2269,7 +2315,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		hetznerCluster := &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{
 				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-					Enabled: true,
+					Enabled: ptr.To(true),
 					Port:    21,
 				},
 				ControlPlaneEndpoint: infrav1.APIEndpoint{
@@ -2290,8 +2336,8 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Host set. Got: %s, Want: 'xyz'", hetznerCluster.Spec.ControlPlaneEndpoint.Host)
 		}
 
-		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) { //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
-			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != hetznerCluster.Spec.ControlPlaneLoadBalancer.Port {
+			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
 		}
 
 		if isHetznerClusterProvisioned(hetznerCluster) != true {
@@ -2303,7 +2349,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		hetznerCluster := &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{
 				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-					Enabled: true,
+					Enabled: ptr.To(true),
 					Port:    21,
 				},
 				ControlPlaneEndpoint: infrav1.APIEndpoint{
@@ -2337,7 +2383,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		hetznerCluster := &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{
 				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-					Enabled: true,
+					Enabled: ptr.To(true),
 					Port:    21,
 				},
 				ControlPlaneEndpoint: infrav1.APIEndpoint{

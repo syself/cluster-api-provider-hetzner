@@ -33,7 +33,9 @@ const (
 type HCloudMachineSpec struct {
 	// providerID is the unique identifier as specified by the cloud provider.
 	// +optional
-	ProviderID *string `json:"providerID,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=512
+	ProviderID string `json:"providerID,omitempty"`
 
 	// type is the HCloud Machine Type for this machine. It defines the desired server type of
 	// server in Hetzner's Cloud API. You can use the hcloud CLI to get server names (`hcloud
@@ -47,28 +49,33 @@ type HCloudMachineSpec struct {
 	// The list of valid machine types gets changed by Hetzner from time to time. CAPH does not
 	// validate this string. It is up to you to use a valid type. Not all types are available in all
 	// locations.
-	Type HCloudMachineType `json:"type"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Type HCloudMachineType `json:"type,omitempty"`
 
 	// imageName is the reference to the Machine Image from which to create the machine instance.
 	// It can reference an image uploaded to Hetzner API in two ways: either directly as the name of an image or as the label of an image.
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:Optional
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
 	ImageName string `json:"imageName,omitempty"`
 
 	// customProvisioner provisions the machine with a custom command instead of an HCloud image.
 	// Exactly one of imageName or customProvisioner must be set.
 	// +optional
-	CustomProvisioner *HCloudCustomProvisioner `json:"customProvisioner,omitempty"`
+	CustomProvisioner HCloudCustomProvisioner `json:"customProvisioner,omitempty,omitzero"`
 
 	// sshKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=100
 	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
 
 	// placementGroupName defines the placement group of the machine in HCloud API that must reference an existing placement group.
+	// The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
 	// +optional
+	// +kubebuilder:validation:MaxLength=255
 	PlacementGroupName *string `json:"placementGroupName,omitempty"`
 
 	// publicNetwork specifies information for public networks. It defines the specs about
@@ -94,17 +101,32 @@ type HCloudCustomProvisioner struct {
 	// A Kubernetes event will be created in both (success, failure) cases containing the output
 	// (stdout and stderr) of the script. If the script takes longer than 20 minutes, the
 	// controller cancels the provisioning.
+	//
+	// The limit is 8 KiB, the default URL length limit of common HTTP servers.
+	// +required
 	// +kubebuilder:validation:MinLength=1
-	URL string `json:"url"`
+	// +kubebuilder:validation:MaxLength=8192
+	URL string `json:"url,omitempty"`
 
 	// command is the basename of a command file below /shared on the controller pod which
 	// provisions a machine from url. CAPH copies that command into the rescue system and
 	// executes it there.
+	// +required
 	// +kubebuilder:validation:MinLength=1
-	Command string `json:"command"`
+	// +kubebuilder:validation:MaxLength=255
+	Command string `json:"command,omitempty"`
+}
+
+// IsDefined returns true if the HCloudCustomProvisioner is set.
+func (p *HCloudCustomProvisioner) IsDefined() bool {
+	if p == nil {
+		return false
+	}
+	return p.URL != "" || p.Command != ""
 }
 
 // HCloudMachineStatus defines the observed state of HCloudMachine.
+// +kubebuilder:validation:MinProperties=1
 type HCloudMachineStatus struct {
 	// conditions represents the observations of an HCloudMachine's current state.
 	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded, ServerCreated, SSHPrivateKeyAvailable, ServerProvisioned and ServerAvailable.
@@ -122,6 +144,7 @@ type HCloudMachineStatus struct {
 	// addresses contain the server's associated addresses.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=256
 	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
 
 	// region contains the name of the HCloud location the server is running.
@@ -129,13 +152,17 @@ type HCloudMachineStatus struct {
 	Region Region `json:"region,omitempty"`
 
 	// sshKeys specifies the ssh keys that were used for provisioning the server.
+	// It lists the keys from spec.sshKeys, or from the HetznerCluster when spec.sshKeys is empty,
+	// and also the ssh key from the Hetzner secret. So it can have one key more than the spec allows.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=101
 	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
 
 	// instanceState is the state of the server for this machine.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	InstanceState InstanceState `json:"instanceState,omitempty"`
 
 	// bootState indicates the current state during provisioning.
@@ -152,16 +179,16 @@ type HCloudMachineStatus struct {
 	//   5. BootingToRealOS
 	//   6. OperatingSystemRunning
 	// +optional
-	BootState HCloudBootState `json:"bootState"`
+	BootState HCloudBootState `json:"bootState,omitempty"`
 
 	// bootStateSince is the timestamp of the last change to bootState. It is used to timeout
 	// provisioning if a state takes too long.
 	// +optional
-	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`
+	BootStateSince metav1.Time `json:"bootStateSince,omitempty,omitzero"`
 
 	// externalIDs contains temporary data during the provisioning process
 	// +optional
-	ExternalIDs HCloudMachineStatusExternalIDs `json:"externalIDs,omitempty"`
+	ExternalIDs HCloudMachineStatusExternalIDs `json:"externalIDs,omitempty,omitzero"`
 
 	// lastRemediatedAt records when the most recent successful remediation completed.
 	// Used to prevent reboot loops across successive MHC incidents.
@@ -197,11 +224,9 @@ type HCloudMachineV1Beta1DeprecatedStatus struct {
 	// conditions defines current service state of the HCloudMachine.
 	//
 	// +optional
-	// +listType=map
-	// +listMapKey=type
 	//
 	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
 // InstanceState is the state of the HCloud server that backs an HCloudMachine. It is set from the
@@ -209,6 +234,7 @@ type HCloudMachineV1Beta1DeprecatedStatus struct {
 // not report on its own, such as deletion driven by CAPH. The field may hold any status the Hetzner API
 // reports. The constants below name common Hetzner Cloud server statuses and the deleting state that
 // CAPH sets.
+// +kubebuilder:validation:MaxLength=64
 type InstanceState string
 
 const (
@@ -229,14 +255,19 @@ const (
 )
 
 // HCloudMachineStatusExternalIDs holds temporary data during the provisioning process.
+// +kubebuilder:validation:MinProperties=1
 type HCloudMachineStatusExternalIDs struct {
 	// actionIdEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
+	// It is unset before the action starts, has the action ID while the action runs, and is -1 when
+	// the action is done.
 	// +optional
-	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`
+	ActionIDEnableRescueSystem *int64 `json:"actionIdEnableRescueSystem,omitempty"`
 
 	// actionIdCreateServer is the hcloud API Action result of CreateServer.
+	// It is unset before the action starts, has the action ID while the action runs, and is -1 when
+	// the action is done.
 	// +optional
-	ActionIDCreateServer int64 `json:"actionIdCreateServer,omitzero"`
+	ActionIDCreateServer *int64 `json:"actionIdCreateServer,omitempty"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.
@@ -252,11 +283,18 @@ type HCloudMachineStatusExternalIDs struct {
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message",priority=1
 // +k8s:defaulter-gen=true
 type HCloudMachine struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HCloudMachineSpec   `json:"spec,omitempty"`
-	Status HCloudMachineStatus `json:"status,omitempty"`
+	// spec is the desired state of HCloudMachine.
+	// +optional
+	Spec HCloudMachineSpec `json:"spec,omitempty,omitzero"`
+	// status is the observed state of HCloudMachine.
+	// +optional
+	Status HCloudMachineStatus `json:"status,omitempty,omitzero"`
 }
 
 // GetConditions returns the set of conditions for the HCloudMachine object.

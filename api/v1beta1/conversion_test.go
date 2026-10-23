@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
@@ -108,7 +109,7 @@ func TestConvertHetznerBareMetalHostConsumerRefToV1Beta2(t *testing.T) {
 	if err := Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(src, dst, nil); err != nil {
 		t.Fatalf("failed to convert HetznerBareMetalHost to v1beta2: %v", err)
 	}
-	if dst.Spec.ConsumerRef == nil {
+	if !dst.Spec.ConsumerRef.IsDefined() {
 		t.Fatal("expected ConsumerRef to be converted")
 	}
 	if dst.Spec.ConsumerRef.Kind != "HetznerBareMetalMachine" {
@@ -146,7 +147,7 @@ func TestConvertHetznerBareMetalHostConsumerRefToV1Beta1RestoresNamespace(t *tes
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
 			ServerID: 1,
-			ConsumerRef: &infrav1.HetznerBareMetalHostConsumerReference{
+			ConsumerRef: infrav1.HetznerBareMetalHostConsumerReference{
 				Kind:     "HetznerBareMetalMachine",
 				Name:     "machine-a",
 				APIGroup: infrav1.GroupVersion.Group,
@@ -175,15 +176,15 @@ func TestConvertHetznerBareMetalHostConsumerRefToV1Beta1RestoresNamespace(t *tes
 	}
 }
 
-// TestConvertHetznerBareMetalHostConsumerRefNil verifies that nil ConsumerRef values stay nil in
-// both conversion directions.
+// TestConvertHetznerBareMetalHostConsumerRefNil verifies that a nil v1beta1 ConsumerRef converts to
+// the empty v1beta2 value, and the empty v1beta2 value converts back to nil.
 func TestConvertHetznerBareMetalHostConsumerRefNil(t *testing.T) {
 	toV1Beta2 := &infrav1.HetznerBareMetalHostSpec{}
 	if err := Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(&HetznerBareMetalHostSpec{}, toV1Beta2, nil); err != nil {
 		t.Fatalf("failed to convert nil ConsumerRef to v1beta2: %v", err)
 	}
-	if toV1Beta2.ConsumerRef != nil {
-		t.Fatal("expected nil ConsumerRef to stay nil when converting to v1beta2")
+	if toV1Beta2.ConsumerRef.IsDefined() {
+		t.Fatal("expected nil ConsumerRef to stay empty when converting to v1beta2")
 	}
 
 	toV1Beta1 := &HetznerBareMetalHostSpec{}
@@ -412,7 +413,7 @@ func TestConvertHetznerBareMetalHostErrorTypeToV1Beta2(t *testing.T) {
 		errorType         ErrorType
 		rebootTriggeredAt *metav1.Time
 		wantErrorType     infrav1.ErrorType
-		wantOngoingReboot *infrav1.OngoingReboot
+		wantOngoingReboot infrav1.OngoingReboot
 	}{
 		{
 			name:          "fatal error is copied",
@@ -434,19 +435,19 @@ func TestConvertHetznerBareMetalHostErrorTypeToV1Beta2(t *testing.T) {
 			name:              "ssh reboot becomes an ongoing reboot",
 			errorType:         ErrorTypeSSHRebootTriggered,
 			rebootTriggeredAt: &triggeredAt,
-			wantOngoingReboot: &infrav1.OngoingReboot{Type: infrav1.RebootTypeSSH, TriggeredAt: triggeredAt},
+			wantOngoingReboot: infrav1.OngoingReboot{Type: infrav1.RebootTypeSSH, TriggeredAt: triggeredAt},
 		},
 		{
 			name:              "software reboot becomes an ongoing reboot",
 			errorType:         ErrorTypeSoftwareRebootTriggered,
 			rebootTriggeredAt: &triggeredAt,
-			wantOngoingReboot: &infrav1.OngoingReboot{Type: infrav1.RebootTypeSoftware, TriggeredAt: triggeredAt},
+			wantOngoingReboot: infrav1.OngoingReboot{Type: infrav1.RebootTypeSoftware, TriggeredAt: triggeredAt},
 		},
 		{
 			name:              "hardware reboot becomes an ongoing reboot",
 			errorType:         ErrorTypeHardwareRebootTriggered,
 			rebootTriggeredAt: &triggeredAt,
-			wantOngoingReboot: &infrav1.OngoingReboot{Type: infrav1.RebootTypeHardware, TriggeredAt: triggeredAt},
+			wantOngoingReboot: infrav1.OngoingReboot{Type: infrav1.RebootTypeHardware, TriggeredAt: triggeredAt},
 		},
 		{
 			name:      "reboot without rebootTriggeredAt does not get an ongoing reboot",
@@ -508,7 +509,7 @@ func TestConvertHetznerBareMetalHostOngoingRebootToV1Beta1(t *testing.T) {
 	tests := []struct {
 		name                  string
 		errorType             infrav1.ErrorType
-		ongoingReboot         *infrav1.OngoingReboot
+		ongoingReboot         infrav1.OngoingReboot
 		wantErrorType         ErrorType
 		wantRebootTriggeredAt *metav1.Time
 	}{
@@ -522,14 +523,14 @@ func TestConvertHetznerBareMetalHostOngoingRebootToV1Beta1(t *testing.T) {
 		},
 		{
 			name:                  "ongoing reboot",
-			ongoingReboot:         &infrav1.OngoingReboot{Type: infrav1.RebootTypeSoftware, TriggeredAt: triggeredAt},
+			ongoingReboot:         infrav1.OngoingReboot{Type: infrav1.RebootTypeSoftware, TriggeredAt: triggeredAt},
 			wantErrorType:         ErrorTypeSoftwareRebootTriggered,
 			wantRebootTriggeredAt: &triggeredAt,
 		},
 		{
 			name:                  "errorType keeps the permanent error when there is also an ongoing reboot",
 			errorType:             infrav1.ErrorTypePermanent,
-			ongoingReboot:         &infrav1.OngoingReboot{Type: infrav1.RebootTypeHardware, TriggeredAt: triggeredAt},
+			ongoingReboot:         infrav1.OngoingReboot{Type: infrav1.RebootTypeHardware, TriggeredAt: triggeredAt},
 			wantErrorType:         PermanentError,
 			wantRebootTriggeredAt: &triggeredAt,
 		},
@@ -585,14 +586,14 @@ func TestConvertHetznerBareMetalMachineCustomProvisioner(t *testing.T) {
 	if err := Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(&src, &hub, nil); err != nil {
 		t.Fatalf("convert to v1beta2 failed: %v", err)
 	}
-	if hub.InstallImage != nil {
-		t.Fatalf("installImage should be nil for the custom provisioner flow, got %#v", hub.InstallImage)
+	if hub.InstallImage.IsDefined() {
+		t.Fatalf("installImage should be empty for the custom provisioner flow, got %#v", hub.InstallImage)
 	}
-	wantCustom := &infrav1.CustomProvisioner{
+	wantCustom := infrav1.CustomProvisioner{
 		URL:              "oci://ghcr.io/example/ubuntu:v1",
 		Command:          "image-url-command-bm-test.sh",
 		DeviceStringType: infrav1.DeviceStringTypeWWN,
-		Swraid:           1,
+		Swraid:           ptr.To[int32](1),
 	}
 	if !reflect.DeepEqual(hub.CustomProvisioner, wantCustom) {
 		t.Fatalf("customProvisioner mismatch:\n got: %#v\nwant: %#v", hub.CustomProvisioner, wantCustom)
@@ -623,7 +624,7 @@ func TestConvertHCloudMachineCustomProvisioner(t *testing.T) {
 	if err := Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(&src, &hub, nil); err != nil {
 		t.Fatalf("convert to v1beta2 failed: %v", err)
 	}
-	wantCustom := &infrav1.HCloudCustomProvisioner{
+	wantCustom := infrav1.HCloudCustomProvisioner{
 		URL:     "oci://ghcr.io/example/ubuntu:v1",
 		Command: "image-url-command-hcloud-test.sh",
 	}
@@ -871,6 +872,840 @@ func TestHetznerBareMetalMachineFailureFieldsAreDropped(t *testing.T) {
 
 	if hub.Status.Deprecated != nil {
 		t.Fatalf("expected failure fields to be dropped, got status.deprecated = %#v", hub.Status.Deprecated)
+	}
+}
+
+// TestConvertDefaultedFieldsKeepZeroValues verifies that a v1beta1 false, 0 or "" in a field that has a
+// default in v1beta2 converts to a non-nil pointer, and back to the same v1beta1 value. A nil pointer
+// would get the v1beta2 default the next time the object is written through v1beta2.
+func TestConvertDefaultedFieldsKeepZeroValues(t *testing.T) {
+	t.Run("HetznerCluster load balancer enabled and secret keys", func(t *testing.T) {
+		src := HetznerClusterSpec{
+			// The API server fills port in a stored block, so the block is not a zero struct.
+			ControlPlaneLoadBalancer: LoadBalancerSpec{Enabled: false, Port: 6443},
+			HetznerSecret: HetznerSecretRef{
+				Key: HetznerSecretKeyRef{HCloudToken: "", HetznerRobotUser: "", HetznerRobotPassword: "", SSHKey: ""},
+			},
+		}
+
+		var hub infrav1.HetznerClusterSpec
+		if err := Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(&src, &hub, nil); err != nil {
+			t.Fatalf("convert to v1beta2 failed: %v", err)
+		}
+		if !reflect.DeepEqual(hub.ControlPlaneLoadBalancer.Enabled, ptr.To(false)) {
+			t.Fatalf("controlPlaneLoadBalancer.enabled = %v, want pointer to false", hub.ControlPlaneLoadBalancer.Enabled)
+		}
+		key := hub.HetznerSecret.Key
+		for name, got := range map[string]*string{
+			"hcloudToken":          key.HCloudToken,
+			"hetznerRobotUser":     key.HetznerRobotUser,
+			"hetznerRobotPassword": key.HetznerRobotPassword,
+			"sshKey":               key.SSHKey,
+		} {
+			if !reflect.DeepEqual(got, ptr.To("")) {
+				t.Fatalf("hetznerSecretRef.key.%s = %v, want pointer to \"\"", name, got)
+			}
+		}
+
+		var back HetznerClusterSpec
+		if err := Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(&hub, &back, nil); err != nil {
+			t.Fatalf("convert back to v1beta1 failed: %v", err)
+		}
+		if back.ControlPlaneLoadBalancer.Enabled != src.ControlPlaneLoadBalancer.Enabled {
+			t.Fatalf("controlPlaneLoadBalancer.enabled = %v, want %v", back.ControlPlaneLoadBalancer.Enabled, src.ControlPlaneLoadBalancer.Enabled)
+		}
+		if back.HetznerSecret.Key != src.HetznerSecret.Key {
+			t.Fatalf("hetznerSecretRef.key = %#v, want %#v", back.HetznerSecret.Key, src.HetznerSecret.Key)
+		}
+	})
+
+	t.Run("public network IPv4 and IPv6", func(t *testing.T) {
+		src := PublicNetworkSpec{EnableIPv4: false, EnableIPv6: false}
+
+		var hub infrav1.PublicNetworkSpec
+		if err := Convert_v1beta1_PublicNetworkSpec_To_v1beta2_PublicNetworkSpec(&src, &hub, nil); err != nil {
+			t.Fatalf("convert to v1beta2 failed: %v", err)
+		}
+		if !reflect.DeepEqual(hub, infrav1.PublicNetworkSpec{EnableIPv4: ptr.To(false), EnableIPv6: ptr.To(false)}) {
+			t.Fatalf("publicNetwork = %#v, want pointers to false", hub)
+		}
+
+		var back PublicNetworkSpec
+		if err := Convert_v1beta2_PublicNetworkSpec_To_v1beta1_PublicNetworkSpec(&hub, &back, nil); err != nil {
+			t.Fatalf("convert back to v1beta1 failed: %v", err)
+		}
+		if back != src {
+			t.Fatalf("publicNetwork = %#v, want %#v", back, src)
+		}
+	})
+
+	t.Run("installImage swraid and swraidLevel", func(t *testing.T) {
+		src := InstallImage{Swraid: 0, SwraidLevel: 0}
+
+		var hub infrav1.InstallImage
+		if err := Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(&src, &hub, nil); err != nil {
+			t.Fatalf("convert to v1beta2 failed: %v", err)
+		}
+		if !reflect.DeepEqual(hub.Swraid, ptr.To[int32](0)) || !reflect.DeepEqual(hub.SwraidLevel, ptr.To[int32](0)) {
+			t.Fatalf("swraid = %v, swraidLevel = %v, want pointers to 0", hub.Swraid, hub.SwraidLevel)
+		}
+
+		var back InstallImage
+		if err := Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(&hub, &back, nil); err != nil {
+			t.Fatalf("convert back to v1beta1 failed: %v", err)
+		}
+		if back.Swraid != 0 || back.SwraidLevel != 0 {
+			t.Fatalf("swraid = %d, swraidLevel = %d, want 0 and 0", back.Swraid, back.SwraidLevel)
+		}
+	})
+
+	t.Run("sshSpec portAfterInstallImage", func(t *testing.T) {
+		// A port of 0 is valid when noSSHAfterInstallImage is true, because the port is then never used.
+		src := SSHSpec{NoSSHAfterInstallImage: true, PortAfterInstallImage: 0, PortAfterCloudInit: 0}
+
+		var hub infrav1.SSHSpec
+		if err := Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(&src, &hub, nil); err != nil {
+			t.Fatalf("convert to v1beta2 failed: %v", err)
+		}
+		want := infrav1.SSHSpec{NoSSHAfterInstallImage: ptr.To(true), PortAfterInstallImage: ptr.To[int32](0)}
+		if !reflect.DeepEqual(hub, want) {
+			t.Fatalf("sshSpec = %#v, want portAfterInstallImage pointer to 0", hub)
+		}
+
+		var back SSHSpec
+		if err := Convert_v1beta2_SSHSpec_To_v1beta1_SSHSpec(&hub, &back, nil); err != nil {
+			t.Fatalf("convert back to v1beta1 failed: %v", err)
+		}
+		if back != src {
+			t.Fatalf("sshSpec = %#v, want %#v", back, src)
+		}
+	})
+
+	t.Run("remediation timeout", func(t *testing.T) {
+		for _, timeout := range []*metav1.Duration{nil, {Duration: 0}} {
+			src := RemediationStrategy{Timeout: timeout}
+
+			var hub infrav1.RemediationStrategy
+			if err := Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(&src, &hub, nil); err != nil {
+				t.Fatalf("convert to v1beta2 failed: %v", err)
+			}
+			if !reflect.DeepEqual(hub.TimeoutSeconds, ptr.To[int32](0)) {
+				t.Fatalf("timeoutSeconds = %v for timeout %v, want pointer to 0", hub.TimeoutSeconds, timeout)
+			}
+
+			var back RemediationStrategy
+			if err := Convert_v1beta2_RemediationStrategy_To_v1beta1_RemediationStrategy(&hub, &back, nil); err != nil {
+				t.Fatalf("convert back to v1beta1 failed: %v", err)
+			}
+			if !reflect.DeepEqual(back.Timeout, &metav1.Duration{}) {
+				t.Fatalf("timeout = %v, want 0s", back.Timeout)
+			}
+		}
+	})
+}
+
+// TestConvertUnsetDefaultedFieldsToV1Beta1 verifies that an unset v1beta2 field converts to the
+// value that v1beta1 had for an unset field.
+func TestConvertUnsetDefaultedFieldsToV1Beta1(t *testing.T) {
+	var publicNetwork PublicNetworkSpec
+	if err := Convert_v1beta2_PublicNetworkSpec_To_v1beta1_PublicNetworkSpec(&infrav1.PublicNetworkSpec{}, &publicNetwork, nil); err != nil {
+		t.Fatalf("convert publicNetwork failed: %v", err)
+	}
+	if !publicNetwork.EnableIPv4 || !publicNetwork.EnableIPv6 {
+		t.Fatalf("publicNetwork = %#v, want the default true for both", publicNetwork)
+	}
+
+	var key HetznerSecretKeyRef
+	if err := Convert_v1beta2_HetznerSecretKeyRef_To_v1beta1_HetznerSecretKeyRef(&infrav1.HetznerSecretKeyRef{}, &key, nil); err != nil {
+		t.Fatalf("convert hetznerSecretRef.key failed: %v", err)
+	}
+	for name, tc := range map[string]struct{ got, want string }{
+		"hcloudToken":          {key.HCloudToken, "token"},
+		"hetznerRobotUser":     {key.HetznerRobotUser, "hetzner-robot-user"},
+		"hetznerRobotPassword": {key.HetznerRobotPassword, "hetzner-robot-password"},
+		"sshKey":               {key.SSHKey, "hcloud-ssh-key-name"},
+	} {
+		if tc.got != tc.want {
+			t.Fatalf("hetznerSecretRef.key.%s = %q, want the default %q", name, tc.got, tc.want)
+		}
+	}
+
+	var installImage InstallImage
+	if err := Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(&infrav1.InstallImage{}, &installImage, nil); err != nil {
+		t.Fatalf("convert installImage failed: %v", err)
+	}
+	if installImage.Swraid != 0 || installImage.SwraidLevel != 1 {
+		t.Fatalf("swraid = %d, swraidLevel = %d, want the defaults 0 and 1", installImage.Swraid, installImage.SwraidLevel)
+	}
+
+	var sshSpec SSHSpec
+	if err := Convert_v1beta2_SSHSpec_To_v1beta1_SSHSpec(&infrav1.SSHSpec{}, &sshSpec, nil); err != nil {
+		t.Fatalf("convert sshSpec failed: %v", err)
+	}
+	if sshSpec.PortAfterInstallImage != 22 || sshSpec.PortAfterCloudInit != 0 {
+		t.Fatalf("portAfterInstallImage = %d, portAfterCloudInit = %d, want 22 and 0", sshSpec.PortAfterInstallImage, sshSpec.PortAfterCloudInit)
+	}
+
+	// A controlPlaneLoadBalancer that is left out gets no defaults, and enabled is not set. An unset
+	// enabled means no load balancer. It converts to false.
+	var loadBalancer LoadBalancerSpec
+	if err := Convert_v1beta2_LoadBalancerSpec_To_v1beta1_LoadBalancerSpec(&infrav1.LoadBalancerSpec{}, &loadBalancer, nil); err != nil {
+		t.Fatalf("convert controlPlaneLoadBalancer failed: %v", err)
+	}
+	if loadBalancer.Enabled {
+		t.Fatal("controlPlaneLoadBalancer.enabled = true, want false")
+	}
+}
+
+// TestConvertSSHStatusKeys checks osKey and rescueKey, which are pointers in v1beta1 and values in
+// v1beta2. An empty v1beta1 key does not have any data. It comes back as nil.
+func TestConvertSSHStatusKeys(t *testing.T) {
+	osKey := SSHKey{Name: "os-key", Fingerprint: "aa:bb"}
+	rescueKey := SSHKey{Name: "rescue-key", Fingerprint: "cc:dd"}
+
+	toV1Beta2 := []struct {
+		name string
+		in   SSHStatus
+		want infrav1.SSHStatus
+	}{
+		{
+			name: "nil keys become empty values",
+			in:   SSHStatus{},
+			want: infrav1.SSHStatus{},
+		},
+		{
+			name: "empty keys become empty values",
+			in:   SSHStatus{OSKey: &SSHKey{}, RescueKey: &SSHKey{}},
+			want: infrav1.SSHStatus{},
+		},
+		{
+			name: "set keys keep their values",
+			in:   SSHStatus{OSKey: &osKey, RescueKey: &rescueKey},
+			want: infrav1.SSHStatus{
+				OSKey:     infrav1.SSHKey{Name: "os-key", Fingerprint: "aa:bb"},
+				RescueKey: infrav1.SSHKey{Name: "rescue-key", Fingerprint: "cc:dd"},
+			},
+		},
+	}
+	for _, tc := range toV1Beta2 {
+		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
+			var got infrav1.SSHStatus
+			if err := Convert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(&tc.in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("sshStatus = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+
+	toV1Beta1 := []struct {
+		name string
+		in   infrav1.SSHStatus
+		want SSHStatus
+	}{
+		{
+			name: "empty keys become nil",
+			in:   infrav1.SSHStatus{},
+			want: SSHStatus{},
+		},
+		{
+			name: "set keys become pointers",
+			in: infrav1.SSHStatus{
+				OSKey:     infrav1.SSHKey{Name: "os-key", Fingerprint: "aa:bb"},
+				RescueKey: infrav1.SSHKey{Name: "rescue-key", Fingerprint: "cc:dd"},
+			},
+			want: SSHStatus{OSKey: &osKey, RescueKey: &rescueKey},
+		},
+	}
+	for _, tc := range toV1Beta1 {
+		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
+			var got SSHStatus
+			if err := Convert_v1beta2_SSHStatus_To_v1beta1_SSHStatus(&tc.in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("sshStatus = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestConvertHCloudRemediationSpecStrategy checks strategy, which is a pointer in v1beta1 and a value
+// in v1beta2. timeoutSeconds is required in v1beta2. For this reason every v1beta1 strategy gets one.
+func TestConvertHCloudRemediationSpecStrategy(t *testing.T) {
+	toV1Beta2 := []struct {
+		name string
+		in   HCloudRemediationSpec
+		want infrav1.HCloudRemediationSpec
+	}{
+		{
+			name: "nil strategy becomes an empty strategy",
+			in:   HCloudRemediationSpec{},
+			want: infrav1.HCloudRemediationSpec{},
+		},
+		{
+			name: "empty strategy gets timeoutSeconds 0",
+			in:   HCloudRemediationSpec{Strategy: &RemediationStrategy{}},
+			want: infrav1.HCloudRemediationSpec{Strategy: infrav1.RemediationStrategy{TimeoutSeconds: ptr.To[int32](0)}},
+		},
+		{
+			name: "set strategy keeps its values",
+			in: HCloudRemediationSpec{Strategy: &RemediationStrategy{
+				Type:       RemediationTypeReboot,
+				RetryLimit: 2,
+				Timeout:    &metav1.Duration{Duration: 5 * time.Minute},
+			}},
+			want: infrav1.HCloudRemediationSpec{Strategy: infrav1.RemediationStrategy{
+				Type:           infrav1.RemediationTypeReboot,
+				RetryLimit:     ptr.To[int32](2),
+				TimeoutSeconds: ptr.To[int32](300),
+			}},
+		},
+	}
+	for _, tc := range toV1Beta2 {
+		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
+			var got infrav1.HCloudRemediationSpec
+			if err := Convert_v1beta1_HCloudRemediationSpec_To_v1beta2_HCloudRemediationSpec(&tc.in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("spec = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+
+	toV1Beta1 := []struct {
+		name string
+		in   infrav1.HCloudRemediationSpec
+		want HCloudRemediationSpec
+	}{
+		{
+			name: "empty strategy becomes nil",
+			in:   infrav1.HCloudRemediationSpec{},
+			want: HCloudRemediationSpec{},
+		},
+		{
+			name: "set strategy becomes a pointer",
+			in: infrav1.HCloudRemediationSpec{Strategy: infrav1.RemediationStrategy{
+				Type:           infrav1.RemediationTypeReboot,
+				RetryLimit:     ptr.To[int32](2),
+				TimeoutSeconds: ptr.To[int32](300),
+			}},
+			want: HCloudRemediationSpec{Strategy: &RemediationStrategy{
+				Type:       RemediationTypeReboot,
+				RetryLimit: 2,
+				Timeout:    &metav1.Duration{Duration: 5 * time.Minute},
+			}},
+		},
+	}
+	for _, tc := range toV1Beta1 {
+		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
+			var got HCloudRemediationSpec
+			if err := Convert_v1beta2_HCloudRemediationSpec_To_v1beta1_HCloudRemediationSpec(&tc.in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("spec = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestConvertHetznerBareMetalRemediationSpecStrategy checks strategy, which is a pointer in v1beta1
+// and a value in v1beta2. timeoutSeconds is required in v1beta2. For this reason every v1beta1 strategy
+// gets one.
+func TestConvertHetznerBareMetalRemediationSpecStrategy(t *testing.T) {
+	toV1Beta2 := []struct {
+		name string
+		in   HetznerBareMetalRemediationSpec
+		want infrav1.HetznerBareMetalRemediationSpec
+	}{
+		{
+			name: "nil strategy becomes an empty strategy",
+			in:   HetznerBareMetalRemediationSpec{},
+			want: infrav1.HetznerBareMetalRemediationSpec{},
+		},
+		{
+			name: "empty strategy gets timeoutSeconds 0",
+			in:   HetznerBareMetalRemediationSpec{Strategy: &BareMetalRemediationStrategy{}},
+			want: infrav1.HetznerBareMetalRemediationSpec{Strategy: infrav1.BareMetalRemediationStrategy{
+				RemediationStrategy: infrav1.RemediationStrategy{TimeoutSeconds: ptr.To[int32](0)},
+			}},
+		},
+		{
+			name: "set strategy keeps its values",
+			in: HetznerBareMetalRemediationSpec{Strategy: &BareMetalRemediationStrategy{
+				RemediationStrategy: RemediationStrategy{
+					Type:       RemediationTypeReboot,
+					RetryLimit: 2,
+					Timeout:    &metav1.Duration{Duration: 5 * time.Minute},
+				},
+				OnExhaustion: OnExhaustionRetire,
+			}},
+			want: infrav1.HetznerBareMetalRemediationSpec{Strategy: infrav1.BareMetalRemediationStrategy{
+				RemediationStrategy: infrav1.RemediationStrategy{
+					Type:           infrav1.RemediationTypeReboot,
+					RetryLimit:     ptr.To[int32](2),
+					TimeoutSeconds: ptr.To[int32](300),
+				},
+				OnExhaustion: infrav1.OnExhaustionRetire,
+			}},
+		},
+	}
+	for _, tc := range toV1Beta2 {
+		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
+			var got infrav1.HetznerBareMetalRemediationSpec
+			if err := Convert_v1beta1_HetznerBareMetalRemediationSpec_To_v1beta2_HetznerBareMetalRemediationSpec(&tc.in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("spec = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+
+	toV1Beta1 := []struct {
+		name string
+		in   infrav1.HetznerBareMetalRemediationSpec
+		want HetznerBareMetalRemediationSpec
+	}{
+		{
+			name: "empty strategy becomes nil",
+			in:   infrav1.HetznerBareMetalRemediationSpec{},
+			want: HetznerBareMetalRemediationSpec{},
+		},
+		{
+			name: "set strategy becomes a pointer",
+			in: infrav1.HetznerBareMetalRemediationSpec{Strategy: infrav1.BareMetalRemediationStrategy{
+				RemediationStrategy: infrav1.RemediationStrategy{
+					Type:           infrav1.RemediationTypeReboot,
+					RetryLimit:     ptr.To[int32](2),
+					TimeoutSeconds: ptr.To[int32](300),
+				},
+				OnExhaustion: infrav1.OnExhaustionRetire,
+			}},
+			want: HetznerBareMetalRemediationSpec{Strategy: &BareMetalRemediationStrategy{
+				RemediationStrategy: RemediationStrategy{
+					Type:       RemediationTypeReboot,
+					RetryLimit: 2,
+					Timeout:    &metav1.Duration{Duration: 5 * time.Minute},
+				},
+				OnExhaustion: OnExhaustionRetire,
+			}},
+		},
+	}
+	for _, tc := range toV1Beta1 {
+		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
+			var got HetznerBareMetalRemediationSpec
+			if err := Convert_v1beta2_HetznerBareMetalRemediationSpec_To_v1beta1_HetznerBareMetalRemediationSpec(&tc.in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("spec = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestConvertHetznerSSHKeys checks the hcloud list and the rescue secret ref. An empty hcloud list
+// becomes nil in v1beta2. robotRescueSecretRef is a value in v1beta1 and a pointer in v1beta2.
+func TestConvertHetznerSSHKeys(t *testing.T) {
+	rescueSecretRef := SSHSecretRef{
+		Name: "rescue-ssh",
+		Key:  SSHSecretKeyRef{Name: "sshkey-name", PublicKey: "public-key", PrivateKey: "private-key"},
+	}
+	rescueSecretRefV1Beta2 := infrav1.SSHSecretRef{
+		Name: "rescue-ssh",
+		Key:  infrav1.SSHSecretKeyRef{Name: "sshkey-name", PublicKey: "public-key", PrivateKey: "private-key"},
+	}
+
+	toV1Beta2 := []struct {
+		name string
+		in   HetznerSSHKeys
+		want infrav1.HetznerSSHKeys
+	}{
+		{
+			name: "nil hcloud list and empty rescueSecretRef stay unset",
+			in:   HetznerSSHKeys{},
+			want: infrav1.HetznerSSHKeys{},
+		},
+		{
+			name: "empty hcloud list becomes nil",
+			in:   HetznerSSHKeys{HCloud: []SSHKey{}},
+			want: infrav1.HetznerSSHKeys{},
+		},
+		{
+			name: "set hcloud list and rescueSecretRef keep their values",
+			in:   HetznerSSHKeys{HCloud: []SSHKey{{Name: "key"}}, RobotRescueSecretRef: rescueSecretRef},
+			want: infrav1.HetznerSSHKeys{HCloud: []infrav1.SSHKey{{Name: "key"}}, RescueSecretRef: &rescueSecretRefV1Beta2},
+		},
+	}
+	for _, tc := range toV1Beta2 {
+		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
+			var got infrav1.HetznerSSHKeys
+			if err := Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(&tc.in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("sshKeys = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+
+	toV1Beta1 := []struct {
+		name string
+		in   infrav1.HetznerSSHKeys
+		want HetznerSSHKeys
+	}{
+		{
+			name: "nil rescueSecretRef becomes an empty value",
+			in:   infrav1.HetznerSSHKeys{},
+			want: HetznerSSHKeys{},
+		},
+		{
+			name: "empty rescueSecretRef becomes an empty value",
+			in:   infrav1.HetznerSSHKeys{RescueSecretRef: &infrav1.SSHSecretRef{}},
+			want: HetznerSSHKeys{},
+		},
+		{
+			name: "set hcloud list and rescueSecretRef keep their values",
+			in:   infrav1.HetznerSSHKeys{HCloud: []infrav1.SSHKey{{Name: "key"}}, RescueSecretRef: &rescueSecretRefV1Beta2},
+			want: HetznerSSHKeys{HCloud: []SSHKey{{Name: "key"}}, RobotRescueSecretRef: rescueSecretRef},
+		},
+	}
+	for _, tc := range toV1Beta1 {
+		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
+			var got HetznerSSHKeys
+			if err := Convert_v1beta2_HetznerSSHKeys_To_v1beta1_HetznerSSHKeys(&tc.in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("sshKeys = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestConvertRaidWWN checks that an empty wwn list becomes nil in v1beta2. A nil or set list keeps its
+// value in both directions.
+func TestConvertRaidWWN(t *testing.T) {
+	toV1Beta2 := []struct {
+		name string
+		in   Raid
+		want infrav1.Raid
+	}{
+		{name: "nil wwn stays nil", in: Raid{}, want: infrav1.Raid{}},
+		{name: "empty wwn becomes nil", in: Raid{WWN: []string{}}, want: infrav1.Raid{}},
+		{name: "set wwn keeps its values", in: Raid{WWN: []string{"0x1", "0x2"}}, want: infrav1.Raid{WWN: []string{"0x1", "0x2"}}},
+	}
+	for _, tc := range toV1Beta2 {
+		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
+			var got infrav1.Raid
+			if err := Convert_v1beta1_Raid_To_v1beta2_Raid(&tc.in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("raid = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+
+	toV1Beta1 := []struct {
+		name string
+		in   infrav1.Raid
+		want Raid
+	}{
+		{name: "nil wwn stays nil", in: infrav1.Raid{}, want: Raid{}},
+		{name: "set wwn keeps its values", in: infrav1.Raid{WWN: []string{"0x1", "0x2"}}, want: Raid{WWN: []string{"0x1", "0x2"}}},
+	}
+	for _, tc := range toV1Beta1 {
+		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
+			var got Raid
+			if err := Convert_v1beta2_Raid_To_v1beta1_Raid(&tc.in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("raid = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestConvertProviderID checks providerID, which is a pointer in v1beta1 and a string in v1beta2. An
+// empty v1beta1 providerID does not have a value. It comes back as nil.
+func TestConvertProviderID(t *testing.T) {
+	toV1Beta2 := []struct {
+		name string
+		in   *string
+		want string
+	}{
+		{name: "nil becomes empty", in: nil, want: ""},
+		{name: "empty stays empty", in: ptr.To(""), want: ""},
+		{name: "set keeps its value", in: ptr.To("hcloud://1"), want: "hcloud://1"},
+	}
+	toV1Beta1 := []struct {
+		name string
+		in   string
+		want *string
+	}{
+		{name: "empty becomes nil", in: "", want: nil},
+		{name: "set becomes a pointer", in: "hcloud://1", want: ptr.To("hcloud://1")},
+	}
+
+	for _, tc := range toV1Beta2 {
+		t.Run("HCloudMachine to v1beta2: "+tc.name, func(t *testing.T) {
+			var got infrav1.HCloudMachineSpec
+			if err := Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(&HCloudMachineSpec{ProviderID: tc.in}, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if got.ProviderID != tc.want {
+				t.Fatalf("providerID = %q, want %q", got.ProviderID, tc.want)
+			}
+		})
+		t.Run("HetznerBareMetalMachine to v1beta2: "+tc.name, func(t *testing.T) {
+			var got infrav1.HetznerBareMetalMachineSpec
+			if err := Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(&HetznerBareMetalMachineSpec{ProviderID: tc.in}, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if got.ProviderID != tc.want {
+				t.Fatalf("providerID = %q, want %q", got.ProviderID, tc.want)
+			}
+		})
+	}
+	for _, tc := range toV1Beta1 {
+		t.Run("HCloudMachine to v1beta1: "+tc.name, func(t *testing.T) {
+			var got HCloudMachineSpec
+			if err := Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(&infrav1.HCloudMachineSpec{ProviderID: tc.in}, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got.ProviderID, tc.want) {
+				t.Fatalf("providerID = %v, want %v", got.ProviderID, tc.want)
+			}
+		})
+		t.Run("HetznerBareMetalMachine to v1beta1: "+tc.name, func(t *testing.T) {
+			var got HetznerBareMetalMachineSpec
+			if err := Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&infrav1.HetznerBareMetalMachineSpec{ProviderID: tc.in}, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got.ProviderID, tc.want) {
+				t.Fatalf("providerID = %v, want %v", got.ProviderID, tc.want)
+			}
+		})
+	}
+}
+
+// TestConvertHostSelector checks hostSelector, which is a value in v1beta1 and a pointer in v1beta2.
+// An empty v1beta1 hostSelector becomes nil.
+func TestConvertHostSelector(t *testing.T) {
+	hostSelector := HostSelector{
+		MatchLabels: map[string]string{"role": "control-plane"},
+		MatchExpressions: []HostSelectorRequirement{
+			{Key: "zone", Operator: selection.In, Values: []string{"fsn1"}},
+		},
+	}
+	hostSelectorV1Beta2 := infrav1.HostSelector{
+		MatchLabels: map[string]string{"role": "control-plane"},
+		MatchExpressions: []infrav1.HostSelectorRequirement{
+			{Key: "zone", Operator: selection.In, Values: []string{"fsn1"}},
+		},
+	}
+
+	toV1Beta2 := []struct {
+		name string
+		in   HostSelector
+		want *infrav1.HostSelector
+	}{
+		{name: "empty value becomes nil", in: HostSelector{}, want: nil},
+		{name: "set value becomes a pointer", in: hostSelector, want: &hostSelectorV1Beta2},
+	}
+	for _, tc := range toV1Beta2 {
+		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
+			var got infrav1.HetznerBareMetalMachineSpec
+			if err := Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(&HetznerBareMetalMachineSpec{HostSelector: tc.in}, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got.HostSelector, tc.want) {
+				t.Fatalf("hostSelector = %#v, want %#v", got.HostSelector, tc.want)
+			}
+		})
+	}
+
+	toV1Beta1 := []struct {
+		name string
+		in   *infrav1.HostSelector
+		want HostSelector
+	}{
+		{name: "nil becomes an empty value", in: nil, want: HostSelector{}},
+		{name: "pointer to an empty value becomes an empty value", in: &infrav1.HostSelector{}, want: HostSelector{}},
+		{name: "set pointer becomes a value", in: &hostSelectorV1Beta2, want: hostSelector},
+		{
+			name: "nil values become an empty list",
+			in: &infrav1.HostSelector{
+				MatchExpressions: []infrav1.HostSelectorRequirement{{Key: "gpu", Operator: selection.Exists}},
+			},
+			want: HostSelector{
+				MatchExpressions: []HostSelectorRequirement{{Key: "gpu", Operator: selection.Exists, Values: []string{}}},
+			},
+		},
+	}
+	for _, tc := range toV1Beta1 {
+		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
+			var got HetznerBareMetalMachineSpec
+			if err := Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&infrav1.HetznerBareMetalMachineSpec{HostSelector: tc.in}, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got.HostSelector, tc.want) {
+				t.Fatalf("hostSelector = %#v, want %#v", got.HostSelector, tc.want)
+			}
+		})
+	}
+}
+
+// TestConvertMissingClusterBlocksToV1Beta2 checks that a v1beta1 HetznerCluster without a
+// controlPlaneLoadBalancer or hcloudNetwork block converts to zero v1beta2 structs. The v1beta2 JSON
+// then leaves both blocks out, and the API server does not add their defaults.
+func TestConvertMissingClusterBlocksToV1Beta2(t *testing.T) {
+	var got infrav1.HetznerClusterSpec
+	if err := Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(&HetznerClusterSpec{}, &got, nil); err != nil {
+		t.Fatalf("convert failed: %v", err)
+	}
+	if !reflect.DeepEqual(got.ControlPlaneLoadBalancer, infrav1.LoadBalancerSpec{}) {
+		t.Fatalf("controlPlaneLoadBalancer = %#v, want the zero struct", got.ControlPlaneLoadBalancer)
+	}
+	if !reflect.DeepEqual(got.HCloudNetwork, infrav1.HCloudNetworkSpec{}) {
+		t.Fatalf("hcloudNetwork = %#v, want the zero struct", got.HCloudNetwork)
+	}
+}
+
+// TestConvertControlPlaneRegionsToV1Beta1 checks that a nil controlPlaneRegions converts to an empty
+// list, because the v1beta1 schema requires the field.
+func TestConvertControlPlaneRegionsToV1Beta1(t *testing.T) {
+	var got HetznerClusterSpec
+	if err := Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(&infrav1.HetznerClusterSpec{}, &got, nil); err != nil {
+		t.Fatalf("convert failed: %v", err)
+	}
+	if got.ControlPlaneRegions == nil || len(got.ControlPlaneRegions) != 0 {
+		t.Fatalf("controlPlaneRegions = %#v, want an empty list", got.ControlPlaneRegions)
+	}
+}
+
+// TestConvertSecretStatusCredentials checks that the v1beta1 field credentials and the v1beta2 field
+// credentialsRef have the same secret reference.
+func TestConvertSecretStatusCredentials(t *testing.T) {
+	tests := []struct {
+		name      string
+		reference *corev1.SecretReference
+	}{
+		{name: "nil stays nil", reference: nil},
+		{name: "empty reference keeps its value", reference: &corev1.SecretReference{}},
+		{name: "set reference keeps its value", reference: &corev1.SecretReference{Name: "robot-ssh", Namespace: "default"}},
+	}
+	for _, tc := range tests {
+		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
+			var got infrav1.SecretStatus
+			if err := Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(&SecretStatus{Reference: tc.reference}, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got.CredentialsRef, tc.reference) {
+				t.Fatalf("credentialsRef = %#v, want %#v", got.CredentialsRef, tc.reference)
+			}
+		})
+		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
+			var got SecretStatus
+			if err := Convert_v1beta2_SecretStatus_To_v1beta1_SecretStatus(&infrav1.SecretStatus{CredentialsRef: tc.reference}, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			if !reflect.DeepEqual(got.Reference, tc.reference) {
+				t.Fatalf("credentials = %#v, want %#v", got.Reference, tc.reference)
+			}
+		})
+	}
+}
+
+// TestConvertHealthCheckIntegers checks port, intervalSeconds, timeoutSeconds and retries of the load
+// balancer health check. They are *int in v1beta1 and int32 in v1beta2, where 0 means unset. A pointer
+// to 0 comes back as nil. This does not matter, because the v1beta1 validation does not allow 0.
+func TestConvertHealthCheckIntegers(t *testing.T) {
+	toV1Beta2 := []struct {
+		name string
+		in   *int
+		want int32
+	}{
+		{name: "nil becomes 0", in: nil, want: 0},
+		{name: "pointer to 0 becomes 0", in: ptr.To(0), want: 0},
+		{name: "pointer to 5 becomes 5", in: ptr.To(5), want: 5},
+	}
+	for _, tc := range toV1Beta2 {
+		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
+			in := LoadBalancerHealthCheckSpec{Port: tc.in, IntervalSeconds: tc.in, TimeoutSeconds: tc.in, Retries: tc.in}
+			var got infrav1.LoadBalancerHealthCheckSpec
+			if err := Convert_v1beta1_LoadBalancerHealthCheckSpec_To_v1beta2_LoadBalancerHealthCheckSpec(&in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			want := infrav1.LoadBalancerHealthCheckSpec{Port: tc.want, IntervalSeconds: tc.want, TimeoutSeconds: tc.want, Retries: tc.want}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("healthCheck = %#v, want %#v", got, want)
+			}
+		})
+	}
+
+	toV1Beta1 := []struct {
+		name string
+		in   int32
+		want *int
+	}{
+		{name: "0 becomes nil", in: 0, want: nil},
+		{name: "5 becomes a pointer to 5", in: 5, want: ptr.To(5)},
+	}
+	for _, tc := range toV1Beta1 {
+		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
+			in := infrav1.LoadBalancerHealthCheckSpec{Port: tc.in, IntervalSeconds: tc.in, TimeoutSeconds: tc.in, Retries: tc.in}
+			var got LoadBalancerHealthCheckSpec
+			if err := Convert_v1beta2_LoadBalancerHealthCheckSpec_To_v1beta1_LoadBalancerHealthCheckSpec(&in, &got, nil); err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+			want := LoadBalancerHealthCheckSpec{Port: tc.want, IntervalSeconds: tc.want, TimeoutSeconds: tc.want, Retries: tc.want}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("healthCheck = %#v, want %#v", got, want)
+			}
+		})
+	}
+}
+
+// TestConvertHCloudMachineStatusExternalIDs verifies that the v1beta1 action ID 0 means unset and maps
+// to nil, while the done marker -1 and a real action ID keep their value.
+func TestConvertHCloudMachineStatusExternalIDs(t *testing.T) {
+	tests := []struct {
+		name string
+		in   int64
+		want *int64
+	}{
+		{name: "unset", in: 0, want: nil},
+		{name: "done", in: -1, want: ptr.To[int64](-1)},
+		{name: "action ID", in: 42, want: ptr.To[int64](42)},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			src := HCloudMachineStatusExternalIDs{ActionIDEnableRescueSystem: tc.in, ActionIDCreateServer: tc.in}
+
+			var hub infrav1.HCloudMachineStatusExternalIDs
+			if err := Convert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStatusExternalIDs(&src, &hub, nil); err != nil {
+				t.Fatalf("convert to v1beta2 failed: %v", err)
+			}
+			if !reflect.DeepEqual(hub.ActionIDEnableRescueSystem, tc.want) || !reflect.DeepEqual(hub.ActionIDCreateServer, tc.want) {
+				t.Fatalf("externalIDs = %#v, want both %v", hub, tc.want)
+			}
+
+			var back HCloudMachineStatusExternalIDs
+			if err := Convert_v1beta2_HCloudMachineStatusExternalIDs_To_v1beta1_HCloudMachineStatusExternalIDs(&hub, &back, nil); err != nil {
+				t.Fatalf("convert back to v1beta1 failed: %v", err)
+			}
+			if back != src {
+				t.Fatalf("externalIDs = %#v, want %#v", back, src)
+			}
+		})
 	}
 }
 
@@ -1185,7 +2020,7 @@ func TestHetznerClusterConvertToPromoteV1Beta2Shape(t *testing.T) {
 	if dst.Spec.ControlPlaneEndpoint.Host != "1.2.3.4" || dst.Spec.ControlPlaneEndpoint.Port != 6443 {
 		t.Fatalf("controlPlaneEndpoint mismatch: %#v", dst.Spec.ControlPlaneEndpoint)
 	}
-	if !reflect.DeepEqual(dst.Spec.SSHKeys.RescueSecretRef, infrav1.SSHSecretRef{
+	if !reflect.DeepEqual(dst.Spec.SSHKeys.RescueSecretRef, &infrav1.SSHSecretRef{
 		Name: "rescue-ssh",
 		Key: infrav1.SSHSecretKeyRef{
 			Name:       "name",
@@ -1243,7 +2078,7 @@ func TestHetznerClusterConvertFromDemoteV1Beta2Shape(t *testing.T) {
 		Spec: infrav1.HetznerClusterSpec{
 			ControlPlaneEndpoint: infrav1.APIEndpoint{Host: "5.6.7.8", Port: 8443},
 			SSHKeys: infrav1.HetznerSSHKeys{
-				RescueSecretRef: infrav1.SSHSecretRef{
+				RescueSecretRef: &infrav1.SSHSecretRef{
 					Name: "rescue-ssh",
 					Key: infrav1.SSHSecretKeyRef{
 						Name:       "name",
@@ -1717,39 +2552,195 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 				in.DeviceStringType = ""
 			}
 		},
-		// HetznerBareMetalMachine v1beta1 spec: portAfterCloudInit is dropped in v1beta2, so zero it: it
-		// does not round-trip. Scoped to the machine spec rather than to SSHSpec, because the host carries
-		// its own sshSpec through the data annotation, where the field does survive.
-		func(in *HetznerBareMetalMachineSpec, c randfill.Continue) {
-			c.FillNoCustom(in)
-			in.SSHSpec.PortAfterCloudInit = 0
-		},
 		// HetznerBareMetalMachine v1beta2 spec (hub side): installImage and customProvisioner are mutually
 		// exclusive, so keep exactly one set. customProvisioner needs a command because that is what selects
 		// the flow when converting back to the single flat v1beta1 installImage.
+		// v1beta1 stores swraid, swraidLevel and skipCheckDisk as values, so an unset field converts back
+		// as the value it maps to (swraid 0, swraidLevel 1, skipCheckDisk false). An empty hostSelector
+		// converts back to nil.
 		func(in *infrav1.HetznerBareMetalMachineSpec, c randfill.Continue) {
 			c.FillNoCustom(in)
-			switch {
-			case in.CustomProvisioner != nil:
-				in.InstallImage = nil
+			if in.CustomProvisioner.IsDefined() {
+				in.InstallImage = infrav1.InstallImage{}
 				if in.CustomProvisioner.Command == "" {
 					in.CustomProvisioner.Command = "provision.sh" // any non-empty value works; the content is not read here
 				}
-			case in.InstallImage == nil:
-				in.InstallImage = &infrav1.InstallImage{}
+				if in.CustomProvisioner.Swraid == nil {
+					in.CustomProvisioner.Swraid = ptr.To[int32](0)
+				}
+			} else {
+				if in.InstallImage.Swraid == nil {
+					in.InstallImage.Swraid = ptr.To[int32](0)
+				}
+				if in.InstallImage.SwraidLevel == nil {
+					in.InstallImage.SwraidLevel = ptr.To[int32](1)
+				}
+			}
+			if in.SkipCheckDisk == nil {
+				in.SkipCheckDisk = ptr.To(false)
+			}
+			if in.HostSelector != nil && reflect.DeepEqual(*in.HostSelector, infrav1.HostSelector{}) {
+				in.HostSelector = nil
 			}
 		},
-		// HCloudMachine v1beta2 spec (hub side): an empty customProvisioner flattens to empty v1beta1
-		// imageURL and imageURLCommand, which convert back to no customProvisioner. The CRD requires both
-		// fields to be non-empty, so collapse the empty struct to nil.
-		func(in *infrav1.HCloudMachineSpec, c randfill.Continue) {
+		// HetznerBareMetalMachine v1beta1 spec: portAfterCloudInit is dropped in v1beta2, so zero it: it
+		// does not round-trip. Scoped to the machine spec rather than to SSHSpec, because the host carries
+		// its own sshSpec through the data annotation, where the field does survive. v1beta2 stores an
+		// unset providerID as "", which converts back to nil. So a pointer to "" does not round trip.
+		func(in *HetznerBareMetalMachineSpec, c randfill.Continue) {
 			c.FillNoCustom(in)
-			if in.CustomProvisioner != nil && *in.CustomProvisioner == (infrav1.HCloudCustomProvisioner{}) {
-				in.CustomProvisioner = nil
+			in.SSHSpec.PortAfterCloudInit = 0
+			if in.ProviderID != nil && *in.ProviderID == "" {
+				in.ProviderID = nil
 			}
+		},
+		// HCloudMachine v1beta1 spec: v1beta2 stores an unset providerID as "", which converts back to
+		// nil. So a pointer to "" does not round trip.
+		func(in *HCloudMachineSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.ProviderID != nil && *in.ProviderID == "" {
+				in.ProviderID = nil
+			}
+		},
+		// SSHSpec v1beta2 (hub side): v1beta1 stores noSSHAfterInstallImage as a bool, so nil converts
+		// back as false. v1beta1 stores portAfterInstallImage as an int: an unset value converts back
+		// as its default 22.
+		func(in *infrav1.SSHSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.NoSSHAfterInstallImage == nil {
+				in.NoSSHAfterInstallImage = ptr.To(false)
+			}
+			if in.PortAfterInstallImage == nil {
+				in.PortAfterInstallImage = ptr.To[int32](22)
+			}
+		},
+		// HCloudMachine v1beta2 external IDs (hub side): v1beta1 stores an unset action ID as 0, and 0
+		// converts back to nil. So a pointer to 0 does not round trip.
+		func(in *infrav1.HCloudMachineStatusExternalIDs, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.ActionIDEnableRescueSystem != nil && *in.ActionIDEnableRescueSystem == 0 {
+				in.ActionIDEnableRescueSystem = nil
+			}
+			if in.ActionIDCreateServer != nil && *in.ActionIDCreateServer == 0 {
+				in.ActionIDCreateServer = nil
+			}
+		},
+		// PublicNetworkSpec v1beta2 (hub side): v1beta1 stores enableIPv4 and enableIPv6 as bools, and nil
+		// converts back to the default true.
+		func(in *infrav1.PublicNetworkSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.EnableIPv4 == nil {
+				in.EnableIPv4 = ptr.To(true)
+			}
+			if in.EnableIPv6 == nil {
+				in.EnableIPv6 = ptr.To(true)
+			}
+		},
+		// HetznerSecretKeyRef v1beta2 (hub side): v1beta1 stores the keys as strings, and nil converts back
+		// to the v1beta2 default of the key.
+		func(in *infrav1.HetznerSecretKeyRef, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.HCloudToken == nil {
+				in.HCloudToken = ptr.To("token")
+			}
+			if in.HetznerRobotUser == nil {
+				in.HetznerRobotUser = ptr.To("hetzner-robot-user")
+			}
+			if in.HetznerRobotPassword == nil {
+				in.HetznerRobotPassword = ptr.To("hetzner-robot-password")
+			}
+			if in.SSHKey == nil {
+				in.SSHKey = ptr.To("hcloud-ssh-key-name")
+			}
+		},
+		// HetznerSSHKeys v1beta2 (hub side): v1beta1 stores rescueSecretRef as a value, and the empty
+		// value converts back to nil. So a pointer to an empty rescueSecretRef does not round trip.
+		func(in *infrav1.HetznerSSHKeys, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.RescueSecretRef != nil && *in.RescueSecretRef == (infrav1.SSHSecretRef{}) {
+				in.RescueSecretRef = nil
+			}
+		},
+		// HetznerCluster v1beta2 spec (hub side): v1beta1 stores skipCreatingHetznerSecretInWorkloadCluster
+		// as a bool, so nil converts back as false.
+		func(in *infrav1.HetznerClusterSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.SkipCreatingHetznerSecretInWorkloadCluster == nil {
+				in.SkipCreatingHetznerSecretInWorkloadCluster = ptr.To(false)
+			}
+			// A block that converts to a zero v1beta1 struct comes back as the zero v1beta2 struct.
+			if reflect.DeepEqual(in.ControlPlaneLoadBalancer, infrav1.LoadBalancerSpec{Enabled: ptr.To(false), EnableProxyProtocol: ptr.To(false)}) {
+				in.ControlPlaneLoadBalancer = infrav1.LoadBalancerSpec{}
+			}
+			if reflect.DeepEqual(in.HCloudNetwork, infrav1.HCloudNetworkSpec{Enabled: ptr.To(false)}) {
+				in.HCloudNetwork = infrav1.HCloudNetworkSpec{}
+			}
+		},
+		// HCloudNetworkSpec v1beta2 (hub side): v1beta1 stores enabled as a bool, so nil converts back as
+		// false.
+		func(in *infrav1.HCloudNetworkSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.Enabled == nil {
+				in.Enabled = ptr.To(false)
+			}
+		},
+		// LoadBalancerSpec v1beta2 (hub side): v1beta1 stores enabled and enableProxyProtocol as bools, so
+		// nil converts back as false.
+		func(in *infrav1.LoadBalancerSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.Enabled == nil {
+				in.Enabled = ptr.To(false)
+			}
+			if in.EnableProxyProtocol == nil {
+				in.EnableProxyProtocol = ptr.To(false)
+			}
+		},
+		// LoadBalancerStatus v1beta2 (hub side): v1beta1 stores protected and proxyProtocolEnabled as
+		// bools, so nil converts back as false.
+		func(in *infrav1.LoadBalancerStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.Protected == nil {
+				in.Protected = ptr.To(false)
+			}
+			if in.ProxyProtocolEnabled == nil {
+				in.ProxyProtocolEnabled = ptr.To(false)
+			}
+		},
+		// Storage v1beta2 (hub side): v1beta1 stores rota as a bool, so nil converts back as false.
+		func(in *infrav1.Storage, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.Rota == nil {
+				in.Rota = ptr.To(false)
+			}
+		},
+		// LoadBalancerHealthCheckSpec v1beta1: v1beta2 stores an unset value as 0, which converts back to
+		// nil. So a pointer to 0 does not round trip.
+		func(in *LoadBalancerHealthCheckSpec, c randfill.Continue) {
+			c.FillNoCustom(in)
+			for _, p := range []**int{&in.Port, &in.IntervalSeconds, &in.TimeoutSeconds, &in.Retries} {
+				if *p != nil && **p == 0 {
+					*p = nil
+				}
+			}
+		},
+		// SSHStatus v1beta1: v1beta2 stores osKey and rescueKey as values, and the empty value converts
+		// back to nil. So a pointer to an empty key does not round trip.
+		func(in *SSHStatus, c randfill.Continue) {
+			c.FillNoCustom(in)
+			if in.OSKey != nil && *in.OSKey == (SSHKey{}) {
+				in.OSKey = nil
+			}
+			if in.RescueKey != nil && *in.RescueKey == (SSHKey{}) {
+				in.RescueKey = nil
+			}
+		},
+		// v1beta1 uses int, v1beta2 uses int32 for the same fields. Keep the v1beta1 values in the
+		// int32 range, negative values included.
+		func(in *int, c randfill.Continue) {
+			*in = int(int32(c.Uint32())) //nolint:gosec // the overflow into negative values is wanted
 		},
 		// HCloudRemediation v1beta1 status: keep retryCount in the non-negative v1beta2 int32 range,
-		// collapse zero lastRemediated and empty condition slices to nil, and drop the V1Beta2
+		// collapse zero lastRemediated and empty condition slices to nil, and remove the V1Beta2
 		// wrapper unless it carries conditions.
 		func(in *HCloudRemediationStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
@@ -1837,8 +2828,9 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			if in.RetryLimit != nil && *in.RetryLimit <= 0 {
 				in.RetryLimit = nil
 			}
-			if in.TimeoutSeconds < 0 {
-				in.TimeoutSeconds = 0
+			// timeoutSeconds is required. v1beta1 always sets a timeout, so nil converts back as 0.
+			if in.TimeoutSeconds == nil || *in.TimeoutSeconds < 0 {
+				in.TimeoutSeconds = ptr.To(int32(0))
 			}
 			if in.CooldownSeconds != nil && *in.CooldownSeconds < 0 {
 				in.CooldownSeconds = ptr.To(int32(0))
@@ -1937,18 +2929,23 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			if in.Status.ErrorType != infrav1.ErrorTypeFatal && in.Status.ErrorType != infrav1.ErrorTypePermanent {
 				in.Status.ErrorType = ""
 			}
-			if ongoingReboot := in.Status.OngoingReboot; ongoingReboot != nil {
+			if ongoingReboot := &in.Status.OngoingReboot; ongoingReboot.IsDefined() {
 				switch ongoingReboot.Type {
 				case infrav1.RebootTypeSSH, infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware:
 				default:
 					ongoingReboot.Type = infrav1.RebootTypeSSH
 				}
 				if in.Status.ErrorType != "" || ongoingReboot.TriggeredAt.IsZero() {
-					in.Status.OngoingReboot = nil
+					in.Status.OngoingReboot = infrav1.OngoingReboot{}
 				}
 			}
 
-			if in.Spec.ConsumerRef == nil {
+			// v1beta1 stores rebooted as a bool, so nil converts back as false.
+			if in.Status.Rebooted == nil {
+				in.Status.Rebooted = ptr.To(false)
+			}
+
+			if !in.Spec.ConsumerRef.IsDefined() {
 				return
 			}
 			// Keep the fuzzed v1beta2 reference in the group that can be rebuilt as a v1beta1

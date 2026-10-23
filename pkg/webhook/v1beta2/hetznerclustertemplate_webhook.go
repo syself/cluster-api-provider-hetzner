@@ -60,7 +60,11 @@ func (*HetznerClusterTemplateWebhook) ValidateCreate(context.Context, *infrav1.H
 func (*HetznerClusterTemplateWebhook) ValidateUpdate(_ context.Context, old, r *infrav1.HetznerClusterTemplate) (admission.Warnings, error) {
 	hetznerclustertemplatelog.V(1).Info("validate update", "name", r.Name)
 
-	if !reflect.DeepEqual(r.Spec, old.Spec) {
+	oldSpec := old.Spec
+	oldSpec.Template.Spec = normalizeHetznerClusterSpec(oldSpec.Template.Spec)
+	newSpec := r.Spec
+	newSpec.Template.Spec = normalizeHetznerClusterSpec(newSpec.Template.Spec)
+	if !reflect.DeepEqual(newSpec, oldSpec) {
 		return nil, apierrors.NewBadRequest("HetznerClusterTemplate.Spec is immutable")
 	}
 	return nil, nil

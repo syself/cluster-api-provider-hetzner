@@ -25,10 +25,13 @@ import (
 
 // HCloudMachineTemplateSpec defines the desired state of HCloudMachineTemplate.
 type HCloudMachineTemplateSpec struct {
-	Template HCloudMachineTemplateResource `json:"template"`
+	// template defines the desired state of HCloudMachineTemplate.
+	// +required
+	Template HCloudMachineTemplateResource `json:"template,omitempty,omitzero"`
 }
 
 // HCloudMachineTemplateStatus defines the observed state of HCloudMachineTemplate.
+// +kubebuilder:validation:MinProperties=1
 type HCloudMachineTemplateStatus struct {
 	// conditions represents the observations of an HCloudMachineTemplate's current state.
 	// Known condition types are Ready, Available, HCloudTokenAvailable and HCloudRateLimitExceeded.
@@ -46,6 +49,8 @@ type HCloudMachineTemplateStatus struct {
 
 	// ownerType is the type of object that owns the HCloudMachineTemplate.
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
 	OwnerType string `json:"ownerType,omitempty"`
 
 	// deprecated groups all the status fields that are deprecated and will be removed when support for v1beta1 will be dropped.
@@ -67,11 +72,9 @@ type HCloudMachineTemplateV1Beta1DeprecatedStatus struct {
 	// conditions defines current service state of the HCloudMachineTemplate.
 	//
 	// +optional
-	// +listType=map
-	// +listMapKey=type
 	//
 	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:subresource:status
@@ -86,11 +89,18 @@ type HCloudMachineTemplateV1Beta1DeprecatedStatus struct {
 
 // HCloudMachineTemplate is the Schema for the hcloudmachinetemplates API.
 type HCloudMachineTemplate struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HCloudMachineTemplateSpec   `json:"spec,omitempty"`
-	Status HCloudMachineTemplateStatus `json:"status,omitempty"`
+	// spec is the desired state of HCloudMachineTemplate.
+	// +optional
+	Spec HCloudMachineTemplateSpec `json:"spec,omitempty,omitzero"`
+	// status is the observed state of HCloudMachineTemplate.
+	// +optional
+	Status HCloudMachineTemplateStatus `json:"status,omitempty,omitzero"`
 }
 
 // GetConditions returns the set of conditions for the HCloudMachineTemplate object.
@@ -188,7 +198,8 @@ type HCloudMachineTemplateResource struct {
 	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitempty,omitzero"`
 
 	// spec is the specification of the desired behavior of the machine.
-	Spec HCloudMachineSpec `json:"spec"`
+	// +required
+	Spec HCloudMachineSpec `json:"spec,omitempty,omitzero"`
 }
 
 func init() {

@@ -155,6 +155,14 @@ gotestsum: $(GOTESTSUM) # Build gotestsum from tools folder.
 $(GOTESTSUM):
 	go install gotest.tools/gotestsum@v1.13.0
 
+# kube-api-linter (KAL) is a golangci-lint plugin. "golangci-lint custom" builds a golangci-lint binary
+# that contains it, as set in hack/tools/.custom-gcl.yaml. The host and the builder image share
+# hack/tools/bin, so the binary name has the OS and the architecture.
+GOLANGCI_LINT_KAL := $(abspath $(TOOLS_BIN_DIR)/golangci-lint-kube-api-linter-$(shell go env GOOS)-$(shell go env GOARCH))
+golangci-lint-kal: $(GOLANGCI_LINT_KAL) # Build golangci-lint with the kube-api-linter plugin.
+$(GOLANGCI_LINT_KAL): $(TOOLS_DIR)/.custom-gcl.yaml
+	cd $(TOOLS_DIR); golangci-lint custom --name $(notdir $(GOLANGCI_LINT_KAL))
+
 all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(KUBECTL) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(KUSTOMIZE) ## Install all tools required for development
 	echo 'done'
 
@@ -689,9 +697,34 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
+	$(MAKE) lint-api
 	go version
 	golangci-lint version
 	golangci-lint run -v
+endif
+
+.PHONY: lint-api
+lint-api: ## Lint the API types with kube-api-linter
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
+	$(MAKE) $(GOLANGCI_LINT_KAL)
+	$(GOLANGCI_LINT_KAL) run -v --config .golangci-kal.yml ./api/v1beta2/...
+endif
+
+.PHONY: lint-api-fix
+lint-api-fix: ## Lint the API types with kube-api-linter and apply the suggested fixes
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
+	$(MAKE) $(GOLANGCI_LINT_KAL)
+	$(GOLANGCI_LINT_KAL) run -v --fix --config .golangci-kal.yml ./api/v1beta2/...
 endif
 
 

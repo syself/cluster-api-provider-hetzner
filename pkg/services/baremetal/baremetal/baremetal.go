@@ -201,11 +201,11 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	if err != nil && !apierrors.IsNotFound(err) {
 		return reconcile.Result{}, fmt.Errorf("failed to get associated host: %w", err)
 	}
-	if host != nil && host.Spec.ConsumerRef != nil {
+	if host != nil && host.Spec.ConsumerRef.IsDefined() {
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseDeleting
 
 		// remove control plane as load balancer target
-		if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
+		if s.scope.IsControlPlane() && ptr.Deref(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled, false) {
 			conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
 				Type:    infrav1.HetznerBareMetalMachineDeletingCondition,
 				Status:  metav1.ConditionTrue,
@@ -218,7 +218,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 		}
 
 		// don't remove the consumerRef if it references some other HetznerBareMetalMachine
-		if !consumerRefMatches(host.Spec.ConsumerRef, s.scope.BareMetalMachine) {
+		if !consumerRefMatches(&host.Spec.ConsumerRef, s.scope.BareMetalMachine) {
 			// remove the ownerRef to this host, even if the consumerRef references another machine
 			host.OwnerReferences = s.removeOwnerRef(host.OwnerReferences)
 
@@ -241,7 +241,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 		}
 
 		// deprovisiong is done - remove all references of host
-		host.Spec.ConsumerRef = nil
+		host.Spec.ConsumerRef = infrav1.HetznerBareMetalHostConsumerReference{}
 		host.SetDeletionTimestamp(nil)
 		host.OwnerReferences = s.removeOwnerRef(host.OwnerReferences)
 
@@ -471,10 +471,10 @@ func ChooseHost(hbmm *infrav1.HetznerBareMetalMachine, hosts []infrav1.HetznerBa
 	mapOfSkipReasons := make(map[string]int)
 
 	for i, host := range hosts {
-		if host.Spec.ConsumerRef != nil && consumerRefMatches(host.Spec.ConsumerRef, hbmm) {
+		if host.Spec.ConsumerRef.IsDefined() && consumerRefMatches(&host.Spec.ConsumerRef, hbmm) {
 			return &hosts[i], "", nil
 		}
-		if host.Spec.ConsumerRef != nil {
+		if host.Spec.ConsumerRef.IsDefined() {
 			continue
 		}
 
@@ -832,13 +832,14 @@ func getLabelSelector(hbmm *infrav1.HetznerBareMetalMachine) labels.Selector {
 	labelSelector := labels.NewSelector()
 	var reqs labels.Requirements
 
-	for labelKey, labelVal := range hbmm.Spec.HostSelector.MatchLabels {
+	hostSelector := ptr.Deref(hbmm.Spec.HostSelector, infrav1.HostSelector{})
+	for labelKey, labelVal := range hostSelector.MatchLabels {
 		r, err := labels.NewRequirement(labelKey, selection.Equals, []string{labelVal})
 		if err == nil { // ignore invalid host selector
 			reqs = append(reqs, *r)
 		}
 	}
-	for _, req := range hbmm.Spec.HostSelector.MatchExpressions {
+	for _, req := range hostSelector.MatchExpressions {
 		lowercaseOperator := selection.Operator(strings.ToLower(string(req.Operator)))
 		r, err := labels.NewRequirement(req.Key, lowercaseOperator, req.Values)
 		if err == nil { // ignore invalid host selector
@@ -851,7 +852,7 @@ func getLabelSelector(hbmm *infrav1.HetznerBareMetalMachine) labels.Selector {
 
 func (s *Service) setProviderID(ctx context.Context) error {
 	// nothing to do if providerID is set
-	if s.scope.BareMetalMachine.Spec.ProviderID != nil {
+	if s.scope.BareMetalMachine.Spec.ProviderID != "" {
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 		return nil
 	}
@@ -875,8 +876,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 		// no need for requeue error since host update will trigger a reconciliation
 		return nil
 	}
-	providerID := generateProviderID(s.scope.HetznerCluster, host.Spec.ServerID)
-	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
+	s.scope.BareMetalMachine.Spec.ProviderID = generateProviderID(s.scope.HetznerCluster, host.Spec.ServerID)
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
 	return nil
@@ -885,8 +885,8 @@ func (s *Service) setProviderID(ctx context.Context) error {
 // setReferencesOnHost will ensure the host is set to link to this HetznerBareMetalMachine.
 func (s *Service) setReferencesOnHost(host *infrav1.HetznerBareMetalHost) {
 	// set consumer ref if it is nil or pointing to another HetznerBareMetalMachine
-	if host.Spec.ConsumerRef == nil || host.Spec.ConsumerRef.Name != s.scope.BareMetalMachine.Name {
-		host.Spec.ConsumerRef = &infrav1.HetznerBareMetalHostConsumerReference{
+	if !host.Spec.ConsumerRef.IsDefined() || host.Spec.ConsumerRef.Name != s.scope.BareMetalMachine.Name {
+		host.Spec.ConsumerRef = infrav1.HetznerBareMetalHostConsumerReference{
 			Kind:     "HetznerBareMetalMachine",
 			Name:     s.scope.BareMetalMachine.Name,
 			APIGroup: infrav1.GroupVersion.Group,
@@ -1109,7 +1109,7 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 // (hcloud://bm-NNNN) by default. If the annotation
 // `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the HetznerCluster is set to "true"
 // (case-insensitive), then `hrobot://` is used.
-func generateProviderID(hetznerCluster *infrav1.HetznerCluster, serverNumber int) string {
+func generateProviderID(hetznerCluster *infrav1.HetznerCluster, serverNumber int64) string {
 	annotationValue := strings.TrimSpace(hetznerCluster.Annotations[infrav1.UseHrobotProviderIDForBaremetalAnnotation])
 	if strings.EqualFold(annotationValue, "true") {
 		return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber)

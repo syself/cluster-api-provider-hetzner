@@ -54,7 +54,7 @@ var _ = Describe("Test TimeUntilNextRemediation", func() {
 		func(tc testCaseTimeUntilNextRemediation) {
 			var bmRemediation infrav1.HCloudRemediation
 
-			bmRemediation.Spec.Strategy = &infrav1.RemediationStrategy{TimeoutSeconds: 60}
+			bmRemediation.Spec.Strategy = infrav1.RemediationStrategy{TimeoutSeconds: ptr.To(int32(60))}
 
 			if tc.lastRemediated != nullTime {
 				bmRemediation.Status.LastRemediated = metav1.Time{Time: tc.lastRemediated}
@@ -88,10 +88,10 @@ var _ = Describe("Test rate limit condition", func() {
 		hcloudRemediation := &infrav1.HCloudRemediation{
 			ObjectMeta: metav1.ObjectMeta{Name: "my-remediation", Namespace: "default"},
 			Spec: infrav1.HCloudRemediationSpec{
-				Strategy: &infrav1.RemediationStrategy{
+				Strategy: infrav1.RemediationStrategy{
 					Type:           infrav1.RemediationTypeReboot,
 					RetryLimit:     ptr.To(int32(1)),
-					TimeoutSeconds: 60,
+					TimeoutSeconds: ptr.To(int32(60)),
 				},
 			},
 			Status: infrav1.HCloudRemediationStatus{Phase: infrav1.PhaseRunning},

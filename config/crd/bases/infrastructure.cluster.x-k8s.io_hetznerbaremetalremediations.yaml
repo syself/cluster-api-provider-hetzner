@@ -201,8 +201,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: HetznerBareMetalRemediationSpec defines the desired state
-              of HetznerBareMetalRemediation.
+            description: spec is the desired state of HetznerBareMetalRemediation.
+            minProperties: 1
             properties:
               strategy:
                 description: strategy field defines the remediation strategy to be
@@ -246,14 +246,16 @@ spec:
                     default: Reboot
                     description: type represents the type of the remediation strategy.
                       At the moment, only "Reboot" is supported.
+                    maxLength: 64
+                    minLength: 1
                     type: string
                 required:
                 - timeoutSeconds
                 type: object
             type: object
           status:
-            description: HetznerBareMetalRemediationStatus defines the observed state
-              of HetznerBareMetalRemediation.
+            description: status is the observed state of HetznerBareMetalRemediation.
+            minProperties: 1
             properties:
               lastRemediated:
                 description: |-
@@ -264,7 +266,12 @@ spec:
               phase:
                 description: |-
                   phase represents the current phase of machine remediation.
-                  E.g. Running, Waiting, Deleting machine, Succeeded.
+                  One of Running, Waiting, Deleting machine or Succeeded.
+                enum:
+                - Running
+                - Waiting
+                - Deleting machine
+                - Succeeded
                 type: string
               retryCount:
                 description: |-
@@ -273,6 +280,8 @@ spec:
                 format: int32
                 type: integer
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: false

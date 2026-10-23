@@ -36,6 +36,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
@@ -150,7 +151,7 @@ func (s *Service) setHostError(errType infrav1.ErrorType, errMessage string) {
 func (s *Service) actionPreparing(ctx context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StatePreparing)
 
-	server, err := s.scope.RobotClient.GetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID)
+	server, err := s.scope.RobotClient.GetBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID))
 	if err != nil {
 		// If Robot API returned "unauthorized" error - mark condition RobotCredentialsAvailable as false
 		// with reason RobotCredentialsInvalid and stop reconciling.
@@ -253,16 +254,16 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 	s.scope.HetznerBareMetalHost.Status.IPv4 = server.ServerIP
 	s.scope.HetznerBareMetalHost.Status.IPv6 = server.ServerIPv6Net + "1"
 
-	sshKey, actResult := s.ensureSSHKey(s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef, s.scope.RescueSSHSecret)
+	sshKey, actResult := s.ensureSSHKey(ptr.Deref(s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef, infrav1.SSHSecretRef{}), s.scope.RescueSSHSecret)
 	if _, isComplete := actResult.(actionComplete); !isComplete {
 		return actResult
 	}
 
-	s.scope.HetznerBareMetalHost.Status.SSHStatus.RescueKey = &sshKey
+	s.scope.HetznerBareMetalHost.Status.SSHStatus.RescueKey = sshKey
 
 	// Populate reboot methods in status
 	if len(s.scope.HetznerBareMetalHost.Status.RebootTypes) == 0 {
-		reboot, err := s.scope.RobotClient.GetReboot(s.scope.HetznerBareMetalHost.Spec.ServerID)
+		reboot, err := s.scope.RobotClient.GetReboot(int(s.scope.HetznerBareMetalHost.Spec.ServerID))
 		if err != nil {
 			s.handleRobotRateLimitExceeded(err, "GetReboot")
 			return actionError{err: fmt.Errorf("failed to get reboot: %w", err)}
@@ -284,7 +285,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		// using the robot API.
 		sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 			PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.Name, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PublicKey, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PrivateKey).PrivateKey,
-			Port:       s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage,
+			Port:       int(ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage, infrav1.DefaultPortAfterInstallImage)),
 			IP:         s.scope.HetznerBareMetalHost.Status.GetIPAddress(),
 		})
 
@@ -306,7 +307,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 	// Check if software reboot is available. If it is not, choose hardware reboot.
 	rebootType := rebootTypeAfterTimeout(s.scope.HetznerBareMetalHost)
 
-	if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
+	if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), rebootType); err != nil {
 		s.handleRobotRateLimitExceeded(err, rebootServerStr)
 		return actionError{err: fmt.Errorf(errMsgFailedReboot, err)}
 	}
@@ -318,13 +319,13 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 
 func (s *Service) enforceRescueMode() error {
 	// delete old rescue activations if exist, as the ssh key might have changed in between
-	if _, err := s.scope.RobotClient.DeleteBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID); err != nil {
+	if _, err := s.scope.RobotClient.DeleteBootRescue(int(s.scope.HetznerBareMetalHost.Spec.ServerID)); err != nil {
 		s.handleRobotRateLimitExceeded(err, "DeleteBootRescue")
 		return fmt.Errorf("failed to delete boot rescue: %w", err)
 	}
 	// Rescue system is still not active - activate again
 	if _, err := s.scope.RobotClient.SetBootRescue(
-		s.scope.HetznerBareMetalHost.Spec.ServerID,
+		int(s.scope.HetznerBareMetalHost.Spec.ServerID),
 		s.scope.HetznerBareMetalHost.Status.SSHStatus.RescueKey.Fingerprint,
 	); err != nil {
 		s.handleRobotRateLimitExceeded(err, "SetBootRescue")
@@ -456,7 +457,7 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 	// Then take action accordingly. For example, if a reboot via ssh timed out, we opt for a (software) reboot
 	// via API instead. If a software reboot fails / takes too long, then we trigger a hardware reboot.
 	ongoingReboot := s.scope.HetznerBareMetalHost.Status.OngoingReboot
-	if ongoingReboot == nil {
+	if !ongoingReboot.IsDefined() {
 		if isTimeout {
 			// A timeout error from SSH indicates that the server did not yet finish rebooting.
 			// No reboot is recorded, so record this one as an ssh reboot. Then the ssh reboot timeout
@@ -504,7 +505,7 @@ func (s *Service) handleSSHRebootFailed(ctx context.Context, isSSHTimeoutError, 
 		// Check if software reboot is available. If it is not, choose hardware reboot.
 		rebootType := rebootTypeAfterTimeout(s.scope.HetznerBareMetalHost)
 
-		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
+		if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), rebootType); err != nil {
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
@@ -545,7 +546,7 @@ func (s *Service) handleSoftwareRebootFailed(ctx context.Context, isSSHTimeoutEr
 			}
 		}
 		// Perform hardware reboot
-		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
+		if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), infrav1.RebootTypeHardware); err != nil {
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
@@ -576,7 +577,7 @@ func (s *Service) handleHardwareRebootFailed(ctx context.Context, isSSHTimeoutEr
 			}
 		}
 
-		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
+		if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), infrav1.RebootTypeHardware); err != nil {
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return false, fmt.Errorf(errMsgFailedReboot, err)
 		}
@@ -622,15 +623,15 @@ func (s *Service) handleHardwareRebootFailed(ctx context.Context, isSSHTimeoutEr
 
 // hasTimedOut returns true if we sent the ongoing reboot more than timeout ago. It returns false when
 // there is no ongoing reboot.
-func hasTimedOut(ongoingReboot *infrav1.OngoingReboot, timeout time.Duration) bool {
-	if ongoingReboot == nil {
+func hasTimedOut(ongoingReboot infrav1.OngoingReboot, timeout time.Duration) bool {
+	if !ongoingReboot.IsDefined() {
 		return false
 	}
 	return ongoingReboot.TriggeredAt.Add(timeout).Before(time.Now())
 }
 
 func (s *Service) ensureRescueMode() error {
-	rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
+	rescue, err := s.scope.RobotClient.GetBootRescue(int(s.scope.HetznerBareMetalHost.Spec.ServerID))
 	if err != nil {
 		s.handleRobotRateLimitExceeded(err, "GetBootRescue")
 		return fmt.Errorf("failed to get boot rescue: %w", err)
@@ -638,7 +639,7 @@ func (s *Service) ensureRescueMode() error {
 	if !rescue.Active {
 		// Rescue system is still not active - activate again
 		if _, err := s.scope.RobotClient.SetBootRescue(
-			s.scope.HetznerBareMetalHost.Spec.ServerID,
+			int(s.scope.HetznerBareMetalHost.Spec.ServerID),
 			s.scope.HetznerBareMetalHost.Status.SSHStatus.RescueKey.Fingerprint,
 		); err != nil {
 			s.handleRobotRateLimitExceeded(err, "SetBootRescue")
@@ -660,7 +661,8 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateRegistering)
 
-	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.Name, s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PublicKey, s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey)
+	rescueSecretRef := ptr.Deref(s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef, infrav1.SSHSecretRef{})
+	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, rescueSecretRef.Key.Name, rescueSecretRef.Key.PublicKey, rescueSecretRef.Key.PrivateKey)
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
 		Port:       rescuePort,
@@ -695,7 +697,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		}
 
 		timeSinceReboot := "unknown"
-		if ongoingReboot := s.scope.HetznerBareMetalHost.Status.OngoingReboot; ongoingReboot != nil {
+		if ongoingReboot := s.scope.HetznerBareMetalHost.Status.OngoingReboot; ongoingReboot.IsDefined() {
 			timeSinceReboot = time.Since(ongoingReboot.TriggeredAt.Time).Round(time.Second).String()
 		}
 
@@ -913,7 +915,7 @@ func getHardwareDetails(ctx context.Context, sshClient sshclient.Client) (infrav
 	}
 
 	return infrav1.HardwareDetails{
-		RAMGB:   mebiBytes / gbToMebiBytes,
+		RAMGB:   int32(mebiBytes / gbToMebiBytes), //nolint:gosec // the RAM of a server in GB is far below the int32 limit
 		NIC:     nics,
 		Storage: storage,
 		CPU:     cpu,
@@ -965,7 +967,7 @@ func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, i
 }
 
 func (s *Service) rebootTriggered() (bool, error) {
-	rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
+	rescue, err := s.scope.RobotClient.GetBootRescue(int(s.scope.HetznerBareMetalHost.Spec.ServerID))
 	if err != nil {
 		s.handleRobotRateLimitExceeded(err, "GetBootRescue")
 		return false, fmt.Errorf("failed to get boot rescue: %w", err)
@@ -1036,7 +1038,7 @@ func obtainHardwareDetailsNics(ctx context.Context, sshClient sshclient.Client) 
 			Model:     nic.Model,
 			MAC:       nic.MAC,
 			IP:        nic.IP,
-			SpeedMbps: speedMbps,
+			SpeedMbps: int32(speedMbps), //nolint:gosec // a NIC speed in Mbps is far below the int32 limit
 		})
 
 		if nic.IP != "" {
@@ -1114,7 +1116,7 @@ func obtainHardwareDetailsStorage(ctx context.Context, sshClient sshclient.Clien
 				SerialNumber: storage.SerialNumber,
 				WWN:          storage.WWN,
 				HCTL:         storage.HCTL,
-				Rota:         rota,
+				Rota:         ptr.To(rota),
 			})
 		}
 	}
@@ -1187,7 +1189,7 @@ func getCPUClockGigahertz(ctx context.Context, sshClient sshclient.Client) (infr
 	return infrav1.ClockSpeed(stdOut), nil
 }
 
-func getCPUThreads(ctx context.Context, sshClient sshclient.Client) (int, error) {
+func getCPUThreads(ctx context.Context, sshClient sshclient.Client) (int32, error) {
 	out := sshClient.GetHardwareDetailsCPUThreads(ctx)
 	if err := handleSSHError(out); err != nil {
 		return 0, err
@@ -1198,12 +1200,12 @@ func getCPUThreads(ctx context.Context, sshClient sshclient.Client) (int, error)
 		return 0, fmt.Errorf(errMsgInvalidSSHStdOut, err)
 	}
 
-	threads, err := strconv.Atoi(stdOut)
+	threads, err := strconv.ParseInt(stdOut, 10, 32)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse string to int. Stdout %s: %w", stdOut, err)
 	}
 
-	return threads, nil
+	return int32(threads), nil
 }
 
 func handleSSHError(out sshclient.Output) error {
@@ -1234,13 +1236,14 @@ func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 	if _, isComplete := actResult.(actionComplete); !isComplete {
 		return actResult
 	}
-	s.scope.HetznerBareMetalHost.Status.SSHStatus.OSKey = &sshKey
+	s.scope.HetznerBareMetalHost.Status.SSHStatus.OSKey = sshKey
 
 	if s.scope.PreProvisionCommand == "" {
 		return actionComplete{}
 	}
 
-	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.Name, s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PublicKey, s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey)
+	rescueSecretRef := ptr.Deref(s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef, infrav1.SSHSecretRef{})
+	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, rescueSecretRef.Key.Name, rescueSecretRef.Key.PublicKey, rescueSecretRef.Key.PrivateKey)
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
 		Port:       rescuePort,
@@ -1305,7 +1308,8 @@ func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateImageInstalling)
 
-	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.Name, s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PublicKey, s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef.Key.PrivateKey)
+	rescueSecretRef := ptr.Deref(s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef, infrav1.SSHSecretRef{})
+	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, rescueSecretRef.Key.Name, rescueSecretRef.Key.PublicKey, rescueSecretRef.Key.PrivateKey)
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
 		Port:       rescuePort,
@@ -1341,7 +1345,7 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 
 	// A HetznerBareMetalMachine sets exactly one of customProvisioner or installImage. When
 	// customProvisioner is set, provision with the custom command instead of installimage.
-	if s.scope.HetznerBareMetalMachine.Spec.CustomProvisioner != nil {
+	if s.scope.HetznerBareMetalMachine.Spec.CustomProvisioner.IsDefined() {
 		return s.actionImageInstallingCustomProvisioner(ctx, sshClient)
 	}
 	state, err := sshClient.GetInstallImageState(ctx)
@@ -1373,7 +1377,7 @@ func (s *Service) actionImageInstallingCustomProvisioner(ctx context.Context, ss
 	}
 
 	var duration time.Duration
-	if host.Status.OngoingReboot != nil {
+	if host.Status.OngoingReboot.IsDefined() {
 		duration = time.Since(host.Status.OngoingReboot.TriggeredAt.Time)
 	}
 
@@ -1448,7 +1452,7 @@ func (s *Service) actionImageInstallingCustomProvisioner(ctx context.Context, ss
 		s.scope.Info("CustomProvisionerOutputJSON", "outputJSON", outputJSON)
 
 		// Update name in robot API
-		if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
+		if _, err := s.scope.RobotClient.SetBMServerName(int(s.scope.HetznerBareMetalHost.Spec.ServerID), s.scope.Hostname()); err != nil {
 			s.scope.EventRecorder.Event(
 				s.scope.HetznerBareMetalHost,
 				corev1.EventTypeWarning,
@@ -1648,7 +1652,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 	info, err := sshClient.CheckDisk(ctx, s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN())
 	if err != nil {
 		_, annotationOk := s.scope.HetznerBareMetalHost.Annotations[infrav1.IgnoreCheckDiskAnnotation]
-		machineSkipsCheckDisk := s.scope.HetznerBareMetalMachine.Spec.SkipCheckDisk
+		machineSkipsCheckDisk := ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SkipCheckDisk, false)
 		if !annotationOk && !machineSkipsCheckDisk {
 			// Neither the annotation nor the machine spec field is set. This is a permanent error.
 			msg := fmt.Sprintf(
@@ -1850,7 +1854,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 		return actionRes
 	}
 
-	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalMachine.Spec.InstallImage, autoSetupInput)
+	autoSetup := buildAutoSetup(&s.scope.HetznerBareMetalMachine.Spec.InstallImage, autoSetupInput)
 
 	out = sshClient.CreateAutoSetup(ctx, autoSetup)
 	if out.Err != nil {
@@ -1965,7 +1969,7 @@ func (s *Service) actionImageInstallingFinished(ctx context.Context, sshClient s
 	s.scope.Info("InstallImageOutput", "output", output)
 
 	// Update name in robot API
-	if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
+	if _, err := s.scope.RobotClient.SetBMServerName(int(s.scope.HetznerBareMetalHost.Spec.ServerID), s.scope.Hostname()); err != nil {
 		if errors.Is(err, os.ErrDeadlineExceeded) {
 			// If the Hetzner API returns this, we just want to retry later:
 			// Post "https://robot-ws.your-server.de/server/1234": net/http: TLS handshake timeout
@@ -2207,13 +2211,13 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 			Reason: infrav1.HetznerBareMetalHostProvisionSucceededReason,
 		})
 		s.scope.HetznerBareMetalHost.ClearError()
-		s.scope.HetznerBareMetalHost.Status.OngoingReboot = nil
+		s.scope.HetznerBareMetalHost.Status.OngoingReboot = infrav1.OngoingReboot{}
 		return actionComplete{}
 	}
 
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.Name, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PublicKey, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PrivateKey).PrivateKey,
-		Port:       s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage,
+		Port:       int(ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage, infrav1.DefaultPortAfterInstallImage)),
 		IP:         s.scope.HetznerBareMetalHost.Status.GetIPAddress(),
 	})
 
@@ -2422,7 +2426,7 @@ func (s *Service) handleCloudInitNotStarted(ctx context.Context) actionResult {
 	// Check whether cloud init really was successfully. Sigterm causes problems there.
 	oldSSHClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.Name, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PublicKey, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PrivateKey).PrivateKey,
-		Port:       s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage,
+		Port:       int(ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage, infrav1.DefaultPortAfterInstallImage)),
 		IP:         s.scope.HetznerBareMetalHost.Status.GetIPAddress(),
 	})
 	out := oldSSHClient.CheckCloudInitLogsForSigTerm(ctx)
@@ -2657,7 +2661,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	if !rebootDesired {
 		// No reboot annotation, ensure all reboot-related state is cleared.
-		host.Status.Rebooted = false
+		host.Status.Rebooted = ptr.To(false)
 		clearOngoingReboot(host)
 
 		// Populate NodeBootID the first time the host enters Provisioned state.
@@ -2683,7 +2687,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	// Enforce the overall reboot timeout. If the BootID has not changed within
 	// 5 minutes of the annotation being set, something went wrong and we return an error.
-	if host.Status.OngoingReboot != nil {
+	if host.Status.OngoingReboot.IsDefined() {
 		rebootDuration := time.Since(host.Status.OngoingReboot.TriggeredAt.Time)
 		if rebootDuration > 5*time.Minute {
 			msg := fmt.Sprintf("Rebooting timed out after: %s", rebootDuration.Round(time.Second))
@@ -2713,7 +2717,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		}
 	}
 
-	if !host.Status.Rebooted {
+	if !ptr.Deref(host.Status.Rebooted, false) {
 		// --- Phase 1: trigger the reboot ---
 		// This branch runs exactly once per reboot annotation. We store the current
 		// BootID so Phase 2 can detect when it changes, then send the reboot command.
@@ -2727,7 +2731,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 			in := sshclient.Input{
 				PrivateKey: creds.PrivateKey,
-				Port:       s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage,
+				Port:       int(ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage, infrav1.DefaultPortAfterInstallImage)),
 				IP:         host.Status.GetIPAddress(),
 			}
 
@@ -2752,7 +2756,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		} else {
 			// Hardware reboot: trigger via the Hetzner Robot API.
 			rebootType = infrav1.RebootTypeHardware
-			if _, err := s.scope.RobotClient.RebootBMServer(host.Spec.ServerID, rebootType); err != nil {
+			if _, err := s.scope.RobotClient.RebootBMServer(int(host.Spec.ServerID), rebootType); err != nil {
 				// If Robot API returned "unauthorized" error - mark condition RobotCredentialsAvailable as false
 				// with reason RobotCredentialsInvalidReason and stop reconciling.
 				if models.IsError(err, models.ErrorCodeUnauthorized) {
@@ -2812,7 +2816,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// value on every reconcile; a difference means the node completed a reboot.
 		host.Status.NodeBootID = currentBootID
 		setOngoingReboot(host, rebootType, msg)
-		host.Status.Rebooted = true
+		host.Status.Rebooted = ptr.To(true)
 
 		deprecatedv1beta1conditions.MarkFalse(host, infrav1.RebootSucceededV1Beta1Condition,
 			"WaitingForNodeToBeRebooted",
@@ -2837,7 +2841,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// Reboot has been successful
 		s.scope.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Status.NodeBootID, currentBootID))
 		clearOngoingReboot(host)
-		host.Status.Rebooted = false
+		host.Status.Rebooted = ptr.To(false)
 
 		deprecatedv1beta1conditions.MarkTrue(host, infrav1.RebootSucceededV1Beta1Condition)
 		conditions.Set(host, metav1.Condition{
@@ -2882,7 +2886,7 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 	// Update server name via RobotAPI, strip "bm-" from the desired hostname.
 	// Example: If the hostname is "bm-abc-1-2356799" it should be renamed to "abc-1-2356799".
 	if _, err := s.scope.RobotClient.SetBMServerName(
-		s.scope.HetznerBareMetalHost.Spec.ServerID,
+		int(s.scope.HetznerBareMetalHost.Spec.ServerID),
 		strings.TrimPrefix(s.scope.Hostname(), infrav1.BareMetalHostNamePrefix),
 	); err != nil {
 		if models.IsError(err, models.ErrorCodeUnauthorized) {
@@ -2940,7 +2944,7 @@ func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
 		if s.scope.OSSSHSecret != nil {
 			sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 				PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.Name, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PublicKey, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PrivateKey).PrivateKey,
-				Port:       s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage,
+				Port:       int(ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage, infrav1.DefaultPortAfterInstallImage)),
 				IP:         s.scope.HetznerBareMetalHost.Status.GetIPAddress(),
 			})
 			out := sshClient.ResetKubeadm(ctx)
@@ -2984,7 +2988,7 @@ func (s *Service) cleanupHostAfterDeprovisioning() {
 	s.scope.HetznerBareMetalHost.Status.SSHStatus = infrav1.SSHStatus{}
 
 	// Clear the ongoing reboot.
-	s.scope.HetznerBareMetalHost.Status.OngoingReboot = nil
+	s.scope.HetznerBareMetalHost.Status.OngoingReboot = infrav1.OngoingReboot{}
 
 	// Always clear the ProvisionSucceeded condition during deprovisioning to avoid a misleading
 	// StillProvisioning condition with an empty state when a permanent error occurs.
@@ -3025,13 +3029,13 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 // mean the controller would do the same reboot immediately again.
 func (s *Service) hasJustRebooted() bool {
 	ongoingReboot := s.scope.HetznerBareMetalHost.Status.OngoingReboot
-	return ongoingReboot != nil && !hasTimedOut(ongoingReboot, rebootWaitTime)
+	return ongoingReboot.IsDefined() && !hasTimedOut(ongoingReboot, rebootWaitTime)
 }
 
 // setOngoingReboot records the reboot we just sent and sets the ActionCompleted condition to False
 // with message. The reason names the reboot type.
 func setOngoingReboot(host *infrav1.HetznerBareMetalHost, rebootType infrav1.RebootType, message string) {
-	host.Status.OngoingReboot = &infrav1.OngoingReboot{
+	host.Status.OngoingReboot = infrav1.OngoingReboot{
 		Type:        rebootType,
 		TriggeredAt: metav1.Now(),
 	}
@@ -3068,7 +3072,7 @@ func setOngoingReboot(host *infrav1.HetznerBareMetalHost, rebootType infrav1.Reb
 // ActionCompleted condition that setOngoingReboot set. A host with a fatal or permanent error keeps
 // the condition, because the condition shows that error.
 func clearOngoingReboot(host *infrav1.HetznerBareMetalHost) {
-	host.Status.OngoingReboot = nil
+	host.Status.OngoingReboot = infrav1.OngoingReboot{}
 	if host.Status.HasFatalError() {
 		return
 	}

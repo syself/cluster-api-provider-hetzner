@@ -70,7 +70,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	var server *hcloud.Server
-	if s.scope.HCloudMachine.Spec.ProviderID != nil {
+	if s.scope.HCloudMachine.Spec.ProviderID != "" {
 		var err error
 		server, err = s.findServer(ctx)
 		if err != nil {
@@ -82,9 +82,9 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	// cannot exist).
 	if server == nil {
 		msg := "ProviderID is not set"
-		if s.scope.HCloudMachine.Spec.ProviderID != nil {
+		if s.scope.HCloudMachine.Spec.ProviderID != "" {
 			msg = fmt.Sprintf("No server found via hcloud api for providerID %q",
-				*s.scope.HCloudMachine.Spec.ProviderID)
+				s.scope.HCloudMachine.Spec.ProviderID)
 		}
 
 		if err := s.setOwnerRemediatedConditionToFailed(ctx, msg); err != nil {
@@ -99,7 +99,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, nil
 	}
 
-	if s.scope.HCloudRemediation.Spec.Strategy == nil {
+	if !s.scope.HCloudRemediation.Spec.Strategy.IsDefined() {
 		s.scope.Info("remediation strategy is nil")
 		s.scope.EventRecorder.Event(
 			s.scope.HCloudRemediation,
@@ -426,7 +426,7 @@ func (s *Service) markRemediationSkipped(ctx context.Context, msg string) error 
 // timeUntilNextRemediation checks if it is time to execute a next remediation step
 // and returns seconds to next remediation time.
 func (s *Service) timeUntilNextRemediation(now time.Time) time.Duration {
-	timeout := time.Duration(s.scope.HCloudRemediation.Spec.Strategy.TimeoutSeconds) * time.Second
+	timeout := time.Duration(ptr.Deref(s.scope.HCloudRemediation.Spec.Strategy.TimeoutSeconds, 0)) * time.Second
 	// status is not updated yet
 	if s.scope.HCloudRemediation.Status.LastRemediated.IsZero() {
 		return timeout

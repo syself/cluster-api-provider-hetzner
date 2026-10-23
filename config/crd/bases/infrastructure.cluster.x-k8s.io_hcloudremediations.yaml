@@ -310,7 +310,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: HCloudRemediationSpec defines the desired state of HCloudRemediation.
+            description: spec is the desired state of HCloudRemediation.
+            minProperties: 1
             properties:
               strategy:
                 description: strategy field defines remediation strategy.
@@ -342,13 +343,16 @@ spec:
                     default: Reboot
                     description: type represents the type of the remediation strategy.
                       At the moment, only "Reboot" is supported.
+                    maxLength: 64
+                    minLength: 1
                     type: string
                 required:
                 - timeoutSeconds
                 type: object
             type: object
           status:
-            description: HCloudRemediationStatus defines the observed state of HCloudRemediation.
+            description: status is the observed state of HCloudRemediation.
+            minProperties: 1
             properties:
               conditions:
                 description: |-
@@ -479,9 +483,6 @@ spec:
                           - type
                           type: object
                         type: array
-                        x-kubernetes-list-map-keys:
-                        - type
-                        x-kubernetes-list-type: map
                     type: object
                 type: object
               lastRemediated:
@@ -494,6 +495,11 @@ spec:
                 description: |-
                   phase represents the current phase of machine remediation.
                   One of Running, Waiting, Deleting machine or Succeeded.
+                enum:
+                - Running
+                - Waiting
+                - Deleting machine
+                - Succeeded
                 type: string
               retryCount:
                 description: |-
@@ -502,6 +508,8 @@ spec:
                 format: int32
                 type: integer
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: false

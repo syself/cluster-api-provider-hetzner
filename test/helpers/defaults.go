@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
@@ -51,7 +52,7 @@ func BareMetalHost(name, namespace string, opts ...HostOpts) *infrav1.HetznerBar
 			Namespace: namespace,
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
-			ServerID: int(serverID),
+			ServerID: int64(serverID),
 		},
 	}
 	for _, o := range opts {
@@ -73,7 +74,7 @@ func WithError(errorType infrav1.ErrorType, errorMessage string) HostOpts {
 // WithOngoingReboot gives the option to define a host that waits for a reboot sent at triggeredAt.
 func WithOngoingReboot(rebootType infrav1.RebootType, triggeredAt metav1.Time) HostOpts {
 	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Status.OngoingReboot = &infrav1.OngoingReboot{
+		host.Status.OngoingReboot = infrav1.OngoingReboot{
 			Type:        rebootType,
 			TriggeredAt: triggeredAt,
 		}
@@ -120,11 +121,11 @@ func WithClusterNameLabel(clusterName string) HostOpts {
 func WithSSHStatus() HostOpts {
 	return func(host *infrav1.HetznerBareMetalHost) {
 		host.Status.SSHStatus = infrav1.SSHStatus{
-			OSKey: &infrav1.SSHKey{
+			OSKey: infrav1.SSHKey{
 				Name:        defaultOSSSHKeyName,
 				Fingerprint: sshFingerprint,
 			},
-			RescueKey: &infrav1.SSHKey{
+			RescueKey: infrav1.SSHKey{
 				Name:        defaultRescueSSHKeyName,
 				Fingerprint: sshFingerprint,
 			},
@@ -142,7 +143,7 @@ func WithIPv4() HostOpts {
 // WithConsumerRef gives the option to define a host with consumer ref.
 func WithConsumerRef() HostOpts {
 	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.ConsumerRef = &infrav1.HetznerBareMetalHostConsumerReference{
+		host.Spec.ConsumerRef = infrav1.HetznerBareMetalHostConsumerReference{
 			Name:     "bm-machine",
 			Kind:     "HetznerBareMetalMachine",
 			APIGroup: infrav1.GroupVersion.Group,
@@ -153,7 +154,7 @@ func WithConsumerRef() HostOpts {
 // BareMetalMachineSSHSpec returns the SSH spec for a HetznerBareMetalMachine that consumes a test
 // host. The key names match the data of GetDefaultSSHSecret. The host reads the SSH spec live from
 // the HetznerBareMetalMachine.
-func BareMetalMachineSSHSpec(portAfterInstallImage int) infrav1.SSHSpec {
+func BareMetalMachineSSHSpec(portAfterInstallImage int32) infrav1.SSHSpec {
 	return infrav1.SSHSpec{
 		SecretRef: infrav1.SSHSecretRef{
 			Name: defaultOSSSHKeyName,
@@ -163,7 +164,7 @@ func BareMetalMachineSSHSpec(portAfterInstallImage int) infrav1.SSHSpec {
 				PrivateKey: "private-key",
 			},
 		},
-		PortAfterInstallImage: portAfterInstallImage,
+		PortAfterInstallImage: ptr.To(portAfterInstallImage),
 	}
 }
 
@@ -171,7 +172,7 @@ func BareMetalMachineSSHSpec(portAfterInstallImage int) infrav1.SSHSpec {
 func GetDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 	return infrav1.HetznerClusterSpec{
 		ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-			Enabled:   true,
+			Enabled:   ptr.To(true),
 			Algorithm: "round_robin",
 			ExtraServices: []infrav1.LoadBalancerServiceSpec{
 				{
@@ -192,7 +193,7 @@ func GetDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 		ControlPlaneRegions: []infrav1.Region{"fsn1"},
 		HCloudNetwork: infrav1.HCloudNetworkSpec{
 			CIDRBlock:       "10.0.0.0/16",
-			Enabled:         true,
+			Enabled:         ptr.To(true),
 			NetworkZone:     "eu-central",
 			SubnetCIDRBlock: "10.0.0.0/24",
 		},
@@ -208,9 +209,9 @@ func GetDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 		},
 		HetznerSecret: infrav1.HetznerSecretRef{
 			Key: infrav1.HetznerSecretKeyRef{
-				HCloudToken:          "hcloud",
-				HetznerRobotUser:     "robot-user",
-				HetznerRobotPassword: "robot-password",
+				HCloudToken:          ptr.To("hcloud"),
+				HetznerRobotUser:     ptr.To("robot-user"),
+				HetznerRobotPassword: ptr.To("robot-password"),
 			},
 			Name: "hetzner-secret",
 		},
@@ -220,7 +221,7 @@ func GetDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 					Name: "testsshkey",
 				},
 			},
-			RescueSecretRef: infrav1.SSHSecretRef{
+			RescueSecretRef: &infrav1.SSHSecretRef{
 				Name: "rescue-ssh-secret",
 				Key: infrav1.SSHSecretKeyRef{
 					Name:       "sshkey-name",

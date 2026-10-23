@@ -546,7 +546,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				},
 				Spec: getDefaultHetznerBareMetalMachineSpec(),
 			}
-			bmMachine.Spec.InstallImage.Swraid = 1
+			bmMachine.Spec.InstallImage.Swraid = ptr.To(int32(1))
 			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
 		})
 
@@ -629,7 +629,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				},
 				Spec: getDefaultHetznerBareMetalMachineSpec(),
 			}
-			bmMachine.Spec.SSHSpec.PortAfterInstallImage = 23
+			bmMachine.Spec.SSHSpec.PortAfterInstallImage = ptr.To[int32](23)
 
 			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
 		})
@@ -1174,7 +1174,7 @@ func Test_hetznerBareMetalMachinePredicate(t *testing.T) {
 				Annotations: map[string]string{infrav1.HostAnnotation: "default/host"},
 			},
 			Spec: infrav1.HetznerBareMetalMachineSpec{
-				SSHSpec: infrav1.SSHSpec{PortAfterInstallImage: 22},
+				SSHSpec: infrav1.SSHSpec{PortAfterInstallImage: ptr.To[int32](22)},
 			},
 		}
 	}
@@ -1195,7 +1195,7 @@ func Test_hetznerBareMetalMachinePredicate(t *testing.T) {
 
 	// the spec changed --> the host reads the spec
 	oldMachine, newMachine2 = newMachine(), newMachine()
-	newMachine2.Spec.SSHSpec.PortAfterInstallImage = 2222
+	newMachine2.Spec.SSHSpec.PortAfterInstallImage = ptr.To[int32](2222)
 	require.True(t, update(oldMachine, newMachine2))
 
 	// not a HetznerBareMetalMachine --> reconcile, because we cannot tell what changed
