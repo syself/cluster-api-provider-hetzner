@@ -855,7 +855,7 @@ func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out 
 
 // Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec converts a v1beta1 SSHSpec to v1beta2 without
 // portAfterCloudInit, which has no v1beta2 equivalent and is never read.
-func Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in *SSHSpec, out *infrav2.SSHSpec, s apiconversion.Scope) error {
+func Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in *SSHSpec, out *infrav1.SSHSpec, s apiconversion.Scope) error {
 	return autoConvert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(in, out, s)
 }
 
