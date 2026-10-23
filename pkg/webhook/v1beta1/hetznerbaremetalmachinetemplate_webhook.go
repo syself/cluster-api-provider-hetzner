@@ -27,7 +27,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 // HetznerBareMetalMachineTemplateWebhook implements a custom validation webhook for HetznerBareMetalMachineTemplate.
@@ -36,32 +36,32 @@ type HetznerBareMetalMachineTemplateWebhook struct{}
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalMachineTemplate.
 func (webhook *HetznerBareMetalMachineTemplateWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HetznerBareMetalMachineTemplate{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1beta1.HetznerBareMetalMachineTemplate{}).
 		WithValidator(webhook).
 		WithDefaulter(webhook).
 		Complete()
 }
 
-var _ admission.Defaulter[*infrav1.HetznerBareMetalMachineTemplate] = &HetznerBareMetalMachineTemplateWebhook{}
+var _ admission.Defaulter[*infrav1beta1.HetznerBareMetalMachineTemplate] = &HetznerBareMetalMachineTemplateWebhook{}
 
 // Default implements admission.CustomDefaulter.
-func (*HetznerBareMetalMachineTemplateWebhook) Default(context.Context, *infrav1.HetznerBareMetalMachineTemplate) error {
+func (*HetznerBareMetalMachineTemplateWebhook) Default(context.Context, *infrav1beta1.HetznerBareMetalMachineTemplate) error {
 	return nil
 }
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinetemplate,mutating=false,sideEffects=None,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachinetemplates,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalmachinetemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Validator[*infrav1.HetznerBareMetalMachineTemplate] = &HetznerBareMetalMachineTemplateWebhook{}
+var _ admission.Validator[*infrav1beta1.HetznerBareMetalMachineTemplate] = &HetznerBareMetalMachineTemplateWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HetznerBareMetalMachineTemplate.
-func (*HetznerBareMetalMachineTemplateWebhook) ValidateCreate(context.Context, *infrav1.HetznerBareMetalMachineTemplate) (admission.Warnings, error) {
+func (*HetznerBareMetalMachineTemplateWebhook) ValidateCreate(context.Context, *infrav1beta1.HetznerBareMetalMachineTemplate) (admission.Warnings, error) {
 	// TODO: Cannot validate it because ClusterClass applies empty template objects
 	// allErrs := validateHetznerBareMetalMachineSpecCreate(hbmmt.Spec.Template.Spec)
 	return nil, nil
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HetznerBareMetalMachineTemplate.
-func (*HetznerBareMetalMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHetznerBareMetalMachineTemplate *infrav1.HetznerBareMetalMachineTemplate, newHetznerBareMetalMachineTemplate *infrav1.HetznerBareMetalMachineTemplate) (admission.Warnings, error) {
+func (*HetznerBareMetalMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHetznerBareMetalMachineTemplate *infrav1beta1.HetznerBareMetalMachineTemplate, newHetznerBareMetalMachineTemplate *infrav1beta1.HetznerBareMetalMachineTemplate) (admission.Warnings, error) {
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a admission.Request inside context: %v", err))
@@ -76,6 +76,6 @@ func (*HetznerBareMetalMachineTemplateWebhook) ValidateUpdate(ctx context.Contex
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HetznerBareMetalMachineTemplate.
-func (*HetznerBareMetalMachineTemplateWebhook) ValidateDelete(context.Context, *infrav1.HetznerBareMetalMachineTemplate) (admission.Warnings, error) {
+func (*HetznerBareMetalMachineTemplateWebhook) ValidateDelete(context.Context, *infrav1beta1.HetznerBareMetalMachineTemplate) (admission.Warnings, error) {
 	return nil, nil
 }

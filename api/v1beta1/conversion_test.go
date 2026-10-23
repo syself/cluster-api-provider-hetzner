@@ -39,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	"sigs.k8s.io/randfill"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // TestFuzzyConversion checks that converting a CAPH object between v1beta1 and v1beta2 is
@@ -61,21 +61,21 @@ func TestFuzzyConversion(t *testing.T) {
 	if err := AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add v1beta1 to scheme: %v", err)
 	}
-	if err := infrav2.AddToScheme(scheme); err != nil {
+	if err := infrav1.AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add v1beta2 to scheme: %v", err)
 	}
 
-	t.Run("for HetznerCluster", fuzzyConversionTestFunc(scheme, &infrav2.HetznerCluster{}, &HetznerCluster{}))
-	t.Run("for HetznerClusterTemplate", fuzzyConversionTestFunc(scheme, &infrav2.HetznerClusterTemplate{}, &HetznerClusterTemplate{}))
-	t.Run("for HCloudMachine", fuzzyConversionTestFunc(scheme, &infrav2.HCloudMachine{}, &HCloudMachine{}))
-	t.Run("for HCloudMachineTemplate", fuzzyConversionTestFunc(scheme, &infrav2.HCloudMachineTemplate{}, &HCloudMachineTemplate{}))
-	t.Run("for HCloudRemediation", fuzzyConversionTestFunc(scheme, &infrav2.HCloudRemediation{}, &HCloudRemediation{}))
-	t.Run("for HCloudRemediationTemplate", fuzzyConversionTestFunc(scheme, &infrav2.HCloudRemediationTemplate{}, &HCloudRemediationTemplate{}))
-	t.Run("for HetznerBareMetalHost", fuzzyConversionTestFunc(scheme, &infrav2.HetznerBareMetalHost{}, &HetznerBareMetalHost{}))
-	t.Run("for HetznerBareMetalMachine", fuzzyConversionTestFunc(scheme, &infrav2.HetznerBareMetalMachine{}, &HetznerBareMetalMachine{}))
-	t.Run("for HetznerBareMetalMachineTemplate", fuzzyConversionTestFunc(scheme, &infrav2.HetznerBareMetalMachineTemplate{}, &HetznerBareMetalMachineTemplate{}))
-	t.Run("for HetznerBareMetalRemediation", fuzzyConversionTestFunc(scheme, &infrav2.HetznerBareMetalRemediation{}, &HetznerBareMetalRemediation{}))
-	t.Run("for HetznerBareMetalRemediationTemplate", fuzzyConversionTestFunc(scheme, &infrav2.HetznerBareMetalRemediationTemplate{}, &HetznerBareMetalRemediationTemplate{}))
+	t.Run("for HetznerCluster", fuzzyConversionTestFunc(scheme, &infrav1.HetznerCluster{}, &HetznerCluster{}))
+	t.Run("for HetznerClusterTemplate", fuzzyConversionTestFunc(scheme, &infrav1.HetznerClusterTemplate{}, &HetznerClusterTemplate{}))
+	t.Run("for HCloudMachine", fuzzyConversionTestFunc(scheme, &infrav1.HCloudMachine{}, &HCloudMachine{}))
+	t.Run("for HCloudMachineTemplate", fuzzyConversionTestFunc(scheme, &infrav1.HCloudMachineTemplate{}, &HCloudMachineTemplate{}))
+	t.Run("for HCloudRemediation", fuzzyConversionTestFunc(scheme, &infrav1.HCloudRemediation{}, &HCloudRemediation{}))
+	t.Run("for HCloudRemediationTemplate", fuzzyConversionTestFunc(scheme, &infrav1.HCloudRemediationTemplate{}, &HCloudRemediationTemplate{}))
+	t.Run("for HetznerBareMetalHost", fuzzyConversionTestFunc(scheme, &infrav1.HetznerBareMetalHost{}, &HetznerBareMetalHost{}))
+	t.Run("for HetznerBareMetalMachine", fuzzyConversionTestFunc(scheme, &infrav1.HetznerBareMetalMachine{}, &HetznerBareMetalMachine{}))
+	t.Run("for HetznerBareMetalMachineTemplate", fuzzyConversionTestFunc(scheme, &infrav1.HetznerBareMetalMachineTemplate{}, &HetznerBareMetalMachineTemplate{}))
+	t.Run("for HetznerBareMetalRemediation", fuzzyConversionTestFunc(scheme, &infrav1.HetznerBareMetalRemediation{}, &HetznerBareMetalRemediation{}))
+	t.Run("for HetznerBareMetalRemediationTemplate", fuzzyConversionTestFunc(scheme, &infrav1.HetznerBareMetalRemediationTemplate{}, &HetznerBareMetalRemediationTemplate{}))
 }
 
 // These focused ConsumerRef tests cover the intentional non-round-tripped parts of the v1beta2
@@ -104,7 +104,7 @@ func TestConvertHetznerBareMetalHostConsumerRefToV1Beta2(t *testing.T) {
 			},
 		},
 	}
-	dst := &infrav2.HetznerBareMetalHost{}
+	dst := &infrav1.HetznerBareMetalHost{}
 
 	if err := Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(src, dst, nil); err != nil {
 		t.Fatalf("failed to convert HetznerBareMetalHost to v1beta2: %v", err)
@@ -140,17 +140,17 @@ func TestConvertHetznerBareMetalHostConsumerRefToV1Beta2(t *testing.T) {
 // TestConvertHetznerBareMetalHostConsumerRefToV1Beta1RestoresNamespace verifies that converting
 // from v1beta2 restores the v1beta1 ConsumerRef namespace from the host namespace.
 func TestConvertHetznerBareMetalHostConsumerRefToV1Beta1RestoresNamespace(t *testing.T) {
-	src := &infrav2.HetznerBareMetalHost{
+	src := &infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "host-a",
 			Namespace: "host-namespace",
 		},
-		Spec: infrav2.HetznerBareMetalHostSpec{
+		Spec: infrav1.HetznerBareMetalHostSpec{
 			ServerID: 1,
-			ConsumerRef: infrav2.HetznerBareMetalHostConsumerReference{
+			ConsumerRef: infrav1.HetznerBareMetalHostConsumerReference{
 				Kind:     "HetznerBareMetalMachine",
 				Name:     "machine-a",
-				APIGroup: infrav2.GroupVersion.Group,
+				APIGroup: infrav1.GroupVersion.Group,
 			},
 		},
 	}
@@ -179,7 +179,7 @@ func TestConvertHetznerBareMetalHostConsumerRefToV1Beta1RestoresNamespace(t *tes
 // TestConvertHetznerBareMetalHostConsumerRefNil verifies that a nil v1beta1 ConsumerRef converts to
 // the empty v1beta2 value, and the empty v1beta2 value converts back to nil.
 func TestConvertHetznerBareMetalHostConsumerRefNil(t *testing.T) {
-	toV1Beta2 := &infrav2.HetznerBareMetalHostSpec{}
+	toV1Beta2 := &infrav1.HetznerBareMetalHostSpec{}
 	if err := Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(&HetznerBareMetalHostSpec{}, toV1Beta2, nil); err != nil {
 		t.Fatalf("failed to convert nil ConsumerRef to v1beta2: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestConvertHetznerBareMetalHostConsumerRefNil(t *testing.T) {
 	}
 
 	toV1Beta1 := &HetznerBareMetalHostSpec{}
-	if err := Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(&infrav2.HetznerBareMetalHostSpec{}, toV1Beta1, nil); err != nil {
+	if err := Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpec(&infrav1.HetznerBareMetalHostSpec{}, toV1Beta1, nil); err != nil {
 		t.Fatalf("failed to convert nil ConsumerRef to v1beta1: %v", err)
 	}
 	if toV1Beta1.ConsumerRef != nil {
@@ -206,7 +206,7 @@ func TestConvertHetznerBareMetalHostConsumerRefInvalidAPIVersion(t *testing.T) {
 			Name:       "machine-a",
 		},
 	}
-	dst := &infrav2.HetznerBareMetalHostSpec{}
+	dst := &infrav1.HetznerBareMetalHostSpec{}
 
 	if err := Convert_v1beta1_HetznerBareMetalHostSpec_To_v1beta2_HetznerBareMetalHostSpec(src, dst, nil); err == nil {
 		t.Fatal("expected invalid ConsumerRef apiVersion to fail conversion")
@@ -261,7 +261,7 @@ func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
 		},
 	}
 
-	dst := &infrav2.HetznerBareMetalHost{}
+	dst := &infrav1.HetznerBareMetalHost{}
 	if err := src.ConvertTo(dst); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -269,13 +269,13 @@ func TestHetznerBareMetalHostConvertToMovesStatusToSubresource(t *testing.T) {
 	if dst.Status.IPv4 != "1.2.3.4" || dst.Status.IPv6 != "2001:db8::1" {
 		t.Fatalf("status addresses not moved to the subresource: %#v", dst.Status)
 	}
-	if dst.Status.ProvisioningState != infrav2.StateProvisioned || dst.Status.ErrorType != infrav2.ErrorTypeFatal {
+	if dst.Status.ProvisioningState != infrav1.StateProvisioned || dst.Status.ErrorType != infrav1.ErrorTypeFatal {
 		t.Fatalf("status fields not moved to the subresource: %#v", dst.Status)
 	}
 	if dst.Status.NodeBootID != "boot-id" {
 		t.Fatalf("status.nodeBootID not moved: %q", dst.Status.NodeBootID)
 	}
-	if !reflect.DeepEqual(dst.Status.RebootTypes, []infrav2.RebootType{infrav2.RebootTypeSoftware, infrav2.RebootTypeHardware}) {
+	if !reflect.DeepEqual(dst.Status.RebootTypes, []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}) {
 		t.Fatalf("status.rebootTypes mismatch: %#v", dst.Status.RebootTypes)
 	}
 	if !reflect.DeepEqual(dst.Status.Conditions, v1beta2Conditions) {
@@ -319,13 +319,13 @@ func TestHetznerBareMetalHostConvertFromMovesStatusToSpec(t *testing.T) {
 		},
 	}
 
-	src := &infrav2.HetznerBareMetalHost{
-		Spec: infrav2.HetznerBareMetalHostSpec{ServerID: 7},
-		Status: infrav2.HetznerBareMetalHostStatus{
+	src := &infrav1.HetznerBareMetalHost{
+		Spec: infrav1.HetznerBareMetalHostSpec{ServerID: 7},
+		Status: infrav1.HetznerBareMetalHostStatus{
 			IPv4:       "5.6.7.8",
 			Conditions: v1beta2Conditions,
-			Deprecated: &infrav2.HetznerBareMetalHostDeprecatedStatus{
-				V1Beta1: &infrav2.HetznerBareMetalHostV1Beta1DeprecatedStatus{
+			Deprecated: &infrav1.HetznerBareMetalHostDeprecatedStatus{
+				V1Beta1: &infrav1.HetznerBareMetalHostV1Beta1DeprecatedStatus{
 					Conditions: deprecatedConditions,
 				},
 			},
@@ -369,7 +369,7 @@ func TestHetznerBareMetalHostRoundTripPreservesDroppedStatusFields(t *testing.T)
 		},
 	}
 
-	hub := &infrav2.HetznerBareMetalHost{}
+	hub := &infrav1.HetznerBareMetalHost{}
 	if err := src.ConvertTo(hub); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -412,42 +412,42 @@ func TestConvertHetznerBareMetalHostErrorTypeToV1Beta2(t *testing.T) {
 		name              string
 		errorType         ErrorType
 		rebootTriggeredAt *metav1.Time
-		wantErrorType     infrav2.ErrorType
-		wantOngoingReboot infrav2.OngoingReboot
+		wantErrorType     infrav1.ErrorType
+		wantOngoingReboot infrav1.OngoingReboot
 	}{
 		{
 			name:          "fatal error is copied",
 			errorType:     FatalError,
-			wantErrorType: infrav2.ErrorTypeFatal,
+			wantErrorType: infrav1.ErrorTypeFatal,
 		},
 		{
 			name:          "permanent error is copied",
 			errorType:     PermanentError,
-			wantErrorType: infrav2.ErrorTypePermanent,
+			wantErrorType: infrav1.ErrorTypePermanent,
 		},
 		{
 			name:              "fatal error with rebootTriggeredAt does not get an ongoing reboot",
 			errorType:         FatalError,
 			rebootTriggeredAt: &triggeredAt,
-			wantErrorType:     infrav2.ErrorTypeFatal,
+			wantErrorType:     infrav1.ErrorTypeFatal,
 		},
 		{
 			name:              "ssh reboot becomes an ongoing reboot",
 			errorType:         ErrorTypeSSHRebootTriggered,
 			rebootTriggeredAt: &triggeredAt,
-			wantOngoingReboot: infrav2.OngoingReboot{Type: infrav2.RebootTypeSSH, TriggeredAt: triggeredAt},
+			wantOngoingReboot: infrav1.OngoingReboot{Type: infrav1.RebootTypeSSH, TriggeredAt: triggeredAt},
 		},
 		{
 			name:              "software reboot becomes an ongoing reboot",
 			errorType:         ErrorTypeSoftwareRebootTriggered,
 			rebootTriggeredAt: &triggeredAt,
-			wantOngoingReboot: infrav2.OngoingReboot{Type: infrav2.RebootTypeSoftware, TriggeredAt: triggeredAt},
+			wantOngoingReboot: infrav1.OngoingReboot{Type: infrav1.RebootTypeSoftware, TriggeredAt: triggeredAt},
 		},
 		{
 			name:              "hardware reboot becomes an ongoing reboot",
 			errorType:         ErrorTypeHardwareRebootTriggered,
 			rebootTriggeredAt: &triggeredAt,
-			wantOngoingReboot: infrav2.OngoingReboot{Type: infrav2.RebootTypeHardware, TriggeredAt: triggeredAt},
+			wantOngoingReboot: infrav1.OngoingReboot{Type: infrav1.RebootTypeHardware, TriggeredAt: triggeredAt},
 		},
 		{
 			name:      "reboot without rebootTriggeredAt does not get an ongoing reboot",
@@ -486,7 +486,7 @@ func TestConvertHetznerBareMetalHostErrorTypeToV1Beta2(t *testing.T) {
 				},
 			}
 
-			dst := &infrav2.HetznerBareMetalHost{}
+			dst := &infrav1.HetznerBareMetalHost{}
 			if err := src.ConvertTo(dst); err != nil {
 				t.Fatalf("failed to convert to v1beta2: %v", err)
 			}
@@ -508,8 +508,8 @@ func TestConvertHetznerBareMetalHostOngoingRebootToV1Beta1(t *testing.T) {
 
 	tests := []struct {
 		name                  string
-		errorType             infrav2.ErrorType
-		ongoingReboot         infrav2.OngoingReboot
+		errorType             infrav1.ErrorType
+		ongoingReboot         infrav1.OngoingReboot
 		wantErrorType         ErrorType
 		wantRebootTriggeredAt *metav1.Time
 	}{
@@ -518,19 +518,19 @@ func TestConvertHetznerBareMetalHostOngoingRebootToV1Beta1(t *testing.T) {
 		},
 		{
 			name:          "fatal error",
-			errorType:     infrav2.ErrorTypeFatal,
+			errorType:     infrav1.ErrorTypeFatal,
 			wantErrorType: FatalError,
 		},
 		{
 			name:                  "ongoing reboot",
-			ongoingReboot:         infrav2.OngoingReboot{Type: infrav2.RebootTypeSoftware, TriggeredAt: triggeredAt},
+			ongoingReboot:         infrav1.OngoingReboot{Type: infrav1.RebootTypeSoftware, TriggeredAt: triggeredAt},
 			wantErrorType:         ErrorTypeSoftwareRebootTriggered,
 			wantRebootTriggeredAt: &triggeredAt,
 		},
 		{
 			name:                  "errorType keeps the permanent error when there is also an ongoing reboot",
-			errorType:             infrav2.ErrorTypePermanent,
-			ongoingReboot:         infrav2.OngoingReboot{Type: infrav2.RebootTypeHardware, TriggeredAt: triggeredAt},
+			errorType:             infrav1.ErrorTypePermanent,
+			ongoingReboot:         infrav1.OngoingReboot{Type: infrav1.RebootTypeHardware, TriggeredAt: triggeredAt},
 			wantErrorType:         PermanentError,
 			wantRebootTriggeredAt: &triggeredAt,
 		},
@@ -538,8 +538,8 @@ func TestConvertHetznerBareMetalHostOngoingRebootToV1Beta1(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			src := &infrav2.HetznerBareMetalHost{
-				Status: infrav2.HetznerBareMetalHostStatus{
+			src := &infrav1.HetznerBareMetalHost{
+				Status: infrav1.HetznerBareMetalHostStatus{
 					ErrorType:     tc.errorType,
 					OngoingReboot: tc.ongoingReboot,
 				},
@@ -582,17 +582,17 @@ func TestConvertHetznerBareMetalMachineCustomProvisioner(t *testing.T) {
 		},
 	}
 
-	var hub infrav2.HetznerBareMetalMachineSpec
+	var hub infrav1.HetznerBareMetalMachineSpec
 	if err := Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(&src, &hub, nil); err != nil {
 		t.Fatalf("convert to v1beta2 failed: %v", err)
 	}
 	if hub.InstallImage.IsDefined() {
 		t.Fatalf("installImage should be empty for the custom provisioner flow, got %#v", hub.InstallImage)
 	}
-	wantCustom := infrav2.CustomProvisioner{
+	wantCustom := infrav1.CustomProvisioner{
 		URL:              "oci://ghcr.io/example/ubuntu:v1",
 		Command:          "image-url-command-bm-test.sh",
-		DeviceStringType: infrav2.DeviceStringTypeWWN,
+		DeviceStringType: infrav1.DeviceStringTypeWWN,
 		Swraid:           ptr.To[int32](1),
 	}
 	if !reflect.DeepEqual(hub.CustomProvisioner, wantCustom) {
@@ -620,11 +620,11 @@ func TestConvertHCloudMachineCustomProvisioner(t *testing.T) {
 		ImageURLCommand: "image-url-command-hcloud-test.sh",
 	}
 
-	var hub infrav2.HCloudMachineSpec
+	var hub infrav1.HCloudMachineSpec
 	if err := Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(&src, &hub, nil); err != nil {
 		t.Fatalf("convert to v1beta2 failed: %v", err)
 	}
-	wantCustom := infrav2.HCloudCustomProvisioner{
+	wantCustom := infrav1.HCloudCustomProvisioner{
 		URL:     "oci://ghcr.io/example/ubuntu:v1",
 		Command: "image-url-command-hcloud-test.sh",
 	}
@@ -686,7 +686,7 @@ func TestHetznerBareMetalMachineConvertToPromoteV1Beta2Shape(t *testing.T) {
 		},
 	}
 
-	dst := &infrav2.HetznerBareMetalMachine{}
+	dst := &infrav1.HetznerBareMetalMachine{}
 	if err := src.ConvertTo(dst); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -765,17 +765,17 @@ func TestHetznerBareMetalMachineConvertFromDemoteV1Beta2Shape(t *testing.T) {
 		},
 	}
 
-	src := &infrav2.HetznerBareMetalMachine{
-		Status: infrav2.HetznerBareMetalMachineStatus{
+	src := &infrav1.HetznerBareMetalMachine{
+		Status: infrav1.HetznerBareMetalMachineStatus{
 			Conditions: v1beta2Conditions,
 			Addresses:  v1beta2Addresses,
-			Initialization: infrav2.HetznerBareMetalMachineInitializationStatus{
+			Initialization: infrav1.HetznerBareMetalMachineInitializationStatus{
 				Provisioned: ptr.To(true),
 			},
 			LastUpdated:      lastUpdated,
 			LastRemediatedAt: lastRemediatedAt,
-			Deprecated: &infrav2.HetznerBareMetalMachineDeprecatedStatus{
-				V1Beta1: &infrav2.HetznerBareMetalMachineV1Beta1DeprecatedStatus{
+			Deprecated: &infrav1.HetznerBareMetalMachineDeprecatedStatus{
+				V1Beta1: &infrav1.HetznerBareMetalMachineV1Beta1DeprecatedStatus{
 					Conditions: deprecatedConditions,
 				},
 			},
@@ -811,9 +811,9 @@ func TestHetznerBareMetalMachineConvertFromDemoteV1Beta2Shape(t *testing.T) {
 // status.ready to status.initialization.provisioned conversion preserves an explicit false
 // provisioned value through the stored hub annotation.
 func TestHetznerBareMetalMachineRoundTripPreservesFalseProvisionedIntent(t *testing.T) {
-	src := &infrav2.HetznerBareMetalMachine{
-		Status: infrav2.HetznerBareMetalMachineStatus{
-			Initialization: infrav2.HetznerBareMetalMachineInitializationStatus{
+	src := &infrav1.HetznerBareMetalMachine{
+		Status: infrav1.HetznerBareMetalMachineStatus{
+			Initialization: infrav1.HetznerBareMetalMachineInitializationStatus{
 				Provisioned: ptr.To(false),
 			},
 		},
@@ -824,7 +824,7 @@ func TestHetznerBareMetalMachineRoundTripPreservesFalseProvisionedIntent(t *test
 		t.Fatalf("failed to convert from v1beta2: %v", err)
 	}
 
-	restored := &infrav2.HetznerBareMetalMachine{}
+	restored := &infrav1.HetznerBareMetalMachine{}
 	if err := spoke.ConvertTo(restored); err != nil {
 		t.Fatalf("failed to convert back to v1beta2: %v", err)
 	}
@@ -845,7 +845,7 @@ func TestHetznerBareMetalMachineConvertToNilProvisionedForFalseReadyWithoutAnnot
 		},
 	}
 
-	dst := &infrav2.HetznerBareMetalMachine{}
+	dst := &infrav1.HetznerBareMetalMachine{}
 	if err := src.ConvertTo(dst); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -865,7 +865,7 @@ func TestHetznerBareMetalMachineFailureFieldsAreDropped(t *testing.T) {
 		},
 	}
 
-	hub := &infrav2.HetznerBareMetalMachine{}
+	hub := &infrav1.HetznerBareMetalMachine{}
 	if err := src.ConvertTo(hub); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -888,7 +888,7 @@ func TestConvertDefaultedFieldsKeepZeroValues(t *testing.T) {
 			},
 		}
 
-		var hub infrav2.HetznerClusterSpec
+		var hub infrav1.HetznerClusterSpec
 		if err := Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(&src, &hub, nil); err != nil {
 			t.Fatalf("convert to v1beta2 failed: %v", err)
 		}
@@ -922,11 +922,11 @@ func TestConvertDefaultedFieldsKeepZeroValues(t *testing.T) {
 	t.Run("public network IPv4 and IPv6", func(t *testing.T) {
 		src := PublicNetworkSpec{EnableIPv4: false, EnableIPv6: false}
 
-		var hub infrav2.PublicNetworkSpec
+		var hub infrav1.PublicNetworkSpec
 		if err := Convert_v1beta1_PublicNetworkSpec_To_v1beta2_PublicNetworkSpec(&src, &hub, nil); err != nil {
 			t.Fatalf("convert to v1beta2 failed: %v", err)
 		}
-		if !reflect.DeepEqual(hub, infrav2.PublicNetworkSpec{EnableIPv4: ptr.To(false), EnableIPv6: ptr.To(false)}) {
+		if !reflect.DeepEqual(hub, infrav1.PublicNetworkSpec{EnableIPv4: ptr.To(false), EnableIPv6: ptr.To(false)}) {
 			t.Fatalf("publicNetwork = %#v, want pointers to false", hub)
 		}
 
@@ -942,7 +942,7 @@ func TestConvertDefaultedFieldsKeepZeroValues(t *testing.T) {
 	t.Run("installImage swraid and swraidLevel", func(t *testing.T) {
 		src := InstallImage{Swraid: 0, SwraidLevel: 0}
 
-		var hub infrav2.InstallImage
+		var hub infrav1.InstallImage
 		if err := Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(&src, &hub, nil); err != nil {
 			t.Fatalf("convert to v1beta2 failed: %v", err)
 		}
@@ -963,11 +963,11 @@ func TestConvertDefaultedFieldsKeepZeroValues(t *testing.T) {
 		// A port of 0 is valid when noSSHAfterInstallImage is true, because the port is then never used.
 		src := SSHSpec{NoSSHAfterInstallImage: true, PortAfterInstallImage: 0, PortAfterCloudInit: 0}
 
-		var hub infrav2.SSHSpec
+		var hub infrav1.SSHSpec
 		if err := Convert_v1beta1_SSHSpec_To_v1beta2_SSHSpec(&src, &hub, nil); err != nil {
 			t.Fatalf("convert to v1beta2 failed: %v", err)
 		}
-		want := infrav2.SSHSpec{NoSSHAfterInstallImage: ptr.To(true), PortAfterInstallImage: ptr.To[int32](0)}
+		want := infrav1.SSHSpec{NoSSHAfterInstallImage: ptr.To(true), PortAfterInstallImage: ptr.To[int32](0)}
 		if !reflect.DeepEqual(hub, want) {
 			t.Fatalf("sshSpec = %#v, want portAfterInstallImage pointer to 0", hub)
 		}
@@ -985,7 +985,7 @@ func TestConvertDefaultedFieldsKeepZeroValues(t *testing.T) {
 		for _, timeout := range []*metav1.Duration{nil, {Duration: 0}} {
 			src := RemediationStrategy{Timeout: timeout}
 
-			var hub infrav2.RemediationStrategy
+			var hub infrav1.RemediationStrategy
 			if err := Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy(&src, &hub, nil); err != nil {
 				t.Fatalf("convert to v1beta2 failed: %v", err)
 			}
@@ -1008,7 +1008,7 @@ func TestConvertDefaultedFieldsKeepZeroValues(t *testing.T) {
 // value that v1beta1 had for an unset field.
 func TestConvertUnsetDefaultedFieldsToV1Beta1(t *testing.T) {
 	var publicNetwork PublicNetworkSpec
-	if err := Convert_v1beta2_PublicNetworkSpec_To_v1beta1_PublicNetworkSpec(&infrav2.PublicNetworkSpec{}, &publicNetwork, nil); err != nil {
+	if err := Convert_v1beta2_PublicNetworkSpec_To_v1beta1_PublicNetworkSpec(&infrav1.PublicNetworkSpec{}, &publicNetwork, nil); err != nil {
 		t.Fatalf("convert publicNetwork failed: %v", err)
 	}
 	if !publicNetwork.EnableIPv4 || !publicNetwork.EnableIPv6 {
@@ -1016,7 +1016,7 @@ func TestConvertUnsetDefaultedFieldsToV1Beta1(t *testing.T) {
 	}
 
 	var key HetznerSecretKeyRef
-	if err := Convert_v1beta2_HetznerSecretKeyRef_To_v1beta1_HetznerSecretKeyRef(&infrav2.HetznerSecretKeyRef{}, &key, nil); err != nil {
+	if err := Convert_v1beta2_HetznerSecretKeyRef_To_v1beta1_HetznerSecretKeyRef(&infrav1.HetznerSecretKeyRef{}, &key, nil); err != nil {
 		t.Fatalf("convert hetznerSecretRef.key failed: %v", err)
 	}
 	for name, tc := range map[string]struct{ got, want string }{
@@ -1031,7 +1031,7 @@ func TestConvertUnsetDefaultedFieldsToV1Beta1(t *testing.T) {
 	}
 
 	var installImage InstallImage
-	if err := Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(&infrav2.InstallImage{}, &installImage, nil); err != nil {
+	if err := Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(&infrav1.InstallImage{}, &installImage, nil); err != nil {
 		t.Fatalf("convert installImage failed: %v", err)
 	}
 	if installImage.Swraid != 0 || installImage.SwraidLevel != 1 {
@@ -1039,7 +1039,7 @@ func TestConvertUnsetDefaultedFieldsToV1Beta1(t *testing.T) {
 	}
 
 	var sshSpec SSHSpec
-	if err := Convert_v1beta2_SSHSpec_To_v1beta1_SSHSpec(&infrav2.SSHSpec{}, &sshSpec, nil); err != nil {
+	if err := Convert_v1beta2_SSHSpec_To_v1beta1_SSHSpec(&infrav1.SSHSpec{}, &sshSpec, nil); err != nil {
 		t.Fatalf("convert sshSpec failed: %v", err)
 	}
 	if sshSpec.PortAfterInstallImage != 22 || sshSpec.PortAfterCloudInit != 0 {
@@ -1049,7 +1049,7 @@ func TestConvertUnsetDefaultedFieldsToV1Beta1(t *testing.T) {
 	// A controlPlaneLoadBalancer that is left out gets no defaults, and enabled is not set. An unset
 	// enabled means no load balancer. It converts to false.
 	var loadBalancer LoadBalancerSpec
-	if err := Convert_v1beta2_LoadBalancerSpec_To_v1beta1_LoadBalancerSpec(&infrav2.LoadBalancerSpec{}, &loadBalancer, nil); err != nil {
+	if err := Convert_v1beta2_LoadBalancerSpec_To_v1beta1_LoadBalancerSpec(&infrav1.LoadBalancerSpec{}, &loadBalancer, nil); err != nil {
 		t.Fatalf("convert controlPlaneLoadBalancer failed: %v", err)
 	}
 	if loadBalancer.Enabled {
@@ -1066,30 +1066,30 @@ func TestConvertSSHStatusKeys(t *testing.T) {
 	toV1Beta2 := []struct {
 		name string
 		in   SSHStatus
-		want infrav2.SSHStatus
+		want infrav1.SSHStatus
 	}{
 		{
 			name: "nil keys become empty values",
 			in:   SSHStatus{},
-			want: infrav2.SSHStatus{},
+			want: infrav1.SSHStatus{},
 		},
 		{
 			name: "empty keys become empty values",
 			in:   SSHStatus{OSKey: &SSHKey{}, RescueKey: &SSHKey{}},
-			want: infrav2.SSHStatus{},
+			want: infrav1.SSHStatus{},
 		},
 		{
 			name: "set keys keep their values",
 			in:   SSHStatus{OSKey: &osKey, RescueKey: &rescueKey},
-			want: infrav2.SSHStatus{
-				OSKey:     infrav2.SSHKey{Name: "os-key", Fingerprint: "aa:bb"},
-				RescueKey: infrav2.SSHKey{Name: "rescue-key", Fingerprint: "cc:dd"},
+			want: infrav1.SSHStatus{
+				OSKey:     infrav1.SSHKey{Name: "os-key", Fingerprint: "aa:bb"},
+				RescueKey: infrav1.SSHKey{Name: "rescue-key", Fingerprint: "cc:dd"},
 			},
 		},
 	}
 	for _, tc := range toV1Beta2 {
 		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
-			var got infrav2.SSHStatus
+			var got infrav1.SSHStatus
 			if err := Convert_v1beta1_SSHStatus_To_v1beta2_SSHStatus(&tc.in, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
@@ -1101,19 +1101,19 @@ func TestConvertSSHStatusKeys(t *testing.T) {
 
 	toV1Beta1 := []struct {
 		name string
-		in   infrav2.SSHStatus
+		in   infrav1.SSHStatus
 		want SSHStatus
 	}{
 		{
 			name: "empty keys become nil",
-			in:   infrav2.SSHStatus{},
+			in:   infrav1.SSHStatus{},
 			want: SSHStatus{},
 		},
 		{
 			name: "set keys become pointers",
-			in: infrav2.SSHStatus{
-				OSKey:     infrav2.SSHKey{Name: "os-key", Fingerprint: "aa:bb"},
-				RescueKey: infrav2.SSHKey{Name: "rescue-key", Fingerprint: "cc:dd"},
+			in: infrav1.SSHStatus{
+				OSKey:     infrav1.SSHKey{Name: "os-key", Fingerprint: "aa:bb"},
+				RescueKey: infrav1.SSHKey{Name: "rescue-key", Fingerprint: "cc:dd"},
 			},
 			want: SSHStatus{OSKey: &osKey, RescueKey: &rescueKey},
 		},
@@ -1137,17 +1137,17 @@ func TestConvertHCloudRemediationSpecStrategy(t *testing.T) {
 	toV1Beta2 := []struct {
 		name string
 		in   HCloudRemediationSpec
-		want infrav2.HCloudRemediationSpec
+		want infrav1.HCloudRemediationSpec
 	}{
 		{
 			name: "nil strategy becomes an empty strategy",
 			in:   HCloudRemediationSpec{},
-			want: infrav2.HCloudRemediationSpec{},
+			want: infrav1.HCloudRemediationSpec{},
 		},
 		{
 			name: "empty strategy gets timeoutSeconds 0",
 			in:   HCloudRemediationSpec{Strategy: &RemediationStrategy{}},
-			want: infrav2.HCloudRemediationSpec{Strategy: infrav2.RemediationStrategy{TimeoutSeconds: ptr.To[int32](0)}},
+			want: infrav1.HCloudRemediationSpec{Strategy: infrav1.RemediationStrategy{TimeoutSeconds: ptr.To[int32](0)}},
 		},
 		{
 			name: "set strategy keeps its values",
@@ -1156,8 +1156,8 @@ func TestConvertHCloudRemediationSpecStrategy(t *testing.T) {
 				RetryLimit: 2,
 				Timeout:    &metav1.Duration{Duration: 5 * time.Minute},
 			}},
-			want: infrav2.HCloudRemediationSpec{Strategy: infrav2.RemediationStrategy{
-				Type:           infrav2.RemediationTypeReboot,
+			want: infrav1.HCloudRemediationSpec{Strategy: infrav1.RemediationStrategy{
+				Type:           infrav1.RemediationTypeReboot,
 				RetryLimit:     ptr.To[int32](2),
 				TimeoutSeconds: ptr.To[int32](300),
 			}},
@@ -1165,7 +1165,7 @@ func TestConvertHCloudRemediationSpecStrategy(t *testing.T) {
 	}
 	for _, tc := range toV1Beta2 {
 		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
-			var got infrav2.HCloudRemediationSpec
+			var got infrav1.HCloudRemediationSpec
 			if err := Convert_v1beta1_HCloudRemediationSpec_To_v1beta2_HCloudRemediationSpec(&tc.in, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
@@ -1177,18 +1177,18 @@ func TestConvertHCloudRemediationSpecStrategy(t *testing.T) {
 
 	toV1Beta1 := []struct {
 		name string
-		in   infrav2.HCloudRemediationSpec
+		in   infrav1.HCloudRemediationSpec
 		want HCloudRemediationSpec
 	}{
 		{
 			name: "empty strategy becomes nil",
-			in:   infrav2.HCloudRemediationSpec{},
+			in:   infrav1.HCloudRemediationSpec{},
 			want: HCloudRemediationSpec{},
 		},
 		{
 			name: "set strategy becomes a pointer",
-			in: infrav2.HCloudRemediationSpec{Strategy: infrav2.RemediationStrategy{
-				Type:           infrav2.RemediationTypeReboot,
+			in: infrav1.HCloudRemediationSpec{Strategy: infrav1.RemediationStrategy{
+				Type:           infrav1.RemediationTypeReboot,
 				RetryLimit:     ptr.To[int32](2),
 				TimeoutSeconds: ptr.To[int32](300),
 			}},
@@ -1219,18 +1219,18 @@ func TestConvertHetznerBareMetalRemediationSpecStrategy(t *testing.T) {
 	toV1Beta2 := []struct {
 		name string
 		in   HetznerBareMetalRemediationSpec
-		want infrav2.HetznerBareMetalRemediationSpec
+		want infrav1.HetznerBareMetalRemediationSpec
 	}{
 		{
 			name: "nil strategy becomes an empty strategy",
 			in:   HetznerBareMetalRemediationSpec{},
-			want: infrav2.HetznerBareMetalRemediationSpec{},
+			want: infrav1.HetznerBareMetalRemediationSpec{},
 		},
 		{
 			name: "empty strategy gets timeoutSeconds 0",
 			in:   HetznerBareMetalRemediationSpec{Strategy: &BareMetalRemediationStrategy{}},
-			want: infrav2.HetznerBareMetalRemediationSpec{Strategy: infrav2.BareMetalRemediationStrategy{
-				RemediationStrategy: infrav2.RemediationStrategy{TimeoutSeconds: ptr.To[int32](0)},
+			want: infrav1.HetznerBareMetalRemediationSpec{Strategy: infrav1.BareMetalRemediationStrategy{
+				RemediationStrategy: infrav1.RemediationStrategy{TimeoutSeconds: ptr.To[int32](0)},
 			}},
 		},
 		{
@@ -1243,19 +1243,19 @@ func TestConvertHetznerBareMetalRemediationSpecStrategy(t *testing.T) {
 				},
 				OnExhaustion: OnExhaustionRetire,
 			}},
-			want: infrav2.HetznerBareMetalRemediationSpec{Strategy: infrav2.BareMetalRemediationStrategy{
-				RemediationStrategy: infrav2.RemediationStrategy{
-					Type:           infrav2.RemediationTypeReboot,
+			want: infrav1.HetznerBareMetalRemediationSpec{Strategy: infrav1.BareMetalRemediationStrategy{
+				RemediationStrategy: infrav1.RemediationStrategy{
+					Type:           infrav1.RemediationTypeReboot,
 					RetryLimit:     ptr.To[int32](2),
 					TimeoutSeconds: ptr.To[int32](300),
 				},
-				OnExhaustion: infrav2.OnExhaustionRetire,
+				OnExhaustion: infrav1.OnExhaustionRetire,
 			}},
 		},
 	}
 	for _, tc := range toV1Beta2 {
 		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
-			var got infrav2.HetznerBareMetalRemediationSpec
+			var got infrav1.HetznerBareMetalRemediationSpec
 			if err := Convert_v1beta1_HetznerBareMetalRemediationSpec_To_v1beta2_HetznerBareMetalRemediationSpec(&tc.in, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
@@ -1267,23 +1267,23 @@ func TestConvertHetznerBareMetalRemediationSpecStrategy(t *testing.T) {
 
 	toV1Beta1 := []struct {
 		name string
-		in   infrav2.HetznerBareMetalRemediationSpec
+		in   infrav1.HetznerBareMetalRemediationSpec
 		want HetznerBareMetalRemediationSpec
 	}{
 		{
 			name: "empty strategy becomes nil",
-			in:   infrav2.HetznerBareMetalRemediationSpec{},
+			in:   infrav1.HetznerBareMetalRemediationSpec{},
 			want: HetznerBareMetalRemediationSpec{},
 		},
 		{
 			name: "set strategy becomes a pointer",
-			in: infrav2.HetznerBareMetalRemediationSpec{Strategy: infrav2.BareMetalRemediationStrategy{
-				RemediationStrategy: infrav2.RemediationStrategy{
-					Type:           infrav2.RemediationTypeReboot,
+			in: infrav1.HetznerBareMetalRemediationSpec{Strategy: infrav1.BareMetalRemediationStrategy{
+				RemediationStrategy: infrav1.RemediationStrategy{
+					Type:           infrav1.RemediationTypeReboot,
 					RetryLimit:     ptr.To[int32](2),
 					TimeoutSeconds: ptr.To[int32](300),
 				},
-				OnExhaustion: infrav2.OnExhaustionRetire,
+				OnExhaustion: infrav1.OnExhaustionRetire,
 			}},
 			want: HetznerBareMetalRemediationSpec{Strategy: &BareMetalRemediationStrategy{
 				RemediationStrategy: RemediationStrategy{
@@ -1315,35 +1315,35 @@ func TestConvertHetznerSSHKeys(t *testing.T) {
 		Name: "rescue-ssh",
 		Key:  SSHSecretKeyRef{Name: "sshkey-name", PublicKey: "public-key", PrivateKey: "private-key"},
 	}
-	rescueSecretRefV1Beta2 := infrav2.SSHSecretRef{
+	rescueSecretRefV1Beta2 := infrav1.SSHSecretRef{
 		Name: "rescue-ssh",
-		Key:  infrav2.SSHSecretKeyRef{Name: "sshkey-name", PublicKey: "public-key", PrivateKey: "private-key"},
+		Key:  infrav1.SSHSecretKeyRef{Name: "sshkey-name", PublicKey: "public-key", PrivateKey: "private-key"},
 	}
 
 	toV1Beta2 := []struct {
 		name string
 		in   HetznerSSHKeys
-		want infrav2.HetznerSSHKeys
+		want infrav1.HetznerSSHKeys
 	}{
 		{
 			name: "nil hcloud list and empty rescueSecretRef stay unset",
 			in:   HetznerSSHKeys{},
-			want: infrav2.HetznerSSHKeys{},
+			want: infrav1.HetznerSSHKeys{},
 		},
 		{
 			name: "empty hcloud list becomes nil",
 			in:   HetznerSSHKeys{HCloud: []SSHKey{}},
-			want: infrav2.HetznerSSHKeys{},
+			want: infrav1.HetznerSSHKeys{},
 		},
 		{
 			name: "set hcloud list and rescueSecretRef keep their values",
 			in:   HetznerSSHKeys{HCloud: []SSHKey{{Name: "key"}}, RobotRescueSecretRef: rescueSecretRef},
-			want: infrav2.HetznerSSHKeys{HCloud: []infrav2.SSHKey{{Name: "key"}}, RescueSecretRef: &rescueSecretRefV1Beta2},
+			want: infrav1.HetznerSSHKeys{HCloud: []infrav1.SSHKey{{Name: "key"}}, RescueSecretRef: &rescueSecretRefV1Beta2},
 		},
 	}
 	for _, tc := range toV1Beta2 {
 		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
-			var got infrav2.HetznerSSHKeys
+			var got infrav1.HetznerSSHKeys
 			if err := Convert_v1beta1_HetznerSSHKeys_To_v1beta2_HetznerSSHKeys(&tc.in, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
@@ -1355,22 +1355,22 @@ func TestConvertHetznerSSHKeys(t *testing.T) {
 
 	toV1Beta1 := []struct {
 		name string
-		in   infrav2.HetznerSSHKeys
+		in   infrav1.HetznerSSHKeys
 		want HetznerSSHKeys
 	}{
 		{
 			name: "nil rescueSecretRef becomes an empty value",
-			in:   infrav2.HetznerSSHKeys{},
+			in:   infrav1.HetznerSSHKeys{},
 			want: HetznerSSHKeys{},
 		},
 		{
 			name: "empty rescueSecretRef becomes an empty value",
-			in:   infrav2.HetznerSSHKeys{RescueSecretRef: &infrav2.SSHSecretRef{}},
+			in:   infrav1.HetznerSSHKeys{RescueSecretRef: &infrav1.SSHSecretRef{}},
 			want: HetznerSSHKeys{},
 		},
 		{
 			name: "set hcloud list and rescueSecretRef keep their values",
-			in:   infrav2.HetznerSSHKeys{HCloud: []infrav2.SSHKey{{Name: "key"}}, RescueSecretRef: &rescueSecretRefV1Beta2},
+			in:   infrav1.HetznerSSHKeys{HCloud: []infrav1.SSHKey{{Name: "key"}}, RescueSecretRef: &rescueSecretRefV1Beta2},
 			want: HetznerSSHKeys{HCloud: []SSHKey{{Name: "key"}}, RobotRescueSecretRef: rescueSecretRef},
 		},
 	}
@@ -1393,15 +1393,15 @@ func TestConvertRaidWWN(t *testing.T) {
 	toV1Beta2 := []struct {
 		name string
 		in   Raid
-		want infrav2.Raid
+		want infrav1.Raid
 	}{
-		{name: "nil wwn stays nil", in: Raid{}, want: infrav2.Raid{}},
-		{name: "empty wwn becomes nil", in: Raid{WWN: []string{}}, want: infrav2.Raid{}},
-		{name: "set wwn keeps its values", in: Raid{WWN: []string{"0x1", "0x2"}}, want: infrav2.Raid{WWN: []string{"0x1", "0x2"}}},
+		{name: "nil wwn stays nil", in: Raid{}, want: infrav1.Raid{}},
+		{name: "empty wwn becomes nil", in: Raid{WWN: []string{}}, want: infrav1.Raid{}},
+		{name: "set wwn keeps its values", in: Raid{WWN: []string{"0x1", "0x2"}}, want: infrav1.Raid{WWN: []string{"0x1", "0x2"}}},
 	}
 	for _, tc := range toV1Beta2 {
 		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
-			var got infrav2.Raid
+			var got infrav1.Raid
 			if err := Convert_v1beta1_Raid_To_v1beta2_Raid(&tc.in, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
@@ -1413,11 +1413,11 @@ func TestConvertRaidWWN(t *testing.T) {
 
 	toV1Beta1 := []struct {
 		name string
-		in   infrav2.Raid
+		in   infrav1.Raid
 		want Raid
 	}{
-		{name: "nil wwn stays nil", in: infrav2.Raid{}, want: Raid{}},
-		{name: "set wwn keeps its values", in: infrav2.Raid{WWN: []string{"0x1", "0x2"}}, want: Raid{WWN: []string{"0x1", "0x2"}}},
+		{name: "nil wwn stays nil", in: infrav1.Raid{}, want: Raid{}},
+		{name: "set wwn keeps its values", in: infrav1.Raid{WWN: []string{"0x1", "0x2"}}, want: Raid{WWN: []string{"0x1", "0x2"}}},
 	}
 	for _, tc := range toV1Beta1 {
 		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
@@ -1455,7 +1455,7 @@ func TestConvertProviderID(t *testing.T) {
 
 	for _, tc := range toV1Beta2 {
 		t.Run("HCloudMachine to v1beta2: "+tc.name, func(t *testing.T) {
-			var got infrav2.HCloudMachineSpec
+			var got infrav1.HCloudMachineSpec
 			if err := Convert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(&HCloudMachineSpec{ProviderID: tc.in}, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
@@ -1464,7 +1464,7 @@ func TestConvertProviderID(t *testing.T) {
 			}
 		})
 		t.Run("HetznerBareMetalMachine to v1beta2: "+tc.name, func(t *testing.T) {
-			var got infrav2.HetznerBareMetalMachineSpec
+			var got infrav1.HetznerBareMetalMachineSpec
 			if err := Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(&HetznerBareMetalMachineSpec{ProviderID: tc.in}, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
@@ -1476,7 +1476,7 @@ func TestConvertProviderID(t *testing.T) {
 	for _, tc := range toV1Beta1 {
 		t.Run("HCloudMachine to v1beta1: "+tc.name, func(t *testing.T) {
 			var got HCloudMachineSpec
-			if err := Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(&infrav2.HCloudMachineSpec{ProviderID: tc.in}, &got, nil); err != nil {
+			if err := Convert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(&infrav1.HCloudMachineSpec{ProviderID: tc.in}, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
 			if !reflect.DeepEqual(got.ProviderID, tc.want) {
@@ -1485,7 +1485,7 @@ func TestConvertProviderID(t *testing.T) {
 		})
 		t.Run("HetznerBareMetalMachine to v1beta1: "+tc.name, func(t *testing.T) {
 			var got HetznerBareMetalMachineSpec
-			if err := Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&infrav2.HetznerBareMetalMachineSpec{ProviderID: tc.in}, &got, nil); err != nil {
+			if err := Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&infrav1.HetznerBareMetalMachineSpec{ProviderID: tc.in}, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
 			if !reflect.DeepEqual(got.ProviderID, tc.want) {
@@ -1504,9 +1504,9 @@ func TestConvertHostSelector(t *testing.T) {
 			{Key: "zone", Operator: selection.In, Values: []string{"fsn1"}},
 		},
 	}
-	hostSelectorV1Beta2 := infrav2.HostSelector{
+	hostSelectorV1Beta2 := infrav1.HostSelector{
 		MatchLabels: map[string]string{"role": "control-plane"},
-		MatchExpressions: []infrav2.HostSelectorRequirement{
+		MatchExpressions: []infrav1.HostSelectorRequirement{
 			{Key: "zone", Operator: selection.In, Values: []string{"fsn1"}},
 		},
 	}
@@ -1514,14 +1514,14 @@ func TestConvertHostSelector(t *testing.T) {
 	toV1Beta2 := []struct {
 		name string
 		in   HostSelector
-		want *infrav2.HostSelector
+		want *infrav1.HostSelector
 	}{
 		{name: "empty value becomes nil", in: HostSelector{}, want: nil},
 		{name: "set value becomes a pointer", in: hostSelector, want: &hostSelectorV1Beta2},
 	}
 	for _, tc := range toV1Beta2 {
 		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
-			var got infrav2.HetznerBareMetalMachineSpec
+			var got infrav1.HetznerBareMetalMachineSpec
 			if err := Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMachineSpec(&HetznerBareMetalMachineSpec{HostSelector: tc.in}, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
@@ -1533,16 +1533,16 @@ func TestConvertHostSelector(t *testing.T) {
 
 	toV1Beta1 := []struct {
 		name string
-		in   *infrav2.HostSelector
+		in   *infrav1.HostSelector
 		want HostSelector
 	}{
 		{name: "nil becomes an empty value", in: nil, want: HostSelector{}},
-		{name: "pointer to an empty value becomes an empty value", in: &infrav2.HostSelector{}, want: HostSelector{}},
+		{name: "pointer to an empty value becomes an empty value", in: &infrav1.HostSelector{}, want: HostSelector{}},
 		{name: "set pointer becomes a value", in: &hostSelectorV1Beta2, want: hostSelector},
 		{
 			name: "nil values become an empty list",
-			in: &infrav2.HostSelector{
-				MatchExpressions: []infrav2.HostSelectorRequirement{{Key: "gpu", Operator: selection.Exists}},
+			in: &infrav1.HostSelector{
+				MatchExpressions: []infrav1.HostSelectorRequirement{{Key: "gpu", Operator: selection.Exists}},
 			},
 			want: HostSelector{
 				MatchExpressions: []HostSelectorRequirement{{Key: "gpu", Operator: selection.Exists, Values: []string{}}},
@@ -1552,7 +1552,7 @@ func TestConvertHostSelector(t *testing.T) {
 	for _, tc := range toV1Beta1 {
 		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
 			var got HetznerBareMetalMachineSpec
-			if err := Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&infrav2.HetznerBareMetalMachineSpec{HostSelector: tc.in}, &got, nil); err != nil {
+			if err := Convert_v1beta2_HetznerBareMetalMachineSpec_To_v1beta1_HetznerBareMetalMachineSpec(&infrav1.HetznerBareMetalMachineSpec{HostSelector: tc.in}, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
 			if !reflect.DeepEqual(got.HostSelector, tc.want) {
@@ -1566,14 +1566,14 @@ func TestConvertHostSelector(t *testing.T) {
 // controlPlaneLoadBalancer or hcloudNetwork block converts to zero v1beta2 structs. The v1beta2 JSON
 // then leaves both blocks out, and the API server does not add their defaults.
 func TestConvertMissingClusterBlocksToV1Beta2(t *testing.T) {
-	var got infrav2.HetznerClusterSpec
+	var got infrav1.HetznerClusterSpec
 	if err := Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(&HetznerClusterSpec{}, &got, nil); err != nil {
 		t.Fatalf("convert failed: %v", err)
 	}
-	if !reflect.DeepEqual(got.ControlPlaneLoadBalancer, infrav2.LoadBalancerSpec{}) {
+	if !reflect.DeepEqual(got.ControlPlaneLoadBalancer, infrav1.LoadBalancerSpec{}) {
 		t.Fatalf("controlPlaneLoadBalancer = %#v, want the zero struct", got.ControlPlaneLoadBalancer)
 	}
-	if !reflect.DeepEqual(got.HCloudNetwork, infrav2.HCloudNetworkSpec{}) {
+	if !reflect.DeepEqual(got.HCloudNetwork, infrav1.HCloudNetworkSpec{}) {
 		t.Fatalf("hcloudNetwork = %#v, want the zero struct", got.HCloudNetwork)
 	}
 }
@@ -1582,7 +1582,7 @@ func TestConvertMissingClusterBlocksToV1Beta2(t *testing.T) {
 // list, because the v1beta1 schema requires the field.
 func TestConvertControlPlaneRegionsToV1Beta1(t *testing.T) {
 	var got HetznerClusterSpec
-	if err := Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(&infrav2.HetznerClusterSpec{}, &got, nil); err != nil {
+	if err := Convert_v1beta2_HetznerClusterSpec_To_v1beta1_HetznerClusterSpec(&infrav1.HetznerClusterSpec{}, &got, nil); err != nil {
 		t.Fatalf("convert failed: %v", err)
 	}
 	if got.ControlPlaneRegions == nil || len(got.ControlPlaneRegions) != 0 {
@@ -1603,7 +1603,7 @@ func TestConvertSecretStatusCredentials(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
-			var got infrav2.SecretStatus
+			var got infrav1.SecretStatus
 			if err := Convert_v1beta1_SecretStatus_To_v1beta2_SecretStatus(&SecretStatus{Reference: tc.reference}, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
@@ -1613,7 +1613,7 @@ func TestConvertSecretStatusCredentials(t *testing.T) {
 		})
 		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
 			var got SecretStatus
-			if err := Convert_v1beta2_SecretStatus_To_v1beta1_SecretStatus(&infrav2.SecretStatus{CredentialsRef: tc.reference}, &got, nil); err != nil {
+			if err := Convert_v1beta2_SecretStatus_To_v1beta1_SecretStatus(&infrav1.SecretStatus{CredentialsRef: tc.reference}, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
 			if !reflect.DeepEqual(got.Reference, tc.reference) {
@@ -1639,11 +1639,11 @@ func TestConvertHealthCheckIntegers(t *testing.T) {
 	for _, tc := range toV1Beta2 {
 		t.Run("to v1beta2: "+tc.name, func(t *testing.T) {
 			in := LoadBalancerHealthCheckSpec{Port: tc.in, IntervalSeconds: tc.in, TimeoutSeconds: tc.in, Retries: tc.in}
-			var got infrav2.LoadBalancerHealthCheckSpec
+			var got infrav1.LoadBalancerHealthCheckSpec
 			if err := Convert_v1beta1_LoadBalancerHealthCheckSpec_To_v1beta2_LoadBalancerHealthCheckSpec(&in, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
-			want := infrav2.LoadBalancerHealthCheckSpec{Port: tc.want, IntervalSeconds: tc.want, TimeoutSeconds: tc.want, Retries: tc.want}
+			want := infrav1.LoadBalancerHealthCheckSpec{Port: tc.want, IntervalSeconds: tc.want, TimeoutSeconds: tc.want, Retries: tc.want}
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("healthCheck = %#v, want %#v", got, want)
 			}
@@ -1660,7 +1660,7 @@ func TestConvertHealthCheckIntegers(t *testing.T) {
 	}
 	for _, tc := range toV1Beta1 {
 		t.Run("to v1beta1: "+tc.name, func(t *testing.T) {
-			in := infrav2.LoadBalancerHealthCheckSpec{Port: tc.in, IntervalSeconds: tc.in, TimeoutSeconds: tc.in, Retries: tc.in}
+			in := infrav1.LoadBalancerHealthCheckSpec{Port: tc.in, IntervalSeconds: tc.in, TimeoutSeconds: tc.in, Retries: tc.in}
 			var got LoadBalancerHealthCheckSpec
 			if err := Convert_v1beta2_LoadBalancerHealthCheckSpec_To_v1beta1_LoadBalancerHealthCheckSpec(&in, &got, nil); err != nil {
 				t.Fatalf("convert failed: %v", err)
@@ -1690,7 +1690,7 @@ func TestConvertHCloudMachineStatusExternalIDs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			src := HCloudMachineStatusExternalIDs{ActionIDEnableRescueSystem: tc.in, ActionIDCreateServer: tc.in}
 
-			var hub infrav2.HCloudMachineStatusExternalIDs
+			var hub infrav1.HCloudMachineStatusExternalIDs
 			if err := Convert_v1beta1_HCloudMachineStatusExternalIDs_To_v1beta2_HCloudMachineStatusExternalIDs(&src, &hub, nil); err != nil {
 				t.Fatalf("convert to v1beta2 failed: %v", err)
 			}
@@ -1835,10 +1835,10 @@ func TestHCloudMachineTemplateConvertToPromoteV1Beta2Shape(t *testing.T) {
 	}
 	v1beta2Conditions := []metav1.Condition{
 		{
-			Type:               infrav2.HCloudMachineTemplateAvailableCondition,
+			Type:               infrav1.HCloudMachineTemplateAvailableCondition,
 			Status:             metav1.ConditionTrue,
 			LastTransitionTime: metav1.Unix(2, 0),
-			Reason:             infrav2.HCloudMachineTemplateAvailableReason,
+			Reason:             infrav1.HCloudMachineTemplateAvailableReason,
 			Message:            "template is available",
 		},
 	}
@@ -1853,7 +1853,7 @@ func TestHCloudMachineTemplateConvertToPromoteV1Beta2Shape(t *testing.T) {
 		},
 	}
 
-	dst := &infrav2.HCloudMachineTemplate{}
+	dst := &infrav1.HCloudMachineTemplate{}
 	if err := src.ConvertTo(dst); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -1884,20 +1884,20 @@ func TestHCloudMachineTemplateConvertFromDemoteV1Beta2Shape(t *testing.T) {
 	}
 	v1beta2Conditions := []metav1.Condition{
 		{
-			Type:               infrav2.HCloudMachineTemplateAvailableCondition,
+			Type:               infrav1.HCloudMachineTemplateAvailableCondition,
 			Status:             metav1.ConditionTrue,
 			LastTransitionTime: metav1.Unix(2, 0),
-			Reason:             infrav2.HCloudMachineTemplateOwnedByClusterClassReason,
+			Reason:             infrav1.HCloudMachineTemplateOwnedByClusterClassReason,
 			Message:            "template is available",
 		},
 	}
 
-	src := &infrav2.HCloudMachineTemplate{
-		Status: infrav2.HCloudMachineTemplateStatus{
+	src := &infrav1.HCloudMachineTemplate{
+		Status: infrav1.HCloudMachineTemplateStatus{
 			OwnerType:  "ClusterClass",
 			Conditions: v1beta2Conditions,
-			Deprecated: &infrav2.HCloudMachineTemplateDeprecatedStatus{
-				V1Beta1: &infrav2.HCloudMachineTemplateV1Beta1DeprecatedStatus{
+			Deprecated: &infrav1.HCloudMachineTemplateDeprecatedStatus{
+				V1Beta1: &infrav1.HCloudMachineTemplateV1Beta1DeprecatedStatus{
 					Conditions: legacyConditions,
 				},
 			},
@@ -1925,7 +1925,7 @@ func TestHCloudMachineTemplateConvertFromDemoteV1Beta2Shape(t *testing.T) {
 func TestHCloudMachineTemplateConditionsNilRoundTrip(t *testing.T) {
 	src := &HCloudMachineTemplate{Status: HCloudMachineTemplateStatus{OwnerType: "Cluster"}}
 
-	hub := &infrav2.HCloudMachineTemplate{}
+	hub := &infrav1.HCloudMachineTemplate{}
 	if err := src.ConvertTo(hub); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -2003,7 +2003,7 @@ func TestHetznerClusterConvertToPromoteV1Beta2Shape(t *testing.T) {
 		},
 	}
 
-	dst := &infrav2.HetznerCluster{}
+	dst := &infrav1.HetznerCluster{}
 	if err := src.ConvertTo(dst); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -2020,9 +2020,9 @@ func TestHetznerClusterConvertToPromoteV1Beta2Shape(t *testing.T) {
 	if dst.Spec.ControlPlaneEndpoint.Host != "1.2.3.4" || dst.Spec.ControlPlaneEndpoint.Port != 6443 {
 		t.Fatalf("controlPlaneEndpoint mismatch: %#v", dst.Spec.ControlPlaneEndpoint)
 	}
-	if !reflect.DeepEqual(dst.Spec.SSHKeys.RescueSecretRef, &infrav2.SSHSecretRef{
+	if !reflect.DeepEqual(dst.Spec.SSHKeys.RescueSecretRef, &infrav1.SSHSecretRef{
 		Name: "rescue-ssh",
-		Key: infrav2.SSHSecretKeyRef{
+		Key: infrav1.SSHSecretKeyRef{
 			Name:       "name",
 			PublicKey:  "public",
 			PrivateKey: "private",
@@ -2074,13 +2074,13 @@ func TestHetznerClusterConvertFromDemoteV1Beta2Shape(t *testing.T) {
 		},
 	}
 
-	src := &infrav2.HetznerCluster{
-		Spec: infrav2.HetznerClusterSpec{
-			ControlPlaneEndpoint: infrav2.APIEndpoint{Host: "5.6.7.8", Port: 8443},
-			SSHKeys: infrav2.HetznerSSHKeys{
-				RescueSecretRef: &infrav2.SSHSecretRef{
+	src := &infrav1.HetznerCluster{
+		Spec: infrav1.HetznerClusterSpec{
+			ControlPlaneEndpoint: infrav1.APIEndpoint{Host: "5.6.7.8", Port: 8443},
+			SSHKeys: infrav1.HetznerSSHKeys{
+				RescueSecretRef: &infrav1.SSHSecretRef{
 					Name: "rescue-ssh",
-					Key: infrav2.SSHSecretKeyRef{
+					Key: infrav1.SSHSecretKeyRef{
 						Name:       "name",
 						PublicKey:  "public",
 						PrivateKey: "private",
@@ -2088,17 +2088,17 @@ func TestHetznerClusterConvertFromDemoteV1Beta2Shape(t *testing.T) {
 				},
 			},
 		},
-		Status: infrav2.HetznerClusterStatus{
+		Status: infrav1.HetznerClusterStatus{
 			Conditions: v1beta2Conditions,
-			Initialization: infrav2.HetznerClusterInitializationStatus{
+			Initialization: infrav1.HetznerClusterInitializationStatus{
 				Provisioned: ptr.To(true),
 			},
 			FailureDomains: []clusterv1.FailureDomain{
 				{Name: "nbg1", ControlPlane: nil},
 				{Name: "fsn1", ControlPlane: ptr.To(true), Attributes: map[string]string{"zone": "eu-central"}},
 			},
-			Deprecated: &infrav2.HetznerClusterDeprecatedStatus{
-				V1Beta1: &infrav2.HetznerClusterV1Beta1DeprecatedStatus{
+			Deprecated: &infrav1.HetznerClusterDeprecatedStatus{
+				V1Beta1: &infrav1.HetznerClusterV1Beta1DeprecatedStatus{
 					Conditions: deprecatedConditions,
 				},
 			},
@@ -2148,9 +2148,9 @@ func TestHetznerClusterConvertFromDemoteV1Beta2Shape(t *testing.T) {
 // status.ready to status.initialization.provisioned conversion preserves an explicit
 // false provisioned value through the stored hub annotation.
 func TestHetznerClusterRoundTripPreservesFalseProvisionedIntent(t *testing.T) {
-	src := &infrav2.HetznerCluster{
-		Status: infrav2.HetznerClusterStatus{
-			Initialization: infrav2.HetznerClusterInitializationStatus{
+	src := &infrav1.HetznerCluster{
+		Status: infrav1.HetznerClusterStatus{
+			Initialization: infrav1.HetznerClusterInitializationStatus{
 				Provisioned: ptr.To(false),
 			},
 		},
@@ -2161,7 +2161,7 @@ func TestHetznerClusterRoundTripPreservesFalseProvisionedIntent(t *testing.T) {
 		t.Fatalf("failed to convert from v1beta2: %v", err)
 	}
 
-	restored := &infrav2.HetznerCluster{}
+	restored := &infrav1.HetznerCluster{}
 	if err := spoke.ConvertTo(restored); err != nil {
 		t.Fatalf("failed to convert back to v1beta2: %v", err)
 	}
@@ -2182,7 +2182,7 @@ func TestHetznerClusterConvertToNilProvisionedForFalseReadyWithoutAnnotation(t *
 		},
 	}
 
-	dst := &infrav2.HetznerCluster{}
+	dst := &infrav1.HetznerCluster{}
 	if err := src.ConvertTo(dst); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -2258,7 +2258,7 @@ func TestHCloudMachineConvertToPromoteV1Beta2Shape(t *testing.T) {
 		},
 	}
 
-	dst := &infrav2.HCloudMachine{}
+	dst := &infrav1.HCloudMachine{}
 	if err := src.ConvertTo(dst); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -2272,8 +2272,8 @@ func TestHCloudMachineConvertToPromoteV1Beta2Shape(t *testing.T) {
 	if dst.Status.Initialization.Provisioned == nil || !*dst.Status.Initialization.Provisioned {
 		t.Fatalf("status.initialization.provisioned = %v, want true", dst.Status.Initialization.Provisioned)
 	}
-	if dst.Status.InstanceState != infrav2.InstanceStateRunning {
-		t.Fatalf("status.instanceState = %q, want %q", dst.Status.InstanceState, infrav2.InstanceStateRunning)
+	if dst.Status.InstanceState != infrav1.InstanceStateRunning {
+		t.Fatalf("status.instanceState = %q, want %q", dst.Status.InstanceState, infrav1.InstanceStateRunning)
 	}
 	wantAddresses := []clusterv1.MachineAddress{{Type: clusterv1.MachineInternalIP, Address: "10.0.0.1"}}
 	if !reflect.DeepEqual(dst.Status.Addresses, wantAddresses) {
@@ -2307,17 +2307,17 @@ func TestHCloudMachineConvertFromDemoteV1Beta2Shape(t *testing.T) {
 	}
 	lastRemediatedAt := metav1.Unix(4, 0)
 
-	src := &infrav2.HCloudMachine{
-		Status: infrav2.HCloudMachineStatus{
+	src := &infrav1.HCloudMachine{
+		Status: infrav1.HCloudMachineStatus{
 			Conditions: v1beta2Conditions,
-			Initialization: infrav2.HCloudMachineInitializationStatus{
+			Initialization: infrav1.HCloudMachineInitializationStatus{
 				Provisioned: ptr.To(true),
 			},
-			InstanceState:    infrav2.InstanceStateDeleting,
+			InstanceState:    infrav1.InstanceStateDeleting,
 			Addresses:        []clusterv1.MachineAddress{{Type: clusterv1.MachineInternalIP, Address: "10.0.0.1"}},
 			LastRemediatedAt: lastRemediatedAt,
-			Deprecated: &infrav2.HCloudMachineDeprecatedStatus{
-				V1Beta1: &infrav2.HCloudMachineV1Beta1DeprecatedStatus{
+			Deprecated: &infrav1.HCloudMachineDeprecatedStatus{
+				V1Beta1: &infrav1.HCloudMachineV1Beta1DeprecatedStatus{
 					Conditions: legacyConditions,
 				},
 			},
@@ -2350,9 +2350,9 @@ func TestHCloudMachineConvertFromDemoteV1Beta2Shape(t *testing.T) {
 // status.initialization.provisioned conversion preserves an explicit false provisioned value through
 // the stored hub annotation.
 func TestHCloudMachineRoundTripPreservesFalseProvisionedIntent(t *testing.T) {
-	src := &infrav2.HCloudMachine{
-		Status: infrav2.HCloudMachineStatus{
-			Initialization: infrav2.HCloudMachineInitializationStatus{
+	src := &infrav1.HCloudMachine{
+		Status: infrav1.HCloudMachineStatus{
+			Initialization: infrav1.HCloudMachineInitializationStatus{
 				Provisioned: ptr.To(false),
 			},
 		},
@@ -2363,7 +2363,7 @@ func TestHCloudMachineRoundTripPreservesFalseProvisionedIntent(t *testing.T) {
 		t.Fatalf("failed to convert from v1beta2: %v", err)
 	}
 
-	restored := &infrav2.HCloudMachine{}
+	restored := &infrav1.HCloudMachine{}
 	if err := spoke.ConvertTo(restored); err != nil {
 		t.Fatalf("failed to convert back to v1beta2: %v", err)
 	}
@@ -2383,7 +2383,7 @@ func TestHCloudMachineFailureFieldsAreDropped(t *testing.T) {
 		},
 	}
 
-	hub := &infrav2.HCloudMachine{}
+	hub := &infrav1.HCloudMachine{}
 	if err := src.ConvertTo(hub); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -2404,7 +2404,7 @@ func TestHCloudMachineConvertToNilProvisionedForFalseReadyWithoutAnnotation(t *t
 		},
 	}
 
-	dst := &infrav2.HCloudMachine{}
+	dst := &infrav1.HCloudMachine{}
 	if err := src.ConvertTo(dst); err != nil {
 		t.Fatalf("failed to convert to v1beta2: %v", err)
 	}
@@ -2456,7 +2456,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		// empty-vs-nil ambiguity, so normalize them to make the round trip match. The deprecated wrapper
 		// survives only when it carries conditions. provisioned is left as-is: ConvertTo/ConvertFrom
 		// preserve it losslessly via the MarshalData annotation, so nil, *true and *false all survive.
-		func(in *infrav2.HCloudMachineStatus, c randfill.Continue) {
+		func(in *infrav1.HCloudMachineStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if len(in.Conditions) == 0 {
 				in.Conditions = nil
@@ -2484,7 +2484,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		// HCloudMachineTemplate v1beta2 status (hub side): conditions and the deprecated wrapper have the
 		// same empty-vs-nil ambiguity, so normalize them to make the round trip match. The deprecated
 		// wrapper survives only when it carries conditions.
-		func(in *infrav2.HCloudMachineTemplateStatus, c randfill.Continue) {
+		func(in *infrav1.HCloudMachineTemplateStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if len(in.Conditions) == 0 {
 				in.Conditions = nil
@@ -2521,7 +2521,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		// an empty-vs-nil ambiguity, so normalize them to make the round trip match. The deprecated
 		// wrapper survives only when it carries conditions. provisioned is left as-is: ConvertTo/ConvertFrom
 		// preserve it losslessly via the MarshalData annotation, so nil, *true and *false all survive.
-		func(in *infrav2.HetznerBareMetalMachineStatus, c randfill.Continue) {
+		func(in *infrav1.HetznerBareMetalMachineStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if len(in.Conditions) == 0 {
 				in.Conditions = nil
@@ -2558,10 +2558,10 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		// v1beta1 stores swraid, swraidLevel and skipCheckDisk as values, so an unset field converts back
 		// as the value it maps to (swraid 0, swraidLevel 1, skipCheckDisk false). An empty hostSelector
 		// converts back to nil.
-		func(in *infrav2.HetznerBareMetalMachineSpec, c randfill.Continue) {
+		func(in *infrav1.HetznerBareMetalMachineSpec, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.CustomProvisioner.IsDefined() {
-				in.InstallImage = infrav2.InstallImage{}
+				in.InstallImage = infrav1.InstallImage{}
 				if in.CustomProvisioner.Command == "" {
 					in.CustomProvisioner.Command = "provision.sh" // any non-empty value works; the content is not read here
 				}
@@ -2579,7 +2579,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			if in.SkipCheckDisk == nil {
 				in.SkipCheckDisk = ptr.To(false)
 			}
-			if in.HostSelector != nil && reflect.DeepEqual(*in.HostSelector, infrav2.HostSelector{}) {
+			if in.HostSelector != nil && reflect.DeepEqual(*in.HostSelector, infrav1.HostSelector{}) {
 				in.HostSelector = nil
 			}
 		},
@@ -2605,7 +2605,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		// SSHSpec v1beta2 (hub side): v1beta1 stores noSSHAfterInstallImage as a bool, so nil converts
 		// back as false. v1beta1 stores portAfterInstallImage as an int: an unset value converts back
 		// as its default 22.
-		func(in *infrav2.SSHSpec, c randfill.Continue) {
+		func(in *infrav1.SSHSpec, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.NoSSHAfterInstallImage == nil {
 				in.NoSSHAfterInstallImage = ptr.To(false)
@@ -2616,7 +2616,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		// HCloudMachine v1beta2 external IDs (hub side): v1beta1 stores an unset action ID as 0, and 0
 		// converts back to nil. So a pointer to 0 does not round trip.
-		func(in *infrav2.HCloudMachineStatusExternalIDs, c randfill.Continue) {
+		func(in *infrav1.HCloudMachineStatusExternalIDs, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.ActionIDEnableRescueSystem != nil && *in.ActionIDEnableRescueSystem == 0 {
 				in.ActionIDEnableRescueSystem = nil
@@ -2627,7 +2627,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		// PublicNetworkSpec v1beta2 (hub side): v1beta1 stores enableIPv4 and enableIPv6 as bools, and nil
 		// converts back to the default true.
-		func(in *infrav2.PublicNetworkSpec, c randfill.Continue) {
+		func(in *infrav1.PublicNetworkSpec, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.EnableIPv4 == nil {
 				in.EnableIPv4 = ptr.To(true)
@@ -2638,7 +2638,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		// HetznerSecretKeyRef v1beta2 (hub side): v1beta1 stores the keys as strings, and nil converts back
 		// to the v1beta2 default of the key.
-		func(in *infrav2.HetznerSecretKeyRef, c randfill.Continue) {
+		func(in *infrav1.HetznerSecretKeyRef, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.HCloudToken == nil {
 				in.HCloudToken = ptr.To("token")
@@ -2655,30 +2655,30 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		// HetznerSSHKeys v1beta2 (hub side): v1beta1 stores rescueSecretRef as a value, and the empty
 		// value converts back to nil. So a pointer to an empty rescueSecretRef does not round trip.
-		func(in *infrav2.HetznerSSHKeys, c randfill.Continue) {
+		func(in *infrav1.HetznerSSHKeys, c randfill.Continue) {
 			c.FillNoCustom(in)
-			if in.RescueSecretRef != nil && *in.RescueSecretRef == (infrav2.SSHSecretRef{}) {
+			if in.RescueSecretRef != nil && *in.RescueSecretRef == (infrav1.SSHSecretRef{}) {
 				in.RescueSecretRef = nil
 			}
 		},
 		// HetznerCluster v1beta2 spec (hub side): v1beta1 stores skipCreatingHetznerSecretInWorkloadCluster
 		// as a bool, so nil converts back as false.
-		func(in *infrav2.HetznerClusterSpec, c randfill.Continue) {
+		func(in *infrav1.HetznerClusterSpec, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.SkipCreatingHetznerSecretInWorkloadCluster == nil {
 				in.SkipCreatingHetznerSecretInWorkloadCluster = ptr.To(false)
 			}
 			// A block that converts to a zero v1beta1 struct comes back as the zero v1beta2 struct.
-			if reflect.DeepEqual(in.ControlPlaneLoadBalancer, infrav2.LoadBalancerSpec{Enabled: ptr.To(false), EnableProxyProtocol: ptr.To(false)}) {
-				in.ControlPlaneLoadBalancer = infrav2.LoadBalancerSpec{}
+			if reflect.DeepEqual(in.ControlPlaneLoadBalancer, infrav1.LoadBalancerSpec{Enabled: ptr.To(false), EnableProxyProtocol: ptr.To(false)}) {
+				in.ControlPlaneLoadBalancer = infrav1.LoadBalancerSpec{}
 			}
-			if reflect.DeepEqual(in.HCloudNetwork, infrav2.HCloudNetworkSpec{Enabled: ptr.To(false)}) {
-				in.HCloudNetwork = infrav2.HCloudNetworkSpec{}
+			if reflect.DeepEqual(in.HCloudNetwork, infrav1.HCloudNetworkSpec{Enabled: ptr.To(false)}) {
+				in.HCloudNetwork = infrav1.HCloudNetworkSpec{}
 			}
 		},
 		// HCloudNetworkSpec v1beta2 (hub side): v1beta1 stores enabled as a bool, so nil converts back as
 		// false.
-		func(in *infrav2.HCloudNetworkSpec, c randfill.Continue) {
+		func(in *infrav1.HCloudNetworkSpec, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.Enabled == nil {
 				in.Enabled = ptr.To(false)
@@ -2686,7 +2686,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		// LoadBalancerSpec v1beta2 (hub side): v1beta1 stores enabled and enableProxyProtocol as bools, so
 		// nil converts back as false.
-		func(in *infrav2.LoadBalancerSpec, c randfill.Continue) {
+		func(in *infrav1.LoadBalancerSpec, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.Enabled == nil {
 				in.Enabled = ptr.To(false)
@@ -2697,7 +2697,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		// LoadBalancerStatus v1beta2 (hub side): v1beta1 stores protected and proxyProtocolEnabled as
 		// bools, so nil converts back as false.
-		func(in *infrav2.LoadBalancerStatus, c randfill.Continue) {
+		func(in *infrav1.LoadBalancerStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.Protected == nil {
 				in.Protected = ptr.To(false)
@@ -2707,7 +2707,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 		},
 		// Storage v1beta2 (hub side): v1beta1 stores rota as a bool, so nil converts back as false.
-		func(in *infrav2.Storage, c randfill.Continue) {
+		func(in *infrav1.Storage, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.Rota == nil {
 				in.Rota = ptr.To(false)
@@ -2801,7 +2801,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		// HCloudRemediation v1beta2 status: nil and non-positive retryCount both down-convert
 		// to the v1beta1 zero value, and empty condition wrappers collapse to nil.
-		func(in *infrav2.HCloudRemediationStatus, c randfill.Continue) {
+		func(in *infrav1.HCloudRemediationStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.RetryCount != nil && *in.RetryCount <= 0 {
 				in.RetryCount = nil
@@ -2815,7 +2815,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		// HetznerBareMetalRemediation v1beta2 status: nil and non-positive retryCount both
 		// down-convert to the v1beta1 zero value.
-		func(in *infrav2.HetznerBareMetalRemediationStatus, c randfill.Continue) {
+		func(in *infrav1.HetznerBareMetalRemediationStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.RetryCount != nil && *in.RetryCount <= 0 {
 				in.RetryCount = nil
@@ -2823,7 +2823,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		},
 		// RemediationStrategy v1beta2: nil and non-positive retryLimit both down-convert to
 		// the v1beta1 zero value, and negative second counters clamp to zero.
-		func(in *infrav2.RemediationStrategy, c randfill.Continue) {
+		func(in *infrav1.RemediationStrategy, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if in.RetryLimit != nil && *in.RetryLimit <= 0 {
 				in.RetryLimit = nil
@@ -2853,7 +2853,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 		// empty-vs-nil (or ordering) ambiguity, so normalize them to make the round trip match.
 		// provisioned is left as-is: ConvertTo/ConvertFrom preserve it losslessly via the MarshalData
 		// annotation, so nil, *true and *false all survive.
-		func(in *infrav2.HetznerClusterStatus, c randfill.Continue) {
+		func(in *infrav1.HetznerClusterStatus, c randfill.Continue) {
 			c.FillNoCustom(in)
 			if len(in.Conditions) == 0 {
 				in.Conditions = nil
@@ -2911,7 +2911,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			in.Spec.ConsumerRef.ResourceVersion = ""
 			in.Spec.ConsumerRef.FieldPath = ""
 		},
-		func(in *infrav2.HetznerBareMetalHost, c randfill.Continue) {
+		func(in *infrav1.HetznerBareMetalHost, c randfill.Continue) {
 			c.FillNoCustom(in)
 
 			// conditions and deprecated have an empty-vs-nil ambiguity, so normalize them to make the
@@ -2926,17 +2926,17 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			// v1beta1 stores errorType and ongoingReboot in one errorType field. Keep the fuzzed pair
 			// inside the subset that converts back to the same values.
 			// TestConvertHetznerBareMetalHostOngoingRebootToV1Beta1 covers the other pairs.
-			if in.Status.ErrorType != infrav2.ErrorTypeFatal && in.Status.ErrorType != infrav2.ErrorTypePermanent {
+			if in.Status.ErrorType != infrav1.ErrorTypeFatal && in.Status.ErrorType != infrav1.ErrorTypePermanent {
 				in.Status.ErrorType = ""
 			}
 			if ongoingReboot := &in.Status.OngoingReboot; ongoingReboot.IsDefined() {
 				switch ongoingReboot.Type {
-				case infrav2.RebootTypeSSH, infrav2.RebootTypeSoftware, infrav2.RebootTypeHardware:
+				case infrav1.RebootTypeSSH, infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware:
 				default:
-					ongoingReboot.Type = infrav2.RebootTypeSSH
+					ongoingReboot.Type = infrav1.RebootTypeSSH
 				}
 				if in.Status.ErrorType != "" || ongoingReboot.TriggeredAt.IsZero() {
-					in.Status.OngoingReboot = infrav2.OngoingReboot{}
+					in.Status.OngoingReboot = infrav1.OngoingReboot{}
 				}
 			}
 
@@ -2950,7 +2950,7 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 			// Keep the fuzzed v1beta2 reference in the group that can be rebuilt as a v1beta1
 			// ObjectReference by this package.
-			in.Spec.ConsumerRef.APIGroup = infrav2.GroupVersion.Group
+			in.Spec.ConsumerRef.APIGroup = infrav1.GroupVersion.Group
 		},
 	}
 }

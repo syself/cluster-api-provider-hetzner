@@ -24,13 +24,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
 var _ = Describe("buildAutoSetup", func() {
 	type testCaseBuildAutoSetup struct {
-		installImageSpec infrav2.InstallImage
+		installImageSpec infrav1.InstallImage
 		asi              autoSetupInput
 		expectedOutput   string
 	}
@@ -39,8 +39,8 @@ var _ = Describe("buildAutoSetup", func() {
 			Expect(buildAutoSetup(&tc.installImageSpec, tc.asi)).Should(Equal(tc.expectedOutput))
 		},
 		Entry("multiple entries", testCaseBuildAutoSetup{
-			installImageSpec: infrav2.InstallImage{
-				Partitions: []infrav2.Partition{
+			installImageSpec: infrav1.InstallImage{
+				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
 						FileSystem: "ext2",
@@ -52,7 +52,7 @@ var _ = Describe("buildAutoSetup", func() {
 						Size:       "4G",
 					},
 				},
-				LVMDefinitions: []infrav2.LVMDefinition{
+				LVMDefinitions: []infrav1.LVMDefinition{
 					{
 						VG:         "vg0",
 						Name:       "root",
@@ -68,7 +68,7 @@ var _ = Describe("buildAutoSetup", func() {
 						Size:       "5G",
 					},
 				},
-				BTRFSDefinitions: []infrav2.BTRFSDefinition{
+				BTRFSDefinitions: []infrav1.BTRFSDefinition{
 					{
 						Volume:    "btrfs.1",
 						SubVolume: "@",
@@ -105,15 +105,15 @@ SUBVOL btrfs.1 @/usr /usr
 IMAGE my-image`,
 		}),
 		Entry("single entries", testCaseBuildAutoSetup{
-			installImageSpec: infrav2.InstallImage{
-				Partitions: []infrav2.Partition{
+			installImageSpec: infrav1.InstallImage{
+				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
 						FileSystem: "ext2",
 						Size:       "512M",
 					},
 				},
-				LVMDefinitions: []infrav2.LVMDefinition{
+				LVMDefinitions: []infrav1.LVMDefinition{
 					{
 						VG:         "vg0",
 						Name:       "root",
@@ -122,7 +122,7 @@ IMAGE my-image`,
 						Size:       "10G",
 					},
 				},
-				BTRFSDefinitions: []infrav2.BTRFSDefinition{
+				BTRFSDefinitions: []infrav1.BTRFSDefinition{
 					{
 						Volume:    "btrfs.1",
 						SubVolume: "@",
@@ -152,15 +152,15 @@ SUBVOL btrfs.1 @ /
 IMAGE my-image`,
 		}),
 		Entry("multiple drives", testCaseBuildAutoSetup{
-			installImageSpec: infrav2.InstallImage{
-				Partitions: []infrav2.Partition{
+			installImageSpec: infrav1.InstallImage{
+				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
 						FileSystem: "ext2",
 						Size:       "512M",
 					},
 				},
-				LVMDefinitions: []infrav2.LVMDefinition{
+				LVMDefinitions: []infrav1.LVMDefinition{
 					{
 						VG:         "vg0",
 						Name:       "root",
@@ -169,7 +169,7 @@ IMAGE my-image`,
 						Size:       "10G",
 					},
 				},
-				BTRFSDefinitions: []infrav2.BTRFSDefinition{
+				BTRFSDefinitions: []infrav1.BTRFSDefinition{
 					{
 						Volume:    "btrfs.1",
 						SubVolume: "@",
@@ -199,16 +199,16 @@ SUBVOL btrfs.1 @ /
 IMAGE my-image`,
 		}),
 		Entry("proper response", testCaseBuildAutoSetup{
-			installImageSpec: infrav2.InstallImage{
-				Partitions: []infrav2.Partition{
+			installImageSpec: infrav1.InstallImage{
+				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
 						FileSystem: "ext2",
 						Size:       "512M",
 					},
 				},
-				LVMDefinitions:   []infrav2.LVMDefinition{},
-				BTRFSDefinitions: []infrav2.BTRFSDefinition{},
+				LVMDefinitions:   []infrav1.LVMDefinition{},
+				BTRFSDefinitions: []infrav1.BTRFSDefinition{},
 				Swraid:           ptr.To[int32](0),
 				SwraidLevel:      ptr.To[int32](1),
 			},
@@ -271,7 +271,7 @@ var _ = Describe("hasJustRebooted", func() {
 
 	It("returns true when the ongoing reboot was just sent", func() {
 		host := helpers.BareMetalHost("test-host", "default",
-			helpers.WithOngoingReboot(infrav2.RebootTypeSSH, metav1.Now()),
+			helpers.WithOngoingReboot(infrav1.RebootTypeSSH, metav1.Now()),
 		)
 		svc := newTestService(host, nil, nil, nil, nil)
 		Expect(svc.hasJustRebooted()).To(BeTrue())
@@ -279,7 +279,7 @@ var _ = Describe("hasJustRebooted", func() {
 
 	It("returns false when the ongoing reboot was sent longer than rebootWaitTime ago", func() {
 		host := helpers.BareMetalHost("test-host", "default",
-			helpers.WithOngoingReboot(infrav2.RebootTypeSSH, metav1.NewTime(time.Now().Add(-2*rebootWaitTime))),
+			helpers.WithOngoingReboot(infrav1.RebootTypeSSH, metav1.NewTime(time.Now().Add(-2*rebootWaitTime))),
 		)
 		svc := newTestService(host, nil, nil, nil, nil)
 		Expect(svc.hasJustRebooted()).To(BeFalse())

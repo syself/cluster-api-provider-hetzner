@@ -28,7 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // HCloudMachineTemplateWebhook implements a custom validation webhook for HCloudMachineTemplate.
@@ -37,29 +37,29 @@ type HCloudMachineTemplateWebhook struct{}
 
 // SetupWebhookWithManager initializes webhook manager for HCloudMachineTemplate.
 func (webhook *HCloudMachineTemplateWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav2.HCloudMachineTemplate{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HCloudMachineTemplate{}).
 		WithValidator(webhook).
 		WithDefaulter(webhook).
 		Complete()
 }
 
-var _ admission.Defaulter[*infrav2.HCloudMachineTemplate] = &HCloudMachineTemplateWebhook{}
+var _ admission.Defaulter[*infrav1.HCloudMachineTemplate] = &HCloudMachineTemplateWebhook{}
 
 // Default implements admission.CustomDefaulter.
-func (*HCloudMachineTemplateWebhook) Default(context.Context, *infrav2.HCloudMachineTemplate) error {
+func (*HCloudMachineTemplateWebhook) Default(context.Context, *infrav1.HCloudMachineTemplate) error {
 	return nil
 }
 
-var _ admission.Validator[*infrav2.HCloudMachineTemplate] = &HCloudMachineTemplateWebhook{}
+var _ admission.Validator[*infrav1.HCloudMachineTemplate] = &HCloudMachineTemplateWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HCloudMachineTemplate.
-func (*HCloudMachineTemplateWebhook) ValidateCreate(_ context.Context, r *infrav2.HCloudMachineTemplate) (admission.Warnings, error) {
+func (*HCloudMachineTemplateWebhook) ValidateCreate(_ context.Context, r *infrav1.HCloudMachineTemplate) (admission.Warnings, error) {
 	allErrs := validateHCloudMachineSpec(r.Spec.Template.Spec)
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HCloudMachineTemplate.
-func (*HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHCloudMachineTemplate *infrav2.HCloudMachineTemplate, newHCloudMachineTemplate *infrav2.HCloudMachineTemplate) (admission.Warnings, error) {
+func (*HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHCloudMachineTemplate *infrav1.HCloudMachineTemplate, newHCloudMachineTemplate *infrav1.HCloudMachineTemplate) (admission.Warnings, error) {
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a admission.Request inside context: %v", err))
@@ -80,14 +80,14 @@ func (*HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHClo
 // normalizeHCloudMachineSpec returns a copy of spec in which every unset field gets the value that an
 // unset field means. A stored object and an update request can differ in which unset fields they send.
 // Without this, such an update looks like a change of the immutable spec.
-func normalizeHCloudMachineSpec(spec infrav2.HCloudMachineSpec) infrav2.HCloudMachineSpec {
+func normalizeHCloudMachineSpec(spec infrav1.HCloudMachineSpec) infrav1.HCloudMachineSpec {
 	if spec.PublicNetwork != nil {
 		publicNetwork := *spec.PublicNetwork
 		if publicNetwork.EnableIPv4 == nil {
-			publicNetwork.EnableIPv4 = ptr.To(infrav2.DefaultEnableIPv4)
+			publicNetwork.EnableIPv4 = ptr.To(infrav1.DefaultEnableIPv4)
 		}
 		if publicNetwork.EnableIPv6 == nil {
-			publicNetwork.EnableIPv6 = ptr.To(infrav2.DefaultEnableIPv6)
+			publicNetwork.EnableIPv6 = ptr.To(infrav1.DefaultEnableIPv6)
 		}
 		spec.PublicNetwork = &publicNetwork
 	}
@@ -95,6 +95,6 @@ func normalizeHCloudMachineSpec(spec infrav2.HCloudMachineSpec) infrav2.HCloudMa
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HCloudMachineTemplate.
-func (*HCloudMachineTemplateWebhook) ValidateDelete(context.Context, *infrav2.HCloudMachineTemplate) (admission.Warnings, error) {
+func (*HCloudMachineTemplateWebhook) ValidateDelete(context.Context, *infrav1.HCloudMachineTemplate) (admission.Warnings, error) {
 	return nil, nil
 }

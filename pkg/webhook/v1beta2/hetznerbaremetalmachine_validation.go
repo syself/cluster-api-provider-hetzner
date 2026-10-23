@@ -27,11 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
-func validateHetznerBareMetalMachineSpecCreate(spec infrav2.HetznerBareMetalMachineSpec) field.ErrorList {
+func validateHetznerBareMetalMachineSpecCreate(spec infrav1.HetznerBareMetalMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// installImage and customProvisioner are the two mutually exclusive provisioning flows.
@@ -52,7 +52,7 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav2.HetznerBareMetalMach
 	}
 
 	// validate host selector
-	hostSelector := ptr.Deref(spec.HostSelector, infrav2.HostSelector{})
+	hostSelector := ptr.Deref(spec.HostSelector, infrav1.HostSelector{})
 	for labelKey, labelVal := range hostSelector.MatchLabels {
 		if _, err := labels.NewRequirement(labelKey, selection.Equals, []string{labelVal}); err != nil {
 			allErrs = append(allErrs, field.Invalid(
@@ -74,7 +74,7 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav2.HetznerBareMetalMach
 	return allErrs
 }
 
-func validateInstallImage(installImage infrav2.InstallImage) field.ErrorList {
+func validateInstallImage(installImage infrav1.InstallImage) field.ErrorList {
 	var allErrs field.ErrorList
 	base := field.NewPath("spec", "installImage")
 	image := installImage.Image
@@ -86,7 +86,7 @@ func validateInstallImage(installImage infrav2.InstallImage) field.ErrorList {
 	}
 
 	if image.URL != "" {
-		if _, err := infrav2.GetImageSuffix(image.URL); err != nil {
+		if _, err := infrav1.GetImageSuffix(image.URL); err != nil {
 			allErrs = append(allErrs,
 				field.Invalid(base.Child("image", "url"), image.URL, "unknown image type in URL"),
 			)
@@ -96,7 +96,7 @@ func validateInstallImage(installImage infrav2.InstallImage) field.ErrorList {
 	return allErrs
 }
 
-func validateCustomProvisioner(customProvisioner infrav2.CustomProvisioner) field.ErrorList {
+func validateCustomProvisioner(customProvisioner infrav1.CustomProvisioner) field.ErrorList {
 	var allErrs field.ErrorList
 	base := field.NewPath("spec", "customProvisioner")
 
@@ -113,7 +113,7 @@ func validateCustomProvisioner(customProvisioner infrav2.CustomProvisioner) fiel
 	return allErrs
 }
 
-func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec infrav2.HetznerBareMetalMachineSpec) field.ErrorList {
+func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec infrav1.HetznerBareMetalMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	oldSpec = normalizeHetznerBareMetalMachineSpec(oldSpec)
 	newSpec = normalizeHetznerBareMetalMachineSpec(newSpec)
@@ -154,24 +154,24 @@ func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec infrav2.HetznerB
 // normalizeHetznerBareMetalMachineSpec returns a copy of spec in which every unset field gets the value
 // that an unset field means. A stored object and an update request can differ in which unset fields
 // they send. Without this, such an update looks like a change of an immutable field.
-func normalizeHetznerBareMetalMachineSpec(spec infrav2.HetznerBareMetalMachineSpec) infrav2.HetznerBareMetalMachineSpec {
+func normalizeHetznerBareMetalMachineSpec(spec infrav1.HetznerBareMetalMachineSpec) infrav1.HetznerBareMetalMachineSpec {
 	if spec.InstallImage.Swraid == nil {
-		spec.InstallImage.Swraid = ptr.To(infrav2.DefaultSwraid)
+		spec.InstallImage.Swraid = ptr.To(infrav1.DefaultSwraid)
 	}
 	if spec.InstallImage.SwraidLevel == nil {
-		spec.InstallImage.SwraidLevel = ptr.To(infrav2.DefaultSwraidLevel)
+		spec.InstallImage.SwraidLevel = ptr.To(infrav1.DefaultSwraidLevel)
 	}
 	if spec.CustomProvisioner.Swraid == nil {
-		spec.CustomProvisioner.Swraid = ptr.To(infrav2.DefaultSwraid)
+		spec.CustomProvisioner.Swraid = ptr.To(infrav1.DefaultSwraid)
 	}
 	if spec.HostSelector == nil {
-		spec.HostSelector = &infrav2.HostSelector{}
+		spec.HostSelector = &infrav1.HostSelector{}
 	}
 	if spec.SSHSpec.NoSSHAfterInstallImage == nil {
 		spec.SSHSpec.NoSSHAfterInstallImage = ptr.To(false)
 	}
 	if spec.SSHSpec.PortAfterInstallImage == nil {
-		spec.SSHSpec.PortAfterInstallImage = ptr.To(infrav2.DefaultPortAfterInstallImage)
+		spec.SSHSpec.PortAfterInstallImage = ptr.To(infrav1.DefaultPortAfterInstallImage)
 	}
 	if spec.SkipCheckDisk == nil {
 		spec.SkipCheckDisk = ptr.To(false)

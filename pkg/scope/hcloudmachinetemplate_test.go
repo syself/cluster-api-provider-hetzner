@@ -23,40 +23,40 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 var _ = Describe("HCloudMachineTemplateSummaryOpts", func() {
 	It("returns an Unknown summary when the object has no conditions", func() {
-		hcloudMachineTemplate := &infrav2.HCloudMachineTemplate{}
+		hcloudMachineTemplate := &infrav1.HCloudMachineTemplate{}
 
-		readyCondition, err := conditions.NewSummaryCondition(hcloudMachineTemplate, clusterv1.ReadyCondition, infrav2.HCloudMachineTemplateSummaryOpts()...)
+		readyCondition, err := conditions.NewSummaryCondition(hcloudMachineTemplate, clusterv1.ReadyCondition, infrav1.HCloudMachineTemplateSummaryOpts()...)
 		Expect(err).To(BeNil())
 		Expect(readyCondition).ToNot(BeNil())
 		Expect(readyCondition.Status).To(Equal(metav1.ConditionUnknown))
 	})
 
 	It("lists all unhealthy conditions in priority order in the summary message", func() {
-		hcloudMachineTemplate := &infrav2.HCloudMachineTemplate{}
+		hcloudMachineTemplate := &infrav1.HCloudMachineTemplate{}
 
 		hcloudMachineTemplate.SetConditions([]metav1.Condition{
 			// Available=False (lowest priority issue).
 			{
-				Type:    infrav2.HCloudMachineTemplateAvailableCondition,
+				Type:    infrav1.HCloudMachineTemplateAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HCloudMachineTemplateServerTypeNotFoundReason,
+				Reason:  infrav1.HCloudMachineTemplateServerTypeNotFoundReason,
 				Message: "server type is not offered",
 			},
 			// HCloudTokenAvailable=False (highest priority issue).
 			{
-				Type:    infrav2.HCloudTokenAvailableCondition,
+				Type:    infrav1.HCloudTokenAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HCloudTokenInvalidReason,
+				Reason:  infrav1.HCloudTokenInvalidReason,
 				Message: "token is invalid",
 			},
 		})
 
-		readyCondition, err := conditions.NewSummaryCondition(hcloudMachineTemplate, clusterv1.ReadyCondition, infrav2.HCloudMachineTemplateSummaryOpts()...)
+		readyCondition, err := conditions.NewSummaryCondition(hcloudMachineTemplate, clusterv1.ReadyCondition, infrav1.HCloudMachineTemplateSummaryOpts()...)
 		Expect(err).To(BeNil())
 		Expect(readyCondition).ToNot(BeNil())
 		Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
@@ -67,26 +67,26 @@ var _ = Describe("HCloudMachineTemplateSummaryOpts", func() {
 	})
 
 	It("surfaces HCloudRateLimitExceeded before Available when both are unhealthy", func() {
-		hcloudMachineTemplate := &infrav2.HCloudMachineTemplate{}
+		hcloudMachineTemplate := &infrav1.HCloudMachineTemplate{}
 
 		hcloudMachineTemplate.SetConditions([]metav1.Condition{
 			// HCloudRateLimitExceeded=True (negative polarity).
 			{
-				Type:    infrav2.HCloudRateLimitExceededCondition,
+				Type:    infrav1.HCloudRateLimitExceededCondition,
 				Status:  metav1.ConditionTrue,
-				Reason:  infrav2.HCloudRateLimitExceededReason,
+				Reason:  infrav1.HCloudRateLimitExceededReason,
 				Message: "rate limit exceeded",
 			},
 			// Available=False with ServerTypeNotFound reason.
 			{
-				Type:    infrav2.HCloudMachineTemplateAvailableCondition,
+				Type:    infrav1.HCloudMachineTemplateAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HCloudMachineTemplateServerTypeNotFoundReason,
+				Reason:  infrav1.HCloudMachineTemplateServerTypeNotFoundReason,
 				Message: "server type is not offered",
 			},
 		})
 
-		readyCondition, err := conditions.NewSummaryCondition(hcloudMachineTemplate, clusterv1.ReadyCondition, infrav2.HCloudMachineTemplateSummaryOpts()...)
+		readyCondition, err := conditions.NewSummaryCondition(hcloudMachineTemplate, clusterv1.ReadyCondition, infrav1.HCloudMachineTemplateSummaryOpts()...)
 		Expect(err).To(BeNil())
 		Expect(readyCondition).ToNot(BeNil())
 

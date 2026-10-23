@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/utils/ptr"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
@@ -33,7 +33,7 @@ import (
 var (
 	_, networkCidr, _ = net.ParseCIDR("10.0.0.0/16")
 	_, subnetCidr, _  = net.ParseCIDR("10.0.0.0/24")
-	hetznerCluster    infrav2.HetznerCluster
+	hetznerCluster    infrav1.HetznerCluster
 	service           Service
 	hcloudClient      hcloudclient.Client
 )
@@ -45,7 +45,7 @@ func TestNetwork(t *testing.T) {
 
 var _ = BeforeEach(func() {
 	hetznerCluster.Name = "hetzner-cluster"
-	hetznerCluster.Spec.HCloudNetwork = infrav2.HCloudNetworkSpec{
+	hetznerCluster.Spec.HCloudNetwork = infrav1.HCloudNetworkSpec{
 		Enabled:         ptr.To(true),
 		CIDRBlock:       networkCidr.String(),
 		SubnetCIDRBlock: subnetCidr.String(),

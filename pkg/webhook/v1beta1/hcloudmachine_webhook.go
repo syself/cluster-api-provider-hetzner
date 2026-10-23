@@ -22,7 +22,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -34,7 +34,7 @@ var hcloudmachinelog = utils.GetDefaultLogger("info").WithName("hcloudmachine-re
 
 // SetupWebhookWithManager initializes webhook manager for HCloudMachine.
 func (webhook *HCloudMachineWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HCloudMachine{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1beta1.HCloudMachine{}).
 		WithDefaulter(webhook).
 		WithValidator(webhook).
 		Complete()
@@ -42,12 +42,12 @@ func (webhook *HCloudMachineWebhook) SetupWebhookWithManager(mgr ctrl.Manager) e
 
 //+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachine,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachines,verbs=create;update,versions=v1beta1,name=mutation.hcloudmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Defaulter[*infrav1.HCloudMachine] = &HCloudMachineWebhook{}
+var _ admission.Defaulter[*infrav1beta1.HCloudMachine] = &HCloudMachineWebhook{}
 
 // Default implements admission.Defaulter so a webhook will be registered for HCloudMachine.
-func (*HCloudMachineWebhook) Default(_ context.Context, r *infrav1.HCloudMachine) error {
+func (*HCloudMachineWebhook) Default(_ context.Context, r *infrav1beta1.HCloudMachine) error {
 	if r.Spec.PublicNetwork == nil {
-		r.Spec.PublicNetwork = &infrav1.PublicNetworkSpec{
+		r.Spec.PublicNetwork = &infrav1beta1.PublicNetworkSpec{
 			EnableIPv4: true,
 			EnableIPv6: true,
 		}
@@ -57,10 +57,10 @@ func (*HCloudMachineWebhook) Default(_ context.Context, r *infrav1.HCloudMachine
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachine,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachines,verbs=create;update,versions=v1beta1,name=validation.hcloudmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ admission.Validator[*infrav1.HCloudMachine] = &HCloudMachineWebhook{}
+var _ admission.Validator[*infrav1beta1.HCloudMachine] = &HCloudMachineWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HCloudMachine.
-func (*HCloudMachineWebhook) ValidateCreate(_ context.Context, r *infrav1.HCloudMachine) (admission.Warnings, error) {
+func (*HCloudMachineWebhook) ValidateCreate(_ context.Context, r *infrav1beta1.HCloudMachine) (admission.Warnings, error) {
 	hcloudmachinelog.V(1).Info("validate create", "name", r.Name)
 
 	allErrs := validateHCloudMachineSpec(r.Spec)
@@ -69,7 +69,7 @@ func (*HCloudMachineWebhook) ValidateCreate(_ context.Context, r *infrav1.HCloud
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HCloudMachine.
-func (*HCloudMachineWebhook) ValidateUpdate(_ context.Context, oldM, r *infrav1.HCloudMachine) (admission.Warnings, error) {
+func (*HCloudMachineWebhook) ValidateUpdate(_ context.Context, oldM, r *infrav1beta1.HCloudMachine) (admission.Warnings, error) {
 	hcloudmachinelog.V(1).Info("validate update", "name", r.Name)
 
 	allErrs := validateHCloudMachineSpecUpdate(oldM.Spec, r.Spec)
@@ -78,6 +78,6 @@ func (*HCloudMachineWebhook) ValidateUpdate(_ context.Context, oldM, r *infrav1.
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HCloudMachine.
-func (*HCloudMachineWebhook) ValidateDelete(context.Context, *infrav1.HCloudMachine) (admission.Warnings, error) {
+func (*HCloudMachineWebhook) ValidateDelete(context.Context, *infrav1beta1.HCloudMachine) (admission.Warnings, error) {
 	return nil, nil
 }
