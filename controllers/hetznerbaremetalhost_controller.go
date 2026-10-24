@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -39,6 +40,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/annotations"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	capilabels "sigs.k8s.io/cluster-api/util/labels"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,6 +52,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -286,7 +289,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Fetch the HetznerCluster through the Cluster infrastructure ref.
 	infraRef := cluster.Spec.InfrastructureRef
-	if !infraRef.IsDefined() || infraRef.Kind != "HetznerCluster" || infraRef.APIGroup != infrav1.GroupVersion.Group {
+	if !isHetznerClusterRef(infraRef) {
 		log.Info("Cluster has no HetznerCluster infrastructure ref. Won't reconcile", "infrastructureRef", infraRef)
 		return reconcile.Result{}, nil
 	}
@@ -574,8 +577,7 @@ func (r *HetznerBareMetalHostReconciler) hetznerSecretErrorResult(
 		deprecatedv1beta1conditions.SetSummary(bmHost)
 		scope.SetHetznerBareMetalHostReadySummary(bmHost)
 
-		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
-		return res, nil
+		return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 	}
 
 	credValidationErr := &bmclient.CredentialsValidationError{}
@@ -648,6 +650,12 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 			},
 		).
 		Owns(&corev1.Secret{}).
+		WatchesRawSource(source.Kind[client.Object](
+			mgr.GetCache(),
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.secretToHetznerBareMetalHosts),
+			IgnoreInsignificantSecretUpdates(log),
+		)).
 		Watches(
 			&infrav1.HetznerBareMetalMachine{},
 			handler.EnqueueRequestsFromMapFunc(hetznerBareMetalMachineToHetznerBareMetalHost),
@@ -718,6 +726,124 @@ func hetznerBareMetalMachineToHetznerBareMetalHost(_ context.Context, obj client
 			},
 		},
 	}
+}
+
+func (r *HetznerBareMetalHostReconciler) secretToHetznerBareMetalHosts(ctx context.Context, obj client.Object) []reconcile.Request {
+	log := ctrl.LoggerFrom(ctx)
+
+	secret, ok := obj.(*corev1.Secret)
+	if !ok {
+		log.Error(fmt.Errorf("expected a Secret but got a %T", obj), "failed to map Secret to HetznerBareMetalHosts")
+		return nil
+	}
+
+	log = log.WithValues("objectMapper", "secretToHetznerBareMetalHosts", "namespace", secret.Namespace, "secret", secret.Name)
+
+	requests := r.hostsOfClusterSecret(ctx, log, secret)
+	requests = append(requests, r.hostsOfOSSSHSecret(ctx, log, secret)...)
+
+	seen := make(map[reconcile.Request]struct{}, len(requests))
+	unique := make([]reconcile.Request, 0, len(requests))
+	for _, request := range requests {
+		if _, ok := seen[request]; ok {
+			continue
+		}
+		seen[request] = struct{}{}
+		unique = append(unique, request)
+	}
+	return unique
+}
+
+func (r *HetznerBareMetalHostReconciler) hostsOfOSSSHSecret(ctx context.Context, log logr.Logger, secret *corev1.Secret) []reconcile.Request {
+	machineList := &infrav1.HetznerBareMetalMachineList{}
+	if err := r.List(ctx, machineList, client.InNamespace(secret.Namespace)); err != nil {
+		log.Error(err, "failed to list HetznerBareMetalMachines, skipping the OS SSH Secrets")
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for i := range machineList.Items {
+		machine := &machineList.Items[i]
+		if machine.Spec.SSHSpec.SecretRef.Name != secret.Name {
+			continue
+		}
+		for _, request := range hetznerBareMetalMachineToHetznerBareMetalHost(ctx, machine) {
+			host := &infrav1.HetznerBareMetalHost{}
+			if err := r.Get(ctx, request.NamespacedName, host); err != nil {
+				log.Error(err, "failed to get the HetznerBareMetalHost of the machine, skipping it", "HetznerBareMetalMachine", machine.Name)
+				continue
+			}
+			cluster, err := util.GetClusterFromMetadata(ctx, r, host.ObjectMeta)
+			if err != nil {
+				log.Error(err, "failed to get the Cluster of the HetznerBareMetalHost, skipping it", "HetznerBareMetalHost", host.Name)
+				continue
+			}
+			if r.shouldReconcileHost(host, cluster) {
+				requests = append(requests, request)
+			}
+		}
+	}
+	return requests
+}
+
+func (r *HetznerBareMetalHostReconciler) hostsOfClusterSecret(ctx context.Context, log logr.Logger, secret *corev1.Secret) []reconcile.Request {
+	hetznerClusterList := &infrav1.HetznerClusterList{}
+	if err := r.List(ctx, hetznerClusterList, client.InNamespace(secret.Namespace)); err != nil {
+		log.Error(err, "failed to list HetznerClusters, skipping the cluster-level Secrets")
+		return nil
+	}
+
+	hetznerClusterNames := map[string]struct{}{}
+	for i := range hetznerClusterList.Items {
+		hetznerCluster := &hetznerClusterList.Items[i]
+		if hetznerCluster.Spec.HetznerSecret.Name == secret.Name || hetznerCluster.Spec.SSHKeys.RescueSecretRef.Name == secret.Name {
+			hetznerClusterNames[hetznerCluster.Name] = struct{}{}
+		}
+	}
+	if len(hetznerClusterNames) == 0 {
+		return nil
+	}
+
+	clusterList := &clusterv1.ClusterList{}
+	if err := r.List(ctx, clusterList, client.InNamespace(secret.Namespace)); err != nil {
+		log.Error(err, "failed to list Clusters, skipping the cluster-level Secrets")
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for i := range clusterList.Items {
+		cluster := &clusterList.Items[i]
+		infraRef := cluster.Spec.InfrastructureRef
+		if !isHetznerClusterRef(infraRef) {
+			continue
+		}
+		if _, ok := hetznerClusterNames[infraRef.Name]; !ok {
+			continue
+		}
+
+		hostList := &infrav1.HetznerBareMetalHostList{}
+		if err := r.List(ctx, hostList, client.InNamespace(secret.Namespace), client.MatchingLabels{clusterv1.ClusterNameLabel: cluster.Name}); err != nil {
+			log.Error(err, "failed to list HetznerBareMetalHosts, skipping the Cluster", "Cluster", cluster.Name)
+			continue
+		}
+		for j := range hostList.Items {
+			if r.shouldReconcileHost(&hostList.Items[j], cluster) {
+				requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&hostList.Items[j])})
+			}
+		}
+	}
+	return requests
+}
+
+func isHetznerClusterRef(ref clusterv1.ContractVersionedObjectReference) bool {
+	return ref.IsDefined() && ref.Kind == "HetznerCluster" && ref.APIGroup == infrav1.GroupVersion.Group
+}
+
+func (r *HetznerBareMetalHostReconciler) shouldReconcileHost(host *infrav1.HetznerBareMetalHost, cluster *clusterv1.Cluster) bool {
+	if r.WatchFilterValue != "" && !capilabels.HasWatchLabel(host, r.WatchFilterValue) {
+		return false
+	}
+	return !annotations.IsPaused(cluster, host)
 }
 
 // removePermanentErrorIfAnnotationIsGone clears the permanent error status once the user removes

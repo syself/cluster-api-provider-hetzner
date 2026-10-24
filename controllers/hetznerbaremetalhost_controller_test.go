@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,21 +31,30 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	bmclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
@@ -56,6 +67,12 @@ import (
 const (
 	hostName = "test-host"
 )
+
+type robotFactoryFunc func(robotclient.Credentials) robotclient.Client
+
+func (f robotFactoryFunc) NewClient(credentials robotclient.Credentials) robotclient.Client {
+	return f(credentials)
+}
 
 type countingRobotFactory struct {
 	calls int
@@ -1237,6 +1254,977 @@ func Test_hetznerBareMetalMachineToHetznerBareMetalHost(t *testing.T) {
 	// other object type --> no request
 	require.Nil(t, hetznerBareMetalMachineToHetznerBareMetalHost(ctx, &infrav1.HetznerBareMetalHost{}))
 }
+
+func listFailsFor[L client.ObjectList]() interceptor.Funcs {
+	return interceptor.Funcs{
+		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if _, ok := list.(L); ok {
+				return errors.New("list failed")
+			}
+			return c.List(ctx, list, opts...)
+		},
+	}
+}
+
+func secretMapperMachine(namespace, name, osSSHSecretName, claimedHostName string) *infrav1.HetznerBareMetalMachine {
+	machine := &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+	}
+	machine.Spec.SSHSpec.SecretRef.Name = osSSHSecretName
+	if claimedHostName != "" {
+		machine.Annotations = map[string]string{infrav1.HostAnnotation: namespace + "/" + claimedHostName}
+	}
+	return machine
+}
+
+func secretMapperCluster(namespace, name, hetznerClusterName string) *clusterv1.Cluster {
+	return &clusterv1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec: clusterv1.ClusterSpec{
+			InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+				APIGroup: infrav1.GroupVersion.Group,
+				Kind:     "HetznerCluster",
+				Name:     hetznerClusterName,
+			},
+		},
+	}
+}
+
+func secretMapperHetznerCluster(namespace, name, hetznerSecretName, rescueSecretName string) *infrav1.HetznerCluster {
+	hetznerCluster := &infrav1.HetznerCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+	}
+	hetznerCluster.Spec.HetznerSecret.Name = hetznerSecretName
+	hetznerCluster.Spec.SSHKeys.RescueSecretRef.Name = rescueSecretName
+	return hetznerCluster
+}
+
+func secretMapperRequest(namespace, name string) reconcile.Request {
+	return reconcile.Request{NamespacedName: types.NamespacedName{Namespace: namespace, Name: name}}
+}
+
+type secretMapperCase struct {
+	name         string
+	objects      []client.Object
+	secretName   string
+	secretNs     string
+	watchFilter  string
+	interceptors interceptor.Funcs
+	want         []reconcile.Request
+}
+
+func newSecretMapperReconciler(objects []client.Object, interceptors interceptor.Funcs, watchFilter string) *HetznerBareMetalHostReconciler {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithInterceptorFuncs(interceptors).Build()
+	return &HetznerBareMetalHostReconciler{Client: c, WatchFilterValue: watchFilter}
+}
+
+func runSecretMapperCases(t *testing.T, defaultNamespace string, tests []secretMapperCase) {
+	t.Helper()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := newSecretMapperReconciler(tt.objects, tt.interceptors, tt.watchFilter)
+
+			secretNs := tt.secretNs
+			if secretNs == "" {
+				secretNs = defaultNamespace
+			}
+			secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: tt.secretName, Namespace: secretNs}}
+
+			got := r.secretToHetznerBareMetalHosts(context.Background(), secret)
+			require.ElementsMatch(t, tt.want, got)
+		})
+	}
+}
+
+func Test_secretToHetznerBareMetalHosts_clusterSecrets(t *testing.T) {
+	const ns = "ns-a"
+
+	pausedCluster := secretMapperCluster(ns, "paused-cluster", "hc-paused")
+	pausedCluster.Spec.Paused = ptr.To(true)
+
+	pausedHost := helpers.BareMetalHost("paused-host", ns, helpers.WithClusterNameLabel("cluster-a"))
+	pausedHost.Annotations = map[string]string{clusterv1.PausedAnnotation: ""}
+
+	watchedHost := helpers.BareMetalHost("watched-host", ns, helpers.WithClusterNameLabel("cluster-a"))
+	watchedHost.Labels[clusterv1.WatchLabel] = "foo"
+	otherWatchHost := helpers.BareMetalHost("other-watch-host", ns, helpers.WithClusterNameLabel("cluster-a"))
+	otherWatchHost.Labels[clusterv1.WatchLabel] = "bar"
+	unwatchedHost := helpers.BareMetalHost("unwatched-host", ns, helpers.WithClusterNameLabel("cluster-a"))
+
+	failHostListOfClusterA := interceptor.Funcs{
+		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if _, ok := list.(*infrav1.HetznerBareMetalHostList); ok {
+				listOpts := &client.ListOptions{}
+				listOpts.ApplyOptions(opts)
+				if listOpts.LabelSelector != nil && listOpts.LabelSelector.Matches(labels.Set{clusterv1.ClusterNameLabel: "cluster-a"}) {
+					return errors.New("host list failed")
+				}
+			}
+			return c.List(ctx, list, opts...)
+		},
+	}
+	baseObjects := func() []client.Object {
+		return []client.Object{
+			secretMapperCluster(ns, "cluster-a", "hc-a"),
+			secretMapperHetznerCluster(ns, "hc-a", "hetzner", "rescue"),
+			helpers.BareMetalHost("host-1", ns, helpers.WithClusterNameLabel("cluster-a")),
+			helpers.BareMetalHost("host-2", ns, helpers.WithClusterNameLabel("cluster-a"), helpers.WithConsumerRef()),
+		}
+	}
+
+	tests := []secretMapperCase{
+		{
+			name:       "Hetzner Secret reconciles all claimed hosts of the cluster",
+			objects:    baseObjects(),
+			secretName: "hetzner",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1"), secretMapperRequest(ns, "host-2")},
+		},
+		{
+			name:       "rescue Secret reconciles claimed hosts with and without a consumerRef",
+			objects:    baseObjects(),
+			secretName: "rescue",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1"), secretMapperRequest(ns, "host-2")},
+		},
+		{
+			name: "Secret in both roles of one HetznerCluster returns each host once",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				secretMapperHetznerCluster(ns, "hc-a", "dup", "dup"),
+				helpers.BareMetalHost("host-1", ns, helpers.WithClusterNameLabel("cluster-a")),
+			},
+			secretName: "dup",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1")},
+		},
+		{
+			name: "shared Hetzner Secret reconciles the hosts of every referencing cluster",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				secretMapperHetznerCluster(ns, "hc-a", "shared", ""),
+				helpers.BareMetalHost("host-a", ns, helpers.WithClusterNameLabel("cluster-a")),
+				secretMapperCluster(ns, "cluster-b", "hc-b"),
+				secretMapperHetznerCluster(ns, "hc-b", "shared", ""),
+				helpers.BareMetalHost("host-b", ns, helpers.WithClusterNameLabel("cluster-b")),
+			},
+			secretName: "shared",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-a"), secretMapperRequest(ns, "host-b")},
+		},
+		{
+			name:       "mapper returns no request for a Secret that nothing references",
+			objects:    baseObjects(),
+			secretName: "unrelated",
+		},
+		{
+			name:       "Secret in another namespace reconciles nothing",
+			objects:    baseObjects(),
+			secretName: "hetzner",
+			secretNs:   "ns-b",
+		},
+		{
+			name: "same cluster name in another namespace maps only the host in the Secret namespace",
+			objects: append(baseObjects(),
+				secretMapperCluster("ns-b", "cluster-a", "hc-a"),
+				secretMapperHetznerCluster("ns-b", "hc-a", "hetzner", ""),
+				helpers.BareMetalHost("host-in-b", "ns-b", helpers.WithClusterNameLabel("cluster-a")),
+			),
+			secretName: "hetzner",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1"), secretMapperRequest(ns, "host-2")},
+		},
+		{
+			name: "hosts of a cluster that references other Secrets are not reconciled",
+			objects: append(baseObjects(),
+				secretMapperCluster(ns, "cluster-b", "hc-b"),
+				secretMapperHetznerCluster(ns, "hc-b", "other-hetzner", "other-rescue"),
+				helpers.BareMetalHost("host-b", ns, helpers.WithClusterNameLabel("cluster-b")),
+			),
+			secretName: "hetzner",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1"), secretMapperRequest(ns, "host-2")},
+		},
+		{
+			name:       "host without the cluster-name label is not reconciled",
+			objects:    append(baseObjects(), helpers.BareMetalHost("unclaimed", ns)),
+			secretName: "hetzner",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1"), secretMapperRequest(ns, "host-2")},
+		},
+		{
+			name:       "host with an empty cluster-name label is not reconciled",
+			objects:    append(baseObjects(), helpers.BareMetalHost("empty-label", ns, helpers.WithClusterNameLabel(""))),
+			secretName: "hetzner",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1"), secretMapperRequest(ns, "host-2")},
+		},
+		{
+			name: "watch filter set reconciles only hosts with the watch label",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				secretMapperHetznerCluster(ns, "hc-a", "hetzner", ""),
+				watchedHost, otherWatchHost, unwatchedHost,
+			},
+			secretName:  "hetzner",
+			watchFilter: "foo",
+			want:        []reconcile.Request{secretMapperRequest(ns, "watched-host")},
+		},
+		{
+			name: "watch filter unset reconciles hosts whatever labels they carry",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				secretMapperHetznerCluster(ns, "hc-a", "hetzner", ""),
+				watchedHost, otherWatchHost, unwatchedHost,
+			},
+			secretName: "hetzner",
+			want: []reconcile.Request{
+				secretMapperRequest(ns, "watched-host"),
+				secretMapperRequest(ns, "other-watch-host"),
+				secretMapperRequest(ns, "unwatched-host"),
+			},
+		},
+		{
+			name: "host with the paused annotation is not reconciled",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				secretMapperHetznerCluster(ns, "hc-a", "hetzner", ""),
+				pausedHost,
+				helpers.BareMetalHost("running-host", ns, helpers.WithClusterNameLabel("cluster-a")),
+			},
+			secretName: "hetzner",
+			want:       []reconcile.Request{secretMapperRequest(ns, "running-host")},
+		},
+		{
+			name: "hosts of a paused Cluster are not reconciled",
+			objects: []client.Object{
+				pausedCluster,
+				secretMapperHetznerCluster(ns, "hc-paused", "hetzner", ""),
+				helpers.BareMetalHost("host-in-paused-cluster", ns, helpers.WithClusterNameLabel("paused-cluster")),
+			},
+			secretName: "hetzner",
+		},
+		{
+			name: "HetznerCluster that no Cluster references is skipped and others are mapped",
+			objects: append(baseObjects(),
+				secretMapperHetznerCluster(ns, "hc-orphan", "hetzner", ""),
+			),
+			secretName: "hetzner",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1"), secretMapperRequest(ns, "host-2")},
+		},
+		{
+			name: "HetznerCluster owned by a Cluster that does not reference it is skipped",
+			objects: func() []client.Object {
+				clusterB := secretMapperCluster(ns, "cluster-b", "hc-b")
+				clusterB.UID = "cluster-b-uid"
+				owned := secretMapperHetznerCluster(ns, "hc-owned", "hetzner", "")
+				owned.OwnerReferences = []metav1.OwnerReference{{
+					APIVersion: clusterv1.GroupVersion.String(),
+					Kind:       "Cluster",
+					Name:       clusterB.Name,
+					UID:        clusterB.UID,
+				}}
+				return append(baseObjects(),
+					clusterB,
+					owned,
+					helpers.BareMetalHost("host-b", ns, helpers.WithClusterNameLabel("cluster-b")),
+				)
+			}(),
+			secretName: "hetzner",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1"), secretMapperRequest(ns, "host-2")},
+		},
+		{
+			name: "Cluster with an infrastructureRef of another kind does not match",
+			objects: func() []client.Object {
+				otherKind := secretMapperCluster(ns, "cluster-x", "hc-x")
+				otherKind.Spec.InfrastructureRef.Kind = "OtherCluster"
+				otherGroup := secretMapperCluster(ns, "cluster-y", "hc-y")
+				otherGroup.Spec.InfrastructureRef.APIGroup = "other.example.com"
+				return append(baseObjects(),
+					otherKind, secretMapperHetznerCluster(ns, "hc-x", "hetzner", ""),
+					helpers.BareMetalHost("host-x", ns, helpers.WithClusterNameLabel("cluster-x")),
+					otherGroup, secretMapperHetznerCluster(ns, "hc-y", "hetzner", ""),
+					helpers.BareMetalHost("host-y", ns, helpers.WithClusterNameLabel("cluster-y")),
+				)
+			}(),
+			secretName: "hetzner",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1"), secretMapperRequest(ns, "host-2")},
+		},
+		{
+			name: "two Clusters that reference one HetznerCluster map the hosts of both",
+			objects: append(baseObjects(),
+				secretMapperCluster(ns, "cluster-b", "hc-a"),
+				helpers.BareMetalHost("host-b", ns, helpers.WithClusterNameLabel("cluster-b")),
+			),
+			secretName: "hetzner",
+			want: []reconcile.Request{
+				secretMapperRequest(ns, "host-1"),
+				secretMapperRequest(ns, "host-2"),
+				secretMapperRequest(ns, "host-b"),
+			},
+		},
+		{
+			name:         "Cluster list failure returns nothing",
+			objects:      baseObjects(),
+			secretName:   "hetzner",
+			interceptors: listFailsFor[*clusterv1.ClusterList](),
+		},
+		{
+			name:         "HetznerCluster list failure returns nothing",
+			objects:      baseObjects(),
+			secretName:   "hetzner",
+			interceptors: listFailsFor[*infrav1.HetznerClusterList](),
+		},
+		{
+			name: "host list failure of one cluster does not hide another cluster",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				secretMapperHetznerCluster(ns, "hc-a", "shared", ""),
+				helpers.BareMetalHost("host-a", ns, helpers.WithClusterNameLabel("cluster-a")),
+				secretMapperCluster(ns, "cluster-b", "hc-b"),
+				secretMapperHetznerCluster(ns, "hc-b", "shared", ""),
+				helpers.BareMetalHost("host-b", ns, helpers.WithClusterNameLabel("cluster-b")),
+			},
+			secretName:   "shared",
+			interceptors: failHostListOfClusterA,
+			want:         []reconcile.Request{secretMapperRequest(ns, "host-b")},
+		},
+	}
+
+	runSecretMapperCases(t, ns, tests)
+
+	t.Run("an object that is not a Secret returns no requests", func(t *testing.T) {
+		r := &HetznerBareMetalHostReconciler{Client: fakeclient.NewClientBuilder().Build()}
+		require.Empty(t, r.secretToHetznerBareMetalHosts(context.Background(), &infrav1.HetznerBareMetalHost{}))
+	})
+}
+
+func Test_secretToHetznerBareMetalHosts_osSSHSecret(t *testing.T) {
+	const ns = "ns-a"
+
+	pausedCluster := secretMapperCluster(ns, "paused-cluster", "hc-paused")
+	pausedCluster.Spec.Paused = ptr.To(true)
+
+	pausedHost := helpers.BareMetalHost("paused-host", ns, helpers.WithClusterNameLabel("cluster-a"))
+	pausedHost.Annotations = map[string]string{clusterv1.PausedAnnotation: ""}
+
+	watchedHost := helpers.BareMetalHost("watched-host", ns, helpers.WithClusterNameLabel("cluster-a"))
+	watchedHost.Labels[clusterv1.WatchLabel] = "foo"
+
+	failGetOfHost1 := interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*infrav1.HetznerBareMetalHost); ok && key.Name == "host-1" {
+				return errors.New("get failed")
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	}
+
+	baseObjects := func() []client.Object {
+		return []client.Object{
+			secretMapperCluster(ns, "cluster-a", "hc-a"),
+			secretMapperHetznerCluster(ns, "hc-a", "hetzner", "rescue"),
+			helpers.BareMetalHost("host-1", ns, helpers.WithClusterNameLabel("cluster-a")),
+			helpers.BareMetalHost("host-2", ns, helpers.WithClusterNameLabel("cluster-a")),
+			secretMapperMachine(ns, "machine-1", "os-1", "host-1"),
+			secretMapperMachine(ns, "machine-2", "os-2", "host-2"),
+		}
+	}
+
+	tests := []secretMapperCase{
+		{
+			name:       "OS SSH Secret reconciles only the host of the machine that names it",
+			objects:    baseObjects(),
+			secretName: "os-1",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1")},
+		},
+		{
+			name: "OS SSH Secret shared by two machines reconciles both hosts",
+			objects: append(baseObjects(),
+				secretMapperMachine(ns, "machine-3", "os-1", "host-2"),
+			),
+			secretName: "os-1",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1"), secretMapperRequest(ns, "host-2")},
+		},
+		{
+			name:       "Secret in the roles Hetzner and OS SSH returns each host once",
+			objects:    append(baseObjects(), secretMapperMachine(ns, "machine-4", "hetzner", "host-1")),
+			secretName: "hetzner",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1"), secretMapperRequest(ns, "host-2")},
+		},
+		{
+			name: "machine without the host annotation reconciles nothing",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				helpers.BareMetalHost("host-1", ns, helpers.WithClusterNameLabel("cluster-a")),
+				secretMapperMachine(ns, "machine-1", "os-1", ""),
+			},
+			secretName: "os-1",
+		},
+		{
+			name: "host that does not exist reconciles nothing",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				secretMapperMachine(ns, "machine-1", "os-1", "missing-host"),
+			},
+			secretName: "os-1",
+		},
+		{
+			name: "OS SSH Secret in another namespace reconciles nothing",
+			objects: append(baseObjects(),
+				secretMapperMachine("ns-b", "machine-b", "os-1", "host-b"),
+			),
+			secretName: "os-1",
+			secretNs:   "ns-b",
+		},
+		{
+			name: "host with the paused annotation is not reconciled",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				pausedHost,
+				secretMapperMachine(ns, "machine-1", "os", "paused-host"),
+			},
+			secretName: "os",
+		},
+		{
+			name: "host of a paused Cluster is not reconciled",
+			objects: []client.Object{
+				pausedCluster,
+				helpers.BareMetalHost("host-1", ns, helpers.WithClusterNameLabel("paused-cluster")),
+				secretMapperMachine(ns, "machine-1", "os", "host-1"),
+			},
+			secretName: "os",
+		},
+		{
+			name: "host without the cluster-name label is not reconciled",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				helpers.BareMetalHost("unclaimed", ns),
+				secretMapperMachine(ns, "machine-1", "os", "unclaimed"),
+			},
+			secretName: "os",
+		},
+		{
+			name: "host with an empty cluster-name label is not reconciled",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				helpers.BareMetalHost("empty-label", ns, helpers.WithClusterNameLabel("")),
+				secretMapperMachine(ns, "machine-1", "os", "empty-label"),
+			},
+			secretName: "os",
+		},
+		{
+			name: "host whose Cluster does not exist is skipped and the other machine is mapped",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				helpers.BareMetalHost("host-1", ns, helpers.WithClusterNameLabel("cluster-a")),
+				helpers.BareMetalHost("host-lost", ns, helpers.WithClusterNameLabel("deleted-cluster")),
+				secretMapperMachine(ns, "machine-1", "os", "host-1"),
+				secretMapperMachine(ns, "machine-0-lost", "os", "host-lost"),
+			},
+			secretName: "os",
+			want:       []reconcile.Request{secretMapperRequest(ns, "host-1")},
+		},
+		{
+			name: "watch filter set skips a host without the watch label",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				watchedHost,
+				helpers.BareMetalHost("unwatched-host", ns, helpers.WithClusterNameLabel("cluster-a")),
+				secretMapperMachine(ns, "machine-1", "os", "watched-host"),
+				secretMapperMachine(ns, "machine-2", "os", "unwatched-host"),
+			},
+			secretName:  "os",
+			watchFilter: "foo",
+			want:        []reconcile.Request{secretMapperRequest(ns, "watched-host")},
+		},
+		{
+			name: "HetznerCluster list failure still returns the OS SSH host",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				secretMapperHetznerCluster(ns, "hc-a", "hetzner", "os-1"),
+				helpers.BareMetalHost("host-1", ns, helpers.WithClusterNameLabel("cluster-a")),
+				helpers.BareMetalHost("host-2", ns, helpers.WithClusterNameLabel("cluster-a")),
+				secretMapperMachine(ns, "machine-1", "os-1", "host-1"),
+			},
+			secretName:   "os-1",
+			interceptors: listFailsFor[*infrav1.HetznerClusterList](),
+			want:         []reconcile.Request{secretMapperRequest(ns, "host-1")},
+		},
+		{
+			name: "Cluster list failure still returns the OS SSH host",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				secretMapperHetznerCluster(ns, "hc-a", "hetzner", "os-1"),
+				helpers.BareMetalHost("host-1", ns, helpers.WithClusterNameLabel("cluster-a")),
+				helpers.BareMetalHost("host-2", ns, helpers.WithClusterNameLabel("cluster-a")),
+				secretMapperMachine(ns, "machine-1", "os-1", "host-1"),
+			},
+			secretName:   "os-1",
+			interceptors: listFailsFor[*clusterv1.ClusterList](),
+			want:         []reconcile.Request{secretMapperRequest(ns, "host-1")},
+		},
+		{
+			name: "machine list failure still returns the cluster-level hosts",
+			objects: append(baseObjects(),
+				secretMapperCluster(ns, "cluster-b", "hc-b"),
+				helpers.BareMetalHost("host-3", ns, helpers.WithClusterNameLabel("cluster-b")),
+				secretMapperMachine(ns, "machine-3", "hetzner", "host-3"),
+			),
+			secretName:   "hetzner",
+			interceptors: listFailsFor[*infrav1.HetznerBareMetalMachineList](),
+			want:         []reconcile.Request{secretMapperRequest(ns, "host-1"), secretMapperRequest(ns, "host-2")},
+		},
+		{
+			name:         "machine list failure returns nothing for an OS SSH Secret",
+			objects:      baseObjects(),
+			secretName:   "os-1",
+			interceptors: listFailsFor[*infrav1.HetznerBareMetalMachineList](),
+		},
+		{
+			name: "host Get error skips that host and maps the other machine",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				helpers.BareMetalHost("host-1", ns, helpers.WithClusterNameLabel("cluster-a")),
+				helpers.BareMetalHost("host-2", ns, helpers.WithClusterNameLabel("cluster-a")),
+				secretMapperMachine(ns, "machine-1", "os", "host-1"),
+				secretMapperMachine(ns, "machine-2", "os", "host-2"),
+			},
+			secretName:   "os",
+			interceptors: failGetOfHost1,
+			want:         []reconcile.Request{secretMapperRequest(ns, "host-2")},
+		},
+	}
+
+	runSecretMapperCases(t, ns, tests)
+}
+
+func Test_hetznerSecretErrorResult_requeue(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want reconcile.Result
+	}{
+		{
+			name: "missing Hetzner Secret is requeued",
+			err:  &secretutil.ResolveSecretRefError{Message: "hetzner-secret"},
+			want: reconcile.Result{RequeueAfter: 5 * time.Minute},
+		},
+		{
+			name: "credentials validation error is not requeued",
+			err:  &bmclient.CredentialsValidationError{Message: "invalid credentials"},
+			want: reconcile.Result{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reconciler := &HetznerBareMetalHostReconciler{EventRecorder: record.NewFakeRecorder(10)}
+
+			got, err := reconciler.hetznerSecretErrorResult(tt.err, &infrav1.HetznerBareMetalHost{})
+
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+type hostWatchProbe struct {
+	mu                 sync.Mutex
+	seq                int
+	lastMapperRun      int
+	lastReconcileStart int
+	mapperRuns         int
+	reconcileStarts    int
+}
+
+func (p *hostWatchProbe) mapperRan() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.seq++
+	p.lastMapperRun = p.seq
+	p.mapperRuns++
+}
+
+func (p *hostWatchProbe) reconcileStarted() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.seq++
+	p.lastReconcileStart = p.seq
+	p.reconcileStarts++
+}
+
+func (p *hostWatchProbe) snapshot() (mapperRuns, reconcileStarts int, reconciledAfterLastMapperRun bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.mapperRuns, p.reconcileStarts, p.lastMapperRun < p.lastReconcileStart
+}
+
+func (p *hostWatchProbe) observations() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.seq
+}
+
+type hostWatchRecordingClient struct {
+	client.Client
+	namespace string
+	probe     *hostWatchProbe
+}
+
+func (c hostWatchRecordingClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if _, ok := obj.(*corev1.Namespace); ok && key.Name == c.namespace {
+		c.probe.reconcileStarted()
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
+
+func (c hostWatchRecordingClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if _, ok := list.(*infrav1.HetznerBareMetalMachineList); ok {
+		c.probe.mapperRan()
+	}
+	return c.Client.List(ctx, list, opts...)
+}
+
+var _ = Describe("HetznerBareMetalHostReconciler - Hetzner Secret watch", func() {
+	const (
+		watchFilterValue       = "baremetalhost-secret-watch-filter-test"
+		secretEventQuietPeriod = 300 * time.Millisecond
+	)
+
+	var (
+		fixtureNs         *corev1.Namespace
+		host              *infrav1.HetznerBareMetalHost
+		hetznerSecret     *corev1.Secret
+		hostKey           client.ObjectKey
+		hostProbe         *hostWatchProbe
+		hostReconcileGate *sync.RWMutex
+	)
+
+	startDedicatedHostManager := func(robotPassword string, robotClientFactory robotclient.Factory) {
+		_, finish, err := testEnv.ResetAndCreateNamespace(ctx, "host-watch-unused")
+		Expect(err).NotTo(HaveOccurred())
+		if robotClientFactory == nil {
+			robotClientFactory = testEnv.RobotClientFactory
+		}
+
+		// finish() has to run before the manager starts, because otherwise a host reconcile can get
+		// the SSH mocks of the previous test.
+		func() {
+			defer finish()
+			robotClient := testEnv.RobotClient
+			robotClient.On("GetBMServer", mock.Anything).Return(func(int) (*models.Server, error) {
+				return &models.Server{ServerNumber: 1, ServerIP: "1.2.3.4", Rescue: true}, nil
+			})
+			robotClient.On("ListSSHKeys").Return([]models.Key{{Name: "my-name", Fingerprint: "my-fingerprint", Data: "my-public-key"}}, nil)
+			robotClient.On("GetReboot", mock.Anything).Return(&models.Reset{Type: []string{"hw", "sw"}}, nil)
+			robotClient.On("GetBootRescue", 1).Return(&models.Rescue{Active: true}, nil)
+			robotClient.On("SetBootRescue", mock.Anything, mock.Anything).Return(&models.Rescue{Active: true}, nil)
+			robotClient.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
+			robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
+			robotClient.On("SetBMServerName", mock.Anything, mock.Anything).Return(nil, nil)
+
+			configureRescueSSHClient(testEnv.RescueSSHClient)
+
+			osSSHClient := testEnv.OSSSHClientAfterInstallImage
+			osSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "machine"})
+			osSSHClient.On("Reboot", mock.Anything).Return(sshclient.Output{})
+			osSSHClient.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
+			osSSHClient.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
+			osSSHClient.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
+		}()
+
+		fixtureNs = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "host-secret-watch-"}}
+		Expect(testEnv.Create(ctx, fixtureNs)).To(Succeed())
+
+		mgr, err := ctrl.NewManager(testEnv.Config, ctrl.Options{
+			Scheme: testEnv.GetScheme(),
+			Cache: cache.Options{
+				DefaultNamespaces: map[string]cache.Config{fixtureNs.Name: {}},
+				ByObject:          secretutil.AddSecretSelector(),
+			},
+			Metrics: metricsserver.Options{BindAddress: "0"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		hostProbe = &hostWatchProbe{}
+		hostReconcileGate = &sync.RWMutex{}
+		hostReconciler := &HetznerBareMetalHostReconciler{
+			Client:              hostWatchRecordingClient{Client: mgr.GetClient(), namespace: fixtureNs.Name, probe: hostProbe},
+			APIReader:           mgr.GetAPIReader(),
+			RobotClientFactory:  robotClientFactory,
+			SSHClientFactory:    testEnv.BaremetalSSHClientFactory,
+			WatchFilterValue:    watchFilterValue,
+			PreProvisionCommand: "dummy-pre-provision-command",
+			Namespace:           fixtureNs.Name,
+			ReconcileGate:       hostReconcileGate,
+		}
+		Expect(hostReconciler.SetupWithManager(ctx, mgr, controller.Options{
+			SkipNameValidation: ptr.To(true),
+			RateLimiter:        workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](time.Hour, time.Hour),
+		})).To(Succeed())
+
+		hetznerClusterName := utils.GenerateName(nil, "hetzner-cluster-test")
+		machineName := utils.GenerateName(nil, "machine")
+
+		capiCluster := &clusterv1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test1-",
+				Namespace:    fixtureNs.Name,
+				Finalizers:   []string{clusterv1.ClusterFinalizer},
+			},
+			Spec: clusterv1.ClusterSpec{
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
+				},
+			},
+		}
+		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+
+		hetznerCluster := &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      hetznerClusterName,
+				Namespace: fixtureNs.Name,
+				Labels: map[string]string{
+					clusterv1.ClusterNameLabel: capiCluster.Name,
+					clusterv1.WatchLabel:       watchFilterValue,
+				},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: clusterv1.GroupVersion.String(),
+						Kind:       "Cluster",
+						Name:       capiCluster.Name,
+						UID:        capiCluster.UID,
+					},
+				},
+			},
+			Spec: helpers.GetDefaultHetznerClusterSpec(),
+		}
+		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
+
+		capiMachine := &clusterv1.Machine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       machineName,
+				Namespace:  fixtureNs.Name,
+				Finalizers: []string{clusterv1.MachineFinalizer},
+				Labels:     map[string]string{clusterv1.ClusterNameLabel: capiCluster.Name},
+			},
+			Spec: clusterv1.MachineSpec{
+				ClusterName: capiCluster.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HetznerBareMetalMachine",
+					Name:     machineName,
+				},
+				FailureDomain: defaultFailureDomain,
+				Bootstrap:     clusterv1.Bootstrap{DataSecretName: ptr.To("bootstrap-secret")},
+			},
+		}
+		Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+		bmMachine := &infrav1.HetznerBareMetalMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        machineName,
+				Namespace:   fixtureNs.Name,
+				Labels:      map[string]string{clusterv1.ClusterNameLabel: capiCluster.Name},
+				Annotations: map[string]string{infrav1.HostAnnotation: fixtureNs.Name + "/" + hostName},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: clusterv1.GroupVersion.String(),
+						Kind:       "Machine",
+						Name:       capiMachine.Name,
+						UID:        capiMachine.UID,
+					},
+				},
+			},
+			Spec: getDefaultHetznerBareMetalMachineSpec(),
+		}
+		Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
+
+		bootstrapSecret := getDefaultBootstrapSecret(fixtureNs.Name)
+		Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
+
+		host = helpers.BareMetalHost(
+			hostName,
+			fixtureNs.Name,
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithClusterNameLabel(capiCluster.Name),
+		)
+		host.Labels[clusterv1.WatchLabel] = watchFilterValue
+		host.Spec.ConsumerRef = &infrav1.HetznerBareMetalHostConsumerReference{
+			Name:     machineName,
+			Kind:     "HetznerBareMetalMachine",
+			APIGroup: infrav1.GroupVersion.Group,
+		}
+		Expect(testEnv.Create(ctx, host)).To(Succeed())
+		hostKey = client.ObjectKeyFromObject(host)
+
+		hetznerSecret = getDefaultHetznerSecret(fixtureNs.Name)
+		hetznerSecret.Data["robot-password"] = []byte(robotPassword)
+		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+		rescueSSHSecret := helpers.GetDefaultSSHSecret("rescue-ssh-secret", fixtureNs.Name)
+		rescueSSHSecret.Labels = map[string]string{secretutil.LabelEnvironmentName: secretutil.LabelEnvironmentValue}
+		Expect(testEnv.Create(ctx, rescueSSHSecret)).To(Succeed())
+		osSSHSecret := helpers.GetDefaultSSHSecret("os-ssh-secret", fixtureNs.Name)
+		osSSHSecret.Labels = map[string]string{secretutil.LabelEnvironmentName: secretutil.LabelEnvironmentValue}
+		Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
+
+		DeferCleanup(func() {
+			Expect(testEnv.Cleanup(ctx, fixtureNs, host, hetznerSecret, rescueSSHSecret, osSSHSecret, bootstrapSecret, bmMachine, capiMachine, hetznerCluster, capiCluster)).To(Succeed())
+		})
+
+		managerCtx, cancelManager := context.WithCancel(ctx)
+		managerDone := make(chan error, 1)
+		go func() { managerDone <- mgr.Start(managerCtx) }()
+		DeferCleanup(func() {
+			cancelManager()
+			Eventually(managerDone, timeout).Should(Receive(Succeed()))
+		})
+	}
+
+	robotCredentialsInvalid := func() bool {
+		return isPresentAndFalseWithReason(hostKey, host, infrav1.HetznerBareMetalHostRobotCredentialsAvailableCondition, infrav1.HetznerBareMetalHostRobotCredentialsInvalidReason)
+	}
+
+	newRejectingRobotClient := func() *robotmock.Client {
+		rejectingRobotClient := robotmock.NewClient(GinkgoT())
+		rejectingRobotClient.On("GetBMServer", mock.Anything).Return(nil, models.Error{
+			Code:    models.ErrorCodeUnauthorized,
+			Message: "You are not authorized - wrong RobotCredentials",
+		})
+		return rejectingRobotClient
+	}
+
+	robotCredentialsAvailable := func() bool {
+		return isPresentAndTrueWithReason(hostKey, host, infrav1.HetznerBareMetalHostRobotCredentialsAvailableCondition, infrav1.HetznerBareMetalHostRobotCredentialsAvailableReason)
+	}
+
+	reconciledAfterEachLabelledSecret := func(labelledSecretCount int) (int, bool) {
+		if !hostReconcileGate.TryLock() {
+			return 0, false
+		}
+		defer hostReconcileGate.Unlock()
+		mapperRuns, reconcileStarts, reconciledAfterLastMapperRun := hostProbe.snapshot()
+		if labelledSecretCount == 0 || mapperRuns < labelledSecretCount || !reconciledAfterLastMapperRun {
+			return 0, false
+		}
+		return reconcileStarts, true
+	}
+
+	waitUntilSecretEventsAreReconciled := func() int {
+		var reconcileStarts int
+		Eventually(func() bool {
+			labelled := &corev1.SecretList{}
+			listCtx, cancel := context.WithTimeout(ctx, timeout)
+			defer cancel()
+			if err := testEnv.GetAPIReader().List(listCtx, labelled, client.InNamespace(fixtureNs.Name), client.MatchingLabels{secretutil.LabelEnvironmentName: secretutil.LabelEnvironmentValue}); err != nil {
+				return false
+			}
+			if _, ok := reconciledAfterEachLabelledSecret(len(labelled.Items)); !ok {
+				return false
+			}
+			settled := hostProbe.observations()
+			time.Sleep(secretEventQuietPeriod)
+			if hostProbe.observations() != settled {
+				return false
+			}
+			starts, ok := reconciledAfterEachLabelledSecret(len(labelled.Items))
+			if !ok {
+				return false
+			}
+			reconcileStarts = starts
+			return true
+		}, timeout, interval).Should(BeTrue(), "no quiet reconcile followed the Secret mapper run of each labelled Secret; the probe counts the List of HetznerBareMetalMachines in hostsOfOSSSHSecret as a mapper run and the Get of the fixture Namespace in shouldSkipReconciliationForNamespace as a reconcile start")
+		return reconcileStarts
+	}
+
+	It("reconciles the host when the Robot password is added to the Hetzner Secret", func() {
+		startDedicatedHostManager("", nil)
+
+		By("waiting for the host to be stuck on the empty Robot password")
+		Eventually(robotCredentialsInvalid, timeout, interval).Should(BeTrue(), "RobotCredentialsAvailable is not False with reason Invalid")
+
+		By("waiting for the labelled Secret mapper runs and a later reconcile")
+		waitUntilSecretEventsAreReconciled()
+		Expect(robotCredentialsInvalid()).To(BeTrue())
+		mapperRunsBefore, _, _ := hostProbe.snapshot()
+
+		By("adding the Robot password to the Secret data, which carries no watch-filter label")
+		Expect(testEnv.GetAPIReader().Get(ctx, client.ObjectKeyFromObject(hetznerSecret), hetznerSecret)).To(Succeed())
+		hetznerSecret.Data["robot-password"] = []byte("my-password")
+		Expect(testEnv.Update(ctx, hetznerSecret)).To(Succeed())
+
+		Eventually(func() int {
+			mapperRuns, _, _ := hostProbe.snapshot()
+			return mapperRuns
+		}, timeout, interval).Should(BeNumerically(">", mapperRunsBefore), "the Secret change did not reach the Secret mapper")
+
+		By("expecting the host to be reconciled again and to accept the credentials")
+		Eventually(robotCredentialsAvailable, timeout, interval).Should(BeTrue(), "RobotCredentialsAvailable did not turn True after the Secret change")
+	})
+
+	It("reconciles the host when the Hetzner Secret is deleted", func() {
+		rejectingRobotClient := newRejectingRobotClient()
+		startDedicatedHostManager("wrong-password", robotFactoryFunc(func(robotclient.Credentials) robotclient.Client {
+			return rejectingRobotClient
+		}))
+
+		By("waiting for the host to be stuck on the rejected password")
+		Eventually(robotCredentialsInvalid, timeout, interval).Should(BeTrue(), "RobotCredentialsAvailable is not False with reason Invalid")
+
+		By("waiting for the labelled Secret mapper runs and a later reconcile")
+		waitUntilSecretEventsAreReconciled()
+		Expect(robotCredentialsInvalid()).To(BeTrue())
+		mapperRunsBefore, _, _ := hostProbe.snapshot()
+
+		By("deleting the Hetzner Secret")
+		Expect(testEnv.Delete(ctx, hetznerSecret)).To(Succeed())
+
+		Eventually(func() int {
+			mapperRuns, _, _ := hostProbe.snapshot()
+			return mapperRuns
+		}, timeout, interval).Should(BeNumerically(">", mapperRunsBefore), "the Secret change did not reach the Secret mapper")
+
+		By("expecting the host to be reconciled again and to report the missing Secret")
+		Eventually(func() bool {
+			return isPresentAndFalseWithReason(hostKey, host, infrav1.HetznerBareMetalHostRobotCredentialsAvailableCondition, infrav1.HetznerBareMetalHostSecretUnreachableReason)
+		}, timeout, interval).Should(BeTrue(), "RobotCredentialsAvailable is not False with reason SecretUnreachable")
+	})
+
+	It("reconciles the host when the Robot API rejects the password until the Secret changes", func() {
+		rejectingRobotClient := newRejectingRobotClient()
+		startDedicatedHostManager("wrong-password", robotFactoryFunc(func(credentials robotclient.Credentials) robotclient.Client {
+			if credentials.Password == "my-password" {
+				return testEnv.RobotClient
+			}
+			return rejectingRobotClient
+		}))
+
+		By("waiting for the host to be stuck on the rejected password")
+		Eventually(robotCredentialsInvalid, timeout, interval).Should(BeTrue(), "RobotCredentialsAvailable is not False with reason Invalid")
+
+		By("waiting for the labelled Secret mapper runs and a later reconcile")
+		reconcileStarts := waitUntilSecretEventsAreReconciled()
+		Expect(robotCredentialsInvalid()).To(BeTrue())
+		mapperRunsBefore, _, _ := hostProbe.snapshot()
+
+		By("checking that the host is not reconciled again before the Secret changes")
+		Consistently(func() int { _, n, _ := hostProbe.snapshot(); return n }, time.Second, interval).
+			Should(Equal(reconcileStarts), "the host was reconciled again before the Secret change")
+
+		By("changing the Robot password in the Secret data")
+		Expect(testEnv.GetAPIReader().Get(ctx, client.ObjectKeyFromObject(hetznerSecret), hetznerSecret)).To(Succeed())
+		hetznerSecret.Data["robot-password"] = []byte("my-password")
+		Expect(testEnv.Update(ctx, hetznerSecret)).To(Succeed())
+
+		Eventually(func() int {
+			mapperRuns, _, _ := hostProbe.snapshot()
+			return mapperRuns
+		}, timeout, interval).Should(BeNumerically(">", mapperRunsBefore), "the Secret change did not reach the Secret mapper")
+
+		By("expecting the host to be reconciled again and to accept the credentials")
+		Eventually(robotCredentialsAvailable, timeout, interval).Should(BeTrue(), "RobotCredentialsAvailable did not turn True after the Secret change")
+	})
+})
 
 var _ = Describe("reconcileRobotRateLimit", func() {
 	var host *infrav1.HetznerBareMetalHost
