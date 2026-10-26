@@ -103,9 +103,9 @@ func init() {
 	//
 	// Scheme is set so that envtest enables the conversion webhooks for every CRD whose type is
 	// convertible in this scheme (it has both the v1beta1 and v1beta2 types registered above). This
-	// is required because the controllers reconcile the v1beta2 types while the CRD storage version
-	// is still v1beta1. Without conversion, v1beta2 status writes would be stored unconverted against
-	// the v1beta1 schema and corrupted.
+	// is required because the CRDs store v1beta2 and tests still read and write v1beta1 objects.
+	// Without conversion, v1beta1 writes would be stored unconverted against the v1beta2 schema and
+	// corrupted.
 	env = &envtest.Environment{
 		ErrorIfCRDPathMissing: true,
 		CRDDirectoryPaths:     crdPaths,

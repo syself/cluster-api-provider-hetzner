@@ -80,6 +80,7 @@ type HCloudMachineTemplateV1Beta1DeprecatedStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=hcloudmachinetemplates,scope=Namespaced,categories=cluster-api,shortName=capihcmt
+// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Image",type="string",JSONPath=".spec.template.spec.imageName",description="Image name"
 // +kubebuilder:printcolumn:name="Placement group",type="string",JSONPath=".spec.template.spec.placementGroupName",description="Placement group name"
 // +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.template.spec.type",description="Server type"

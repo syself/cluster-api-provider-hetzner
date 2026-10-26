@@ -614,7 +614,7 @@ type HardwareDetails struct {
 type HetznerBareMetalHostStatus struct{}
 
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=hbmh
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".spec.status.provisioningState",description="Phase of provisioning"
