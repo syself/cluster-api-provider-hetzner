@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 // The webhooks are served for v1beta2 only. The API server converts a v1beta1 request to v1beta2
@@ -46,20 +46,20 @@ var _ = Describe("Admission webhooks for v1beta1 requests", func() {
 	})
 
 	It("rejects an HCloudMachine without imageName", func() {
-		hcloudMachine := &infrav1.HCloudMachine{
+		hcloudMachine := &infrav1beta1.HCloudMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "hcloud-machine", Namespace: testNs.Name},
-			Spec:       infrav1.HCloudMachineSpec{Type: "cpx32"},
+			Spec:       infrav1beta1.HCloudMachineSpec{Type: "cpx32"},
 		}
 		err := testEnv.Create(ctx, hcloudMachine)
 		expectDeniedBy(err, "validation.hcloudmachine.infrastructure.cluster.x-k8s.io", "imageName and customProvisioner empty")
 	})
 
 	It("rejects a change to the spec of an HCloudMachineTemplate", func() {
-		hcloudMachineTemplate := &infrav1.HCloudMachineTemplate{
+		hcloudMachineTemplate := &infrav1beta1.HCloudMachineTemplate{
 			ObjectMeta: metav1.ObjectMeta{Name: "hcloud-machine-template", Namespace: testNs.Name},
-			Spec: infrav1.HCloudMachineTemplateSpec{
-				Template: infrav1.HCloudMachineTemplateResource{
-					Spec: infrav1.HCloudMachineSpec{Type: "cpx32", ImageName: "my-image"},
+			Spec: infrav1beta1.HCloudMachineTemplateSpec{
+				Template: infrav1beta1.HCloudMachineTemplateResource{
+					Spec: infrav1beta1.HCloudMachineSpec{Type: "cpx32", ImageName: "my-image"},
 				},
 			},
 		}
@@ -76,23 +76,23 @@ var _ = Describe("Admission webhooks for v1beta1 requests", func() {
 	})
 
 	It("accepts an HCloudRemediation", func() {
-		hcloudRemediation := &infrav1.HCloudRemediation{
+		hcloudRemediation := &infrav1beta1.HCloudRemediation{
 			ObjectMeta: metav1.ObjectMeta{Name: "hcloud-remediation", Namespace: testNs.Name},
 		}
 		Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 	})
 
 	It("accepts an HCloudRemediationTemplate", func() {
-		hcloudRemediationTemplate := &infrav1.HCloudRemediationTemplate{
+		hcloudRemediationTemplate := &infrav1beta1.HCloudRemediationTemplate{
 			ObjectMeta: metav1.ObjectMeta{Name: "hcloud-remediation-template", Namespace: testNs.Name},
 		}
 		Expect(testEnv.Create(ctx, hcloudRemediationTemplate)).To(Succeed())
 	})
 
 	It("rejects a change to the serverID of a HetznerBareMetalHost", func() {
-		host := &infrav1.HetznerBareMetalHost{
+		host := &infrav1beta1.HetznerBareMetalHost{
 			ObjectMeta: metav1.ObjectMeta{Name: "host", Namespace: testNs.Name},
-			Spec:       infrav1.HetznerBareMetalHostSpec{ServerID: 23181},
+			Spec:       infrav1beta1.HetznerBareMetalHostSpec{ServerID: 23181},
 		}
 		Expect(testEnv.Create(ctx, host)).To(Succeed())
 
@@ -103,20 +103,20 @@ var _ = Describe("Admission webhooks for v1beta1 requests", func() {
 	})
 
 	It("rejects a HetznerBareMetalMachine without an image", func() {
-		bmMachine := &infrav1.HetznerBareMetalMachine{
+		bmMachine := &infrav1beta1.HetznerBareMetalMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "bm-machine", Namespace: testNs.Name},
 			Spec:       v1beta1HetznerBareMetalMachineSpec(),
 		}
-		bmMachine.Spec.InstallImage.Image = infrav1.Image{}
+		bmMachine.Spec.InstallImage.Image = infrav1beta1.Image{}
 		err := testEnv.Create(ctx, bmMachine)
 		expectDeniedBy(err, "validation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io", "have to specify either image name and url or path")
 	})
 
 	It("rejects a change to the spec of a HetznerBareMetalMachineTemplate", func() {
-		bmMachineTemplate := &infrav1.HetznerBareMetalMachineTemplate{
+		bmMachineTemplate := &infrav1beta1.HetznerBareMetalMachineTemplate{
 			ObjectMeta: metav1.ObjectMeta{Name: "bm-machine-template", Namespace: testNs.Name},
-			Spec: infrav1.HetznerBareMetalMachineTemplateSpec{
-				Template: infrav1.HetznerBareMetalMachineTemplateResource{
+			Spec: infrav1beta1.HetznerBareMetalMachineTemplateSpec{
+				Template: infrav1beta1.HetznerBareMetalMachineTemplateResource{
 					Spec: v1beta1HetznerBareMetalMachineSpec(),
 				},
 			},
@@ -134,34 +134,34 @@ var _ = Describe("Admission webhooks for v1beta1 requests", func() {
 	})
 
 	It("accepts a HetznerBareMetalRemediation", func() {
-		bmRemediation := &infrav1.HetznerBareMetalRemediation{
+		bmRemediation := &infrav1beta1.HetznerBareMetalRemediation{
 			ObjectMeta: metav1.ObjectMeta{Name: "bm-remediation", Namespace: testNs.Name},
 		}
 		Expect(testEnv.Create(ctx, bmRemediation)).To(Succeed())
 	})
 
 	It("accepts a HetznerBareMetalRemediationTemplate", func() {
-		bmRemediationTemplate := &infrav1.HetznerBareMetalRemediationTemplate{
+		bmRemediationTemplate := &infrav1beta1.HetznerBareMetalRemediationTemplate{
 			ObjectMeta: metav1.ObjectMeta{Name: "bm-remediation-template", Namespace: testNs.Name},
 		}
 		Expect(testEnv.Create(ctx, bmRemediationTemplate)).To(Succeed())
 	})
 
 	It("rejects a HetznerCluster with control plane regions in two network zones", func() {
-		hetznerCluster := &infrav1.HetznerCluster{
+		hetznerCluster := &infrav1beta1.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{Name: "hetzner-cluster", Namespace: testNs.Name},
 			Spec:       v1beta1HetznerClusterSpec(),
 		}
-		hetznerCluster.Spec.ControlPlaneRegions = []infrav1.Region{"fsn1", "ash"}
+		hetznerCluster.Spec.ControlPlaneRegions = []infrav1beta1.Region{"fsn1", "ash"}
 		err := testEnv.Create(ctx, hetznerCluster)
 		expectDeniedBy(err, "validation.hetznercluster.infrastructure.cluster.x-k8s.io", "regions are not in one network zone")
 	})
 
 	It("rejects a change to the spec of a HetznerClusterTemplate", func() {
-		hetznerClusterTemplate := &infrav1.HetznerClusterTemplate{
+		hetznerClusterTemplate := &infrav1beta1.HetznerClusterTemplate{
 			ObjectMeta: metav1.ObjectMeta{Name: "hetzner-cluster-template", Namespace: testNs.Name},
-			Spec: infrav1.HetznerClusterTemplateSpec{
-				Template: infrav1.HetznerClusterTemplateResource{
+			Spec: infrav1beta1.HetznerClusterTemplateSpec{
+				Template: infrav1beta1.HetznerClusterTemplateResource{
 					Spec: v1beta1HetznerClusterSpec(),
 				},
 			},
@@ -173,7 +173,7 @@ var _ = Describe("Admission webhooks for v1beta1 requests", func() {
 		Expect(testEnv.Patch(ctx, hetznerClusterTemplate, patch)).To(Succeed())
 
 		patch = client.MergeFrom(hetznerClusterTemplate.DeepCopy())
-		hetznerClusterTemplate.Spec.Template.Spec.ControlPlaneRegions = []infrav1.Region{"nbg1"}
+		hetznerClusterTemplate.Spec.Template.Spec.ControlPlaneRegions = []infrav1beta1.Region{"nbg1"}
 		err := testEnv.Patch(ctx, hetznerClusterTemplate, patch)
 		expectDeniedBy(err, "validation.hetznerclustertemplate.infrastructure.cluster.x-k8s.io", "HetznerClusterTemplate.Spec is immutable")
 	})
@@ -185,21 +185,21 @@ func expectDeniedBy(err error, webhookName, message string) {
 	Expect(err).To(MatchError(ContainSubstring(message)))
 }
 
-func v1beta1HetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec {
-	return infrav1.HetznerBareMetalMachineSpec{
-		InstallImage: infrav1.InstallImage{
-			Image: infrav1.Image{
+func v1beta1HetznerBareMetalMachineSpec() infrav1beta1.HetznerBareMetalMachineSpec {
+	return infrav1beta1.HetznerBareMetalMachineSpec{
+		InstallImage: infrav1beta1.InstallImage{
+			Image: infrav1beta1.Image{
 				Name: "image-name",
 				URL:  "https://myfile.tar.gz",
 			},
-			Partitions: []infrav1.Partition{
+			Partitions: []infrav1beta1.Partition{
 				{Mount: "lvm", FileSystem: "ext2", Size: "1G"},
 			},
 		},
-		SSHSpec: infrav1.SSHSpec{
-			SecretRef: infrav1.SSHSecretRef{
+		SSHSpec: infrav1beta1.SSHSpec{
+			SecretRef: infrav1beta1.SSHSecretRef{
 				Name: "os-ssh-secret",
-				Key: infrav1.SSHSecretKeyRef{
+				Key: infrav1beta1.SSHSecretKeyRef{
 					Name:       "sshkey-name",
 					PublicKey:  "public-key",
 					PrivateKey: "private-key",
@@ -210,16 +210,16 @@ func v1beta1HetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec {
 	}
 }
 
-func v1beta1HetznerClusterSpec() infrav1.HetznerClusterSpec {
-	return infrav1.HetznerClusterSpec{
-		ControlPlaneRegions: []infrav1.Region{"fsn1"},
-		ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+func v1beta1HetznerClusterSpec() infrav1beta1.HetznerClusterSpec {
+	return infrav1beta1.HetznerClusterSpec{
+		ControlPlaneRegions: []infrav1beta1.Region{"fsn1"},
+		ControlPlaneLoadBalancer: infrav1beta1.LoadBalancerSpec{
 			Enabled: true,
 			Region:  "fsn1",
 		},
-		HetznerSecret: infrav1.HetznerSecretRef{
+		HetznerSecret: infrav1beta1.HetznerSecretRef{
 			Name: "hetzner-secret",
-			Key: infrav1.HetznerSecretKeyRef{
+			Key: infrav1beta1.HetznerSecretKeyRef{
 				HCloudToken:          "hcloud",
 				HetznerRobotUser:     "robot-user",
 				HetznerRobotPassword: "robot-password",
