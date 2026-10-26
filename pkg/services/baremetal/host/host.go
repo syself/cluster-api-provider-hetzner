@@ -479,7 +479,7 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 		return false, s.handleSoftwareRebootFailed(ctx, isTimeout, isRebootIntoRescue)
 
 	case infrav1.RebootTypeHardware:
-		return s.handleHardwareRebootFailed(ctx, isTimeout, isRebootIntoRescue)
+		return s.handleHardwareRebootFailed(isTimeout, isRebootIntoRescue)
 	}
 
 	return false, fmt.Errorf("%w: %s", errUnexpectedRebootType, ongoingReboot.Type)
@@ -559,35 +559,53 @@ func (s *Service) handleSoftwareRebootFailed(ctx context.Context, isSSHTimeoutEr
 	return nil
 }
 
-// handleHardwareRebootFailed deals with hardware reboot failed cases and returns whether we should fail the process.
-func (s *Service) handleHardwareRebootFailed(ctx context.Context, isSSHTimeoutError, wantsRescue bool) (bool, error) {
+// handleHardwareRebootFailed is called when the hostname check fails after we sent a hardware reset.
+// The hardware reset is the last reboot we send. This function does not send another one. It returns
+// true when the caller should record a fatal error on the host.
+//
+// There are only two possibilities here. Either ssh timed out (isSSHTimeoutError is true), or ssh
+// returned a wrong hostname (isSSHTimeoutError is false). Note that handleIncompleteBoot handles
+// connection refused before it calls this function, so connection refused never reaches this function.
+func (s *Service) handleHardwareRebootFailed(isSSHTimeoutError, wantsRescue bool) (bool, error) {
 	rebootInto := "node"
 	if wantsRescue {
 		rebootInto = "rescue mode"
 	}
-	// If it is not a timeout error, then the ssh command (get hostname) worked, but didn't give us the
-	// right hostname. This means that the server has not been rebooted and we need to escalate.
-	// If we got a timeout error from ssh, it means that the server has not yet finished rebooting.
-	// If the timeout for hardware reboots has been reached, then escalate.
-	if !isSSHTimeoutError {
-		if wantsRescue {
-			// make sure hat we boot into rescue mode if that is necessary
-			if err := s.ensureRescueMode(); err != nil {
-				return false, fmt.Errorf("failed to ensure rescue mode: %w", err)
-			}
-		}
 
-		if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), infrav1.RebootTypeHardware); err != nil {
-			s.handleRobotRateLimitExceeded(err, rebootServerStr)
-			return false, fmt.Errorf(errMsgFailedReboot, err)
+	// ssh returned a wrong hostname. This means server finished booting, but booted into the wrong system.
+	// Waiting longer does not change this. We give up right away.
+	if !isSSHTimeoutError {
+		msg := "The server did not boot into the installed operating system after the hardware reboot. Please check if the server is working properly."
+		if wantsRescue {
+			msg = "The server did not boot into the rescue system after the hardware reboot. Please ensure that the machine tries to boot from network before booting from disk. This setting needs to be enabled permanently in the BIOS."
 		}
-		msg := fmt.Sprintf("Reboot via ssh into %s failed. Now using rebootType %q.",
-			rebootInto, infrav1.RebootTypeHardware)
-		msg = s.createRebootEvent(ctx, s.scope.HetznerBareMetalHost, infrav1.RebootTypeHardware, msg)
-		setOngoingReboot(s.scope.HetznerBareMetalHost, infrav1.RebootTypeHardware, msg)
+		deprecatedv1beta1conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.ProvisionSucceededV1Beta1Condition,
+			infrav1.BootedIntoWrongSystemV1Beta1Reason,
+			clusterv1.ConditionSeverityError,
+			"%s",
+			msg,
+		)
+		conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostBootedIntoWrongSystemReason,
+			Message: msg,
+		})
+
+		s.scope.EventRecorder.Event(
+			s.scope.HetznerBareMetalHost,
+			corev1.EventTypeWarning,
+			infrav1.HetznerBareMetalHostBootedIntoWrongSystemReason,
+			msg,
+		)
+
+		return true, fmt.Errorf("server did not boot into %s after hardware reboot", rebootInto)
 	}
 
-	// if hardware reboots time out, we should fail
+	// ssh timed out. The server is probably still booting. We give up only when hardwareResetTimeout
+	// has passed since we sent the hardware reset.
 	if hasTimedOut(s.scope.HetznerBareMetalHost.Status.OngoingReboot, hardwareResetTimeout) {
 		msg := "reboot to node timed out - please check if server is working properly"
 		if wantsRescue {
@@ -618,6 +636,7 @@ func (s *Service) handleHardwareRebootFailed(ctx context.Context, isSSHTimeoutEr
 		return true, fmt.Errorf("hardware reboot (to %s) timed out", rebootInto)
 	}
 
+	// the server still has time to boot. The caller checks the hostname again later.
 	return false, nil
 }
 
