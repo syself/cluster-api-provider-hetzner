@@ -53,7 +53,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -106,12 +106,12 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, err
 	}
 	if skipReconciliation {
-		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav2.SkipNamespaceAnnotation)
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 
 	// Fetch the HCloudMachine instance.
-	hcloudMachine := &infrav2.HCloudMachine{}
+	hcloudMachine := &infrav1.HCloudMachine{}
 	err = r.Get(ctx, req.NamespacedName, hcloudMachine)
 	if err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
@@ -151,7 +151,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
 
-	hetznerCluster := &infrav2.HetznerCluster{}
+	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
 		Namespace: hcloudMachine.Namespace,
@@ -174,14 +174,14 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		// Status().Update. Set the deletion markers here so they are persisted
 		// (the scope's patchHelper is not created on this path).
 		if !hcloudMachine.DeletionTimestamp.IsZero() {
-			hcloudMachine.Status.InstanceState = infrav2.InstanceStateDeleting
+			hcloudMachine.Status.InstanceState = infrav1.InstanceStateDeleting
 			conditions.Set(hcloudMachine, metav1.Condition{
-				Type:   infrav2.HCloudMachineServerAvailableCondition,
+				Type:   infrav1.HCloudMachineServerAvailableCondition,
 				Status: metav1.ConditionFalse,
-				Reason: infrav2.HCloudMachineDeletingReason,
+				Reason: infrav1.HCloudMachineDeletingReason,
 			})
 		}
-		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r, infrav2.HCloudMachineSummaryOpts())
+		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r, infrav1.HCloudMachineSummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
@@ -219,7 +219,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			// We want to read our own writes.
 			err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 5*time.Second, true, func(ctx context.Context) (done bool, err error) {
 				// new resource, read from local cache
-				latest := &infrav2.HCloudMachine{}
+				latest := &infrav1.HCloudMachine{}
 				getErr := r.Get(ctx, client.ObjectKeyFromObject(machineScope.HCloudMachine), latest)
 				if apierrors.IsNotFound(getErr) {
 					// the object was deleted. All is fine.
@@ -278,7 +278,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
-	if hcloudMachine.Status.BootState == infrav2.HCloudBootStateProvisioningFailed {
+	if hcloudMachine.Status.BootState == infrav1.HCloudBootStateProvisioningFailed {
 		// This hcloud machine will be removed soon.
 		log.Info("hcloudmachine: ProvisioningFailed. Not reconciling this machine.")
 		return reconcile.Result{}, nil
@@ -300,7 +300,7 @@ func (r *HCloudMachineReconciler) reconcileDelete(ctx context.Context, machineSc
 		return result, nil
 	}
 	// Machine is deleted so remove the finalizer.
-	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav2.HCloudMachineFinalizer)
+	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav1.HCloudMachineFinalizer)
 
 	return reconcile.Result{}, nil
 }
@@ -309,7 +309,7 @@ func (r *HCloudMachineReconciler) reconcileNormal(ctx context.Context, machineSc
 	hcloudMachine := machineScope.HCloudMachine
 
 	// If the HCloudMachine doesn't have our finalizer, add it.
-	controllerutil.AddFinalizer(machineScope.HCloudMachine, infrav2.HCloudMachineFinalizer)
+	controllerutil.AddFinalizer(machineScope.HCloudMachine, infrav1.HCloudMachineFinalizer)
 
 	// Register the finalizer immediately to avoid orphaning HCloud resources on delete.
 	if err := machineScope.PatchObject(ctx); err != nil {
@@ -330,23 +330,23 @@ func (r *HCloudMachineReconciler) reconcileNormal(ctx context.Context, machineSc
 func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r, &infrav2.HCloudMachineList{}, mgr.GetScheme())
+	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r, &infrav1.HCloudMachineList{}, mgr.GetScheme())
 	if err != nil {
 		return fmt.Errorf("failed to create mapper for Cluster to HCloudMachines: %w", err)
 	}
 
 	err = ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
-		For(&infrav2.HCloudMachine{}).
+		For(&infrav1.HCloudMachine{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
 		WithEventFilter(IgnoreInsignificantHCloudMachineStatusUpdates(log)).
 		Watches(
 			&clusterv1.Machine{},
-			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infrav2.GroupVersion.WithKind("HCloudMachine"))),
+			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infrav1.GroupVersion.WithKind("HCloudMachine"))),
 			builder.WithPredicates(IgnoreInsignificantMachineStatusUpdates(log)),
 		).
 		Watches(
-			&infrav2.HetznerCluster{},
+			&infrav1.HetznerCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.HetznerClusterToHCloudMachines(ctx)),
 			builder.WithPredicates(IgnoreInsignificantHetznerClusterUpdates(log)),
 		).
@@ -382,7 +382,7 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 
 		log := log.FromContext(ctx)
 
-		c, ok := o.(*infrav2.HetznerCluster)
+		c, ok := o.(*infrav1.HetznerCluster)
 		if !ok {
 			log.Error(fmt.Errorf("expected a HetznerCluster but got a %T", o), "failed to get HCloudMachine for HetznerCluster")
 			return nil
@@ -440,9 +440,9 @@ func machineAPIServerPodHealthyConditionChanged(oldMachine, newMachine *clusterv
 // changed. HCloudMachine reconciliation uses this list to decide whether a control-plane
 // server is already attached. Without this check, a target-list change alone would not
 // trigger a reconcile.
-func controlPlaneLoadBalancerTargetsChanged(oldCluster, newCluster *infrav2.HetznerCluster) bool {
-	var oldTargets []infrav2.LoadBalancerTarget
-	var newTargets []infrav2.LoadBalancerTarget
+func controlPlaneLoadBalancerTargetsChanged(oldCluster, newCluster *infrav1.HetznerCluster) bool {
+	var oldTargets []infrav1.LoadBalancerTarget
+	var newTargets []infrav1.LoadBalancerTarget
 
 	if oldCluster.Status.ControlPlaneLoadBalancer != nil {
 		oldTargets = oldCluster.Status.ControlPlaneLoadBalancer.Target
@@ -469,7 +469,7 @@ func (r *HCloudMachineReconciler) HetznerSecretToHCloudMachines(_ context.Contex
 
 		log = log.WithValues("objectMapper", "hetznerSecretToHCloudMachine", "namespace", secret.Namespace, "secret", secret.Name)
 
-		hetznerClusterList := &infrav2.HetznerClusterList{}
+		hetznerClusterList := &infrav1.HetznerClusterList{}
 		if err := r.List(ctx, hetznerClusterList, client.InNamespace(secret.Namespace)); err != nil {
 			log.Error(err, "failed to list HetznerClusters, skipping mapping")
 			return nil
@@ -533,13 +533,13 @@ func IgnoreInsignificantHetznerClusterUpdates(logger logr.Logger) predicate.Func
 				"name", e.ObjectNew.GetName(),
 			)
 
-			var oldCluster, newCluster *infrav2.HetznerCluster
+			var oldCluster, newCluster *infrav1.HetznerCluster
 			var ok bool
 			// This predicate only looks at HetznerCluster objects
-			if oldCluster, ok = e.ObjectOld.(*infrav2.HetznerCluster); !ok {
+			if oldCluster, ok = e.ObjectOld.(*infrav1.HetznerCluster); !ok {
 				return true
 			}
-			if newCluster, ok = e.ObjectNew.(*infrav2.HetznerCluster); !ok {
+			if newCluster, ok = e.ObjectNew.(*infrav1.HetznerCluster); !ok {
 				// Something weird happened, and we received two different kinds of objects
 				return true
 			}
@@ -668,13 +668,13 @@ func IgnoreInsignificantHCloudMachineStatusUpdates(logger logr.Logger) predicate
 				"name", e.ObjectNew.GetName(),
 			)
 
-			var oldHCloudMachine, newHCloudMachine *infrav2.HCloudMachine
+			var oldHCloudMachine, newHCloudMachine *infrav1.HCloudMachine
 			var ok bool
 			// This predicate only looks at HCloudMachine objects
-			if oldHCloudMachine, ok = e.ObjectOld.(*infrav2.HCloudMachine); !ok {
+			if oldHCloudMachine, ok = e.ObjectOld.(*infrav1.HCloudMachine); !ok {
 				return true
 			}
-			if newHCloudMachine, ok = e.ObjectNew.(*infrav2.HCloudMachine); !ok {
+			if newHCloudMachine, ok = e.ObjectNew.(*infrav1.HCloudMachine); !ok {
 				// Something weird happened, and we received two different kinds of objects
 				return true
 			}
@@ -684,7 +684,7 @@ func IgnoreInsignificantHCloudMachineStatusUpdates(logger logr.Logger) predicate
 			newHCloudMachine = newHCloudMachine.DeepCopy()
 
 			// check if status is empty - if so, it should be restored
-			emptyStatus := infrav2.HCloudMachineStatus{}
+			emptyStatus := infrav1.HCloudMachineStatus{}
 			if reflect.DeepEqual(newHCloudMachine.Status, emptyStatus) {
 				return true
 			}
@@ -702,8 +702,8 @@ func IgnoreInsignificantHCloudMachineStatusUpdates(logger logr.Logger) predicate
 			oldHCloudMachine.Spec.ProviderID = nil
 			newHCloudMachine.Spec.ProviderID = nil
 
-			oldHCloudMachine.Status = infrav2.HCloudMachineStatus{}
-			newHCloudMachine.Status = infrav2.HCloudMachineStatus{}
+			oldHCloudMachine.Status = infrav1.HCloudMachineStatus{}
+			newHCloudMachine.Status = infrav1.HCloudMachineStatus{}
 
 			if reflect.DeepEqual(oldHCloudMachine, newHCloudMachine) {
 				// Only insignificant fields changed, no need to reconcile

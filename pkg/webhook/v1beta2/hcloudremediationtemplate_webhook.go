@@ -22,7 +22,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // HCloudRemediationTemplateWebhook implements admission webhooks for HCloudRemediationTemplate.
@@ -30,32 +30,32 @@ type HCloudRemediationTemplateWebhook struct{}
 
 // SetupWebhookWithManager initializes webhook manager for HCloudRemediationTemplate.
 func (webhook *HCloudRemediationTemplateWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav2.HCloudRemediationTemplate{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HCloudRemediationTemplate{}).
 		WithValidator(webhook).
 		WithDefaulter(webhook).
 		Complete()
 }
 
-var _ admission.Defaulter[*infrav2.HCloudRemediationTemplate] = &HCloudRemediationTemplateWebhook{}
+var _ admission.Defaulter[*infrav1.HCloudRemediationTemplate] = &HCloudRemediationTemplateWebhook{}
 
 // Default implements admission.Defaulter so a webhook will be registered for HCloudRemediationTemplate.
-func (*HCloudRemediationTemplateWebhook) Default(context.Context, *infrav2.HCloudRemediationTemplate) error {
+func (*HCloudRemediationTemplateWebhook) Default(context.Context, *infrav1.HCloudRemediationTemplate) error {
 	return nil
 }
 
-var _ admission.Validator[*infrav2.HCloudRemediationTemplate] = &HCloudRemediationTemplateWebhook{}
+var _ admission.Validator[*infrav1.HCloudRemediationTemplate] = &HCloudRemediationTemplateWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HCloudRemediationTemplate.
-func (*HCloudRemediationTemplateWebhook) ValidateCreate(context.Context, *infrav2.HCloudRemediationTemplate) (admission.Warnings, error) {
+func (*HCloudRemediationTemplateWebhook) ValidateCreate(context.Context, *infrav1.HCloudRemediationTemplate) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HCloudRemediationTemplate.
-func (*HCloudRemediationTemplateWebhook) ValidateUpdate(_ context.Context, _, _ *infrav2.HCloudRemediationTemplate) (admission.Warnings, error) {
+func (*HCloudRemediationTemplateWebhook) ValidateUpdate(_ context.Context, _, _ *infrav1.HCloudRemediationTemplate) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HCloudRemediationTemplate.
-func (*HCloudRemediationTemplateWebhook) ValidateDelete(context.Context, *infrav2.HCloudRemediationTemplate) (admission.Warnings, error) {
+func (*HCloudRemediationTemplateWebhook) ValidateDelete(context.Context, *infrav1.HCloudRemediationTemplate) (admission.Warnings, error) {
 	return nil, nil
 }

@@ -26,11 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
-func validateHetznerBareMetalMachineSpecCreate(spec infrav1.HetznerBareMetalMachineSpec) field.ErrorList {
+func validateHetznerBareMetalMachineSpecCreate(spec infrav1beta1.HetznerBareMetalMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	installImage := spec.InstallImage
 	image := installImage.Image
@@ -83,7 +83,7 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav1.HetznerBareMetalMach
 		}
 
 		if image.URL != "" {
-			if _, err := infrav1.GetImageSuffix(image.URL); err != nil {
+			if _, err := infrav1beta1.GetImageSuffix(image.URL); err != nil {
 				allErrs = append(allErrs,
 					field.Invalid(field.NewPath("spec", "installImage", "image", "url"), image.URL,
 						"unknown image type in URL"),
@@ -114,7 +114,7 @@ func validateHetznerBareMetalMachineSpecCreate(spec infrav1.HetznerBareMetalMach
 	return allErrs
 }
 
-func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec infrav1.HetznerBareMetalMachineSpec) field.ErrorList {
+func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec infrav1beta1.HetznerBareMetalMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	if !reflect.DeepEqual(newSpec.InstallImage, oldSpec.InstallImage) {
 		allErrs = append(allErrs,

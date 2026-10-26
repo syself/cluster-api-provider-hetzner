@@ -251,10 +251,6 @@ PrivateKey is the key in the secret's data where the SSH key's private key is st
 PortAfterInstallImage specifies the port that can be used to reach the server via SSH after install image completed successfully.
 </PropField>
 
-<PropField name="template.spec.sshSpec.portAfterCloudInit" type="int" defaultValue="22 (install image port)" required={false}>
-PortAfterCloudInit specifies the port that can be used to reach the server via SSH after cloud init completed successfully.
-</PropField>
-
 </Collapsible>
 
 </PropField>

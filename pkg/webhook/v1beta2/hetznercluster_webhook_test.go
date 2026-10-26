@@ -24,15 +24,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
-func validHetznerCluster(lb infrav2.LoadBalancerSpec) *infrav2.HetznerCluster {
-	return &infrav2.HetznerCluster{
-		Spec: infrav2.HetznerClusterSpec{
+func validHetznerCluster(lb infrav1.LoadBalancerSpec) *infrav1.HetznerCluster {
+	return &infrav1.HetznerCluster{
+		Spec: infrav1.HetznerClusterSpec{
 			ControlPlaneLoadBalancer: lb,
-			HetznerSecret: infrav2.HetznerSecretRef{
-				Key: infrav2.HetznerSecretKeyRef{
+			HetznerSecret: infrav1.HetznerSecretRef{
+				Key: infrav1.HetznerSecretKeyRef{
 					HCloudToken: "token",
 				},
 			},
@@ -45,32 +45,32 @@ func TestValidateUpdateProxyProtocol(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		oldLB       infrav2.LoadBalancerSpec
-		newLB       infrav2.LoadBalancerSpec
+		oldLB       infrav1.LoadBalancerSpec
+		newLB       infrav1.LoadBalancerSpec
 		expectError bool
 	}{
 		{
 			name:        "disabling proxy protocol is not allowed",
-			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: true},
-			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: false},
+			oldLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: true},
+			newLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: false},
 			expectError: true,
 		},
 		{
 			name:        "enabling proxy protocol is allowed",
-			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: false},
-			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: true},
+			oldLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: false},
+			newLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: true},
 			expectError: false,
 		},
 		{
 			name:        "keeping proxy protocol enabled is allowed",
-			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: true},
-			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: true},
+			oldLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: true},
+			newLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: true},
 			expectError: false,
 		},
 		{
 			name:        "keeping proxy protocol disabled is allowed",
-			oldLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: false},
-			newLB:       infrav2.LoadBalancerSpec{EnableProxyProtocol: false},
+			oldLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: false},
+			newLB:       infrav1.LoadBalancerSpec{EnableProxyProtocol: false},
 			expectError: false,
 		},
 	}
@@ -93,44 +93,44 @@ func TestValidateLoadBalancerHealthCheck(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		healthCheck *infrav2.LoadBalancerHealthCheckSpec
+		healthCheck *infrav1.LoadBalancerHealthCheckSpec
 		expectError bool
 	}{
 		{name: "no health check is allowed", healthCheck: nil},
-		{name: "tcp health check without path/domain is allowed", healthCheck: &infrav2.LoadBalancerHealthCheckSpec{Protocol: "tcp"}},
-		{name: "http health check with path is allowed", healthCheck: &infrav2.LoadBalancerHealthCheckSpec{Protocol: "http", Path: ptr.To("/readyz")}},
-		{name: "https health check with domain is allowed", healthCheck: &infrav2.LoadBalancerHealthCheckSpec{Protocol: "https", Domain: ptr.To("example.com")}},
+		{name: "tcp health check without path/domain is allowed", healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp"}},
+		{name: "http health check with path is allowed", healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "http", Path: ptr.To("/readyz")}},
+		{name: "https health check with domain is allowed", healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "https", Domain: ptr.To("example.com")}},
 		{
 			name:        "tcp health check with path is rejected",
-			healthCheck: &infrav2.LoadBalancerHealthCheckSpec{Protocol: "tcp", Path: ptr.To("/readyz")},
+			healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp", Path: ptr.To("/readyz")},
 			expectError: true,
 		},
 		{
 			name:        "tcp health check with domain is rejected",
-			healthCheck: &infrav2.LoadBalancerHealthCheckSpec{Protocol: "tcp", Domain: ptr.To("example.com")},
+			healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp", Domain: ptr.To("example.com")},
 			expectError: true,
 		},
 		{
 			name:        "tcp health check with response is rejected",
-			healthCheck: &infrav2.LoadBalancerHealthCheckSpec{Protocol: "tcp", Response: ptr.To("ok")},
+			healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp", Response: ptr.To("ok")},
 			expectError: true,
 		},
 		{
 			name:        "tcp health check with statusCodes is rejected",
-			healthCheck: &infrav2.LoadBalancerHealthCheckSpec{Protocol: "tcp", StatusCodes: []string{"200"}},
+			healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Protocol: "tcp", StatusCodes: []string{"200"}},
 			expectError: true,
 		},
 		{
 			name:        "unset protocol with path is treated as tcp and rejected",
-			healthCheck: &infrav2.LoadBalancerHealthCheckSpec{Path: ptr.To("/readyz")},
+			healthCheck: &infrav1.LoadBalancerHealthCheckSpec{Path: ptr.To("/readyz")},
 			expectError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			oldCluster := validHetznerCluster(infrav2.LoadBalancerSpec{})
-			newCluster := validHetznerCluster(infrav2.LoadBalancerSpec{HealthCheck: tt.healthCheck})
+			oldCluster := validHetznerCluster(infrav1.LoadBalancerSpec{})
+			newCluster := validHetznerCluster(infrav1.LoadBalancerSpec{HealthCheck: tt.healthCheck})
 			_, err := webhook.ValidateUpdate(context.Background(), oldCluster, newCluster)
 			if tt.expectError {
 				require.Error(t, err)
