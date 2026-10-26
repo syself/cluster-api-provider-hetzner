@@ -218,6 +218,8 @@ const (
 	SSHToRescueSystemFailedV1Beta1Reason = "SSHToRescueSystemFailed"
 	// RebootTimedOutV1Beta1Reason indicates that the reboot timed out.
 	RebootTimedOutV1Beta1Reason = "RebootTimedOut"
+	// BootedIntoWrongSystemV1Beta1Reason indicates that the server booted into the wrong system after the hardware reboot.
+	BootedIntoWrongSystemV1Beta1Reason = "BootedIntoWrongSystem"
 	// CheckDiskFailedV1Beta1Reason indicates that checking the health of the disk was not successful.
 	CheckDiskFailedV1Beta1Reason = "CheckDiskFailed"
 )
@@ -627,6 +629,8 @@ const (
 	HetznerBareMetalHostSSHToRescueSystemFailedReason = "SSHToRescueSystemFailed"
 	// HetznerBareMetalHostRebootTimeoutReachedReason indicates the reboot timeout was reached.
 	HetznerBareMetalHostRebootTimeoutReachedReason = "RebootTimeoutReached"
+	// HetznerBareMetalHostBootedIntoWrongSystemReason indicates the server booted into the wrong system after the hardware reboot.
+	HetznerBareMetalHostBootedIntoWrongSystemReason = "BootedIntoWrongSystem"
 	// HetznerBareMetalHostCheckingDiskFailedReason indicates checking the health of the disk was not successful.
 	HetznerBareMetalHostCheckingDiskFailedReason = "CheckingDiskFailed"
 )
