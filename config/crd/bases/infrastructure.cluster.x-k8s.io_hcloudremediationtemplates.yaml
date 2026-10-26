@@ -300,10 +300,12 @@ spec:
             properties:
               template:
                 description: template defines the desired state of HCloudRemediationTemplate.
+                minProperties: 1
                 properties:
                   spec:
-                    description: spec is the specification of the desired behavior
-                      of the HCloudRemediation.
+                    description: |-
+                      spec is the specification of the desired behavior of the HCloudRemediation. It is empty when
+                      the template has no strategy. The HCloudRemediation created from it then has an empty spec as well.
                     minProperties: 1
                     properties:
                       strategy:
@@ -343,8 +345,6 @@ spec:
                         - timeoutSeconds
                         type: object
                     type: object
-                required:
-                - spec
                 type: object
             required:
             - template

@@ -100,8 +100,9 @@ type HCloudRemediation struct {
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// spec is the desired state of HCloudRemediation.
-	// +required
+	// spec is the desired state of HCloudRemediation. It is empty when the template that
+	// created the remediation has no strategy. The controller then does nothing and records an event.
+	// +optional
 	Spec HCloudRemediationSpec `json:"spec,omitempty,omitzero"`
 	// status is the observed state of HCloudRemediation.
 	// +optional

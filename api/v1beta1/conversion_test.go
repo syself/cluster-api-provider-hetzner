@@ -137,6 +137,41 @@ func TestConvertHetznerBareMetalHostConsumerRefToV1Beta2(t *testing.T) {
 	}
 }
 
+// TestConvertHetznerBareMetalHostConsumerRefToV1Beta2FillsKindAndGroup verifies that a v1beta1
+// ConsumerRef without kind or apiVersion converts to a valid v1beta2 reference. The v1beta1 schema
+// does not require these fields, v1beta2 does, and the consumer is always a HetznerBareMetalMachine.
+func TestConvertHetznerBareMetalHostConsumerRefToV1Beta2FillsKindAndGroup(t *testing.T) {
+	src := &HetznerBareMetalHost{
+		Spec: HetznerBareMetalHostSpec{
+			ServerID:    1,
+			ConsumerRef: &corev1.ObjectReference{Name: "machine-a"},
+		},
+	}
+	dst := &infrav1.HetznerBareMetalHost{}
+
+	if err := Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(src, dst, nil); err != nil {
+		t.Fatalf("failed to convert HetznerBareMetalHost to v1beta2: %v", err)
+	}
+	want := infrav1.HetznerBareMetalHostConsumerReference{
+		Kind:     "HetznerBareMetalMachine",
+		Name:     "machine-a",
+		APIGroup: GroupVersion.Group,
+	}
+	if dst.Spec.ConsumerRef != want {
+		t.Fatalf("expected consumerRef %+v, got %+v", want, dst.Spec.ConsumerRef)
+	}
+
+	// An empty reference has no consumer to fill in. It must stay empty, so v1beta2 leaves it out.
+	src.Spec.ConsumerRef = &corev1.ObjectReference{}
+	dst = &infrav1.HetznerBareMetalHost{}
+	if err := Convert_v1beta1_HetznerBareMetalHost_To_v1beta2_HetznerBareMetalHost(src, dst, nil); err != nil {
+		t.Fatalf("failed to convert HetznerBareMetalHost to v1beta2: %v", err)
+	}
+	if dst.Spec.ConsumerRef.IsDefined() {
+		t.Fatalf("expected an empty consumerRef, got %+v", dst.Spec.ConsumerRef)
+	}
+}
+
 // TestConvertHetznerBareMetalHostConsumerRefToV1Beta1RestoresNamespace verifies that converting
 // from v1beta2 restores the v1beta1 ConsumerRef namespace from the host namespace.
 func TestConvertHetznerBareMetalHostConsumerRefToV1Beta1RestoresNamespace(t *testing.T) {
@@ -2906,6 +2941,9 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			// v1beta1 object inside the lossless subset so the round-trip test still checks the
 			// rest of the host conversion.
 			in.Spec.ConsumerRef.APIVersion = GroupVersion.String()
+			if in.Spec.ConsumerRef.Kind == "" {
+				in.Spec.ConsumerRef.Kind = "HetznerBareMetalMachine"
+			}
 			in.Spec.ConsumerRef.Namespace = in.Namespace
 			in.Spec.ConsumerRef.UID = ""
 			in.Spec.ConsumerRef.ResourceVersion = ""
@@ -2948,9 +2986,12 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			if !in.Spec.ConsumerRef.IsDefined() {
 				return
 			}
-			// Keep the fuzzed v1beta2 reference in the group that can be rebuilt as a v1beta1
-			// ObjectReference by this package.
+			// Keep the fuzzed v1beta2 reference in the group and kind that can be rebuilt as a
+			// v1beta1 ObjectReference by this package. The conversion fills an empty kind.
 			in.Spec.ConsumerRef.APIGroup = infrav1.GroupVersion.Group
+			if in.Spec.ConsumerRef.Kind == "" {
+				in.Spec.ConsumerRef.Kind = "HetznerBareMetalMachine"
+			}
 		},
 	}
 }

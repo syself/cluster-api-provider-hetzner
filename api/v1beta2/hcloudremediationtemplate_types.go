@@ -28,9 +28,11 @@ type HCloudRemediationTemplateSpec struct {
 }
 
 // HCloudRemediationTemplateResource describes the data needed to create a HCloudRemediation from a template.
+// +kubebuilder:validation:MinProperties=1
 type HCloudRemediationTemplateResource struct {
-	// spec is the specification of the desired behavior of the HCloudRemediation.
-	// +required
+	// spec is the specification of the desired behavior of the HCloudRemediation. It is empty when
+	// the template has no strategy. The HCloudRemediation created from it then has an empty spec as well.
+	// +optional
 	Spec HCloudRemediationSpec `json:"spec,omitempty,omitzero"`
 }
 

@@ -124,8 +124,9 @@ type HetznerBareMetalRemediation struct {
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// spec is the desired state of HetznerBareMetalRemediation.
-	// +required
+	// spec is the desired state of HetznerBareMetalRemediation. It is empty when the template that
+	// created the remediation has no strategy. The controller then does nothing and records an event.
+	// +optional
 	Spec HetznerBareMetalRemediationSpec `json:"spec,omitempty,omitzero"`
 	// status is the observed state of HetznerBareMetalRemediation.
 	// +optional

@@ -689,6 +689,7 @@ spec:
                 description: |-
                   installImage provisions the machine with the Hetzner installimage tool.
                   Exactly one of installImage or customProvisioner must be set.
+                minProperties: 1
                 properties:
                   btrfsDefinitions:
                     description: |-
@@ -792,6 +793,8 @@ spec:
                   partitions:
                     description: |-
                       partitions define the additional partitions to be created in installimage.
+                      installimage needs at least one partition. The field is optional only because a v1beta1
+                      HetznerBareMetalMachine can have an empty list, and v1beta2 must accept that stored object.
                       The limit is the number of entries in a default GPT partition table.
                     items:
                       description: Partition defines the additional Partitions to
@@ -860,8 +863,6 @@ spec:
                     - 10
                     format: int32
                     type: integer
-                required:
-                - partitions
                 type: object
               providerID:
                 description: |-

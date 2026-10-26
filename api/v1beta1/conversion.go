@@ -338,6 +338,11 @@ func Convert_v1beta2_HetznerBareMetalHostSpec_To_v1beta1_HetznerBareMetalHostSpe
 
 // Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference converts the
 // v1beta1 ObjectReference shape to the smaller v1beta2 ConsumerRef shape.
+//
+// The consumer of a host is always a HetznerBareMetalMachine. The v1beta1 schema does not require
+// kind and apiVersion, and v1beta2 does. A reference with a name but without kind or group gets
+// the HetznerBareMetalMachine values, so the converted reference is valid and still points to the
+// same consumer. A reference without name stays as it is, so an empty reference stays empty.
 func Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference(in *corev1.ObjectReference, out *infrav1.HetznerBareMetalHostConsumerReference, _ apiconversion.Scope) error {
 	apiGroup := ""
 	if in.APIVersion != "" {
@@ -347,9 +352,18 @@ func Convert_v1_ObjectReference_To_v1beta2_HetznerBareMetalHostConsumerReference
 		}
 		apiGroup = gv.Group
 	}
+	kind := in.Kind
+	if in.Name != "" {
+		if apiGroup == "" {
+			apiGroup = infrav1.GroupVersion.Group
+		}
+		if kind == "" {
+			kind = "HetznerBareMetalMachine"
+		}
+	}
 
 	// Persist only the fields that make up the v1beta2 host ownership state.
-	out.Kind = in.Kind
+	out.Kind = kind
 	out.Name = in.Name
 	out.APIGroup = apiGroup
 	return nil
@@ -986,12 +1000,19 @@ func Convert_v1beta1_InstallImage_To_v1beta2_InstallImage(in *InstallImage, out 
 // Convert_v1beta2_InstallImage_To_v1beta1_InstallImage converts a v1beta2 InstallImage back to v1beta1.
 // An unset swraid or swraidLevel maps to the default of the field: 0 for swraid and 1 for swraidLevel.
 // A swraidLevel of 0 is still stored as 1, because the v1beta1 field has omitempty and the default 1.
+// Unset partitions map to an empty list, because the v1beta1 schema requires the field.
 func Convert_v1beta2_InstallImage_To_v1beta1_InstallImage(in *infrav1.InstallImage, out *InstallImage, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta2_InstallImage_To_v1beta1_InstallImage(in, out, s); err != nil {
 		return err
 	}
 	out.Swraid = int(ptr.Deref(in.Swraid, infrav1.DefaultSwraid))
 	out.SwraidLevel = int(ptr.Deref(in.SwraidLevel, infrav1.DefaultSwraidLevel))
+	// The v1beta1 schema requires partitions. v1beta2 leaves an empty list out of the JSON, so
+	// partitions reaches this function as nil. We set an empty list, so the stored v1beta1 object
+	// keeps its partitions field.
+	if out.Partitions == nil {
+		out.Partitions = []Partition{}
+	}
 	return nil
 }
 

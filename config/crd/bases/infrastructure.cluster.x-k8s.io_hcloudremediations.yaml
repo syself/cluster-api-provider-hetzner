@@ -310,7 +310,9 @@ spec:
           metadata:
             type: object
           spec:
-            description: spec is the desired state of HCloudRemediation.
+            description: |-
+              spec is the desired state of HCloudRemediation. It is empty when the template that
+              created the remediation has no strategy. The controller then does nothing and records an event.
             minProperties: 1
             properties:
               strategy:
@@ -508,8 +510,6 @@ spec:
                 format: int32
                 type: integer
             type: object
-        required:
-        - spec
         type: object
     served: true
     storage: false

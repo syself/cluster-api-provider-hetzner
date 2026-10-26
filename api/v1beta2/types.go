@@ -530,7 +530,9 @@ type LoadBalancerHealthCheckSpec struct {
 // LoadBalancerServiceSpec defines a load balancer Target.
 type LoadBalancerServiceSpec struct {
 	// protocol specifies the supported load balancer Protocol. It could be one of the https, http, or tcp.
-	// +required
+	// It is optional only because a v1beta1 HetznerCluster can have a service without protocol, and
+	// v1beta2 must accept that stored object. Hetzner rejects a service without protocol.
+	// +optional
 	// +kubebuilder:validation:Enum=http;https;tcp
 	Protocol string `json:"protocol,omitempty"`
 

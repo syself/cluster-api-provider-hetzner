@@ -190,10 +190,12 @@ spec:
             properties:
               template:
                 description: template defines the desired state of HetznerBareMetalRemediationTemplate.
+                minProperties: 1
                 properties:
                   spec:
-                    description: spec is the specification of the desired behavior
-                      of the HetznerBareMetalRemediation.
+                    description: |-
+                      spec is the specification of the desired behavior of the HetznerBareMetalRemediation. It is empty when
+                      the template has no strategy. The HetznerBareMetalRemediation created from it then has an empty spec as well.
                     minProperties: 1
                     properties:
                       strategy:
@@ -245,8 +247,6 @@ spec:
                         - timeoutSeconds
                         type: object
                     type: object
-                required:
-                - spec
                 type: object
             required:
             - template

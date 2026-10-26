@@ -62,6 +62,24 @@ func TestStateEnumsMatchConstants(t *testing.T) {
 			fieldPath: []string{"status", "provisioningState"},
 		},
 		{
+			name:      "HetznerBareMetalHost errorType",
+			constants: func(c stringConstant) bool { return c.typeName == "ErrorType" },
+			crdFile:   "infrastructure.cluster.x-k8s.io_hetznerbaremetalhosts.yaml",
+			fieldPath: []string{"status", "errorType"},
+		},
+		{
+			// The controller sends a reboot via SSH or via the Robot API as a software or hardware
+			// reboot (setOngoingReboot and rebootTypeAfterTimeout in pkg/services/baremetal/host).
+			// The other RebootType constants only appear in status.rebootTypes, the list of reboot
+			// types that the Robot API offers for the host.
+			name: "HetznerBareMetalHost ongoingReboot type",
+			constants: func(c stringConstant) bool {
+				return c.name == "RebootTypeSSH" || c.name == "RebootTypeSoftware" || c.name == "RebootTypeHardware"
+			},
+			crdFile:   "infrastructure.cluster.x-k8s.io_hetznerbaremetalhosts.yaml",
+			fieldPath: []string{"status", "ongoingReboot", "type"},
+		},
+		{
 			name:      "HCloudRemediation phase",
 			constants: isRemediationPhase,
 			crdFile:   "infrastructure.cluster.x-k8s.io_hcloudremediations.yaml",

@@ -28,9 +28,11 @@ type HetznerBareMetalRemediationTemplateSpec struct {
 }
 
 // HetznerBareMetalRemediationTemplateResource describes the data needed to create a HetznerBareMetalRemediation from a template.
+// +kubebuilder:validation:MinProperties=1
 type HetznerBareMetalRemediationTemplateResource struct {
-	// spec is the specification of the desired behavior of the HetznerBareMetalRemediation.
-	// +required
+	// spec is the specification of the desired behavior of the HetznerBareMetalRemediation. It is empty when
+	// the template has no strategy. The HetznerBareMetalRemediation created from it then has an empty spec as well.
+	// +optional
 	Spec HetznerBareMetalRemediationSpec `json:"spec,omitempty,omitzero"`
 }
 

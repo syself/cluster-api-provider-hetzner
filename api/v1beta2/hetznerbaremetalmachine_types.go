@@ -222,6 +222,7 @@ const (
 )
 
 // InstallImage defines the configuration for provisioning a machine with the Hetzner installimage tool.
+// +kubebuilder:validation:MinProperties=1
 type InstallImage struct {
 	// image is the image to be provisioned. It defines the image for baremetal machine.
 	// +optional
@@ -236,8 +237,10 @@ type InstallImage struct {
 	PostInstallScript string `json:"postInstallScript,omitempty"`
 
 	// partitions define the additional partitions to be created in installimage.
+	// installimage needs at least one partition. The field is optional only because a v1beta1
+	// HetznerBareMetalMachine can have an empty list, and v1beta2 must accept that stored object.
 	// The limit is the number of entries in a default GPT partition table.
-	// +required
+	// +optional
 	// +listType=atomic
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=128
