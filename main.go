@@ -55,7 +55,7 @@ import (
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	caphversion "github.com/syself/cluster-api-provider-hetzner/pkg/version"
-	webhookv1beta1 "github.com/syself/cluster-api-provider-hetzner/pkg/webhook/v1beta1"
+	webhookv1beta2 "github.com/syself/cluster-api-provider-hetzner/pkg/webhook/v1beta2"
 )
 
 var (
@@ -314,47 +314,47 @@ func main() {
 }
 
 func setUpWebhookWithManager(mgr ctrl.Manager) {
-	if err := (&webhookv1beta1.HetznerClusterWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerClusterWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerCluster")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HetznerClusterTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerClusterTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerClusterTemplate")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HCloudMachineWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HCloudMachineWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachine")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HCloudMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HCloudMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachineTemplate")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HetznerBareMetalHostWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerBareMetalHostWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalHost")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HetznerBareMetalMachineWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerBareMetalMachineWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachine")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HetznerBareMetalMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerBareMetalMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachineTemplate")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HetznerBareMetalRemediationWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerBareMetalRemediationWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediation")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HetznerBareMetalRemediationTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerBareMetalRemediationTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediationTemplate")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HCloudRemediationWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HCloudRemediationWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudRemediation")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HCloudRemediationTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HCloudRemediationTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudRemediationTemplate")
 		os.Exit(1)
 	}

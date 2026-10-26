@@ -36,12 +36,16 @@ func (webhook *HetznerBareMetalRemediationTemplateWebhook) SetupWebhookWithManag
 		Complete()
 }
 
+// +kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalremediationtemplate,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalremediationtemplates,verbs=create;update,versions=v1beta2,name=mhetznerbaremetalremediationtemplate.kb.io,admissionReviewVersions=v1
+
 var _ admission.Defaulter[*infrav1.HetznerBareMetalRemediationTemplate] = &HetznerBareMetalRemediationTemplateWebhook{}
 
 // Default implements admission.Defaulter so a webhook will be registered for HetznerBareMetalRemediationTemplate.
 func (*HetznerBareMetalRemediationTemplateWebhook) Default(context.Context, *infrav1.HetznerBareMetalRemediationTemplate) error {
 	return nil
 }
+
+// +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalremediationtemplate,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalremediationtemplates,verbs=create;update,versions=v1beta2,name=vhetznerbaremetalremediationtemplate.kb.io,admissionReviewVersions=v1
 
 var _ admission.Validator[*infrav1.HetznerBareMetalRemediationTemplate] = &HetznerBareMetalRemediationTemplateWebhook{}
 

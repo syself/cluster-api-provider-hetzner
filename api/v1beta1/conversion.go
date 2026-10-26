@@ -916,9 +916,8 @@ func Convert_v1beta1_HetznerBareMetalMachineSpec_To_v1beta2_HetznerBareMetalMach
 
 	if in.InstallImage.UsesImageURLCommand() {
 		// The custom provisioner flow uses only the image URL, command, device string and swraid.
-		// The v1beta1 webhook forbids image name and path when imageURLCommand is
-		// set, so those are always empty here. The remaining installImage fields (partitions, RAID
-		// level, post-install script) have no equivalent on customProvisioner.
+		// The other installImage fields (image name and path, partitions, RAID level, post-install
+		// script) have no equivalent on customProvisioner.
 		out.InstallImage = infrav1.InstallImage{}
 		out.CustomProvisioner = infrav1.CustomProvisioner{
 			URL:              in.InstallImage.Image.URL,
@@ -1650,8 +1649,7 @@ func Convert_v1beta2_ObjectMeta_To_v1beta1_ObjectMeta(in *clusterv1.ObjectMeta, 
 // A v1beta1 object without a controlPlaneLoadBalancer or hcloudNetwork block has a zero struct there.
 // It maps to the zero v1beta2 struct, so the v1beta2 JSON also leaves the block out. With enabled
 // false in the block, the API server adds the v1beta2 defaults of the block, like port 6443, on every
-// v1beta2 write. The v1beta1 webhook then rejects the write, because port and hcloudNetwork are
-// immutable.
+// v1beta2 write. The webhook then rejects the write, because port and hcloudNetwork are immutable.
 func Convert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in *HetznerClusterSpec, out *infrav1.HetznerClusterSpec, s apiconversion.Scope) error {
 	if err := autoConvert_v1beta1_HetznerClusterSpec_To_v1beta2_HetznerClusterSpec(in, out, s); err != nil {
 		return err

@@ -611,7 +611,7 @@ else
 	# these from the builder-image now.
 	rm -f ./hack/tools/bin/controller-gen ./hack/tools/bin/helm
 	controller-gen \
-			paths="{./, ./api/..., ./controllers/..., ./pkg/webhook/v1beta1}" \
+			paths="{./, ./api/..., ./controllers/..., ./pkg/webhook/v1beta2}" \
 			crd:crdVersions=v1 \
 			rbac:roleName=manager-role \
 			output:crd:dir=./config/crd/bases \

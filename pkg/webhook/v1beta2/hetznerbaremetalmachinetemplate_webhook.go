@@ -38,16 +38,10 @@ type HetznerBareMetalMachineTemplateWebhook struct{}
 func (webhook *HetznerBareMetalMachineTemplateWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HetznerBareMetalMachineTemplate{}).
 		WithValidator(webhook).
-		WithDefaulter(webhook).
 		Complete()
 }
 
-var _ admission.Defaulter[*infrav1.HetznerBareMetalMachineTemplate] = &HetznerBareMetalMachineTemplateWebhook{}
-
-// Default implements admission.CustomDefaulter.
-func (*HetznerBareMetalMachineTemplateWebhook) Default(context.Context, *infrav1.HetznerBareMetalMachineTemplate) error {
-	return nil
-}
+// +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalmachinetemplate,mutating=false,sideEffects=None,failurePolicy=fail,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachinetemplates,verbs=create;update,versions=v1beta2,name=validation.hetznerbaremetalmachinetemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
 var _ admission.Validator[*infrav1.HetznerBareMetalMachineTemplate] = &HetznerBareMetalMachineTemplateWebhook{}
 
