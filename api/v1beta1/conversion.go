@@ -945,7 +945,7 @@ func remediationDurationToSeconds(in metav1.Duration) (int32, error) {
 	if seconds > math.MaxInt32 {
 		return 0, fmt.Errorf("remediation duration %s is outside the int32 seconds range", in.Duration)
 	}
-	return int32(seconds), nil //nolint:gosec // checked against the int32 range above
+	return int32(seconds), nil
 }
 
 // Convert_v1beta1_RemediationStrategy_To_v1beta2_RemediationStrategy converts a v1beta1
