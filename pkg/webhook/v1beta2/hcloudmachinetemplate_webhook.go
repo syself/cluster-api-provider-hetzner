@@ -23,6 +23,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/util/topology"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -64,12 +65,33 @@ func (*HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHClo
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a admission.Request inside context: %v", err))
 	}
 	var allErrs field.ErrorList
-	if !topology.IsDryRunRequest(req, newHCloudMachineTemplate) && !reflect.DeepEqual(newHCloudMachineTemplate.Spec, oldHCloudMachineTemplate.Spec) {
+	oldSpec := oldHCloudMachineTemplate.Spec
+	oldSpec.Template.Spec = normalizeHCloudMachineSpec(oldSpec.Template.Spec)
+	newSpec := newHCloudMachineTemplate.Spec
+	newSpec.Template.Spec = normalizeHCloudMachineSpec(newSpec.Template.Spec)
+	if !topology.IsDryRunRequest(req, newHCloudMachineTemplate) && !reflect.DeepEqual(newSpec, oldSpec) {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), newHCloudMachineTemplate, "HCloudMachineTemplate.Spec is immutable"))
 	}
 	allErrs = append(allErrs, validateHCloudMachineSpec(newHCloudMachineTemplate.Spec.Template.Spec)...)
 
 	return nil, aggregateObjErrors(newHCloudMachineTemplate.GroupVersionKind().GroupKind(), newHCloudMachineTemplate.Name, allErrs)
+}
+
+// normalizeHCloudMachineSpec returns a copy of spec in which every unset field gets the value that an
+// unset field means. A stored object and an update request can differ in which unset fields they send.
+// Without this, such an update looks like a change of the immutable spec.
+func normalizeHCloudMachineSpec(spec infrav1.HCloudMachineSpec) infrav1.HCloudMachineSpec {
+	if spec.PublicNetwork != nil {
+		publicNetwork := *spec.PublicNetwork
+		if publicNetwork.EnableIPv4 == nil {
+			publicNetwork.EnableIPv4 = ptr.To(infrav1.DefaultEnableIPv4)
+		}
+		if publicNetwork.EnableIPv6 == nil {
+			publicNetwork.EnableIPv6 = ptr.To(infrav1.DefaultEnableIPv6)
+		}
+		spec.PublicNetwork = &publicNetwork
+	}
+	return spec
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HCloudMachineTemplate.

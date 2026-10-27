@@ -104,7 +104,7 @@ func TestReconcileServices_NewCluster_AddsKubeAPIServiceWithoutProxyProtocol(t *
 
 func TestReconcileServices_NewCluster_EnableProxyProtocol_AddsServiceWithProxyProtocol(t *testing.T) {
 	hetznerCluster := newTestHetznerCluster()
-	hetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = ptr.To(true)
 
 	mockClient := &mocks.Client{}
 	svc := newTestService(t, hetznerCluster, mockClient)
@@ -128,7 +128,7 @@ func TestReconcileServices_NewCluster_EnableProxyProtocol_AddsServiceWithProxyPr
 // (re)created with proxy protocol, instead of waiting for the next reconcile to pick it up.
 func TestReconcileServices_EnableProxyProtocol_UpdatesStatusInSameReconcile(t *testing.T) {
 	hetznerCluster := newTestHetznerCluster()
-	hetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = ptr.To(true)
 
 	mockClient := &mocks.Client{}
 	svc := newTestService(t, hetznerCluster, mockClient)
@@ -138,7 +138,7 @@ func TestReconcileServices_EnableProxyProtocol_UpdatesStatusInSameReconcile(t *t
 
 	_, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
-	require.True(t, hetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled)
+	require.True(t, ptr.Deref(hetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled, false))
 	mockClient.AssertExpectations(t)
 }
 
@@ -211,7 +211,7 @@ func TestReconcileServices_StaleServiceOnLB_DeletesIt(t *testing.T) {
 
 func TestReconcileServices_ProxyProtocolAlreadyActive_NoChanges(t *testing.T) {
 	hetznerCluster := newTestHetznerCluster()
-	hetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = ptr.To(true)
 
 	mockClient := &mocks.Client{}
 	svc := newTestService(t, hetznerCluster, mockClient)
@@ -405,7 +405,7 @@ func newMigrationTestService(t *testing.T, mockClient *mocks.Client, configureSp
 func newProxyMigrationService(t *testing.T, mockClient *mocks.Client, machines ...client.Object) *Service {
 	t.Helper()
 	return newMigrationTestService(t, mockClient, func(hc *infrav1.HetznerCluster) {
-		hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+		hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = ptr.To(true)
 	}, machines...)
 }
 
@@ -472,7 +472,7 @@ func TestReconcileServices_ProxyProtocolMigration_MachinesReady_SwitchesInPlace(
 	res, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
 	require.Zero(t, res.RequeueAfter)
-	require.True(t, svc.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled)
+	require.True(t, ptr.Deref(svc.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled, false))
 	mockClient.AssertExpectations(t)
 }
 
@@ -676,7 +676,7 @@ func TestReconcileServices_HealthCheckMigration_MachinesNotReady_StillReconciles
 func TestReconcileServices_HealthCheckMigration_MachinesNotReady_StillEnablesProxyProtocol(t *testing.T) {
 	mockClient := &mocks.Client{}
 	svc := newMigrationTestService(t, mockClient, func(hc *infrav1.HetznerCluster) {
-		hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = true
+		hc.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = ptr.To(true)
 		hc.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerHealthCheckSpec{
 			Protocol: "http",
 			Path:     ptr.To("/readyz"),
@@ -706,7 +706,7 @@ func TestReconcileServices_HealthCheckMigration_MachinesNotReady_StillEnablesPro
 	res, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
 	require.Equal(t, 2*time.Minute, res.RequeueAfter, "should requeue while the health-check migration waits, without blocking proxy protocol")
-	require.True(t, svc.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled, "proxy protocol should still be enabled in this reconcile")
+	require.True(t, ptr.Deref(svc.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled, false), "proxy protocol should still be enabled in this reconcile")
 
 	require.Len(t, updateCalls, 1, "only the proxy-protocol update should have been sent")
 	require.NotNil(t, updateCalls[0].Proxyprotocol)

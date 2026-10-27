@@ -68,14 +68,14 @@ var _ = Describe("updateSSHKey", func() {
 			Expect(err).To(BeNil())
 
 			host.Status.SSHStatus.CurrentOS = &infrav1.SecretStatus{
-				Reference: &corev1.SecretReference{
+				CredentialsRef: &corev1.SecretReference{
 					Name:      osSSHKeyName,
 					Namespace: "default",
 				},
 				DataHash: dataHashOS,
 			}
 			host.Status.SSHStatus.CurrentRescue = &infrav1.SecretStatus{
-				Reference: &corev1.SecretReference{
+				CredentialsRef: &corev1.SecretReference{
 					Name:      rescueSSHKeyName,
 					Namespace: "default",
 				},
@@ -96,14 +96,14 @@ var _ = Describe("updateSSHKey", func() {
 
 			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
 			Expect(*host.Status.SSHStatus.CurrentRescue).Should(Equal(infrav1.SecretStatus{
-				Reference: &corev1.SecretReference{
+				CredentialsRef: &corev1.SecretReference{
 					Name:      rescueSSHKeyName,
 					Namespace: "default",
 				},
 				DataHash: expectedDataHashRescue,
 			}))
 			Expect(*host.Status.SSHStatus.CurrentOS).Should(Equal(infrav1.SecretStatus{
-				Reference: &corev1.SecretReference{
+				CredentialsRef: &corev1.SecretReference{
 					Name:      osSSHKeyName,
 					Namespace: "default",
 				},

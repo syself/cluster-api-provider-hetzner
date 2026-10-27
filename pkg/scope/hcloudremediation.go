@@ -157,7 +157,10 @@ func (m *HCloudRemediationScope) HasRetriesLeft() bool {
 
 // ServerIDFromProviderID returns the namespace name.
 func (m *HCloudRemediationScope) ServerIDFromProviderID() (int64, error) {
-	return hcloudutil.ServerIDFromProviderID(m.HCloudMachine.Spec.ProviderID)
+	if m.HCloudMachine.Spec.ProviderID == "" {
+		return 0, hcloudutil.ErrNilProviderID
+	}
+	return hcloudutil.ServerIDFromProviderID(&m.HCloudMachine.Spec.ProviderID)
 }
 
 // PatchObject persists the remediation spec and status.

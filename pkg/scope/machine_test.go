@@ -52,7 +52,7 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 	DescribeTable("Test ServerIDFromProviderID",
 		func(tc testCaseServerIDFromProviderID) {
 			hcloudMachine := infrav1.HCloudMachine{}
-			hcloudMachine.Spec.ProviderID = &tc.providerID
+			hcloudMachine.Spec.ProviderID = tc.providerID
 
 			machineScope := MachineScope{HCloudMachine: &hcloudMachine}
 

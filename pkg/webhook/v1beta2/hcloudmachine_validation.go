@@ -70,18 +70,18 @@ func validateHCloudMachineSpecUpdate(oldSpec, newSpec infrav1.HCloudMachineSpec)
 
 func validateHCloudMachineSpec(spec infrav1.HCloudMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
-	if spec.ImageName != "" && spec.CustomProvisioner != nil {
+	if spec.ImageName != "" && spec.CustomProvisioner.IsDefined() {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "imageName"), spec.ImageName, "imageName and customProvisioner are mutually exclusive"))
 	}
 
-	if spec.ImageName == "" && spec.CustomProvisioner == nil {
+	if spec.ImageName == "" && !spec.CustomProvisioner.IsDefined() {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "imageName"), spec.ImageName, "imageName and customProvisioner empty. One of these attributes must be set"))
 	}
 
-	if spec.CustomProvisioner != nil {
-		allErrs = append(allErrs, validateHCloudCustomProvisioner(*spec.CustomProvisioner)...)
+	if spec.CustomProvisioner.IsDefined() {
+		allErrs = append(allErrs, validateHCloudCustomProvisioner(spec.CustomProvisioner)...)
 	}
 
 	return allErrs

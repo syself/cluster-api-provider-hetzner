@@ -309,10 +309,10 @@ func reconcileInfrastructure(ctx context.Context, clusterScope *scope.ClusterSco
 }
 
 func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
-	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
+	if ptr.Deref(hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled, false) {
 		if hetznerCluster.Status.ControlPlaneLoadBalancer != nil && hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
-			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
+			defaultPort := hetznerCluster.Spec.ControlPlaneLoadBalancer.Port
 
 			if hetznerCluster.Spec.ControlPlaneEndpoint.Host == "" {
 				hetznerCluster.Spec.ControlPlaneEndpoint.Host = defaultHost
@@ -410,8 +410,8 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	}
 
 	// Check if rescue ssh secret exists and release it if yes
-	if hetznerCluster.Spec.SSHKeys.RescueSecretRef.Name != "" {
-		rescueSSHSecretObjectKey := client.ObjectKey{Name: hetznerCluster.Spec.SSHKeys.RescueSecretRef.Name, Namespace: hetznerCluster.Namespace}
+	if rescueSecretRef := hetznerCluster.Spec.SSHKeys.RescueSecretRef; rescueSecretRef != nil && rescueSecretRef.Name != "" {
+		rescueSSHSecretObjectKey := client.ObjectKey{Name: rescueSecretRef.Name, Namespace: hetznerCluster.Namespace}
 		rescueSSHSecret, err := secretManager.ObtainSecret(ctx, rescueSSHSecretObjectKey)
 		if err != nil {
 			if apierrors.IsConflict(err) {
@@ -477,7 +477,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 // secret named "hcloud" for upstream hcloud-ccm compatibility. Secret creation is skipped when
 // HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
 func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
-	if clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster {
+	if ptr.Deref(clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster, false) {
 		// If the secret should not be created in the workload cluster, we just return.
 		// This means the ccm is running outside of the workload cluster (or getting the secret differently).
 		return reconcile.Result{}, nil
@@ -584,10 +584,11 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 			return fmt.Errorf("failed to acquire secret: %w", err)
 		}
 
-		hcloudToken, keyExists := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
+		hcloudTokenKey := clusterScope.HetznerCluster.Spec.HetznerSecret.Key.GetHCloudToken()
+		hcloudToken, keyExists := mgtSecret.Data[hcloudTokenKey]
 		if !keyExists {
 			return fmt.Errorf("key %q does not exist in secret/%s",
-				clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken,
+				hcloudTokenKey,
 				mgtSecretName,
 			)
 		}
@@ -596,24 +597,26 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 			wlSecret.Data = make(map[string][]byte)
 		}
 
-		for _, key := range keysForWorkloadClusterSecret(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, "token") {
+		for _, key := range keysForWorkloadClusterSecret(name, hcloudTokenKey, "token") {
 			wlSecret.Data[key] = hcloudToken
 		}
 
 		// Save robot credentials if available
-		if clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser != "" {
-			robotUserName := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
-			for _, key := range keysForWorkloadClusterSecret(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser, "robot-user") {
+		robotUserKey := clusterScope.HetznerCluster.Spec.HetznerSecret.Key.GetHetznerRobotUser()
+		if robotUserKey != "" {
+			robotUserName := mgtSecret.Data[robotUserKey]
+			for _, key := range keysForWorkloadClusterSecret(name, robotUserKey, "robot-user") {
 				wlSecret.Data[key] = robotUserName
 			}
-			robotPassword := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
-			for _, key := range keysForWorkloadClusterSecret(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword, "robot-password") {
+			robotPasswordKey := clusterScope.HetznerCluster.Spec.HetznerSecret.Key.GetHetznerRobotPassword()
+			robotPassword := mgtSecret.Data[robotPasswordKey]
+			for _, key := range keysForWorkloadClusterSecret(name, robotPasswordKey, "robot-password") {
 				wlSecret.Data[key] = robotPassword
 			}
 		}
 
 		// Save network ID in secret
-		if clusterScope.HetznerCluster.Spec.HCloudNetwork.Enabled {
+		if ptr.Deref(clusterScope.HetznerCluster.Spec.HCloudNetwork.Enabled, false) {
 			wlSecret.Data["network"] = []byte(strconv.FormatInt(clusterScope.HetznerCluster.Status.Network.ID, 10))
 		}
 		// Save api server information

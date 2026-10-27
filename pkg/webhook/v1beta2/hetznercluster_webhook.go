@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -85,7 +86,7 @@ func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav1.Hetzn
 		}
 	}
 
-	if r.Spec.ControlPlaneLoadBalancer.Enabled {
+	if ptr.Deref(r.Spec.ControlPlaneLoadBalancer.Enabled, false) {
 		if r.Spec.ControlPlaneLoadBalancer.Region == infrav1.Region("") {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec", "controlPlaneLoadBalancer", "region"),
@@ -96,7 +97,7 @@ func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav1.Hetzn
 	}
 
 	// Check whether regions are all in same network zone
-	if !r.Spec.HCloudNetwork.Enabled {
+	if !ptr.Deref(r.Spec.HCloudNetwork.Enabled, false) {
 		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil); err != nil {
 			allErrs = append(allErrs, err)
 		}
@@ -104,7 +105,7 @@ func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav1.Hetzn
 
 	// Check whether controlPlaneEndpoint is specified if allow empty is not set or false
 
-	if !allowEmptyControlPlaneAddress && !r.Spec.ControlPlaneLoadBalancer.Enabled {
+	if !allowEmptyControlPlaneAddress && !ptr.Deref(r.Spec.ControlPlaneLoadBalancer.Enabled, false) {
 		if r.Spec.ControlPlaneEndpoint.Host == "" ||
 			r.Spec.ControlPlaneEndpoint.Port == 0 {
 			allErrs = append(allErrs,
@@ -151,14 +152,14 @@ func (*HetznerClusterWebhook) ValidateUpdate(_ context.Context, oldC, r *infrav1
 	var allErrs field.ErrorList
 
 	// Network settings are immutable
-	if !reflect.DeepEqual(oldC.Spec.HCloudNetwork, r.Spec.HCloudNetwork) {
+	if !reflect.DeepEqual(normalizeHetznerClusterSpec(oldC.Spec).HCloudNetwork, normalizeHetznerClusterSpec(r.Spec).HCloudNetwork) {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "hcloudNetwork"), r.Spec.HCloudNetwork, "field is immutable"),
 		)
 	}
 
 	// Check if all regions are in the same network zone if a private network is enabled
-	if oldC.Spec.HCloudNetwork.Enabled {
+	if ptr.Deref(oldC.Spec.HCloudNetwork.Enabled, false) {
 		var defaultNetworkZone *string
 		if len(oldC.Spec.ControlPlaneRegions) > 0 {
 			str := regionNetworkZoneMap[string(oldC.Spec.ControlPlaneRegions[0])]
@@ -171,7 +172,7 @@ func (*HetznerClusterWebhook) ValidateUpdate(_ context.Context, oldC, r *infrav1
 	}
 
 	// Load balancer enabled/disabled is immutable
-	if !reflect.DeepEqual(oldC.Spec.ControlPlaneLoadBalancer.Enabled, r.Spec.ControlPlaneLoadBalancer.Enabled) {
+	if ptr.Deref(oldC.Spec.ControlPlaneLoadBalancer.Enabled, false) != ptr.Deref(r.Spec.ControlPlaneLoadBalancer.Enabled, false) {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "controlPlaneLoadBalancer", "enabled"), r.Spec.ControlPlaneLoadBalancer.Enabled, "field is immutable"),
 		)
@@ -189,7 +190,7 @@ func (*HetznerClusterWebhook) ValidateUpdate(_ context.Context, oldC, r *infrav1
 		)
 	}
 
-	if oldC.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && !r.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol {
+	if ptr.Deref(oldC.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol, false) && !ptr.Deref(r.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol, false) {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "controlPlaneLoadBalancer", "enableProxyProtocol"),
 				r.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol, "proxy protocol cannot be disabled once enabled"),
@@ -247,8 +248,8 @@ func validateLoadBalancerHealthCheck(hc *infrav1.LoadBalancerHealthCheckSpec) *f
 
 func validateHetznerSecretKey(r *infrav1.HetznerCluster) *field.Error {
 	// Hetzner secret key needs to contain either HCloud or Hrobot credentials
-	if r.Spec.HetznerSecret.Key.HCloudToken == "" &&
-		(r.Spec.HetznerSecret.Key.HetznerRobotUser == "" || r.Spec.HetznerSecret.Key.HetznerRobotPassword == "") {
+	key := r.Spec.HetznerSecret.Key
+	if key.GetHCloudToken() == "" && (key.GetHetznerRobotUser() == "" || key.GetHetznerRobotPassword() == "") {
 		return field.Invalid(
 			field.NewPath("spec", "hetznerSecret", "key"),
 			r.Spec.HetznerSecret.Key,
@@ -256,6 +257,35 @@ func validateHetznerSecretKey(r *infrav1.HetznerCluster) *field.Error {
 		)
 	}
 	return nil
+}
+
+// normalizeHetznerClusterSpec returns a copy of spec in which every unset field gets the value that an
+// unset field means. A stored object and an update request can differ in which unset fields they send.
+// Without this, such an update looks like a change of an immutable field.
+func normalizeHetznerClusterSpec(spec infrav1.HetznerClusterSpec) infrav1.HetznerClusterSpec {
+	if spec.HCloudNetwork.Enabled == nil {
+		spec.HCloudNetwork.Enabled = ptr.To(false)
+	}
+	if spec.SSHKeys.RescueSecretRef == nil {
+		spec.SSHKeys.RescueSecretRef = &infrav1.SSHSecretRef{}
+	}
+	// A controlPlaneLoadBalancer that is left out gets no defaults, so an unset enabled means false.
+	if spec.ControlPlaneLoadBalancer.Enabled == nil {
+		spec.ControlPlaneLoadBalancer.Enabled = ptr.To(false)
+	}
+	if spec.ControlPlaneLoadBalancer.EnableProxyProtocol == nil {
+		spec.ControlPlaneLoadBalancer.EnableProxyProtocol = ptr.To(false)
+	}
+	if spec.SkipCreatingHetznerSecretInWorkloadCluster == nil {
+		spec.SkipCreatingHetznerSecretInWorkloadCluster = ptr.To(false)
+	}
+	// An unset key means the default of that key.
+	key := &spec.HetznerSecret.Key
+	key.HCloudToken = ptr.To(key.GetHCloudToken())
+	key.HetznerRobotUser = ptr.To(key.GetHetznerRobotUser())
+	key.HetznerRobotPassword = ptr.To(key.GetHetznerRobotPassword())
+	key.SSHKey = ptr.To(key.GetSSHKey())
+	return spec
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HetznerCluster.

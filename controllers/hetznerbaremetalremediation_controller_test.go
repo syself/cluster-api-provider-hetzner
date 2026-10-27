@@ -172,11 +172,11 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 				},
 			},
 			Spec: infrav1.HetznerBareMetalRemediationSpec{
-				Strategy: &infrav1.BareMetalRemediationStrategy{
+				Strategy: infrav1.BareMetalRemediationStrategy{
 					RemediationStrategy: infrav1.RemediationStrategy{
 						Type:           "Reboot",
 						RetryLimit:     ptr.To(int32(1)),
-						TimeoutSeconds: 1,
+						TimeoutSeconds: ptr.To(int32(1)),
 					},
 				},
 			},

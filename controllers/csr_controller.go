@@ -374,11 +374,11 @@ func getHbmmWithConstantHostname(ctx context.Context, csrUsername string, cluste
 
 	var hbmm *infrav1.HetznerBareMetalMachine
 	for i := range hList.Items {
-		if hList.Items[i].Spec.ProviderID == nil {
+		if hList.Items[i].Spec.ProviderID == "" {
 			continue
 		}
-		if *hList.Items[i].Spec.ProviderID == providerID ||
-			*hList.Items[i].Spec.ProviderID == legacyProviderID {
+		if hList.Items[i].Spec.ProviderID == providerID ||
+			hList.Items[i].Spec.ProviderID == legacyProviderID {
 			hbmm = &hList.Items[i]
 			break
 		}

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
@@ -43,12 +44,14 @@ DRIVE%v /dev/%s`, drives, i+1, osDevice)
 		}
 	}
 
+	// An unset swraid or swraidLevel gets the default of the field: 0 for swraid and 1 for swraidLevel.
+	swraid := ptr.Deref(installImageSpec.Swraid, infrav1.DefaultSwraid)
 	hostName := fmt.Sprintf(`
 HOSTNAME %s
-SWRAID %v`, asi.hostName, installImageSpec.Swraid)
-	if installImageSpec.Swraid == 1 {
+SWRAID %v`, asi.hostName, swraid)
+	if swraid == 1 {
 		hostName = fmt.Sprintf(`%s
-SWRAIDLEVEL %v`, hostName, installImageSpec.SwraidLevel)
+SWRAIDLEVEL %v`, hostName, ptr.Deref(installImageSpec.SwraidLevel, infrav1.DefaultSwraidLevel))
 	}
 
 	var partitions string

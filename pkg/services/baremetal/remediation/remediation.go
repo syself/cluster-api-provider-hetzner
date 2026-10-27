@@ -318,7 +318,7 @@ func (s *Service) retireHost(ctx context.Context, host *infrav1.HetznerBareMetal
 // timeUntilNextRemediation checks if it is time to execute a next remediation step
 // and returns seconds to next remediation time.
 func (s *Service) timeUntilNextRemediation(now time.Time) time.Duration {
-	timeout := time.Duration(s.scope.BareMetalRemediation.Spec.Strategy.TimeoutSeconds) * time.Second
+	timeout := time.Duration(ptr.Deref(s.scope.BareMetalRemediation.Spec.Strategy.TimeoutSeconds, 0)) * time.Second
 	// status is not updated yet
 	if s.scope.BareMetalRemediation.Status.LastRemediated.IsZero() {
 		return timeout

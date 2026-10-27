@@ -17,12 +17,15 @@ limitations under the License.
 package v1beta2
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
@@ -68,13 +71,13 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 			name: "Immutable CustomProvisioner URL",
 			args: args{
 				oldSpec: infrav1.HCloudMachineSpec{
-					CustomProvisioner: &infrav1.HCloudCustomProvisioner{
+					CustomProvisioner: infrav1.HCloudCustomProvisioner{
 						URL:     "oci://ghcr.io/example/foo:v1",
 						Command: "custom-provisioner-v1.sh",
 					},
 				},
 				newSpec: infrav1.HCloudMachineSpec{
-					CustomProvisioner: &infrav1.HCloudCustomProvisioner{
+					CustomProvisioner: infrav1.HCloudCustomProvisioner{
 						URL:     "oci://ghcr.io/example/foo:v2",
 						Command: "custom-provisioner-v1.sh",
 					},
@@ -86,13 +89,13 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 			name: "Immutable CustomProvisioner Command",
 			args: args{
 				oldSpec: infrav1.HCloudMachineSpec{
-					CustomProvisioner: &infrav1.HCloudCustomProvisioner{
+					CustomProvisioner: infrav1.HCloudCustomProvisioner{
 						URL:     "oci://ghcr.io/example/foo:v1",
 						Command: "custom-provisioner-v1.sh",
 					},
 				},
 				newSpec: infrav1.HCloudMachineSpec{
-					CustomProvisioner: &infrav1.HCloudCustomProvisioner{
+					CustomProvisioner: infrav1.HCloudCustomProvisioner{
 						URL:     "oci://ghcr.io/example/foo:v1",
 						Command: "custom-provisioner-v2.sh",
 					},
@@ -186,7 +189,7 @@ func createPlacementGroupName(name string) *string {
 
 func TestValidateHCloudMachineSpec(t *testing.T) {
 	allErrs := validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
-		CustomProvisioner: &infrav1.HCloudCustomProvisioner{
+		CustomProvisioner: infrav1.HCloudCustomProvisioner{
 			URL:     "oci://ghcr.io/example/foo:v1",
 			Command: "custom-provisioner-foo.sh",
 		},
@@ -194,7 +197,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 	require.Empty(t, allErrs)
 
 	allErrs = validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
-		CustomProvisioner: &infrav1.HCloudCustomProvisioner{
+		CustomProvisioner: infrav1.HCloudCustomProvisioner{
 			URL:     "not-a-valid-url",
 			Command: "custom-provisioner-foo.sh",
 		},
@@ -203,7 +206,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 
 	allErrs = validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
 		ImageName: "foo-name",
-		CustomProvisioner: &infrav1.HCloudCustomProvisioner{
+		CustomProvisioner: infrav1.HCloudCustomProvisioner{
 			URL:     "oci://ghcr.io/example/foo:v1",
 			Command: "custom-provisioner-foo.sh",
 		},
@@ -214,7 +217,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 	require.Equal(t, `spec.imageName: Invalid value: "": imageName and customProvisioner empty. One of these attributes must be set`, errorsToString(allErrs))
 
 	allErrs = validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
-		CustomProvisioner: &infrav1.HCloudCustomProvisioner{
+		CustomProvisioner: infrav1.HCloudCustomProvisioner{
 			URL:     "oci://ghcr.io/example/foo:v1",
 			Command: "/shared/custom-provisioner.sh",
 		},
@@ -222,7 +225,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 	require.Equal(t, `spec.customProvisioner.command: Invalid value: "/shared/custom-provisioner.sh": must be a basename without slashes`, errorsToString(allErrs))
 
 	allErrs = validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
-		CustomProvisioner: &infrav1.HCloudCustomProvisioner{
+		CustomProvisioner: infrav1.HCloudCustomProvisioner{
 			URL:     "oci://ghcr.io/example/foo:v1",
 			Command: "1bad-command",
 		},
@@ -230,7 +233,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 	require.Equal(t, `spec.customProvisioner.command: Invalid value: "1bad-command": must match the regex ^[a-z][a-z0-9._-]*$`, errorsToString(allErrs))
 
 	allErrs = validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
-		CustomProvisioner: &infrav1.HCloudCustomProvisioner{
+		CustomProvisioner: infrav1.HCloudCustomProvisioner{
 			URL:     "oci://ghcr.io/example/foo:v1",
 			Command: "custom-provisioner-foo..sh",
 		},
@@ -244,4 +247,73 @@ func errorsToString(allErrs field.ErrorList) string {
 		s = append(s, err.Error())
 	}
 	return strings.Join(s, "\n")
+}
+
+func TestHCloudMachineTemplateValidateUpdateUnsetFields(t *testing.T) {
+	template := func(publicNetwork *infrav1.PublicNetworkSpec) *infrav1.HCloudMachineTemplate {
+		return &infrav1.HCloudMachineTemplate{
+			Spec: infrav1.HCloudMachineTemplateSpec{
+				Template: infrav1.HCloudMachineTemplateResource{
+					Spec: infrav1.HCloudMachineSpec{
+						Type:          "cpx31",
+						ImageName:     "ubuntu-24.04",
+						PublicNetwork: publicNetwork,
+					},
+				},
+			},
+		}
+	}
+	ctx := admission.NewContextWithRequest(context.Background(), admission.Request{})
+	webhook := &HCloudMachineTemplateWebhook{}
+	stored := &infrav1.PublicNetworkSpec{EnableIPv4: ptr.To(true), EnableIPv6: ptr.To(true)}
+
+	_, err := webhook.ValidateUpdate(ctx, template(stored), template(&infrav1.PublicNetworkSpec{}))
+	require.NoError(t, err)
+
+	_, err = webhook.ValidateUpdate(ctx, template(stored), template(&infrav1.PublicNetworkSpec{EnableIPv6: ptr.To(false)}))
+	require.ErrorContains(t, err, "HCloudMachineTemplate.Spec is immutable")
+}
+
+// TestHCloudMachineDefaultPublicNetwork checks that Default sets every unset publicNetwork field to
+// true and keeps a value that is set, also false.
+func TestHCloudMachineDefaultPublicNetwork(t *testing.T) {
+	tests := []struct {
+		name          string
+		publicNetwork *infrav1.PublicNetworkSpec
+		want          *infrav1.PublicNetworkSpec
+	}{
+		{
+			name:          "nil publicNetwork gets true for both",
+			publicNetwork: nil,
+			want:          &infrav1.PublicNetworkSpec{EnableIPv4: ptr.To(true), EnableIPv6: ptr.To(true)},
+		},
+		{
+			name:          "empty publicNetwork gets true for both",
+			publicNetwork: &infrav1.PublicNetworkSpec{},
+			want:          &infrav1.PublicNetworkSpec{EnableIPv4: ptr.To(true), EnableIPv6: ptr.To(true)},
+		},
+		{
+			name:          "only enableIPv4 set to false gets enableIPv6 true",
+			publicNetwork: &infrav1.PublicNetworkSpec{EnableIPv4: ptr.To(false)},
+			want:          &infrav1.PublicNetworkSpec{EnableIPv4: ptr.To(false), EnableIPv6: ptr.To(true)},
+		},
+		{
+			name:          "only enableIPv6 set to false gets enableIPv4 true",
+			publicNetwork: &infrav1.PublicNetworkSpec{EnableIPv6: ptr.To(false)},
+			want:          &infrav1.PublicNetworkSpec{EnableIPv4: ptr.To(true), EnableIPv6: ptr.To(false)},
+		},
+		{
+			name:          "both set to false stay false",
+			publicNetwork: &infrav1.PublicNetworkSpec{EnableIPv4: ptr.To(false), EnableIPv6: ptr.To(false)},
+			want:          &infrav1.PublicNetworkSpec{EnableIPv4: ptr.To(false), EnableIPv6: ptr.To(false)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			machine := &infrav1.HCloudMachine{Spec: infrav1.HCloudMachineSpec{PublicNetwork: tt.publicNetwork}}
+			require.NoError(t, (&HCloudMachineWebhook{}).Default(context.Background(), machine))
+			require.Equal(t, tt.want, machine.Spec.PublicNetwork)
+		})
+	}
 }

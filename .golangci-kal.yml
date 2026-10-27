@@ -1,0 +1,156 @@
+version: "2"
+run:
+  go: "1.25"
+  modules-download-mode: vendor
+  relative-path-mode: gomod
+  allow-parallel-runners: true
+linters:
+  default: none
+  enable:
+    - kubeapilinter # linter for Kube API conventions
+  settings:
+    custom:
+      kubeapilinter:
+        type: module
+        description: KAL is the Kube-API-Linter and lints Kube like APIs based on API conventions and best practices.
+        settings:
+          linters:
+            enable:
+              - "arrayofstruct" # Ensure that a struct used in a list has at least one required field.
+              - "commentstart" # Ensure comments start with the serialized version of the field name.
+              - "conditions" # Ensure conditions have the correct json tags and markers.
+              - "conflictingmarkers"
+              - "duplicatemarkers" # Ensure there are no exact duplicate markers. for types and fields.
+              - "integers" # Ensure only int32 and int64 are used for integers.
+              - "jsontags" # Ensure every field has a json tag.
+              - "maxlength" # Ensure all strings and arrays have maximum lengths/maximum items.
+              - "nobools" # Bools do not evolve over time, should use enums instead.
+              - "nodurations" # Prevents usage of `Duration` types.
+              - "nofloats" # Ensure floats are not used.
+              - "nomaps" # Ensure maps are not used.
+              - "nonullable" # Ensure that types and fields do not have the nullable marker.
+              - "noreferences" # Ensure that field names use Ref instead of Reference.
+              - "notimestamp" # Prevents usage of 'Timestamp' fields
+              - "optionalfields" # Ensure that optional fields are pointers and have `omitempty` in their `json` tag where appropriate.
+              - "optionalorrequired" # Every field should be marked as `+optional` or `+required`.
+              - "requiredfields" # Required fields should have `omitempty`, and be pointers only when the zero value is a valid value.
+              - "ssatags" # Ensure array fields have the appropriate listType markers
+              - "statusoptional" # Ensure all first children within status should be optional.
+              - "statussubresource" # All root objects that have a `status` field should have a status subresource.
+              - "uniquemarkers" # Ensure that types and fields do not contain more than a single definition of a marker that should only be present once.
+
+            # We keep our +kubebuilder:default markers.
+            # - "forbiddenmarkers" # Ensure that types and fields do not contain any markers that are forbidden.
+
+            # Like CAPI, we keep phase fields for now.
+            # See https://github.com/kubernetes-sigs/cluster-api/pull/10897#discussion_r1685929508
+            # and https://github.com/kubernetes-sigs/cluster-api/pull/10897#discussion_r1685919394.
+            # - "nophase" # Phase fields are discouraged by the Kube API conventions, use conditions instead.
+
+            disable:
+              - "*"
+          lintersConfig:
+            conditions:
+              isFirstField: Warn # Require conditions to be the first field in the status struct.
+              usePatchStrategy: Forbid # Forbid patchStrategy markers on the Conditions field.
+              useProtobuf: Forbid # We don't use protobuf, so protobuf tags are not required.
+            optionalfields:
+              pointers:
+                preference: WhenRequired # Always | WhenRequired # Whether to always require pointers, or only when required. Defaults to `Always`.
+                policy: SuggestFix # SuggestFix | Warn # The policy for pointers in optional fields. Defaults to `SuggestFix`.
+              omitempty:
+                policy: SuggestFix # SuggestFix | Warn | Ignore # The policy for omitempty in optional fields. Defaults to `SuggestFix`.
+            conflictingmarkers:
+              conflicts:
+                - name: "default_vs_required"
+                  sets:
+                    - ["default", "kubebuilder:default"]
+                    - ["required", "kubebuilder:validation:Required", "k8s:required"]
+                  description: "A field with a default value cannot be required"
+
+  exclusions:
+    generated: strict
+    paths:
+      - zz_generated.*\.go$
+      - ".*_test.go"  # Exclude test files.
+    rules:
+      ## KAL should only run on api/v1beta2.
+      - path-except: "^api/v1beta2/"
+        linters:
+          - kubeapilinter
+
+      ## Excludes that can be removed once v1beta1 is removed.
+      # .status.deprecated.v1beta1.conditions fields are using v1beta1.Condition types.
+      - path: "^api/v1beta2/"
+        text: "Conditions field in .*V1Beta1DeprecatedStatus must be a slice of metav1.Condition"
+        linters:
+          - kubeapilinter
+
+      ## Removal of bool fields of existing types requires further discussion.
+      # New bool fields still fail, because each rule lists the existing fields by name.
+      - path: "^api/v1beta2/hcloudmachine_types.go"
+        text: "nobools: field Provisioned "
+        linters:
+          - kubeapilinter
+      - path: "^api/v1beta2/hetznerbaremetalhost_types.go"
+        text: "nobools: field (MaintenanceMode|Rebooted|Rota) "
+        linters:
+          - kubeapilinter
+      - path: "^api/v1beta2/hetznerbaremetalmachine_types.go"
+        text: "nobools: field (SkipCheckDisk|NoSSHAfterInstallImage|Provisioned) "
+        linters:
+          - kubeapilinter
+      - path: "^api/v1beta2/hetznercluster_types.go"
+        text: "nobools: field (SkipCreatingHetznerSecretInWorkloadCluster|Provisioned) "
+        linters:
+          - kubeapilinter
+      - path: "^api/v1beta2/types.go"
+        text: "nobools: field (EnableIPv4|EnableIPv6|Enabled|EnableProxyProtocol|Protected|ProxyProtocolEnabled) "
+        linters:
+          - kubeapilinter
+
+      ## Required structs whose empty value is valid input.
+      # sshSpec is optional in v1beta1, so a v1beta1 object without sshSpec converts to an empty secretRef.
+      - path: "^api/v1beta2/hetznerbaremetalmachine_types.go"
+        text: "requiredfields: field SecretRef has a valid zero value"
+        linters:
+          - kubeapilinter
+      # Every key gets a default, so an empty key object is filled by the API server.
+      - path: "^api/v1beta2/types.go"
+        text: "requiredfields: field Key has a valid zero value"
+        linters:
+          - kubeapilinter
+
+      ## Optional structs whose empty value is valid input.
+      # A HetznerBareMetalMachineTemplate in a ClusterClass has an empty image, and a ClusterClass patch
+      # fills it. The HetznerBareMetalMachine webhook checks the image.
+      - path: "^api/v1beta2/hetznerbaremetalmachine_types.go"
+        text: "optionalfields: field Image has a valid zero value"
+        linters:
+          - kubeapilinter
+
+      ## The controller writes the storage list, and no field of a storage device is always set.
+      # The controller clears name, because device names can change across reboots, and lsblk leaves
+      # fields such as wwn, vendor and serial empty for some devices.
+      - path: "^api/v1beta2/hetznerbaremetalhost_types.go"
+        text: "arrayofstruct: HardwareDetails.Storage is an array of structs, but the struct has no required fields"
+        linters:
+          - kubeapilinter
+      # A v1beta1 HetznerCluster can have a load balancer service without protocol or ports. v1beta2
+      # must accept that stored object, so none of the fields can be required.
+      - path: "^api/v1beta2/types.go"
+        text: "arrayofstruct: LoadBalancerSpec.ExtraServices is an array of structs, but the struct has no required fields"
+        linters:
+          - kubeapilinter
+
+      ## Excludes for maps
+      # The cluster autoscaler reads .status.capacity as a map to scale a MachineDeployment from zero.
+      - path: "^api/v1beta2/hcloudmachinetemplate_types.go"
+        text: "nomaps: HCloudMachineTemplateStatus.Capacity should not use a map type"
+        linters:
+          - kubeapilinter
+
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
+  uniq-by-line: false # Show every finding, also when one line has more than one.

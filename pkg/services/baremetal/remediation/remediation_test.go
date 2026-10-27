@@ -59,7 +59,7 @@ var _ = Describe("Test TimeUntilNextRemediation", func() {
 		func(tc testCaseTimeUntilNextRemediation) {
 			var bmRemediation infrav1.HetznerBareMetalRemediation
 
-			bmRemediation.Spec.Strategy = &infrav1.BareMetalRemediationStrategy{RemediationStrategy: infrav1.RemediationStrategy{TimeoutSeconds: 60}}
+			bmRemediation.Spec.Strategy = infrav1.BareMetalRemediationStrategy{RemediationStrategy: infrav1.RemediationStrategy{TimeoutSeconds: ptr.To(int32(60))}}
 
 			if tc.lastRemediated != nullTime {
 				bmRemediation.Status.LastRemediated = metav1.Time{Time: tc.lastRemediated}
@@ -166,11 +166,11 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 					}},
 				},
 				Spec: infrav1.HetznerBareMetalRemediationSpec{
-					Strategy: &infrav1.BareMetalRemediationStrategy{
+					Strategy: infrav1.BareMetalRemediationStrategy{
 						RemediationStrategy: infrav1.RemediationStrategy{
 							Type:           infrav1.RemediationTypeReboot,
 							RetryLimit:     ptr.To(int32(1)),
-							TimeoutSeconds: 1,
+							TimeoutSeconds: ptr.To(int32(1)),
 						},
 						OnExhaustion: tc.onExhaustion,
 					},
@@ -343,11 +343,11 @@ var _ = Describe("Test Reconcile onExhaustion when the Node is missing", func() 
 					}},
 				},
 				Spec: infrav1.HetznerBareMetalRemediationSpec{
-					Strategy: &infrav1.BareMetalRemediationStrategy{
+					Strategy: infrav1.BareMetalRemediationStrategy{
 						RemediationStrategy: infrav1.RemediationStrategy{
 							Type:           infrav1.RemediationTypeReboot,
 							RetryLimit:     ptr.To(int32(1)),
-							TimeoutSeconds: 60,
+							TimeoutSeconds: ptr.To(int32(60)),
 						},
 						OnExhaustion: tc.onExhaustion,
 					},
