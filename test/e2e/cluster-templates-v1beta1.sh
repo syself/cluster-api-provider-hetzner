@@ -50,6 +50,11 @@ rm tmp_ssh_pub tmp_ssh_priv
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template.yaml
 
+# [Basic] creates one hcloud cluster from v1beta1 YAML with the flavor "v1beta1".
+# This flavor needs its own file name, because the provider built from source
+# uses cluster-template.yaml from the v1beta2 test data.
+cp "$HETZNER_TEMPLATES"/v1beta1/cluster-template.yaml "$HETZNER_TEMPLATES"/v1beta1/cluster-template-v1beta1.yaml
+
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade.yaml
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml

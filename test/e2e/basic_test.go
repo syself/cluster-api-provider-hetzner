@@ -54,4 +54,19 @@ var _ = Describe("[Basic] Testing Cluster 3x control-planes 1x worker and multi-
 			}
 		})
 	})
+
+	Context("Running the CaphClusterDeploymentSpec in hcloud with flavor v1beta1", func() {
+		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
+			return CaphClusterDeploymentSpecInput{
+				E2EConfig:                e2eConfig,
+				ClusterctlConfigPath:     clusterctlConfigPath,
+				BootstrapClusterProxy:    bootstrapClusterProxy,
+				ArtifactFolder:           artifactFolder,
+				SkipCleanup:              skipCleanup,
+				ControlPlaneMachineCount: 1,
+				WorkerMachineCount:       1,
+				Flavor:                   "v1beta1",
+			}
+		})
+	})
 })
