@@ -136,6 +136,12 @@ linters:
         text: "arrayofstruct: HardwareDetails.Storage is an array of structs, but the struct has no required fields"
         linters:
           - kubeapilinter
+      # A v1beta1 HetznerCluster can have a load balancer service without protocol or ports. v1beta2
+      # must accept that stored object, so none of the fields can be required.
+      - path: "^api/v1beta2/types.go"
+        text: "arrayofstruct: LoadBalancerSpec.ExtraServices is an array of structs, but the struct has no required fields"
+        linters:
+          - kubeapilinter
 
       ## Excludes for maps
       # The cluster autoscaler reads .status.capacity as a map to scale a MachineDeployment from zero.

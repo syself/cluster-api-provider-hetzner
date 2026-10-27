@@ -872,8 +872,11 @@ spec:
                       extraServices defines how traffic will be routed from the load balancer to your target server.
                       The limit is more than twice the Hetzner limit of 30 services on a load balancer. A higher Hetzner limit then still works.
                     items:
-                      description: LoadBalancerServiceSpec defines a load balancer
-                        Target.
+                      description: |-
+                        LoadBalancerServiceSpec defines a load balancer Target.
+
+                        Hetzner needs all three fields to create a service. They are optional only because a v1beta1
+                        HetznerCluster can have a service without one of them, and v1beta2 must accept that stored object.
                       properties:
                         destinationPort:
                           description: destinationPort defines the port on the server.
@@ -891,18 +894,13 @@ spec:
                           minimum: 1
                           type: integer
                         protocol:
-                          description: |-
-                            protocol specifies the supported load balancer Protocol. It could be one of the https, http, or tcp.
-                            It is optional only because a v1beta1 HetznerCluster can have a service without protocol, and
-                            v1beta2 must accept that stored object. Hetzner rejects a service without protocol.
+                          description: protocol specifies the supported load balancer
+                            Protocol. It could be one of the https, http, or tcp.
                           enum:
                           - http
                           - https
                           - tcp
                           type: string
-                      required:
-                      - destinationPort
-                      - listenPort
                       type: object
                     maxItems: 64
                     type: array

@@ -528,22 +528,23 @@ type LoadBalancerHealthCheckSpec struct {
 }
 
 // LoadBalancerServiceSpec defines a load balancer Target.
+//
+// Hetzner needs all three fields to create a service. They are optional only because a v1beta1
+// HetznerCluster can have a service without one of them, and v1beta2 must accept that stored object.
 type LoadBalancerServiceSpec struct {
 	// protocol specifies the supported load balancer Protocol. It could be one of the https, http, or tcp.
-	// It is optional only because a v1beta1 HetznerCluster can have a service without protocol, and
-	// v1beta2 must accept that stored object. Hetzner rejects a service without protocol.
 	// +optional
 	// +kubebuilder:validation:Enum=http;https;tcp
 	Protocol string `json:"protocol,omitempty"`
 
 	// listenPort defines the incoming port (source port) open on the load balancer. It must be a valid port range (1-65535).
-	// +required
+	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	ListenPort int32 `json:"listenPort,omitempty"`
 
 	// destinationPort defines the port on the server. It must be a valid port range (1-65535).
-	// +required
+	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	DestinationPort int32 `json:"destinationPort,omitempty"`
