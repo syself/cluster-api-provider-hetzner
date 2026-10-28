@@ -796,7 +796,8 @@ func (r *HetznerBareMetalHostReconciler) hostsOfClusterSecret(ctx context.Contex
 	hetznerClusterNames := map[string]struct{}{}
 	for i := range hetznerClusterList.Items {
 		hetznerCluster := &hetznerClusterList.Items[i]
-		if hetznerCluster.Spec.HetznerSecret.Name == secret.Name || hetznerCluster.Spec.SSHKeys.RescueSecretRef.Name == secret.Name {
+		rescueSecretRef := ptr.Deref(hetznerCluster.Spec.SSHKeys.RescueSecretRef, infrav1.SSHSecretRef{})
+		if hetznerCluster.Spec.HetznerSecret.Name == secret.Name || rescueSecretRef.Name == secret.Name {
 			hetznerClusterNames[hetznerCluster.Name] = struct{}{}
 		}
 	}

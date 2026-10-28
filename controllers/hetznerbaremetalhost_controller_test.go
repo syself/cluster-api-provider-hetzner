@@ -1295,7 +1295,9 @@ func secretMapperHetznerCluster(namespace, name, hetznerSecretName, rescueSecret
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 	}
 	hetznerCluster.Spec.HetznerSecret.Name = hetznerSecretName
-	hetznerCluster.Spec.SSHKeys.RescueSecretRef.Name = rescueSecretName
+	if rescueSecretName != "" {
+		hetznerCluster.Spec.SSHKeys.RescueSecretRef = &infrav1.SSHSecretRef{Name: rescueSecretName}
+	}
 	return hetznerCluster
 }
 
@@ -1413,6 +1415,15 @@ func Test_secretToHetznerBareMetalHosts_clusterSecrets(t *testing.T) {
 			},
 			secretName: "shared",
 			want:       []reconcile.Request{secretMapperRequest(ns, "host-a"), secretMapperRequest(ns, "host-b")},
+		},
+		{
+			name: "HetznerCluster without a rescue Secret does not match another Secret",
+			objects: []client.Object{
+				secretMapperCluster(ns, "cluster-a", "hc-a"),
+				secretMapperHetznerCluster(ns, "hc-a", "hetzner", ""),
+				helpers.BareMetalHost("host-1", ns, helpers.WithClusterNameLabel("cluster-a")),
+			},
+			secretName: "unrelated",
 		},
 		{
 			name:       "mapper returns no request for a Secret that nothing references",
@@ -2050,7 +2061,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - Hetzner Secret watch", func()
 			helpers.WithClusterNameLabel(capiCluster.Name),
 		)
 		host.Labels[clusterv1.WatchLabel] = watchFilterValue
-		host.Spec.ConsumerRef = &infrav1.HetznerBareMetalHostConsumerReference{
+		host.Spec.ConsumerRef = infrav1.HetznerBareMetalHostConsumerReference{
 			Name:     machineName,
 			Kind:     "HetznerBareMetalMachine",
 			APIGroup: infrav1.GroupVersion.Group,
