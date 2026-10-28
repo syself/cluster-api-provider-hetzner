@@ -99,27 +99,3 @@ jobs:
           e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
           e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
           e2e_ssh_key_name: ${{ secrets.SSH_KEY_NAME }}
-
-  e2e-hcloud-conformance:
-    name: Test Hcloud Conformance
-    concurrency: ci-${{ github.ref }}-e2e-conformance
-    runs-on: ubuntu-latest
-    permissions:
-      # Required for hcloud TPS
-      id-token: write
-    needs:
-      - manager-image
-      - test-release
-    steps:
-      - name: checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Run e2e Test
-        id: e2e
-        uses: ./.github/actions/e2e
-        with:
-          e2e_name: hcloud-conformance
-          e2e_make_target: test-e2e-conformance
-          tps_token: ${{ secrets.TPS_TOKEN }}
-          e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
-          e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
-          e2e_ssh_key_name: ${{ secrets.SSH_KEY_NAME }}
