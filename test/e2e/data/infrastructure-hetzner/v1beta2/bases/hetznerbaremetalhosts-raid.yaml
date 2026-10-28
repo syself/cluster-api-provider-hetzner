@@ -1,0 +1,30 @@
+## Keep the server list the same as in test/e2e/data/infrastructure-hetzner/v1beta1/bases/hetznerbaremetalhosts-raid.yaml.
+##
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: HetznerBareMetalHost
+metadata:
+  name: "bm-e2e-raid-1716772"
+spec:
+  serverID: 1716772
+  rootDeviceHints:
+    raid:
+      wwn:
+        - "0x500a07510fe0ce34"
+        - "0x500a07510fe0cc0a"
+  maintenanceMode: false
+  description: Test Machine 2
+---
+# 2026-04-09: Disabled after CI hit repeated rescue-mode reboot timeouts.
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: HetznerBareMetalHost
+metadata:
+  name: "bm-e2e-raid-1763731"
+spec:
+  serverID: 1763731
+  rootDeviceHints:
+    raid:
+      wwn:
+        - "0x500a07511756c36d"
+        - "0x500a075117101996"
+  maintenanceMode: true
+  description: Test Machine 6
