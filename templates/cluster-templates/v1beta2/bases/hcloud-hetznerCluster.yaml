@@ -1,0 +1,27 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: HetznerCluster
+metadata:
+  name: "${CLUSTER_NAME}"
+  annotations:
+    capi.syself.com/use-hrobot-provider-id-for-baremetal: "true"
+spec:
+  hcloudNetwork:
+    enabled: false
+  controlPlaneRegions:
+    - "${HCLOUD_REGION}"
+  controlPlaneEndpoint:
+    port: 443
+  controlPlaneLoadBalancer:
+    region: "${HCLOUD_REGION}"
+  sshKeys:
+    hcloud:
+      - name: "${SSH_KEY_NAME}"
+  hetznerSecretRef:
+    name: hcloud
+    key:
+      # "hcloud" is used here for backward compatibility with the Syself CCM,
+      # so that the same template works with both the Syself fork and the
+      # upstream CCM. Once Syself CCM is dropped, this should be set to "token".
+      hcloudToken: hcloud
+      hetznerRobotPassword: robot-password
+      hetznerRobotUser: robot-user
