@@ -41,6 +41,8 @@ func (webhook *HCloudMachineWebhook) SetupWebhookWithManager(mgr ctrl.Manager) e
 		Complete()
 }
 
+// +kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta2-hcloudmachine,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachines,verbs=create;update,versions=v1beta2,name=mutation.hcloudmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
+
 var _ admission.Defaulter[*infrav1.HCloudMachine] = &HCloudMachineWebhook{}
 
 // Default implements admission.Defaulter so a webhook will be registered for HCloudMachine.
@@ -56,6 +58,8 @@ func (*HCloudMachineWebhook) Default(_ context.Context, r *infrav1.HCloudMachine
 	}
 	return nil
 }
+
+// +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta2-hcloudmachine,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachines,verbs=create;update,versions=v1beta2,name=validation.hcloudmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
 var _ admission.Validator[*infrav1.HCloudMachine] = &HCloudMachineWebhook{}
 

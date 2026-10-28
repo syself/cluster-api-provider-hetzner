@@ -38,16 +38,10 @@ var hetznerclustertemplatelog = utils.GetDefaultLogger("info").WithName("hetzner
 func (webhook *HetznerClusterTemplateWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HetznerClusterTemplate{}).
 		WithValidator(webhook).
-		WithDefaulter(webhook).
 		Complete()
 }
 
-var _ admission.Defaulter[*infrav1.HetznerClusterTemplate] = &HetznerClusterTemplateWebhook{}
-
-// Default implements admission.Defaulter so a webhook will be registered for HetznerClusterTemplate.
-func (*HetznerClusterTemplateWebhook) Default(context.Context, *infrav1.HetznerClusterTemplate) error {
-	return nil
-}
+// +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerclustertemplate,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerclustertemplates,verbs=create;update,versions=v1beta2,name=validation.hetznerclustertemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
 var _ admission.Validator[*infrav1.HetznerClusterTemplate] = &HetznerClusterTemplateWebhook{}
 

@@ -45,12 +45,16 @@ func (webhook *HetznerBareMetalHostWebhook) SetupWebhookWithManager(mgr ctrl.Man
 		Complete()
 }
 
+// +kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalhost,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=create;update,versions=v1beta2,name=mutation.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
+
 var _ admission.Defaulter[*infrav1.HetznerBareMetalHost] = &HetznerBareMetalHostWebhook{}
 
 // Default implements admission.Defaulter so a webhook will be registered for HetznerBareMetalHost.
 func (*HetznerBareMetalHostWebhook) Default(context.Context, *infrav1.HetznerBareMetalHost) error {
 	return nil
 }
+
+// +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalhost,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=create;update,versions=v1beta2,name=validation.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
 var _ admission.Validator[*infrav1.HetznerBareMetalHost] = &HetznerBareMetalHostWebhook{}
 
