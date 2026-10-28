@@ -73,7 +73,7 @@ type HCloudMachineTemplateV1Beta2Status struct {
 // +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.template.spec.type",description="Server type"
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message"
-// +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion
 // +k8s:defaulter-gen=true
 
 // HCloudMachineTemplate is the Schema for the hcloudmachinetemplates API.

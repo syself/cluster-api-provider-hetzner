@@ -46,6 +46,7 @@ type HetznerBareMetalRemediationTemplateStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:path=hetznerbaremetalremediationtemplates,scope=Namespaced,categories=cluster-api,shortName=hbrt
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Strategy",type=string,JSONPath=".spec.template.spec.strategy.type",description="Type of the remediation strategy"
