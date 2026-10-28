@@ -33,7 +33,7 @@ In this example we use an init-container to provide the script.
 
 In the directory `images/pre-provision-command/` you see these files:
 
-- my-pre-provision-command.sh: A simple Bash script which creates a message and exists with 0.
+- my-pre-provision-command.sh: A simple Bash script which creates a message and exits with 0.
 - Dockerfile: Needed to create a container image.
 - build-and-push.sh: A script to build and upload the script to a container registry.
 
