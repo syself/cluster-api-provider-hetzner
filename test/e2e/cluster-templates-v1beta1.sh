@@ -50,10 +50,6 @@ rm tmp_ssh_pub tmp_ssh_priv
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade.yaml
-
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml
-
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-loadbalancer-off --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml
@@ -66,11 +62,7 @@ kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-kcp-remediation --
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-md-remediation --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-md-remediation.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-node-drain --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-node-drain.yaml
-
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal.yaml
-
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml
 
 sed -i "s/robot-user_secret_placeholder/$(echo -n "$HETZNER_ROBOT_USER" | base64 -w0)/" "$HETZNER_TEMPLATES"/v1beta1/*.yaml
 sed -i "s/robot-password_secret_placeholder/$(echo -n "$HETZNER_ROBOT_PASSWORD" | base64 -w0)/" "$HETZNER_TEMPLATES"/v1beta1/*.yaml

@@ -491,21 +491,9 @@ test-e2e-lifecycle: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTI
 test-e2e-upgrade-$(INFRA_SHORT): $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	GINKGO_FOKUS="'\[Upgrade CAPH\]'" GINKGO_NODES=2 ./hack/ci-e2e-capi.sh
 
-.PHONY: test-e2e-upgrade-kubernetes
-test-e2e-upgrade-kubernetes: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Upgrade Kubernetes\]'" GINKGO_NODES=2 ./hack/ci-e2e-capi.sh
-
-.PHONY: test-e2e-conformance
-test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Conformance\]'" GINKGO_NODES=1 ./hack/ci-e2e-capi.sh
-
 .PHONY: test-e2e-baremetal
 test-e2e-baremetal: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	GINKGO_FOKUS="'\[Baremetal\]'" GINKGO_NODES=1 ./hack/ci-e2e-capi.sh
-
-.PHONY: test-e2e-baremetal-feature
-test-e2e-baremetal-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Baremetal Feature\]'" GINKGO_NODES=1 ./hack/ci-e2e-capi.sh
 
 ##@ Report
 ##########

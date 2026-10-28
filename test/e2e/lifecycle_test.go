@@ -23,38 +23,12 @@ import (
 	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
 )
 
-var _ = Describe("[Lifecycle] Testing Self Hosted Cluster", func() {
+var _ = Describe("[Lifecycle] Testing MachineDeployment Remediation", func() {
 	ctx := context.TODO()
-
-	Context("[Needs Published Image] Running tests that require published images", func() {
-		Context("Running the self-hosted spec", func() {
-			capi_e2e.SelfHostedSpec(ctx, func() capi_e2e.SelfHostedSpecInput {
-				return capi_e2e.SelfHostedSpecInput{
-					E2EConfig:             e2eConfig,
-					ClusterctlConfigPath:  clusterctlConfigPath,
-					BootstrapClusterProxy: bootstrapClusterProxy,
-					ArtifactFolder:        artifactFolder,
-					SkipCleanup:           skipCleanup,
-				}
-			})
-		})
-	})
 
 	Context("Running the mhc-remediation spec", func() {
 		capi_e2e.MachineDeploymentRemediationSpec(ctx, func() capi_e2e.MachineDeploymentRemediationSpecInput {
 			return capi_e2e.MachineDeploymentRemediationSpecInput{
-				E2EConfig:             e2eConfig,
-				ClusterctlConfigPath:  clusterctlConfigPath,
-				BootstrapClusterProxy: bootstrapClusterProxy,
-				ArtifactFolder:        artifactFolder,
-				SkipCleanup:           skipCleanup,
-			}
-		})
-	})
-
-	Context("Running the node-drain-timeout spec", func() {
-		capi_e2e.NodeDrainTimeoutSpec(ctx, func() capi_e2e.NodeDrainTimeoutSpecInput {
-			return capi_e2e.NodeDrainTimeoutSpecInput{
 				E2EConfig:             e2eConfig,
 				ClusterctlConfigPath:  clusterctlConfigPath,
 				BootstrapClusterProxy: bootstrapClusterProxy,
