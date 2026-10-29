@@ -2403,7 +2403,8 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 			Reason:  infrav1.HCloudMachineSSHPrivateKeyFieldEmptyReason,
 			Message: fmt.Sprintf("key %q in secret %q is missing or empty", rescueSecretRef.Key.PrivateKey, robotSecretName),
 		})
-		return "", fmt.Errorf("key %q in secret %q is missing or empty. Failed to get ssh-private-key",
+		return "", fmt.Errorf("%w: key %q in secret %q is missing or empty. Failed to get ssh-private-key",
+			errSSHKeyMisconfigured,
 			rescueSecretRef.Key.PrivateKey,
 			robotSecretName)
 	}
