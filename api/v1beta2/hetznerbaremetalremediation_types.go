@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta2
 
 import (
+	"reflect"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,9 +33,11 @@ const (
 )
 
 // HetznerBareMetalRemediationSpec defines the desired state of HetznerBareMetalRemediation.
+// +kubebuilder:validation:MinProperties=1
 type HetznerBareMetalRemediationSpec struct {
 	// strategy field defines the remediation strategy to be applied.
-	Strategy *BareMetalRemediationStrategy `json:"strategy,omitempty"`
+	// +optional
+	Strategy BareMetalRemediationStrategy `json:"strategy,omitempty,omitzero"`
 }
 
 // OnExhaustionAction defines what remediation does when the retries run out and
@@ -72,11 +76,21 @@ type BareMetalRemediationStrategy struct {
 	OnExhaustion OnExhaustionAction `json:"onExhaustion,omitempty"`
 }
 
+// IsDefined returns true if the BareMetalRemediationStrategy is set.
+func (s *BareMetalRemediationStrategy) IsDefined() bool {
+	if s == nil {
+		return false
+	}
+	return !reflect.DeepEqual(s, &BareMetalRemediationStrategy{})
+}
+
 // HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation.
+// +kubebuilder:validation:MinProperties=1
 type HetznerBareMetalRemediationStatus struct {
 	// phase represents the current phase of machine remediation.
-	// E.g. Running, Waiting, Deleting machine, Succeeded.
+	// One of Running, Waiting, Deleting machine or Succeeded.
 	// +optional
+	// +kubebuilder:validation:Enum=Running;Waiting;"Deleting machine";Succeeded
 	Phase string `json:"phase,omitempty"`
 
 	// retryCount records how many times the remediation controller has tried to
@@ -105,12 +119,18 @@ type HetznerBareMetalRemediationStatus struct {
 // HetznerBareMetalRemediation is the Schema for the hetznerbaremetalremediations API.
 type HetznerBareMetalRemediation struct {
 	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// spec is the desired state of HetznerBareMetalRemediation. It is empty when the template that
+	// created the remediation has no strategy. The controller then does nothing and records an event.
 	// +optional
-	Spec HetznerBareMetalRemediationSpec `json:"spec,omitempty"`
+	Spec HetznerBareMetalRemediationSpec `json:"spec,omitempty,omitzero"`
+	// status is the observed state of HetznerBareMetalRemediation.
 	// +optional
-	Status HetznerBareMetalRemediationStatus `json:"status,omitempty"`
+	Status HetznerBareMetalRemediationStatus `json:"status,omitempty,omitzero"`
 }
 
 //+kubebuilder:object:root=true

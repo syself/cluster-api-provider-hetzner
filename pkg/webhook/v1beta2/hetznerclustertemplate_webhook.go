@@ -24,7 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -36,37 +36,35 @@ var hetznerclustertemplatelog = utils.GetDefaultLogger("info").WithName("hetzner
 
 // SetupWebhookWithManager initializes webhook manager for HetznerClusterTemplate.
 func (webhook *HetznerClusterTemplateWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav2.HetznerClusterTemplate{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HetznerClusterTemplate{}).
 		WithValidator(webhook).
-		WithDefaulter(webhook).
 		Complete()
 }
 
-var _ admission.Defaulter[*infrav2.HetznerClusterTemplate] = &HetznerClusterTemplateWebhook{}
+// +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerclustertemplate,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerclustertemplates,verbs=create;update,versions=v1beta2,name=validation.hetznerclustertemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-// Default implements admission.Defaulter so a webhook will be registered for HetznerClusterTemplate.
-func (*HetznerClusterTemplateWebhook) Default(context.Context, *infrav2.HetznerClusterTemplate) error {
-	return nil
-}
-
-var _ admission.Validator[*infrav2.HetznerClusterTemplate] = &HetznerClusterTemplateWebhook{}
+var _ admission.Validator[*infrav1.HetznerClusterTemplate] = &HetznerClusterTemplateWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HetznerClusterTemplate.
-func (*HetznerClusterTemplateWebhook) ValidateCreate(context.Context, *infrav2.HetznerClusterTemplate) (admission.Warnings, error) {
+func (*HetznerClusterTemplateWebhook) ValidateCreate(context.Context, *infrav1.HetznerClusterTemplate) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HetznerClusterTemplate.
-func (*HetznerClusterTemplateWebhook) ValidateUpdate(_ context.Context, old, r *infrav2.HetznerClusterTemplate) (admission.Warnings, error) {
+func (*HetznerClusterTemplateWebhook) ValidateUpdate(_ context.Context, old, r *infrav1.HetznerClusterTemplate) (admission.Warnings, error) {
 	hetznerclustertemplatelog.V(1).Info("validate update", "name", r.Name)
 
-	if !reflect.DeepEqual(r.Spec, old.Spec) {
+	oldSpec := old.Spec
+	oldSpec.Template.Spec = normalizeHetznerClusterSpec(oldSpec.Template.Spec)
+	newSpec := r.Spec
+	newSpec.Template.Spec = normalizeHetznerClusterSpec(newSpec.Template.Spec)
+	if !reflect.DeepEqual(newSpec, oldSpec) {
 		return nil, apierrors.NewBadRequest("HetznerClusterTemplate.Spec is immutable")
 	}
 	return nil, nil
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for HetznerClusterTemplate.
-func (*HetznerClusterTemplateWebhook) ValidateDelete(context.Context, *infrav2.HetznerClusterTemplate) (admission.Warnings, error) {
+func (*HetznerClusterTemplateWebhook) ValidateDelete(context.Context, *infrav1.HetznerClusterTemplate) (admission.Warnings, error) {
 	return nil, nil
 }

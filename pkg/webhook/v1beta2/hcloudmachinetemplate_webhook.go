@@ -23,11 +23,12 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/util/topology"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // HCloudMachineTemplateWebhook implements a custom validation webhook for HCloudMachineTemplate.
@@ -36,35 +37,33 @@ type HCloudMachineTemplateWebhook struct{}
 
 // SetupWebhookWithManager initializes webhook manager for HCloudMachineTemplate.
 func (webhook *HCloudMachineTemplateWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav2.HCloudMachineTemplate{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HCloudMachineTemplate{}).
 		WithValidator(webhook).
-		WithDefaulter(webhook).
 		Complete()
 }
 
-var _ admission.Defaulter[*infrav2.HCloudMachineTemplate] = &HCloudMachineTemplateWebhook{}
+// +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta2-hcloudmachinetemplate,mutating=false,sideEffects=None,failurePolicy=fail,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates,verbs=create;update,versions=v1beta2,name=validation.hcloudmachinetemplate.infrastructure.x-k8s.io,admissionReviewVersions=v1;v1beta1
 
-// Default implements admission.CustomDefaulter.
-func (*HCloudMachineTemplateWebhook) Default(context.Context, *infrav2.HCloudMachineTemplate) error {
-	return nil
-}
-
-var _ admission.Validator[*infrav2.HCloudMachineTemplate] = &HCloudMachineTemplateWebhook{}
+var _ admission.Validator[*infrav1.HCloudMachineTemplate] = &HCloudMachineTemplateWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HCloudMachineTemplate.
-func (*HCloudMachineTemplateWebhook) ValidateCreate(_ context.Context, r *infrav2.HCloudMachineTemplate) (admission.Warnings, error) {
+func (*HCloudMachineTemplateWebhook) ValidateCreate(_ context.Context, r *infrav1.HCloudMachineTemplate) (admission.Warnings, error) {
 	allErrs := validateHCloudMachineSpec(r.Spec.Template.Spec)
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HCloudMachineTemplate.
-func (*HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHCloudMachineTemplate *infrav2.HCloudMachineTemplate, newHCloudMachineTemplate *infrav2.HCloudMachineTemplate) (admission.Warnings, error) {
+func (*HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHCloudMachineTemplate *infrav1.HCloudMachineTemplate, newHCloudMachineTemplate *infrav1.HCloudMachineTemplate) (admission.Warnings, error) {
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a admission.Request inside context: %v", err))
 	}
 	var allErrs field.ErrorList
-	if !topology.IsDryRunRequest(req, newHCloudMachineTemplate) && !reflect.DeepEqual(newHCloudMachineTemplate.Spec, oldHCloudMachineTemplate.Spec) {
+	oldSpec := oldHCloudMachineTemplate.Spec
+	oldSpec.Template.Spec = normalizeHCloudMachineSpec(oldSpec.Template.Spec)
+	newSpec := newHCloudMachineTemplate.Spec
+	newSpec.Template.Spec = normalizeHCloudMachineSpec(newSpec.Template.Spec)
+	if !topology.IsDryRunRequest(req, newHCloudMachineTemplate) && !reflect.DeepEqual(newSpec, oldSpec) {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), newHCloudMachineTemplate, "HCloudMachineTemplate.Spec is immutable"))
 	}
 	allErrs = append(allErrs, validateHCloudMachineSpec(newHCloudMachineTemplate.Spec.Template.Spec)...)
@@ -72,7 +71,24 @@ func (*HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHClo
 	return nil, aggregateObjErrors(newHCloudMachineTemplate.GroupVersionKind().GroupKind(), newHCloudMachineTemplate.Name, allErrs)
 }
 
+// normalizeHCloudMachineSpec returns a copy of spec in which every unset field gets the value that an
+// unset field means. A stored object and an update request can differ in which unset fields they send.
+// Without this, such an update looks like a change of the immutable spec.
+func normalizeHCloudMachineSpec(spec infrav1.HCloudMachineSpec) infrav1.HCloudMachineSpec {
+	if spec.PublicNetwork != nil {
+		publicNetwork := *spec.PublicNetwork
+		if publicNetwork.EnableIPv4 == nil {
+			publicNetwork.EnableIPv4 = ptr.To(infrav1.DefaultEnableIPv4)
+		}
+		if publicNetwork.EnableIPv6 == nil {
+			publicNetwork.EnableIPv6 = ptr.To(infrav1.DefaultEnableIPv6)
+		}
+		spec.PublicNetwork = &publicNetwork
+	}
+	return spec
+}
+
 // ValidateDelete implements admission.Validator so a webhook will be registered for HCloudMachineTemplate.
-func (*HCloudMachineTemplateWebhook) ValidateDelete(context.Context, *infrav2.HCloudMachineTemplate) (admission.Warnings, error) {
+func (*HCloudMachineTemplateWebhook) ValidateDelete(context.Context, *infrav1.HCloudMachineTemplate) (admission.Warnings, error) {
 	return nil, nil
 }

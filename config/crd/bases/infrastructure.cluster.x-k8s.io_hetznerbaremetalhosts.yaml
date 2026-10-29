@@ -857,7 +857,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
+            description: spec is the desired state of HetznerBareMetalHost.
             properties:
               consumerRef:
                 description: |-
@@ -891,6 +891,9 @@ spec:
                 description: |-
                   description is a human-entered text used to help identify the host.
                   It can be used to store some valuable information about the host.
+                  1024 characters are enough for a short note about the host.
+                maxLength: 1024
+                minLength: 1
                 type: string
               maintenanceMode:
                 description: |-
@@ -907,31 +910,41 @@ spec:
                     description: |-
                       raid is used to specify multiple storage devices. It provides the controller with information
                       on which disks a raid can be established.
+                    minProperties: 1
                     properties:
                       wwn:
-                        description: wwn defines a list of unique storage identifiers
-                          used for raid setups.
+                        description: |-
+                          wwn defines a list of unique storage identifiers used for raid setups.
+                          The limits are the same as in status.hardwareDetails.storage, because each entry must be the wwn of a disk from that list.
                         items:
+                          maxLength: 256
                           type: string
+                        maxItems: 256
                         type: array
+                        x-kubernetes-list-type: atomic
                     type: object
                   wwn:
                     description: |-
                       wwn is a unique storage identifier used for non-raid setups. The hint
                       must match the actual value exactly.
+                      The limit is far above the longest WWN that Linux reports, which has 140 characters.
+                    maxLength: 256
+                    minLength: 1
                     type: string
                 type: object
               serverID:
                 description: |-
                   serverID defines the ID of the server provided by Hetzner.
                   Find it on your Hetzner robot dashboard.
+                format: int64
+                minimum: 1
                 type: integer
             required:
             - serverID
             type: object
           status:
-            description: HetznerBareMetalHostStatus defines the observed state of
-              HetznerBareMetalHost.
+            description: status is the observed state of HetznerBareMetalHost.
+            minProperties: 1
             properties:
               conditions:
                 description: |-
@@ -1062,9 +1075,6 @@ spec:
                           - type
                           type: object
                         type: array
-                        x-kubernetes-list-map-keys:
-                        - type
-                        x-kubernetes-list-type: map
                     type: object
                 type: object
               errorType:
@@ -1079,22 +1089,43 @@ spec:
                   not be modified by the user.
                 properties:
                   cpu:
-                    description: CPU describes one processor on the host.
+                    description: cpu describes the CPU of the host.
+                    minProperties: 1
                     properties:
                       arch:
+                        description: arch is the CPU architecture, for example x86_64.
+                        maxLength: 64
+                        minLength: 1
                         type: string
                       clockGigahertz:
-                        description: ClockSpeed is a clock speed in MHz
+                        description: clockGigahertz is the maximum clock speed of
+                          the CPU in GHz.
                         format: double
+                        maxLength: 32
+                        minLength: 1
                         type: string
                       cores:
+                        description: cores is the number of CPU cores. The controller
+                          does not set it.
+                        format: int32
+                        minimum: 1
                         type: integer
                       model:
+                        description: model is the CPU model name.
+                        maxLength: 512
+                        minLength: 1
                         type: string
                       threads:
+                        description: threads is the number of logical CPUs of the
+                          host.
+                        format: int32
+                        minimum: 1
                         type: integer
                     type: object
                   nics:
+                    description: |-
+                      nics is the list of network interfaces of the host that are up, with one entry for each IP address.
+                      With this limit, the HetznerBareMetalMachine addresses, one for each entry here plus two, stay below the Cluster API limit of 256 addresses.
                     items:
                       description: NIC describes one network interface on the host.
                       properties:
@@ -1103,78 +1134,125 @@ spec:
                             ip is the IP address of the interface. This will be an IPv4 or IPv6 address
                             if one is present.  If both IPv4 and IPv6 addresses are present in a
                             dual-stack environment, two nics will be output, one with each IP.
+                            The value includes the prefix length, for example 10.0.0.5/26. For this reason the limit is 49,
+                            the 45 characters of the longest IP address plus /128.
+                          maxLength: 49
+                          minLength: 1
                           type: string
                         mac:
-                          description: mac is the device MAC address
+                          description: |-
+                            mac is the device MAC address.
+                            The limit is the longest hardware address in Linux, 32 bytes written as hex pairs with colons.
+                          maxLength: 95
+                          minLength: 1
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                           type: string
                         model:
                           description: model is the vendor and product IDs of the
                             NIC, e.g. "0x8086 0x1572"
+                          maxLength: 512
+                          minLength: 1
                           type: string
                         name:
                           description: name is the name of the network interface,
                             e.g. "en0"
+                          maxLength: 15
+                          minLength: 1
                           type: string
                         speedMbps:
                           description: speedMbps is the speed of the device in Megabits
                             per second
+                          format: int32
+                          minimum: 1
                           type: integer
+                      required:
+                      - name
                       type: object
+                    maxItems: 128
                     type: array
                     x-kubernetes-list-type: atomic
                   ramGB:
+                    description: ramGB is the total memory of the host in GB.
+                    format: int32
+                    minimum: 1
                     type: integer
                   storage:
+                    description: |-
+                      storage is the list of storage devices of the host.
+                      The limit is far above the number of disks that a Hetzner dedicated server has.
                     items:
                       description: Storage describes one storage device (disk, SSD,
                         etc.) on the host.
                       properties:
                         hctl:
                           description: hctl defines the SCSI location of the device.
+                          maxLength: 64
+                          minLength: 1
                           type: string
                         model:
                           description: model represents the Hardware model.
+                          maxLength: 512
+                          minLength: 1
                           type: string
                         name:
                           description: |-
                             name is the Linux device name of the disk, e.g. "/dev/sda". Note that this
                             may not be stable across reboots.
+                          maxLength: 64
+                          minLength: 1
                           type: string
                         rota:
                           description: rota defines if it's an HDD device or not.
+                            Not set means false.
                           type: boolean
                         serialNumber:
                           description: serialNumber denotes the serial number of the
                             device.
+                          maxLength: 512
+                          minLength: 1
                           type: string
                         sizeBytes:
                           description: sizeBytes is the size of the disk in Bytes.
                           format: int64
+                          minimum: 1
                           type: integer
                         sizeGB:
                           description: sizeGB is the size of the disk in GB.
                           format: int64
+                          minimum: 1
                           type: integer
                         vendor:
                           description: vendor is the name of the vendor of the device.
+                          maxLength: 512
+                          minLength: 1
                           type: string
                         wwn:
-                          description: wwn defines the WWN of the device.
+                          description: |-
+                            wwn defines the WWN of the device.
+                            The limit is far above the longest WWN that Linux reports, which has 140 characters.
+                          maxLength: 256
+                          minLength: 1
                           type: string
                       type: object
+                    maxItems: 256
                     type: array
                     x-kubernetes-list-type: atomic
                 type: object
               ipv4:
                 description: ipv4 address of the server.
+                maxLength: 45
+                minLength: 1
                 type: string
               ipv6:
                 description: ipv6 address of the server.
+                maxLength: 45
+                minLength: 1
                 type: string
               nodeBootID:
                 description: nodeBootID reflects the BootID of the corresponding Node
                   resource in the workload-cluster.
+                maxLength: 64
+                minLength: 1
                 type: string
               ongoingReboot:
                 description: |-
@@ -1191,6 +1269,7 @@ spec:
                     - ssh
                     - sw
                     - hw
+                    maxLength: 64
                     type: string
                 required:
                 - triggeredAt
@@ -1199,32 +1278,50 @@ spec:
               provisioningState:
                 description: provisioningState is the current state tracked by the
                   provisioner.
+                enum:
+                - preparing
+                - registering
+                - pre-provisioning
+                - image-installing
+                - ensure-provisioned
+                - provisioned
+                - deprovisioning
+                - deleting
                 type: string
               rebootTypes:
-                description: rebootTypes is a list of all available reboot types for
-                  API reboots.
+                description: |-
+                  rebootTypes is a list of all available reboot types for API reboots.
+                  The limit is more than twice the 5 reboot types that Hetzner Robot offers. New reboot types then do not break status updates.
                 items:
                   description: RebootType defines the reboot type of servers via Hetzner
                     robot API.
+                  maxLength: 64
                   type: string
+                maxItems: 16
                 type: array
                 x-kubernetes-list-type: atomic
               rebooted:
                 description: rebooted shows whether the server is currently being
-                  rebooted.
+                  rebooted. Not set means false.
                 type: boolean
               sshStatus:
                 description: sshStatus contains the name and fingerprint of the SSH
                   keys that have been used.
+                minProperties: 1
                 properties:
                   currentOS:
                     description: currentOS gives information about the secret where
                       the os ssh key is stored.
                     properties:
-                      credentials:
-                        description: |-
-                          SecretReference represents a Secret Reference. It has enough information to retrieve secret
-                          in any namespace
+                      credentialsDataHash:
+                        description: credentialsDataHash is the SHA256 hash of the
+                          secret data.
+                        format: byte
+                        maxLength: 64
+                        type: string
+                      credentialsRef:
+                        description: credentialsRef is the name and namespace of the
+                          secret.
                         properties:
                           name:
                             description: name is unique within a namespace to reference
@@ -1236,18 +1333,20 @@ spec:
                             type: string
                         type: object
                         x-kubernetes-map-type: atomic
-                      credentialsDataHash:
-                        format: byte
-                        type: string
                     type: object
                   currentRescue:
                     description: currentRescue gives information about the secret
                       where the rescue ssh key is stored.
                     properties:
-                      credentials:
-                        description: |-
-                          SecretReference represents a Secret Reference. It has enough information to retrieve secret
-                          in any namespace
+                      credentialsDataHash:
+                        description: credentialsDataHash is the SHA256 hash of the
+                          secret data.
+                        format: byte
+                        maxLength: 64
+                        type: string
+                      credentialsRef:
+                        description: credentialsRef is the name and namespace of the
+                          secret.
                         properties:
                           name:
                             description: name is unique within a namespace to reference
@@ -1259,9 +1358,6 @@ spec:
                             type: string
                         type: object
                         x-kubernetes-map-type: atomic
-                      credentialsDataHash:
-                        format: byte
-                        type: string
                     type: object
                   osKey:
                     description: osKey contains name and fingerprint of the in HetznerBareMetalMachine
@@ -1270,9 +1366,14 @@ spec:
                       fingerprint:
                         description: fingerprint defines the fingerprint of the SSH
                           key - added by the controller.
+                        maxLength: 128
+                        minLength: 1
                         type: string
                       name:
-                        description: name defines the name of the SSH key.
+                        description: |-
+                          name defines the name of the SSH key.
+                          The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+                        maxLength: 255
                         minLength: 1
                         type: string
                     required:
@@ -1285,9 +1386,14 @@ spec:
                       fingerprint:
                         description: fingerprint defines the fingerprint of the SSH
                           key - added by the controller.
+                        maxLength: 128
+                        minLength: 1
                         type: string
                       name:
-                        description: name defines the name of the SSH key.
+                        description: |-
+                          name defines the name of the SSH key.
+                          The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+                        maxLength: 255
                         minLength: 1
                         type: string
                     required:

@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta2
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -25,13 +26,14 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 	type args struct {
-		spec infrav2.HetznerBareMetalMachineSpec
+		spec infrav1.HetznerBareMetalMachineSpec
 	}
 	tests := []struct {
 		name string
@@ -41,9 +43,9 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "Valid installImage",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
@@ -55,9 +57,9 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "Valid installImage with path",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
 							Path: "path/to/image.tar.gz",
 						},
 					},
@@ -68,8 +70,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "Valid customProvisioner",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					CustomProvisioner: infrav1.CustomProvisioner{
 						URL:     "oci://ghcr.io/example/ubuntu:v1",
 						Command: "custom-provisioner-bm-test.sh",
 					},
@@ -80,11 +82,11 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "Valid customProvisioner with DeviceStringType wwn",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					CustomProvisioner: infrav1.CustomProvisioner{
 						URL:              "oci://ghcr.io/example/ubuntu:v1",
 						Command:          "custom-provisioner-bm-test.sh",
-						DeviceStringType: infrav2.DeviceStringTypeWWN,
+						DeviceStringType: infrav1.DeviceStringTypeWWN,
 					},
 				},
 			},
@@ -93,21 +95,21 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "Neither installImage nor customProvisioner",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{},
+				spec: infrav1.HetznerBareMetalMachineSpec{},
 			},
 			want: field.Required(field.NewPath("spec"), "either installImage or customProvisioner must be set"),
 		},
 		{
 			name: "Both installImage and customProvisioner",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
-					CustomProvisioner: &infrav2.CustomProvisioner{
+					CustomProvisioner: infrav1.CustomProvisioner{
 						URL:     "oci://ghcr.io/example/ubuntu:v1",
 						Command: "custom-provisioner-bm-test.sh",
 					},
@@ -118,20 +120,23 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "Invalid installImage image",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{},
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{},
+						Partitions: []infrav1.Partition{
+							{Mount: "/", FileSystem: "ext4"},
+						},
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "installImage", "image"), infrav2.Image{}, "have to specify either image name and url or path"),
+			want: field.Invalid(field.NewPath("spec", "installImage", "image"), infrav1.Image{}, "have to specify either image name and url or path"),
 		},
 		{
 			name: "Invalid installImage image url",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.invalid",
 						},
@@ -143,8 +148,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "customProvisioner with malformed url",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					CustomProvisioner: infrav1.CustomProvisioner{
 						URL:     "not-a-url",
 						Command: "custom-provisioner-bm-test.sh",
 					},
@@ -155,8 +160,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "customProvisioner command with slash",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					CustomProvisioner: infrav1.CustomProvisioner{
 						URL:     "oci://ghcr.io/example/ubuntu:v1",
 						Command: "/shared/custom-provisioner-bm-test.sh",
 					},
@@ -167,8 +172,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "customProvisioner command without prefix",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					CustomProvisioner: infrav1.CustomProvisioner{
 						URL:     "oci://ghcr.io/example/ubuntu:v1",
 						Command: "1bad-command",
 					},
@@ -179,8 +184,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "customProvisioner command with dot dot",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					CustomProvisioner: infrav1.CustomProvisioner{
 						URL:     "oci://ghcr.io/example/ubuntu:v1",
 						Command: "custom-provisioner-bm..test.sh",
 					},
@@ -191,14 +196,14 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "Valid HostSelector MatchLabels",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
-					HostSelector: infrav2.HostSelector{
+					HostSelector: &infrav1.HostSelector{
 						MatchLabels: map[string]string{
 							"key1": "value1",
 						},
@@ -210,15 +215,15 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "Valid HostSelector MatchExpressions",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
-					HostSelector: infrav2.HostSelector{
-						MatchExpressions: []infrav2.HostSelectorRequirement{
+					HostSelector: &infrav1.HostSelector{
+						MatchExpressions: []infrav1.HostSelectorRequirement{
 							{
 								Key:      "key1",
 								Operator: selection.In,
@@ -233,15 +238,15 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "Invalid HostSelector MatchExpressions - Invalid Operator",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
-					HostSelector: infrav2.HostSelector{
-						MatchExpressions: []infrav2.HostSelectorRequirement{
+					HostSelector: &infrav1.HostSelector{
+						MatchExpressions: []infrav1.HostSelectorRequirement{
 							{
 								Key:      "key1",
 								Operator: selection.Operator("Invalid"),
@@ -253,7 +258,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			},
 			want: field.Invalid(
 				field.NewPath("spec", "hostSelector", "matchExpressions"),
-				[]infrav2.HostSelectorRequirement{
+				[]infrav1.HostSelectorRequirement{
 					{
 						Key:      "key1",
 						Operator: selection.Operator("Invalid"),
@@ -266,15 +271,15 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		{
 			name: "Invalid HostSelector MatchExpressions - Empty Key",
 			args: args{
-				spec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{
+				spec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
-					HostSelector: infrav2.HostSelector{
-						MatchExpressions: []infrav2.HostSelectorRequirement{
+					HostSelector: &infrav1.HostSelector{
+						MatchExpressions: []infrav1.HostSelectorRequirement{
 							{
 								Key:      "",
 								Operator: selection.In,
@@ -286,7 +291,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			},
 			want: field.Invalid(
 				field.NewPath("spec", "hostSelector", "matchExpressions"),
-				[]infrav2.HostSelectorRequirement{
+				[]infrav1.HostSelectorRequirement{
 					{
 						Key:      "",
 						Operator: selection.In,
@@ -317,8 +322,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 
 func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 	type args struct {
-		oldSpec infrav2.HetznerBareMetalMachineSpec
-		newSpec infrav2.HetznerBareMetalMachineSpec
+		oldSpec infrav1.HetznerBareMetalMachineSpec
+		newSpec infrav1.HetznerBareMetalMachineSpec
 	}
 	tests := []struct {
 		name string
@@ -328,17 +333,17 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 		{
 			name: "Immutable installImage",
 			args: args{
-				oldSpec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{
+				oldSpec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
 				},
-				newSpec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{
+				newSpec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
 							Name: "centos-7",
 							URL:  "https://example.com/centos-7.tar.gz",
 						},
@@ -350,14 +355,14 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 		{
 			name: "Immutable customProvisioner",
 			args: args{
-				oldSpec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{
+				oldSpec: infrav1.HetznerBareMetalMachineSpec{
+					CustomProvisioner: infrav1.CustomProvisioner{
 						URL:     "oci://ghcr.io/example/ubuntu:v1",
 						Command: "custom-provisioner-bm-test.sh",
 					},
 				},
-				newSpec: infrav2.HetznerBareMetalMachineSpec{
-					CustomProvisioner: &infrav2.CustomProvisioner{
+				newSpec: infrav1.HetznerBareMetalMachineSpec{
+					CustomProvisioner: infrav1.CustomProvisioner{
 						URL:     "oci://ghcr.io/example/ubuntu:v2",
 						Command: "custom-provisioner-bm-test.sh",
 					},
@@ -368,30 +373,30 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 		{
 			name: "Immutable SSHSpec",
 			args: args{
-				oldSpec: infrav2.HetznerBareMetalMachineSpec{
-					SSHSpec: infrav2.SSHSpec{
-						SecretRef: infrav2.SSHSecretRef{
+				oldSpec: infrav1.HetznerBareMetalMachineSpec{
+					SSHSpec: infrav1.SSHSpec{
+						SecretRef: infrav1.SSHSecretRef{
 							Name: "ssh-secret",
-							Key: infrav2.SSHSecretKeyRef{
+							Key: infrav1.SSHSecretKeyRef{
 								Name:       "ssh-key-name",
 								PublicKey:  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 								PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 							},
 						},
-						PortAfterInstallImage: 22,
+						PortAfterInstallImage: ptr.To[int32](22),
 					},
 				},
-				newSpec: infrav2.HetznerBareMetalMachineSpec{
-					SSHSpec: infrav2.SSHSpec{
-						SecretRef: infrav2.SSHSecretRef{
+				newSpec: infrav1.HetznerBareMetalMachineSpec{
+					SSHSpec: infrav1.SSHSpec{
+						SecretRef: infrav1.SSHSecretRef{
 							Name: "ssh-secret-new",
-							Key: infrav2.SSHSecretKeyRef{
+							Key: infrav1.SSHSecretKeyRef{
 								Name:       "ssh-key-name-new",
 								PublicKey:  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 								PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 							},
 						},
-						PortAfterInstallImage: 2222,
+						PortAfterInstallImage: ptr.To[int32](2222),
 					},
 				},
 			},
@@ -400,12 +405,12 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 		{
 			name: "Immutable HostSelector",
 			args: args{
-				oldSpec: infrav2.HetznerBareMetalMachineSpec{
-					HostSelector: infrav2.HostSelector{
+				oldSpec: infrav1.HetznerBareMetalMachineSpec{
+					HostSelector: &infrav1.HostSelector{
 						MatchLabels: map[string]string{
 							"key1": "value1",
 						},
-						MatchExpressions: []infrav2.HostSelectorRequirement{
+						MatchExpressions: []infrav1.HostSelectorRequirement{
 							{
 								Key:      "key2",
 								Operator: selection.In,
@@ -414,12 +419,12 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 						},
 					},
 				},
-				newSpec: infrav2.HetznerBareMetalMachineSpec{
-					HostSelector: infrav2.HostSelector{
+				newSpec: infrav1.HetznerBareMetalMachineSpec{
+					HostSelector: &infrav1.HostSelector{
 						MatchLabels: map[string]string{
 							"key3": "value3",
 						},
-						MatchExpressions: []infrav2.HostSelectorRequirement{
+						MatchExpressions: []infrav1.HostSelectorRequirement{
 							{
 								Key:      "key4",
 								Operator: selection.In,
@@ -434,29 +439,29 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 		{
 			name: "No Errors",
 			args: args{
-				oldSpec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{
+				oldSpec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
-					SSHSpec: infrav2.SSHSpec{
-						SecretRef: infrav2.SSHSecretRef{
+					SSHSpec: infrav1.SSHSpec{
+						SecretRef: infrav1.SSHSecretRef{
 							Name: "ssh-secret",
-							Key: infrav2.SSHSecretKeyRef{
+							Key: infrav1.SSHSecretKeyRef{
 								Name:       "ssh-key-name",
 								PublicKey:  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 								PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 							},
 						},
-						PortAfterInstallImage: 22,
+						PortAfterInstallImage: ptr.To[int32](22),
 					},
-					HostSelector: infrav2.HostSelector{
+					HostSelector: &infrav1.HostSelector{
 						MatchLabels: map[string]string{
 							"key1": "value1",
 						},
-						MatchExpressions: []infrav2.HostSelectorRequirement{
+						MatchExpressions: []infrav1.HostSelectorRequirement{
 							{
 								Key:      "key2",
 								Operator: selection.In,
@@ -465,29 +470,29 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 						},
 					},
 				},
-				newSpec: infrav2.HetznerBareMetalMachineSpec{
-					InstallImage: &infrav2.InstallImage{
-						Image: infrav2.Image{
+				newSpec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Image: infrav1.Image{
 							Name: "ubuntu-24.04",
 							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
-					SSHSpec: infrav2.SSHSpec{
-						SecretRef: infrav2.SSHSecretRef{
+					SSHSpec: infrav1.SSHSpec{
+						SecretRef: infrav1.SSHSecretRef{
 							Name: "ssh-secret",
-							Key: infrav2.SSHSecretKeyRef{
+							Key: infrav1.SSHSecretKeyRef{
 								Name:       "ssh-key-name",
 								PublicKey:  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 								PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
 							},
 						},
-						PortAfterInstallImage: 22,
+						PortAfterInstallImage: ptr.To[int32](22),
 					},
-					HostSelector: infrav2.HostSelector{
+					HostSelector: &infrav1.HostSelector{
 						MatchLabels: map[string]string{
 							"key1": "value1",
 						},
-						MatchExpressions: []infrav2.HostSelectorRequirement{
+						MatchExpressions: []infrav1.HostSelectorRequirement{
 							{
 								Key:      "key2",
 								Operator: selection.In,
@@ -523,40 +528,40 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 
 func TestValidateHetznerBareMetalMachineSpecUpdate_ProviderID(t *testing.T) {
 	got := validateHetznerBareMetalMachineSpecUpdate(
-		infrav2.HetznerBareMetalMachineSpec{
-			ProviderID: ptr.To("provider://foo"),
+		infrav1.HetznerBareMetalMachineSpec{
+			ProviderID: "provider://foo",
 		},
-		infrav2.HetznerBareMetalMachineSpec{})
+		infrav1.HetznerBareMetalMachineSpec{})
 	require.Equal(t, `[spec.providerID: Forbidden: providerID is immutable]`, fmt.Sprintf("%+v", got))
 
 	got = validateHetznerBareMetalMachineSpecUpdate(
-		infrav2.HetznerBareMetalMachineSpec{
-			ProviderID: ptr.To("provider://foo"),
+		infrav1.HetznerBareMetalMachineSpec{
+			ProviderID: "provider://foo",
 		},
-		infrav2.HetznerBareMetalMachineSpec{
-			ProviderID: ptr.To("provider://bar"),
+		infrav1.HetznerBareMetalMachineSpec{
+			ProviderID: "provider://bar",
 		})
 	require.Equal(t, `[spec.providerID: Forbidden: providerID is immutable]`, fmt.Sprintf("%+v", got))
 
 	// Allowed Updates
 	got = validateHetznerBareMetalMachineSpecUpdate(
-		infrav2.HetznerBareMetalMachineSpec{},
-		infrav2.HetznerBareMetalMachineSpec{})
+		infrav1.HetznerBareMetalMachineSpec{},
+		infrav1.HetznerBareMetalMachineSpec{})
 	require.Equal(t, `[]`, fmt.Sprintf("%+v", got))
 
 	got = validateHetznerBareMetalMachineSpecUpdate(
-		infrav2.HetznerBareMetalMachineSpec{},
-		infrav2.HetznerBareMetalMachineSpec{
-			ProviderID: ptr.To("provider://bar"),
+		infrav1.HetznerBareMetalMachineSpec{},
+		infrav1.HetznerBareMetalMachineSpec{
+			ProviderID: "provider://bar",
 		})
 	require.Equal(t, `[]`, fmt.Sprintf("%+v", got))
 
 	got = validateHetznerBareMetalMachineSpecUpdate(
-		infrav2.HetznerBareMetalMachineSpec{
-			ProviderID: ptr.To("provider://bar"),
+		infrav1.HetznerBareMetalMachineSpec{
+			ProviderID: "provider://bar",
 		},
-		infrav2.HetznerBareMetalMachineSpec{
-			ProviderID: ptr.To("provider://bar"),
+		infrav1.HetznerBareMetalMachineSpec{
+			ProviderID: "provider://bar",
 		})
 	require.Equal(t, `[]`, fmt.Sprintf("%+v", got))
 }
@@ -565,13 +570,13 @@ func TestValidateHetznerBareMetalMachineSpecUpdate_ProviderID(t *testing.T) {
 // customProvisioner on update is rejected. Both fields change, so both immutability errors are returned.
 func TestValidateHetznerBareMetalMachineSpecUpdate_FlowSwitch(t *testing.T) {
 	got := validateHetznerBareMetalMachineSpecUpdate(
-		infrav2.HetznerBareMetalMachineSpec{
-			InstallImage: &infrav2.InstallImage{
-				Image: infrav2.Image{Name: "ubuntu-24.04", URL: "https://example.com/ubuntu-24.04.tar.gz"},
+		infrav1.HetznerBareMetalMachineSpec{
+			InstallImage: infrav1.InstallImage{
+				Image: infrav1.Image{Name: "ubuntu-24.04", URL: "https://example.com/ubuntu-24.04.tar.gz"},
 			},
 		},
-		infrav2.HetznerBareMetalMachineSpec{
-			CustomProvisioner: &infrav2.CustomProvisioner{
+		infrav1.HetznerBareMetalMachineSpec{
+			CustomProvisioner: infrav1.CustomProvisioner{
 				URL:     "oci://ghcr.io/example/ubuntu:v1",
 				Command: "custom-provisioner-bm-test.sh",
 			},
@@ -579,4 +584,148 @@ func TestValidateHetznerBareMetalMachineSpecUpdate_FlowSwitch(t *testing.T) {
 	require.Equal(t,
 		`[spec.installImage: Forbidden: installImage is immutable spec.customProvisioner: Forbidden: customProvisioner is immutable]`,
 		fmt.Sprintf("%+v", got))
+}
+
+// storedHetznerBareMetalMachineSpec returns a spec as it is read from storage: the conversion from
+// v1beta1 sets every field that has a meaning when unset.
+func storedHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec {
+	return infrav1.HetznerBareMetalMachineSpec{
+		InstallImage: infrav1.InstallImage{
+			Image:       infrav1.Image{Name: "ubuntu-24.04", URL: "https://example.com/ubuntu-24.04.tar.gz"},
+			Swraid:      ptr.To[int32](0),
+			SwraidLevel: ptr.To[int32](1),
+		},
+		SSHSpec: infrav1.SSHSpec{
+			SecretRef:              infrav1.SSHSecretRef{Name: "ssh-secret"},
+			NoSSHAfterInstallImage: ptr.To(false),
+			PortAfterInstallImage:  ptr.To[int32](22),
+		},
+		SkipCheckDisk: ptr.To(false),
+	}
+}
+
+// unsetHetznerBareMetalMachineSpec returns the stored spec with every field that has a meaning when
+// unset left out, like an update request that does not send these fields.
+func unsetHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec {
+	spec := storedHetznerBareMetalMachineSpec()
+	spec.InstallImage.Swraid = nil
+	spec.InstallImage.SwraidLevel = nil
+	spec.SSHSpec.NoSSHAfterInstallImage = nil
+	spec.SSHSpec.PortAfterInstallImage = nil
+	spec.SkipCheckDisk = nil
+	return spec
+}
+
+// storedCustomProvisionerSpec returns a stored spec with customProvisioner set and installImage empty.
+func storedCustomProvisionerSpec() infrav1.HetznerBareMetalMachineSpec {
+	spec := storedHetznerBareMetalMachineSpec()
+	spec.InstallImage = infrav1.InstallImage{}
+	spec.CustomProvisioner = infrav1.CustomProvisioner{
+		URL:     "oci://example.com/node-image:v1",
+		Command: "provision.sh",
+		Swraid:  ptr.To[int32](0),
+	}
+	return spec
+}
+
+func TestValidateHetznerBareMetalMachineSpecUpdate_UnsetFields(t *testing.T) {
+	tests := []struct {
+		name    string
+		oldSpec infrav1.HetznerBareMetalMachineSpec
+		newSpec infrav1.HetznerBareMetalMachineSpec
+		want    string
+	}{
+		{
+			name:    "unset fields with the value they mean are not a change",
+			oldSpec: storedHetznerBareMetalMachineSpec(),
+			newSpec: unsetHetznerBareMetalMachineSpec(),
+			want:    "[]",
+		},
+		{
+			name:    "an empty hostSelector is the same as no hostSelector",
+			oldSpec: storedHetznerBareMetalMachineSpec(),
+			newSpec: func() infrav1.HetznerBareMetalMachineSpec {
+				spec := unsetHetznerBareMetalMachineSpec()
+				spec.HostSelector = &infrav1.HostSelector{}
+				return spec
+			}(),
+			want: "[]",
+		},
+		{
+			name: "unset portAfterInstallImage is a change when the stored port is not 22",
+			oldSpec: func() infrav1.HetznerBareMetalMachineSpec {
+				spec := storedHetznerBareMetalMachineSpec()
+				spec.SSHSpec.PortAfterInstallImage = ptr.To[int32](2222)
+				return spec
+			}(),
+			newSpec: unsetHetznerBareMetalMachineSpec(),
+			want:    "[spec.sshSpec: Forbidden: sshSpec is immutable]",
+		},
+		{
+			name:    "a changed noSSHAfterInstallImage is still rejected",
+			oldSpec: storedHetznerBareMetalMachineSpec(),
+			newSpec: func() infrav1.HetznerBareMetalMachineSpec {
+				spec := unsetHetznerBareMetalMachineSpec()
+				spec.SSHSpec.NoSSHAfterInstallImage = ptr.To(true)
+				return spec
+			}(),
+			want: "[spec.sshSpec: Forbidden: sshSpec is immutable]",
+		},
+		{
+			name:    "a changed swraidLevel is still rejected",
+			oldSpec: storedHetznerBareMetalMachineSpec(),
+			newSpec: func() infrav1.HetznerBareMetalMachineSpec {
+				spec := unsetHetznerBareMetalMachineSpec()
+				spec.InstallImage.SwraidLevel = ptr.To[int32](0)
+				return spec
+			}(),
+			want: "[spec.installImage: Forbidden: installImage is immutable]",
+		},
+		{
+			name:    "unset customProvisioner.swraid is the same as the stored 0",
+			oldSpec: storedCustomProvisionerSpec(),
+			newSpec: func() infrav1.HetznerBareMetalMachineSpec {
+				spec := storedCustomProvisionerSpec()
+				spec.CustomProvisioner.Swraid = nil
+				return spec
+			}(),
+			want: "[]",
+		},
+		{
+			name:    "a changed customProvisioner.swraid is still rejected",
+			oldSpec: storedCustomProvisionerSpec(),
+			newSpec: func() infrav1.HetznerBareMetalMachineSpec {
+				spec := storedCustomProvisionerSpec()
+				spec.CustomProvisioner.Swraid = ptr.To[int32](1)
+				return spec
+			}(),
+			want: "[spec.customProvisioner: Forbidden: customProvisioner is immutable]",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := validateHetznerBareMetalMachineSpecUpdate(tt.oldSpec, tt.newSpec)
+			require.Equal(t, tt.want, fmt.Sprintf("%+v", got))
+		})
+	}
+}
+
+func TestHetznerBareMetalMachineTemplateValidateUpdate_UnsetFields(t *testing.T) {
+	template := func(spec infrav1.HetznerBareMetalMachineSpec) *infrav1.HetznerBareMetalMachineTemplate {
+		return &infrav1.HetznerBareMetalMachineTemplate{
+			Spec: infrav1.HetznerBareMetalMachineTemplateSpec{
+				Template: infrav1.HetznerBareMetalMachineTemplateResource{Spec: spec},
+			},
+		}
+	}
+	ctx := admission.NewContextWithRequest(context.Background(), admission.Request{})
+	webhook := &HetznerBareMetalMachineTemplateWebhook{}
+
+	_, err := webhook.ValidateUpdate(ctx, template(storedHetznerBareMetalMachineSpec()), template(unsetHetznerBareMetalMachineSpec()))
+	require.NoError(t, err)
+
+	changed := unsetHetznerBareMetalMachineSpec()
+	changed.SkipCheckDisk = ptr.To(true)
+	_, err = webhook.ValidateUpdate(ctx, template(storedHetznerBareMetalMachineSpec()), template(changed))
+	require.ErrorContains(t, err, "HetznerBareMetalMachineTemplate.Spec is immutable")
 }

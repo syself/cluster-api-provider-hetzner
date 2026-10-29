@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
@@ -43,7 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
@@ -369,15 +370,15 @@ func getDefaultBootstrapSecret(namespace string) *corev1.Secret {
 	}
 }
 
-func getDefaultHetznerBareMetalMachineSpec() infrav2.HetznerBareMetalMachineSpec {
-	return infrav2.HetznerBareMetalMachineSpec{
-		InstallImage: &infrav2.InstallImage{
-			Image: infrav2.Image{
+func getDefaultHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec {
+	return infrav1.HetznerBareMetalMachineSpec{
+		InstallImage: infrav1.InstallImage{
+			Image: infrav1.Image{
 				Name: "image-name",
 				URL:  "https://myfile.tar.gz",
 			},
 			PostInstallScript: "my script",
-			Partitions: []infrav2.Partition{
+			Partitions: []infrav1.Partition{
 				{
 					Mount:      "lvm",
 					FileSystem: "ext2",
@@ -385,16 +386,16 @@ func getDefaultHetznerBareMetalMachineSpec() infrav2.HetznerBareMetalMachineSpec
 				},
 			},
 		},
-		SSHSpec: infrav2.SSHSpec{
-			SecretRef: infrav2.SSHSecretRef{
+		SSHSpec: infrav1.SSHSpec{
+			SecretRef: infrav1.SSHSecretRef{
 				Name: "os-ssh-secret",
-				Key: infrav2.SSHSecretKeyRef{
+				Key: infrav1.SSHSecretKeyRef{
 					Name:       "sshkey-name",
 					PublicKey:  "public-key",
 					PrivateKey: "private-key",
 				},
 			},
-			PortAfterInstallImage: 22,
+			PortAfterInstallImage: ptr.To[int32](22),
 		},
 	}
 }

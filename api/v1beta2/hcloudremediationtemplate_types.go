@@ -22,19 +22,26 @@ import (
 
 // HCloudRemediationTemplateSpec defines the desired state of HCloudRemediationTemplate.
 type HCloudRemediationTemplateSpec struct {
-	Template HCloudRemediationTemplateResource `json:"template"`
+	// template defines the desired state of HCloudRemediationTemplate.
+	// +required
+	Template HCloudRemediationTemplateResource `json:"template,omitempty,omitzero"`
 }
 
 // HCloudRemediationTemplateResource describes the data needed to create a HCloudRemediation from a template.
+// +kubebuilder:validation:MinProperties=1
 type HCloudRemediationTemplateResource struct {
-	// spec is the specification of the desired behavior of the HCloudRemediation.
-	Spec HCloudRemediationSpec `json:"spec"`
+	// spec is the specification of the desired behavior of the HCloudRemediation. It is empty when
+	// the template has no strategy. The HCloudRemediation created from it then has an empty spec as well.
+	// +optional
+	Spec HCloudRemediationSpec `json:"spec,omitempty,omitzero"`
 }
 
 // HCloudRemediationTemplateStatus defines the observed state of HCloudRemediationTemplate.
+// +kubebuilder:validation:MinProperties=1
 type HCloudRemediationTemplateStatus struct {
 	// status defines the observed state of HCloudRemediation
-	Status HCloudRemediationStatus `json:"status"`
+	// +optional
+	Status HCloudRemediationStatus `json:"status,omitempty,omitzero"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -48,12 +55,17 @@ type HCloudRemediationTemplateStatus struct {
 // HCloudRemediationTemplate is the Schema for the hcloudremediationtemplates API.
 type HCloudRemediationTemplate struct {
 	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// spec is the desired state of HCloudRemediationTemplate.
 	// +optional
-	Spec HCloudRemediationTemplateSpec `json:"spec,omitempty"`
+	Spec HCloudRemediationTemplateSpec `json:"spec,omitempty,omitzero"`
+	// status is the observed state of HCloudRemediationTemplate.
 	// +optional
-	Status HCloudRemediationTemplateStatus `json:"status,omitempty"`
+	Status HCloudRemediationTemplateStatus `json:"status,omitempty,omitzero"`
 }
 
 //+kubebuilder:object:root=true

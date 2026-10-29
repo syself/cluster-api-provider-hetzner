@@ -46,8 +46,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	// +kubebuilder:scaffold:imports
-	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	infrastructurev1beta2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/controllers"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
@@ -55,7 +55,7 @@ import (
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	caphversion "github.com/syself/cluster-api-provider-hetzner/pkg/version"
-	webhookv1beta1 "github.com/syself/cluster-api-provider-hetzner/pkg/webhook/v1beta1"
+	webhookv1beta2 "github.com/syself/cluster-api-provider-hetzner/pkg/webhook/v1beta2"
 )
 
 var (
@@ -72,8 +72,8 @@ func init() {
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	utilruntime.Must(bootstrapv1.AddToScheme(scheme))
-	utilruntime.Must(infrastructurev1beta1.AddToScheme(scheme))
-	utilruntime.Must(infrastructurev1beta2.AddToScheme(scheme))
+	utilruntime.Must(infrav1beta1.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -314,47 +314,47 @@ func main() {
 }
 
 func setUpWebhookWithManager(mgr ctrl.Manager) {
-	if err := (&webhookv1beta1.HetznerClusterWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerClusterWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerCluster")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HetznerClusterTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerClusterTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerClusterTemplate")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HCloudMachineWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HCloudMachineWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachine")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HCloudMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HCloudMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachineTemplate")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HetznerBareMetalHostWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerBareMetalHostWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalHost")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HetznerBareMetalMachineWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerBareMetalMachineWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachine")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HetznerBareMetalMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerBareMetalMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachineTemplate")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HetznerBareMetalRemediationWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerBareMetalRemediationWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediation")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HetznerBareMetalRemediationTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HetznerBareMetalRemediationTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediationTemplate")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HCloudRemediationWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HCloudRemediationWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudRemediation")
 		os.Exit(1)
 	}
-	if err := (&webhookv1beta1.HCloudRemediationTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&webhookv1beta2.HCloudRemediationTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudRemediationTemplate")
 		os.Exit(1)
 	}
@@ -368,7 +368,7 @@ func setUpWebhookWithManager(mgr ctrl.Manager) {
 
 func setupCRDMigrator(ctx context.Context, mgr *strictManager) error {
 	crdMigratorConfig := map[client.Object]crdmigrator.ByObjectConfig{
-		&infrastructurev1beta1.HCloudMachineTemplate{}: {
+		&infrav1beta1.HCloudMachineTemplate{}: {
 			// UseCache should be set to true only if an informer already exists for the API type
 			// (i.e. there is a controller watching this resource).
 			UseCache: true,
@@ -376,43 +376,43 @@ func setupCRDMigrator(ctx context.Context, mgr *strictManager) error {
 			// UseStatusForStorageVersionMigration should be enabled only if the CRD defines a status subresource.
 			UseStatusForStorageVersionMigration: true,
 		},
-		&infrastructurev1beta1.HCloudMachine{}: {
+		&infrav1beta1.HCloudMachine{}: {
 			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
-		&infrastructurev1beta1.HCloudRemediationTemplate{}: {
+		&infrav1beta1.HCloudRemediationTemplate{}: {
 			UseCache:                            false,
 			UseStatusForStorageVersionMigration: true,
 		},
-		&infrastructurev1beta1.HCloudRemediation{}: {
+		&infrav1beta1.HCloudRemediation{}: {
 			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
-		&infrastructurev1beta1.HetznerBareMetalHost{}: {
+		&infrav1beta1.HetznerBareMetalHost{}: {
 			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
-		&infrastructurev1beta1.HetznerBareMetalMachineTemplate{}: {
-			UseCache:                            false,
-			UseStatusForStorageVersionMigration: false,
-		},
-		&infrastructurev1beta1.HetznerBareMetalMachine{}: {
-			UseCache:                            true,
-			UseStatusForStorageVersionMigration: true,
-		},
-		&infrastructurev1beta1.HetznerBareMetalRemediationTemplate{}: {
-			UseCache:                            false,
-			UseStatusForStorageVersionMigration: true,
-		},
-		&infrastructurev1beta1.HetznerBareMetalRemediation{}: {
-			UseCache:                            true,
-			UseStatusForStorageVersionMigration: true,
-		},
-		&infrastructurev1beta1.HetznerClusterTemplate{}: {
+		&infrav1beta1.HetznerBareMetalMachineTemplate{}: {
 			UseCache:                            false,
 			UseStatusForStorageVersionMigration: false,
 		},
-		&infrastructurev1beta1.HetznerCluster{}: {
+		&infrav1beta1.HetznerBareMetalMachine{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrav1beta1.HetznerBareMetalRemediationTemplate{}: {
+			UseCache:                            false,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrav1beta1.HetznerBareMetalRemediation{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrav1beta1.HetznerClusterTemplate{}: {
+			UseCache:                            false,
+			UseStatusForStorageVersionMigration: false,
+		},
+		&infrav1beta1.HetznerCluster{}: {
 			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
