@@ -62,6 +62,10 @@ func (timeoutError) Timeout() bool {
 	return true
 }
 
+func (timeoutError) Temporary() bool {
+	return true
+}
+
 func (timeoutError) Error() string {
 	return "timeout"
 }
