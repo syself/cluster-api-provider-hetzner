@@ -24,11 +24,13 @@ import (
 	"crypto/x509"
 	_ "embed"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -571,4 +573,62 @@ func Test_ExecutePreProvisionCommand_withRealServer(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, exitStatus)
 	require.Equal(t, "hz1", output)
+}
+
+func TestIsTimeoutError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "nil error",
+			err:  nil,
+			want: false,
+		},
+		{
+			name: "non-timeout error",
+			err:  errors.New("connection refused"),
+			want: false,
+		},
+		{
+			name: "wrapped net.OpError non-timeout (connection refused)",
+			err: &net.OpError{
+				Op:  "dial",
+				Net: "tcp",
+				Err: syscall.ECONNREFUSED,
+			},
+			want: false,
+		},
+		{
+			name: "wrapped net.OpError timeout",
+			err: fmt.Errorf("failed to dial ssh: %w", &net.OpError{
+				Op:  "dial",
+				Net: "tcp",
+				Err: os.ErrDeadlineExceeded,
+			}),
+			want: true,
+		},
+		{
+			name: "bare context.DeadlineExceeded",
+			err:  context.DeadlineExceeded,
+			want: true,
+		},
+		{
+			name: "wrapped context.DeadlineExceeded",
+			err:  fmt.Errorf("ssh command timed out: %w", context.DeadlineExceeded),
+			want: true,
+		},
+		{
+			name: "context.Canceled is not a timeout",
+			err:  context.Canceled,
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, IsTimeoutError(tt.err))
+		})
+	}
 }

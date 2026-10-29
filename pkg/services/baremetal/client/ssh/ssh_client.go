@@ -94,8 +94,6 @@ var (
 	ErrAuthenticationFailed = errors.New("ssh: unable to authenticate")
 	// ErrEmptyStdOut means that StdOut equals empty string.
 	ErrEmptyStdOut = errors.New("unexpected empty output in stdout")
-	// ErrTimeout means that there is a timeout error.
-	ErrTimeout = errors.New("i/o timeout")
 	// ErrCheckDiskBrokenDisk means that a disk seams broken.
 	ErrCheckDiskBrokenDisk = errors.New("CheckDisk failed")
 )
@@ -872,9 +870,10 @@ func IsCommandExitedWithoutExitSignalError(err error) bool {
 	return strings.Contains(err.Error(), ErrCommandExitedWithoutExitSignal.Error())
 }
 
-// IsTimeoutError checks whether the ssh error is an unplanned exit error.
+// IsTimeoutError checks whether the error is a network or context timeout.
 func IsTimeoutError(err error) bool {
-	return strings.Contains(err.Error(), ErrTimeout.Error())
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 // getSSHClient returns a shared *ssh.Client for this machine, reusing a
@@ -966,10 +965,6 @@ func (c *sshClient) dial(ctx context.Context) (*ssh.Client, error) {
 	d := net.Dialer{Timeout: sshTimeOut}
 	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
-		// Return ctx.Err() unwrapped so os.IsTimeout detects it.
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return nil, ctxErr
-		}
 		return nil, fmt.Errorf("failed to dial ssh (%s): %w", c.connectionDetails(), err)
 	}
 
@@ -981,7 +976,7 @@ func (c *sshClient) dial(ctx context.Context) (*ssh.Client, error) {
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
 	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return nil, ctxErr
+			return nil, fmt.Errorf("failed ssh handshake (%s): %w", c.connectionDetails(), ctxErr)
 		}
 		return nil, fmt.Errorf("failed ssh handshake (%s): %w", c.connectionDetails(), err)
 	}
@@ -1007,7 +1002,7 @@ func (c *sshClient) runSSH(ctx context.Context, command string) Output {
 	sess, err := client.NewSession()
 	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return Output{Err: ctxErr}
+			return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), ctxErr)}
 		}
 		c.factory.evictConn(c.connKey())
 		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}
@@ -1039,7 +1034,7 @@ func (c *sshClient) runSSH(ctx context.Context, command string) Output {
 		return Output{
 			StdOut: stdoutBuffer.String(),
 			StdErr: stderrBuffer.String(),
-			Err:    ctxErr,
+			Err:    fmt.Errorf("ssh command failed (%s): %w", c.connectionDetails(), ctxErr),
 		}
 	}
 

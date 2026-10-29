@@ -963,7 +963,7 @@ func (s *Service) analyzeSSHOutputRegistering(out sshclient.Output) (isSSHTimeou
 
 func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, isConnectionRefused bool, reterr error) {
 	switch {
-	case os.IsTimeout(sshErr) || sshclient.IsTimeoutError(sshErr):
+	case sshclient.IsTimeoutError(sshErr):
 		isSSHTimeoutError = true
 	case sshclient.IsAuthenticationFailedError(sshErr):
 		// check if the reboot triggered
@@ -2144,7 +2144,7 @@ func analyzeSSHOutputInstallImage(ctx context.Context, out sshclient.Output, ssh
 	// check err
 	if out.Err != nil {
 		switch {
-		case os.IsTimeout(out.Err) || sshclient.IsTimeoutError(out.Err):
+		case sshclient.IsTimeoutError(out.Err):
 			isTimeout = true
 			return isTimeout, false, nil
 		case sshclient.IsAuthenticationFailedError(out.Err):
@@ -2481,7 +2481,7 @@ func analyzeSSHOutputProvisioned(out sshclient.Output) (isTimeout, isConnectionR
 	// check err
 	if out.Err != nil {
 		switch {
-		case os.IsTimeout(out.Err) || sshclient.IsTimeoutError(out.Err):
+		case sshclient.IsTimeoutError(out.Err):
 			isTimeout = true
 		case sshclient.IsAuthenticationFailedError(out.Err):
 			// As the same ssh key has been used before and after, something is wrong here.
