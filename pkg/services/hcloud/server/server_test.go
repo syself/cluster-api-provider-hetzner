@@ -303,7 +303,7 @@ var _ = Describe("handleBootStateUnset", func() {
 		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav1.HCloudMachineSSHPrivateKeyAvailableCondition, metav1.ConditionFalse, infrav1.HCloudMachineSSHPrivateKeySecretRefNotConfiguredReason)).To(BeTrue())
 	})
 
-	It("marks SSHPrivateKeyAvailableCondition false and polls slowly when the SSH private key secret does not exist", func() {
+	It("marks SSHPrivateKeyAvailableCondition false and requeues after 5 minutes when the SSH private key secret does not exist", func() {
 		machine := &clusterv1.Machine{
 			ObjectMeta: metav1.ObjectMeta{Name: hcloudMachine.Name, Namespace: hcloudMachine.Namespace},
 		}
@@ -317,11 +317,11 @@ var _ = Describe("handleBootStateUnset", func() {
 			EventRecorder: record.NewFakeRecorder(10),
 
 			Cluster: &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "clustername", Namespace: "default"}},
-			HetznerCluster: &infrav2.HetznerCluster{
+			HetznerCluster: &infrav1.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{Name: "clustername", Namespace: "default"},
-				Spec: infrav2.HetznerClusterSpec{
-					SSHKeys: infrav2.HetznerSSHKeys{
-						RescueSecretRef: infrav2.SSHSecretRef{
+				Spec: infrav1.HetznerClusterSpec{
+					SSHKeys: infrav1.HetznerSSHKeys{
+						RescueSecretRef: &infrav1.SSHSecretRef{
 							Name: "does-not-exist", // no such secret
 						},
 					},
@@ -336,10 +336,54 @@ var _ = Describe("handleBootStateUnset", func() {
 
 		res, err := service.handleBootStateUnset(context.Background())
 		Expect(err).To(BeNil())
-		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Minute})) // no watch for a not-yet-existing secret, so poll
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Minute})) // the secret cache never sees a not-yet-labeled secret, so poll
 
-		Expect(isPresentAndFalseWithReasonDeprecatedV1Beta1(hcloudMachine, infrav2.SSHPrivateKeyAvailableV1Beta1Condition, infrav2.SSHPrivateKeySecretNotFoundV1Beta1Reason)).To(BeTrue())
-		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav2.HCloudMachineSSHPrivateKeyAvailableCondition, metav1.ConditionFalse, infrav2.HCloudMachineSSHPrivateKeySecretNotFoundReason)).To(BeTrue())
+		Expect(isPresentAndFalseWithReasonDeprecatedV1Beta1(hcloudMachine, infrav1.SSHPrivateKeyAvailableV1Beta1Condition, infrav1.SSHPrivateKeySecretNotFoundV1Beta1Reason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav1.HCloudMachineSSHPrivateKeyAvailableCondition, metav1.ConditionFalse, infrav1.HCloudMachineSSHPrivateKeySecretNotFoundReason)).To(BeTrue())
+	})
+
+	It("marks SSHPrivateKeyAvailableCondition false and does not requeue when the SSH private key secret exists but the key is empty", func() {
+		machine := &clusterv1.Machine{
+			ObjectMeta: metav1.ObjectMeta{Name: hcloudMachine.Name, Namespace: hcloudMachine.Namespace},
+		}
+
+		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "empty-ssh-secret", Namespace: "default"}}
+		Expect(testEnv.Create(context.Background(), secret)).To(Succeed())
+		DeferCleanup(func() { Expect(testEnv.Delete(context.Background(), secret)).To(Succeed()) })
+
+		machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
+			Client:    testEnv.GetClient(),
+			APIReader: testEnv.GetAPIReader(),
+
+			HCloudClient:  mocks.NewClient(GinkgoT()),
+			Logger:        GinkgoLogr,
+			EventRecorder: record.NewFakeRecorder(10),
+
+			Cluster: &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "clustername", Namespace: "default"}},
+			HetznerCluster: &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{Name: "clustername", Namespace: "default"},
+				Spec: infrav1.HetznerClusterSpec{
+					SSHKeys: infrav1.HetznerSSHKeys{
+						RescueSecretRef: &infrav1.SSHSecretRef{
+							Name: "empty-ssh-secret",
+							Key:  infrav1.SSHSecretKeyRef{PrivateKey: "ssh-privatekey"},
+						},
+					},
+				},
+			},
+			HCloudMachine: hcloudMachine,
+			Machine:       machine,
+		})
+		Expect(err).To(BeNil())
+
+		service := &Service{scope: machineScope}
+
+		res, err := service.handleBootStateUnset(context.Background())
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(isPresentAndFalseWithReasonDeprecatedV1Beta1(hcloudMachine, infrav1.SSHPrivateKeyAvailableV1Beta1Condition, infrav1.SSHPrivateKeyFieldEmptyV1Beta1Reason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReason(hcloudMachine, infrav1.HCloudMachineSSHPrivateKeyAvailableCondition, metav1.ConditionFalse, infrav1.HCloudMachineSSHPrivateKeyFieldEmptyReason)).To(BeTrue())
 	})
 })
 

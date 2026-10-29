@@ -68,13 +68,6 @@ var errServerCreateStopReconcile = errors.New("stopped Reconciling")
 
 var errSSHKeyMisconfigured = errors.New("SSH key misconfigured")
 
-// errSSHSecretNotFound means the referenced secret doesn't exist yet. Unlike
-// errSSHKeyMisconfigured, this is worth polling for: the secret cache only watches
-// Secrets carrying the caph.environment label, which ObtainSecret adds on first
-// successful read, so a Secret created after this error keeps missing that label
-// and never raises a watch event.
-var errSSHSecretNotFound = errors.New("SSH secret not found")
-
 // Service defines struct with machine scope to reconcile HCloudMachines.
 type Service struct {
 	scope *scope.MachineScope
@@ -226,11 +219,13 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			s.scope.Error(err, "")
 			switch {
 			case errors.Is(err, errSSHKeyMisconfigured):
-				// Unfixable without editing HetznerCluster.Spec, which has its own working watch.
+				// RescueSecretRef.Name or RescueSecretRef.Key.PrivateKey is empty (the latter
+				// also when the key is missing in the secret). Both are fixed by editing
+				// HetznerCluster.Spec or the secret, and both have a watch.
 				return reconcile.Result{}, nil
-			case errors.Is(err, errSSHSecretNotFound):
-				// No watch will wake this up (see errSSHSecretNotFound), so poll slowly instead
-				// of the default interval below.
+			case apierrors.IsNotFound(err):
+				// The secret cache only holds Secrets labeled by ObtainSecret on first successful
+				// read, so creating the missing secret raises no watch event. Poll instead.
 				return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			default:
 				return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
@@ -2385,7 +2380,7 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 				Message: fmt.Sprintf("secret %s/%s not found", s.scope.Namespace(), robotSecretName),
 			})
 
-			return "", fmt.Errorf("%w: secret %q not found", errSSHSecretNotFound, robotSecretName)
+			return "", fmt.Errorf("SSH secret not found: %q: %w", robotSecretName, err)
 		}
 
 		return "", fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
