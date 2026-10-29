@@ -217,10 +217,19 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		_, err := s.getSSHPrivateKey(ctx)
 		if err != nil {
 			s.scope.Error(err, "")
-			if errors.Is(err, errSSHKeyMisconfigured) {
+			switch {
+			case errors.Is(err, errSSHKeyMisconfigured):
+				// RescueSecretRef.Name or RescueSecretRef.Key.PrivateKey is empty (the latter
+				// also when the key is missing in the secret). Both are fixed by editing
+				// HetznerCluster.Spec or the secret, and both have a watch.
 				return reconcile.Result{}, nil
+			case apierrors.IsNotFound(err):
+				// The secret cache only holds Secrets labeled by ObtainSecret on first successful
+				// read, so creating the missing secret raises no watch event. Poll instead.
+				return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
+			default:
+				return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
 			}
-			return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
 		}
 		deprecatedv1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav1.SSHPrivateKeyAvailableV1Beta1Condition)
 		conditions.Set(s.scope.HCloudMachine, metav1.Condition{
@@ -2370,6 +2379,8 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 				Reason:  infrav1.HCloudMachineSSHPrivateKeySecretNotFoundReason,
 				Message: fmt.Sprintf("secret %s/%s not found", s.scope.Namespace(), robotSecretName),
 			})
+
+			return "", fmt.Errorf("SSH secret not found: %q: %w", robotSecretName, err)
 		}
 
 		return "", fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
@@ -2392,7 +2403,8 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 			Reason:  infrav1.HCloudMachineSSHPrivateKeyFieldEmptyReason,
 			Message: fmt.Sprintf("key %q in secret %q is missing or empty", rescueSecretRef.Key.PrivateKey, robotSecretName),
 		})
-		return "", fmt.Errorf("key %q in secret %q is missing or empty. Failed to get ssh-private-key",
+		return "", fmt.Errorf("%w: key %q in secret %q is missing or empty. Failed to get ssh-private-key",
+			errSSHKeyMisconfigured,
 			rescueSecretRef.Key.PrivateKey,
 			robotSecretName)
 	}

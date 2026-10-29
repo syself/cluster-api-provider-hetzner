@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
@@ -362,7 +363,7 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		WatchesRawSource(source.Kind[client.Object](
 			mgr.GetCache(),
 			&corev1.Secret{},
-			handler.EnqueueRequestsFromMapFunc(r.HetznerSecretToHCloudMachines(ctx)),
+			handler.EnqueueRequestsFromMapFunc(r.SecretToHCloudMachines(ctx)),
 			IgnoreInsignificantSecretUpdates(log),
 		)).
 		Complete(r)
@@ -455,9 +456,9 @@ func controlPlaneLoadBalancerTargetsChanged(oldCluster, newCluster *infrav1.Hetz
 	return !slices.Equal(oldTargets, newTargets)
 }
 
-// HetznerSecretToHCloudMachines is a handler.ToRequestsFunc to be used to enqueue requests for reconciliation
-// of HCloudMachines when the referenced HetznerSecret changes (e.g. after a token rotation).
-func (r *HCloudMachineReconciler) HetznerSecretToHCloudMachines(_ context.Context) handler.MapFunc {
+// SecretToHCloudMachines enqueues HCloudMachines when a Secret referenced by
+// HetznerCluster.Spec.HetznerSecret or SSHKeys.RescueSecretRef changes, e.g. token rotation.
+func (r *HCloudMachineReconciler) SecretToHCloudMachines(_ context.Context) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		log := log.FromContext(ctx)
 
@@ -467,7 +468,7 @@ func (r *HCloudMachineReconciler) HetznerSecretToHCloudMachines(_ context.Contex
 			return nil
 		}
 
-		log = log.WithValues("objectMapper", "hetznerSecretToHCloudMachine", "namespace", secret.Namespace, "secret", secret.Name)
+		log = log.WithValues("objectMapper", "secretToHCloudMachine", "namespace", secret.Namespace, "secret", secret.Name)
 
 		hetznerClusterList := &infrav1.HetznerClusterList{}
 		if err := r.List(ctx, hetznerClusterList, client.InNamespace(secret.Namespace)); err != nil {
@@ -479,7 +480,7 @@ func (r *HCloudMachineReconciler) HetznerSecretToHCloudMachines(_ context.Contex
 		toRequests := r.HetznerClusterToHCloudMachines(ctx)
 		for i := range hetznerClusterList.Items {
 			hc := &hetznerClusterList.Items[i]
-			if hc.Spec.HetznerSecret.Name != secret.Name {
+			if hc.Spec.HetznerSecret.Name != secret.Name && ptr.Deref(hc.Spec.SSHKeys.RescueSecretRef, infrav1.SSHSecretRef{}).Name != secret.Name {
 				continue
 			}
 			// With --watch-filter set, this controller only needs to reconcile objects that have the
