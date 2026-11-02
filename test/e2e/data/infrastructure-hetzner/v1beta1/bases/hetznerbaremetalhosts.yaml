@@ -18,6 +18,7 @@ spec:
   description: Test Machine 1670788
 ---
 # 2026-07-14: new server and new disks.
+# 2026-11-02: Enabled again. It provisioned without errors in E2E Basic Baremetal (CI run 41434170858).
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
@@ -29,7 +30,7 @@ spec:
   serverID: 1716772 # ip: 136.243.69.24
   rootDeviceHints:
     wwn: "0x500a075116bd44de"
-  maintenanceMode: true
+  maintenanceMode: false
   description: Test Machine 1716772
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -77,6 +78,7 @@ spec:
   description: Test Machine 1751550
 ---
 # 2026-04-09: Disabled after CI hit repeated rescue-mode reboot timeouts.
+# 2026-11-02: Enabled again. It provisioned without errors in E2E Basic Baremetal (CI run 41434170858).
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
@@ -88,5 +90,5 @@ spec:
   serverID: 1763731 # ip: 144.76.101.50
   rootDeviceHints:
     wwn: "0x500a07511756c36d"
-  maintenanceMode: true
-  description: Test Machine 1751550
+  maintenanceMode: false
+  description: Test Machine 1763731
