@@ -205,6 +205,19 @@ var _ = Describe("Test HasSoftwareReboot", func() {
 	)
 })
 
+var _ = Describe("Test HasPowerCycle", func() {
+	DescribeTable("Test HasPowerCycle",
+		func(rebootTypes []RebootType, expectBool bool) {
+			host := HetznerBareMetalHost{}
+			host.Status.RebootTypes = rebootTypes
+			Expect(host.HasPowerCycle()).Should(Equal(expectBool))
+		},
+		Entry("has power_long and power", []RebootType{RebootTypePower, RebootTypePowerLong, RebootTypeHardware}, true),
+		Entry("has power but not power_long", []RebootType{RebootTypePower, RebootTypeHardware}, false),
+		Entry("has power_long but not power", []RebootType{RebootTypePowerLong, RebootTypeHardware}, false),
+	)
+})
+
 var _ = Describe("Test HasHardwareReboot", func() {
 	type testCaseHasHardwareReboot struct {
 		rebootTypes []RebootType

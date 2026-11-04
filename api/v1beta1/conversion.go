@@ -449,6 +449,10 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 		rebootType = infrav1.RebootTypeSoftware
 	case ErrorTypeHardwareRebootTriggered:
 		rebootType = infrav1.RebootTypeHardware
+	case ErrorTypePowerLongRebootTriggered:
+		rebootType = infrav1.RebootTypePowerLong
+	case ErrorTypePowerRebootTriggered:
+		rebootType = infrav1.RebootTypePower
 	}
 	if rebootType != "" && !in.RebootTriggeredAt.IsZero() {
 		out.OngoingReboot = infrav1.OngoingReboot{
@@ -510,6 +514,10 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedSt
 				out.ErrorType = ErrorTypeSoftwareRebootTriggered
 			case infrav1.RebootTypeHardware:
 				out.ErrorType = ErrorTypeHardwareRebootTriggered
+			case infrav1.RebootTypePowerLong:
+				out.ErrorType = ErrorTypePowerLongRebootTriggered
+			case infrav1.RebootTypePower:
+				out.ErrorType = ErrorTypePowerRebootTriggered
 			}
 		}
 		if !in.OngoingReboot.TriggeredAt.IsZero() {

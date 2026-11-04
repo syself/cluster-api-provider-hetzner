@@ -485,6 +485,18 @@ func TestConvertHetznerBareMetalHostErrorTypeToV1Beta2(t *testing.T) {
 			wantOngoingReboot: infrav1.OngoingReboot{Type: infrav1.RebootTypeHardware, TriggeredAt: triggeredAt},
 		},
 		{
+			name:              "power long reboot becomes an ongoing reboot",
+			errorType:         ErrorTypePowerLongRebootTriggered,
+			rebootTriggeredAt: &triggeredAt,
+			wantOngoingReboot: infrav1.OngoingReboot{Type: infrav1.RebootTypePowerLong, TriggeredAt: triggeredAt},
+		},
+		{
+			name:              "power reboot becomes an ongoing reboot",
+			errorType:         ErrorTypePowerRebootTriggered,
+			rebootTriggeredAt: &triggeredAt,
+			wantOngoingReboot: infrav1.OngoingReboot{Type: infrav1.RebootTypePower, TriggeredAt: triggeredAt},
+		},
+		{
 			name:      "reboot without rebootTriggeredAt does not get an ongoing reboot",
 			errorType: ErrorTypeSSHRebootTriggered,
 		},
@@ -560,6 +572,18 @@ func TestConvertHetznerBareMetalHostOngoingRebootToV1Beta1(t *testing.T) {
 			name:                  "ongoing reboot",
 			ongoingReboot:         infrav1.OngoingReboot{Type: infrav1.RebootTypeSoftware, TriggeredAt: triggeredAt},
 			wantErrorType:         ErrorTypeSoftwareRebootTriggered,
+			wantRebootTriggeredAt: &triggeredAt,
+		},
+		{
+			name:                  "ongoing power long reboot",
+			ongoingReboot:         infrav1.OngoingReboot{Type: infrav1.RebootTypePowerLong, TriggeredAt: triggeredAt},
+			wantErrorType:         ErrorTypePowerLongRebootTriggered,
+			wantRebootTriggeredAt: &triggeredAt,
+		},
+		{
+			name:                  "ongoing power reboot",
+			ongoingReboot:         infrav1.OngoingReboot{Type: infrav1.RebootTypePower, TriggeredAt: triggeredAt},
+			wantErrorType:         ErrorTypePowerRebootTriggered,
 			wantRebootTriggeredAt: &triggeredAt,
 		},
 		{
@@ -2922,7 +2946,8 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			switch status.ErrorType {
 			case FatalError, PermanentError:
 				status.RebootTriggeredAt = nil
-			case ErrorTypeSSHRebootTriggered, ErrorTypeSoftwareRebootTriggered, ErrorTypeHardwareRebootTriggered:
+			case ErrorTypeSSHRebootTriggered, ErrorTypeSoftwareRebootTriggered, ErrorTypeHardwareRebootTriggered,
+				ErrorTypePowerLongRebootTriggered, ErrorTypePowerRebootTriggered:
 				if status.RebootTriggeredAt == nil {
 					status.ErrorType = ""
 				}
@@ -2969,7 +2994,8 @@ func spokeV1Beta2StatusFuzzFuncs(_ runtimeserializer.CodecFactory) []interface{}
 			}
 			if ongoingReboot := &in.Status.OngoingReboot; ongoingReboot.IsDefined() {
 				switch ongoingReboot.Type {
-				case infrav1.RebootTypeSSH, infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware:
+				case infrav1.RebootTypeSSH, infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware,
+					infrav1.RebootTypePowerLong, infrav1.RebootTypePower:
 				default:
 					ongoingReboot.Type = infrav1.RebootTypeSSH
 				}

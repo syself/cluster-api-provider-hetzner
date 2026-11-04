@@ -1269,6 +1269,8 @@ spec:
                     - ssh
                     - sw
                     - hw
+                    - power_long
+                    - power
                     maxLength: 64
                     type: string
                 required:

@@ -68,13 +68,15 @@ func TestStateEnumsMatchConstants(t *testing.T) {
 			fieldPath: []string{"status", "errorType"},
 		},
 		{
-			// The controller sends a reboot via SSH or via the Robot API as a software or hardware
-			// reboot (setOngoingReboot and rebootTypeAfterTimeout in pkg/services/baremetal/host).
+			// The controller sends a reboot via SSH or via the Robot API as a software reboot, a
+			// hardware reboot, or a power cycle with power_long and power (setOngoingReboot and
+			// rebootTypeAfterTimeout in pkg/services/baremetal/host).
 			// The other RebootType constants only appear in status.rebootTypes, the list of reboot
 			// types that the Robot API offers for the host.
 			name: "HetznerBareMetalHost ongoingReboot type",
 			constants: func(c stringConstant) bool {
-				return c.name == "RebootTypeSSH" || c.name == "RebootTypeSoftware" || c.name == "RebootTypeHardware"
+				return c.name == "RebootTypeSSH" || c.name == "RebootTypeSoftware" || c.name == "RebootTypeHardware" ||
+					c.name == "RebootTypePowerLong" || c.name == "RebootTypePower"
 			},
 			crdFile:   "infrastructure.cluster.x-k8s.io_hetznerbaremetalhosts.yaml",
 			fieldPath: []string{"status", "ongoingReboot", "type"},
