@@ -1065,6 +1065,9 @@ name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express
 		StdErr: "",
 		Err:    nil,
 	})
+	sshClient.On("GetHardwareInfo", mock.Anything).Return(sshclient.Output{
+		StdOut: "board_name=PRIME B760M-A D4\nboot_mode=UEFI\n",
+	})
 	sshClient.On("DownloadImage", mock.Anything, mock.Anything).Return(sshclient.Output{})
 	sshClient.On("CreateAutoSetup", mock.Anything).Return(sshclient.Output{})
 	sshClient.On("UntarTGZ", mock.Anything).Return(sshclient.Output{})

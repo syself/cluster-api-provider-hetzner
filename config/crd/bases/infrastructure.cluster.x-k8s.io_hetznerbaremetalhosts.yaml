@@ -243,9 +243,29 @@ spec:
                     description: StatusHardwareDetails are automatically gathered
                       and should not be modified by the user.
                     properties:
+                      board:
+                        description: Board describes the mainboard of the host.
+                        properties:
+                          name:
+                            description: Name is the product name of the mainboard.
+                            type: string
+                          vendor:
+                            description: Vendor is the manufacturer of the mainboard.
+                            type: string
+                          version:
+                            description: Version is the revision of the mainboard.
+                            type: string
+                        type: object
                       cpu:
                         description: CPU describes one processor on the host.
                         properties:
+                          amx:
+                            description: AMX tells whether the CPU has AMX (Advanced
+                              Matrix Extensions).
+                            enum:
+                            - Supported
+                            - Unsupported
+                            type: string
                           arch:
                             type: string
                           clockGigahertz:
@@ -254,14 +274,75 @@ spec:
                             type: string
                           cores:
                             type: integer
+                          family:
+                            description: Family is the CPU family number from /proc/cpuinfo.
+                            format: int32
+                            type: integer
                           flags:
                             items:
                               type: string
                             type: array
+                          microcode:
+                            description: Microcode is the microcode revision that
+                              the CPU runs, for example "0x3d".
+                            type: string
                           model:
                             type: string
+                          modelID:
+                            description: |-
+                              ModelID is the CPU model number from /proc/cpuinfo. Together with family and stepping, it
+                              names the CPU generation and the microcode file for this CPU.
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          stepping:
+                            description: Stepping is the CPU stepping number from
+                              /proc/cpuinfo.
+                            format: int32
+                            minimum: 0
+                            type: integer
                           threads:
                             type: integer
+                          x86Level:
+                            description: |-
+                              X86Level is the x86-64 microarchitecture level of the CPU, from 1 to 4.
+                              Level 4 means that the CPU has AVX-512.
+                            format: int32
+                            maximum: 4
+                            minimum: 1
+                            type: integer
+                        type: object
+                      firmware:
+                        description: Firmware describes the firmware of the host.
+                        properties:
+                          bootMode:
+                            description: BootMode is the mode in which the firmware
+                              booted the rescue system.
+                            enum:
+                            - UEFI
+                            - Legacy
+                            type: string
+                          vendor:
+                            description: Vendor is the vendor of the firmware.
+                            type: string
+                          version:
+                            description: Version is the version of the firmware.
+                            type: string
+                        type: object
+                      memory:
+                        description: Memory describes the memory modules of the host.
+                        properties:
+                          ecc:
+                            description: ECC tells whether the memory uses error correction
+                              (ECC).
+                            enum:
+                            - Enabled
+                            - Disabled
+                            type: string
+                          type:
+                            description: Type is the memory type of the first installed
+                              module, for example DDR4 or DDR5.
+                            type: string
                         type: object
                       nics:
                         items:
@@ -279,8 +360,9 @@ spec:
                               pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                               type: string
                             model:
-                              description: The vendor and product IDs of the NIC,
-                                e.g. "0x8086 0x1572"
+                              description: The lspci description of the NIC, e.g.
+                                "Intel Corporation I210 Gigabit Network Connection
+                                (rev 03)"
                               type: string
                             name:
                               description: The name of the network interface, e.g.
@@ -290,6 +372,39 @@ spec:
                               description: The speed of the device in Gigabits per
                                 second
                               type: integer
+                          type: object
+                        type: array
+                      pciDevices:
+                        description: |-
+                          PCIDevices is the list of storage, network and display devices on the PCI bus of the host.
+                          It also lists network devices without a link, which nics leaves out.
+                        items:
+                          description: PCIDevice describes one storage, network or
+                            display device on the PCI bus of the host.
+                          properties:
+                            address:
+                              description: Address is the PCI address of the device,
+                                for example "0000:05:00.0".
+                              type: string
+                            class:
+                              description: Class is the PCI class code, for example
+                                "0x020000" for an Ethernet controller.
+                              type: string
+                            deviceID:
+                              description: DeviceID is the PCI device ID, for example
+                                "0x8125".
+                              type: string
+                            driver:
+                              description: Driver is the Linux driver that the rescue
+                                system uses for the device. It is empty when no driver
+                                is loaded.
+                              type: string
+                            vendorID:
+                              description: VendorID is the PCI vendor ID, for example
+                                "0x10ec".
+                              type: string
+                          required:
+                          - address
                           type: object
                         type: array
                       ramGB:
@@ -334,6 +449,11 @@ spec:
                               type: string
                           type: object
                         type: array
+                      watchdogDriver:
+                        description: |-
+                          WatchdogDriver is the Linux driver of the hardware watchdog, for example iTCO_wdt or sp5100-tco.
+                          It is empty when the rescue system did not find a hardware watchdog.
+                        type: string
                     type: object
                   hetznerClusterRef:
                     description: |-
@@ -534,6 +654,12 @@ spec:
                     description: Rebooted shows whether the server is currently being
                       rebooted.
                     type: boolean
+                  robotProduct:
+                    description: |-
+                      RobotProduct is the product name of the server in Hetzner Robot, for example "EX44".
+                      For a server from the server auction, Robot returns "Server Auction".
+                      The controller reads it from the Robot API in the preparing state, before registering sets hardwareDetails.
+                    type: string
                   sshSpec:
                     description: SSHSpec defines specs for SSH.
                     properties:
@@ -1088,10 +1214,37 @@ spec:
                 description: hardwareDetails are automatically gathered and should
                   not be modified by the user.
                 properties:
+                  board:
+                    description: board describes the mainboard of the host.
+                    minProperties: 1
+                    properties:
+                      name:
+                        description: name is the product name of the mainboard.
+                        maxLength: 256
+                        minLength: 1
+                        type: string
+                      vendor:
+                        description: vendor is the manufacturer of the mainboard.
+                        maxLength: 256
+                        minLength: 1
+                        type: string
+                      version:
+                        description: version is the revision of the mainboard.
+                        maxLength: 256
+                        minLength: 1
+                        type: string
+                    type: object
                   cpu:
                     description: cpu describes the CPU of the host.
                     minProperties: 1
                     properties:
+                      amx:
+                        description: amx tells whether the CPU has AMX (Advanced Matrix
+                          Extensions).
+                        enum:
+                        - Supported
+                        - Unsupported
+                        type: string
                       arch:
                         description: arch is the CPU architecture, for example x86_64.
                         maxLength: 64
@@ -1110,17 +1263,89 @@ spec:
                         format: int32
                         minimum: 1
                         type: integer
+                      family:
+                        description: family is the CPU family number from /proc/cpuinfo,
+                          for example 6 for most Intel CPUs.
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      microcode:
+                        description: microcode is the microcode revision that the
+                          CPU runs, for example "0x3d".
+                        maxLength: 32
+                        minLength: 1
+                        type: string
                       model:
                         description: model is the CPU model name.
                         maxLength: 512
                         minLength: 1
                         type: string
+                      modelID:
+                        description: |-
+                          modelID is the CPU model number from /proc/cpuinfo. Together with family and stepping, it
+                          names the CPU generation and the microcode file for this CPU.
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      stepping:
+                        description: stepping is the CPU stepping number from /proc/cpuinfo.
+                        format: int32
+                        minimum: 0
+                        type: integer
                       threads:
                         description: threads is the number of logical CPUs of the
                           host.
                         format: int32
                         minimum: 1
                         type: integer
+                      x86Level:
+                        description: |-
+                          x86Level is the x86-64 microarchitecture level of the CPU, from 1 to 4.
+                          Level 4 means that the CPU has AVX-512.
+                        format: int32
+                        maximum: 4
+                        minimum: 1
+                        type: integer
+                    type: object
+                  firmware:
+                    description: firmware describes the firmware of the host.
+                    minProperties: 1
+                    properties:
+                      bootMode:
+                        description: bootMode is the mode in which the firmware booted
+                          the rescue system.
+                        enum:
+                        - UEFI
+                        - Legacy
+                        type: string
+                      vendor:
+                        description: vendor is the vendor of the firmware.
+                        maxLength: 256
+                        minLength: 1
+                        type: string
+                      version:
+                        description: version is the version of the firmware.
+                        maxLength: 256
+                        minLength: 1
+                        type: string
+                    type: object
+                  memory:
+                    description: memory describes the memory modules of the host.
+                    minProperties: 1
+                    properties:
+                      ecc:
+                        description: ecc tells whether the memory uses error correction
+                          (ECC).
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
+                      type:
+                        description: type is the memory type of the first installed
+                          module, for example DDR4 or DDR5.
+                        maxLength: 64
+                        minLength: 1
+                        type: string
                     type: object
                   nics:
                     description: |-
@@ -1148,8 +1373,9 @@ spec:
                           pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
                           type: string
                         model:
-                          description: model is the vendor and product IDs of the
-                            NIC, e.g. "0x8086 0x1572"
+                          description: model is the lspci description of the NIC,
+                            e.g. "Intel Corporation I210 Gigabit Network Connection
+                            (rev 03)"
                           maxLength: 512
                           minLength: 1
                           type: string
@@ -1167,6 +1393,52 @@ spec:
                           type: integer
                       required:
                       - name
+                      type: object
+                    maxItems: 128
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  pciDevices:
+                    description: |-
+                      pciDevices is the list of storage, network and display devices on the PCI bus of the host.
+                      It also lists network devices without a link, which nics leaves out.
+                      The limit is far above the number of such devices that a Hetzner dedicated server has.
+                    items:
+                      description: PCIDevice describes one storage, network or display
+                        device on the PCI bus of the host.
+                      properties:
+                        address:
+                          description: address is the PCI address of the device, for
+                            example "0000:05:00.0".
+                          maxLength: 32
+                          minLength: 1
+                          type: string
+                        class:
+                          description: class is the PCI class code, for example "0x020000"
+                            for an Ethernet controller.
+                          maxLength: 16
+                          minLength: 1
+                          type: string
+                        deviceID:
+                          description: deviceID is the PCI device ID, for example
+                            "0x8125".
+                          maxLength: 16
+                          minLength: 1
+                          type: string
+                        driver:
+                          description: driver is the Linux driver that the rescue
+                            system uses for the device. It is empty when no driver
+                            is loaded.
+                          maxLength: 64
+                          minLength: 1
+                          type: string
+                        vendorID:
+                          description: vendorID is the PCI vendor ID, for example
+                            "0x10ec".
+                          maxLength: 16
+                          minLength: 1
+                          type: string
+                      required:
+                      - address
                       type: object
                     maxItems: 128
                     type: array
@@ -1237,6 +1509,13 @@ spec:
                     maxItems: 256
                     type: array
                     x-kubernetes-list-type: atomic
+                  watchdogDriver:
+                    description: |-
+                      watchdogDriver is the Linux driver of the hardware watchdog, for example iTCO_wdt or sp5100-tco.
+                      It is empty when the rescue system did not find a hardware watchdog.
+                    maxLength: 64
+                    minLength: 1
+                    type: string
                 type: object
               ipv4:
                 description: ipv4 address of the server.
@@ -1306,6 +1585,14 @@ spec:
                 description: rebooted shows whether the server is currently being
                   rebooted. Not set means false.
                 type: boolean
+              robotProduct:
+                description: |-
+                  robotProduct is the product name of the server in Hetzner Robot, for example "EX44".
+                  For a server from the server auction, Robot returns "Server Auction".
+                  The controller reads it from the Robot API in the preparing state, before registering sets hardwareDetails.
+                maxLength: 256
+                minLength: 1
+                type: string
               sshStatus:
                 description: sshStatus contains the name and fingerprint of the SSH
                   keys that have been used.
