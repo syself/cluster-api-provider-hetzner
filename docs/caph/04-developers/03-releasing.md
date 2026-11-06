@@ -36,7 +36,7 @@ Review the draft release on GitHub: [Releases](https://github.com/syself/cluster
 
 <Step>Check the generated assets</Step>
 
-Double check that the assets got created. There should be one zip file, one tgz file, and 12 yaml files.
+Double check that the assets got created. There should be one zip file, one tgz file, and 10 yaml files.
 
 <Step>Mark as pre-release if applicable</Step>
 
