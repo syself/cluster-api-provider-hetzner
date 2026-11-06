@@ -1069,6 +1069,52 @@ func (_c *Client_GetHardwareDetailsStorage_Call) RunAndReturn(run func(context.C
 	return _c
 }
 
+// GetHardwareInfo provides a mock function with given fields: ctx
+func (_m *Client) GetHardwareInfo(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetHardwareInfo")
+	}
+
+	var r0 sshclient.Output
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(sshclient.Output)
+	}
+
+	return r0
+}
+
+// Client_GetHardwareInfo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetHardwareInfo'
+type Client_GetHardwareInfo_Call struct {
+	*mock.Call
+}
+
+// GetHardwareInfo is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *Client_Expecter) GetHardwareInfo(ctx interface{}) *Client_GetHardwareInfo_Call {
+	return &Client_GetHardwareInfo_Call{Call: _e.mock.On("GetHardwareInfo", ctx)}
+}
+
+func (_c *Client_GetHardwareInfo_Call) Run(run func(ctx context.Context)) *Client_GetHardwareInfo_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Client_GetHardwareInfo_Call) Return(_a0 sshclient.Output) *Client_GetHardwareInfo_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_GetHardwareInfo_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetHardwareInfo_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetHostName provides a mock function with given fields: ctx
 func (_m *Client) GetHostName(ctx context.Context) sshclient.Output {
 	ret := _m.Called(ctx)

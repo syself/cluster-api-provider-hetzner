@@ -1,0 +1,228 @@
+/*
+Copyright 2026 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package host
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"strconv"
+	"strings"
+
+	"k8s.io/utils/ptr"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+)
+
+// maxPCIDevices is the MaxItems limit of hardwareDetails.pciDevices. A longer list would make
+// the API server reject the whole status update.
+const maxPCIDevices = 128
+
+// maxValueLength has the MaxLength limits of the API fields that get a value as it is. A longer
+// value would make the API server reject the whole status update.
+var maxValueLength = map[string]int{
+	"board_vendor":     256,
+	"board_name":       256,
+	"board_version":    256,
+	"firmware_vendor":  256,
+	"firmware_version": 256,
+	"cpu_microcode":    32,
+	"memory_type":      64,
+	"watchdog_driver":  64,
+}
+
+// x86LevelFlags are the CPU flags that the x86-64 levels 2, 3 and 4 add, as /proc/cpuinfo names
+// them. A CPU has a level when it has the flags of that level and of all levels below it.
+// The kernel calls LZCNT "abm".
+var x86LevelFlags = [][]string{
+	{"cx16", "lahf_lm", "popcnt", "sse4_1", "sse4_2", "ssse3"},
+	{"avx", "avx2", "bmi1", "bmi2", "f16c", "fma", "abm", "movbe", "xsave"},
+	{"avx512f", "avx512bw", "avx512cd", "avx512dq", "avx512vl"},
+}
+
+// addHardwareInfo adds the board, firmware, CPU, memory, watchdog and PCI device details that
+// hardware-info.sh prints to hardwareDetails. Nothing in the controller reads these values. When a
+// value cannot be read, its field stays empty and the controller logs an error, but registering
+// continues.
+func (s *Service) addHardwareInfo(ctx context.Context, sshClient sshclient.Client, hardwareDetails *infrav1.HardwareDetails) {
+	out := sshClient.GetHardwareInfo(ctx)
+
+	errs := []error{out.Err, parseHardwareInfo(out.StdOut, hardwareDetails)}
+	if out.StdErr != "" {
+		errs = append(errs, fmt.Errorf("hardware-info.sh wrote to stderr: %s", out.StdErr))
+	}
+
+	if err := errors.Join(errs...); err != nil {
+		s.scope.Error(err, "failed to read some hardware details, their fields stay empty", "stdout", out.StdOut)
+	}
+}
+
+// parseHardwareInfo sets the fields of hardwareDetails from the key=value lines of hardware-info.sh.
+// A key with an empty value leaves its field empty. It returns an error for each value it cannot parse.
+func parseHardwareInfo(stdOut string, hardwareDetails *infrav1.HardwareDetails) error {
+	var errs []error
+
+	for line := range strings.Lines(stdOut) {
+		key, value, found := strings.Cut(line, "=")
+		if !found {
+			continue
+		}
+
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+
+		if limit, ok := maxValueLength[key]; ok && len(value) > limit {
+			errs = append(errs, fmt.Errorf("%s is longer than %d characters: %q", key, limit, value))
+			continue
+		}
+
+		switch key {
+		case "board_vendor":
+			hardwareDetails.Board.Vendor = value
+		case "board_name":
+			hardwareDetails.Board.Name = value
+		case "board_version":
+			hardwareDetails.Board.Version = value
+		case "firmware_vendor":
+			hardwareDetails.Firmware.Vendor = value
+		case "firmware_version":
+			hardwareDetails.Firmware.Version = value
+		case "boot_mode":
+			bootMode := infrav1.BootMode(value)
+			if bootMode != infrav1.BootModeUEFI && bootMode != infrav1.BootModeLegacy {
+				errs = append(errs, fmt.Errorf("unknown boot_mode %q", value))
+				continue
+			}
+			hardwareDetails.Firmware.BootMode = bootMode
+
+		case "cpu_family":
+			family, err := parseInt32(key, value, 1)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			hardwareDetails.CPU.Family = family
+		case "cpu_model_id":
+			modelID, err := parseInt32(key, value, 0)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			hardwareDetails.CPU.ModelID = ptr.To(modelID)
+		case "cpu_stepping":
+			stepping, err := parseInt32(key, value, 0)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			hardwareDetails.CPU.Stepping = ptr.To(stepping)
+		case "cpu_microcode":
+			hardwareDetails.CPU.Microcode = value
+		case "cpu_flags":
+			flags := strings.Fields(value)
+			hardwareDetails.CPU.X86Level = x86Level(flags)
+			hardwareDetails.CPU.AMX = infrav1.CPUFeatureUnsupported
+			if slices.Contains(flags, "amx_tile") {
+				hardwareDetails.CPU.AMX = infrav1.CPUFeatureSupported
+			}
+
+		case "memory_type":
+			// dmidecode reports "Unknown" or "Other" when the firmware does not know the type.
+			if value != "Unknown" && value != "Other" {
+				hardwareDetails.Memory.Type = value
+			}
+		case "memory_ecc":
+			// dmidecode reports the kind of error correction, for example "Multi-bit ECC", or "None".
+			switch value {
+			case "None":
+				hardwareDetails.Memory.ECC = infrav1.ECCDisabled
+			case "Unknown", "Other":
+				// the firmware does not know it, so ecc stays empty.
+			default:
+				hardwareDetails.Memory.ECC = infrav1.ECCEnabled
+			}
+
+		case "watchdog_driver":
+			hardwareDetails.WatchdogDriver = value
+
+		case "pci_device":
+			// the line has the address, vendor ID, device ID, class and driver. A device
+			// without a driver has only the first four.
+			fields := strings.Fields(value)
+			if len(fields) < 4 {
+				errs = append(errs, fmt.Errorf("failed to parse pci_device %q: want at least 4 fields", value))
+				continue
+			}
+			if len(hardwareDetails.PCIDevices) == maxPCIDevices {
+				errs = append(errs, fmt.Errorf("found more than %d PCI devices, the rest is left out", maxPCIDevices))
+				continue
+			}
+			if len(fields[0]) > 32 || len(fields[1]) > 16 || len(fields[2]) > 16 || len(fields[3]) > 16 ||
+				(len(fields) > 4 && len(fields[4]) > 64) {
+				errs = append(errs, fmt.Errorf("pci_device %q has a value that is longer than the API allows", value))
+				continue
+			}
+			device := infrav1.PCIDevice{
+				Address:  fields[0],
+				VendorID: fields[1],
+				DeviceID: fields[2],
+				Class:    fields[3],
+			}
+			if len(fields) > 4 {
+				device.Driver = fields[4]
+			}
+			hardwareDetails.PCIDevices = append(hardwareDetails.PCIDevices, device)
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+// parseInt32 parses value and checks the Minimum limit of its API field.
+func parseInt32(key, value string, minimum int32) (int32, error) {
+	n, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse %s %q: %w", key, value, err)
+	}
+	if int32(n) < minimum {
+		return 0, fmt.Errorf("%s %d is below the minimum %d", key, n, minimum)
+	}
+	return int32(n), nil
+}
+
+// x86Level returns the x86-64 level of a CPU with these flags, from 1 to 4. It returns 0 when the
+// CPU does not have the flag "lm" (long mode), because then the CPU does not run x86-64 code.
+func x86Level(flags []string) int32 {
+	if !slices.Contains(flags, "lm") {
+		return 0
+	}
+
+	level := int32(1)
+	for _, levelFlags := range x86LevelFlags {
+		for _, flag := range levelFlags {
+			if !slices.Contains(flags, flag) {
+				return level
+			}
+		}
+		level++
+	}
+	return level
+}
