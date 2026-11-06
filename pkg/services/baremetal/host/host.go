@@ -844,8 +844,17 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 
 		isSSHTimeoutError, isSSHConnectionRefusedError, err := s.analyzeSSHOutputRegistering(out)
 		if err != nil {
-			// This can happen if the bare-metal server was taken by another mgt-cluster.
-			// Check in https://robot.hetzner.com/server for the "History" of the server.
+			if errors.Is(err, errWrongSSHKey) {
+				markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost, infrav2.StateRegistering, err.Error())
+				conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+					Type:    infrav2.HetznerBareMetalHostSSHKeysAvailableCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav2.HetznerBareMetalHostSSHKeysWrongKeyReason,
+					Message: err.Error(),
+				})
+				s.scope.EventRecorder.Event(s.scope.HetznerBareMetalHost, corev1.EventTypeWarning, "SSHFailedWhileRegistering", err.Error())
+				return actionContinue{delay: 5 * time.Minute}
+			}
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - registering: %w", err)}
 		}
 
@@ -1118,7 +1127,7 @@ func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, i
 		if !rebootTriggered {
 			return false, false, nil
 		}
-		reterr = fmt.Errorf("wrong ssh key: %w", sshErr)
+		reterr = fmt.Errorf("%w: %w", errWrongSSHKey, sshErr)
 	case sshclient.IsConnectionRefusedError(sshErr):
 		isConnectionRefused = true
 
