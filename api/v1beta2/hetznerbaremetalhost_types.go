@@ -313,6 +313,14 @@ type HetznerBareMetalHostStatus struct {
 	// +optional
 	HardwareDetails *HardwareDetails `json:"hardwareDetails,omitempty"`
 
+	// robotProduct is the product name of the server in Hetzner Robot, for example "EX44".
+	// For a server from the server auction, Robot returns "Server Auction".
+	// The controller reads it from the Robot API in the preparing state, before registering sets hardwareDetails.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
+	RobotProduct string `json:"robotProduct,omitempty"`
+
 	// ipv4 address of the server.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
@@ -585,6 +593,164 @@ type CPU struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	Cores int32 `json:"cores,omitempty"`
+
+	// family is the CPU family number from /proc/cpuinfo, for example 6 for most Intel CPUs.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	Family int32 `json:"family,omitempty"`
+
+	// modelID is the CPU model number from /proc/cpuinfo. Together with family and stepping, it
+	// names the CPU generation and the microcode file for this CPU.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	ModelID *int32 `json:"modelID,omitempty"`
+
+	// stepping is the CPU stepping number from /proc/cpuinfo.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	Stepping *int32 `json:"stepping,omitempty"`
+
+	// microcode is the microcode revision that the CPU runs, for example "0x3d".
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=32
+	Microcode string `json:"microcode,omitempty"`
+
+	// x86Level is the x86-64 microarchitecture level of the CPU, from 1 to 4.
+	// Level 4 means that the CPU has AVX-512.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4
+	X86Level int32 `json:"x86Level,omitempty"`
+
+	// amx tells whether the CPU has AMX (Advanced Matrix Extensions).
+	// +optional
+	AMX CPUFeatureSupport `json:"amx,omitempty"`
+}
+
+// CPUFeatureSupport tells whether the CPU has a feature.
+// +kubebuilder:validation:Enum=Supported;Unsupported
+type CPUFeatureSupport string
+
+const (
+	// CPUFeatureSupported means that the CPU has the feature.
+	CPUFeatureSupported CPUFeatureSupport = "Supported"
+
+	// CPUFeatureUnsupported means that the CPU does not have the feature.
+	CPUFeatureUnsupported CPUFeatureSupport = "Unsupported"
+)
+
+// Board describes the mainboard of the host, as the firmware reports it.
+// +kubebuilder:validation:MinProperties=1
+type Board struct {
+	// vendor is the manufacturer of the mainboard.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
+	Vendor string `json:"vendor,omitempty"`
+
+	// name is the product name of the mainboard.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
+	Name string `json:"name,omitempty"`
+
+	// version is the revision of the mainboard.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
+	Version string `json:"version,omitempty"`
+}
+
+// Firmware describes the firmware (BIOS or UEFI) of the host.
+// +kubebuilder:validation:MinProperties=1
+type Firmware struct {
+	// vendor is the vendor of the firmware.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
+	Vendor string `json:"vendor,omitempty"`
+
+	// version is the version of the firmware.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
+	Version string `json:"version,omitempty"`
+
+	// bootMode is the mode in which the firmware booted the rescue system.
+	// +optional
+	BootMode BootMode `json:"bootMode,omitempty"`
+}
+
+// BootMode is the mode in which the firmware boots the host.
+// +kubebuilder:validation:Enum=UEFI;Legacy
+type BootMode string
+
+const (
+	// BootModeUEFI means that the firmware boots in UEFI mode.
+	BootModeUEFI BootMode = "UEFI"
+
+	// BootModeLegacy means that the firmware boots in legacy BIOS mode.
+	BootModeLegacy BootMode = "Legacy"
+)
+
+// Memory describes the memory modules of the host.
+// +kubebuilder:validation:MinProperties=1
+type Memory struct {
+	// type is the memory type of the installed modules, for example DDR4 or DDR5.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
+	Type string `json:"type,omitempty"`
+
+	// ecc tells whether the memory uses error correction (ECC).
+	// +optional
+	ECC ECCState `json:"ecc,omitempty"`
+}
+
+// ECCState tells whether the memory uses error correction (ECC).
+// +kubebuilder:validation:Enum=Enabled;Disabled
+type ECCState string
+
+const (
+	// ECCEnabled means that the memory uses error correction.
+	ECCEnabled ECCState = "Enabled"
+
+	// ECCDisabled means that the memory does not use error correction.
+	ECCDisabled ECCState = "Disabled"
+)
+
+// PCIDevice describes one storage, network or display device on the PCI bus of the host.
+type PCIDevice struct {
+	// address is the PCI address of the device, for example "0000:05:00.0".
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=32
+	Address string `json:"address,omitempty"`
+
+	// vendorID is the PCI vendor ID, for example "0x10ec".
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=16
+	VendorID string `json:"vendorID,omitempty"`
+
+	// deviceID is the PCI device ID, for example "0x8125".
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=16
+	DeviceID string `json:"deviceID,omitempty"`
+
+	// class is the PCI class code, for example "0x020000" for an Ethernet controller.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=16
+	Class string `json:"class,omitempty"`
+
+	// driver is the Linux driver that the rescue system uses for the device. It is empty when no driver is loaded.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
+	Driver string `json:"driver,omitempty"`
 }
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
@@ -650,7 +816,7 @@ type NIC struct {
 	// +kubebuilder:validation:MaxLength=15
 	Name string `json:"name,omitempty"`
 
-	// model is the vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
+	// model is the lspci description of the NIC, e.g. "Intel Corporation I210 Gigabit Network Connection (rev 03)"
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=512
@@ -705,6 +871,33 @@ type HardwareDetails struct {
 	// cpu describes the CPU of the host.
 	// +optional
 	CPU CPU `json:"cpu,omitempty,omitzero"`
+
+	// board describes the mainboard of the host.
+	// +optional
+	Board Board `json:"board,omitempty,omitzero"`
+
+	// firmware describes the firmware of the host.
+	// +optional
+	Firmware Firmware `json:"firmware,omitempty,omitzero"`
+
+	// memory describes the memory modules of the host.
+	// +optional
+	Memory Memory `json:"memory,omitempty,omitzero"`
+
+	// watchdogDriver is the Linux driver of the hardware watchdog, for example iTCO_wdt or sp5100-tco.
+	// It is empty when the rescue system did not find a hardware watchdog.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
+	WatchdogDriver string `json:"watchdogDriver,omitempty"`
+
+	// pciDevices is the list of storage, network and display devices on the PCI bus of the host.
+	// It also lists network devices without a link, which nics leaves out.
+	// The limit is far above the number of such devices that a Hetzner dedicated server has.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=128
+	PCIDevices []PCIDevice `json:"pciDevices,omitempty"`
 }
 
 // +kubebuilder:object:root=true

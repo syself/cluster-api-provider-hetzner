@@ -1350,6 +1350,46 @@ var _ = Describe("actionPreparing", func() {
 		Expect(robotMock.AssertCalled(GinkgoT(), "SetBootRescue", mock.Anything, sshFingerprint)).To(BeTrue())
 	})
 
+	It("stores the Robot product and leaves hardwareDetails nil", func() {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+		)
+
+		robotMock := robotmock.Client{}
+		robotMock.On("GetBMServer", mock.Anything).Return(&models.Server{
+			ServerNumber: 1,
+			ServerIP:     "1.2.3.4",
+			Product:      "EX44",
+		}, nil)
+		robotMock.On("ListSSHKeys").Return([]models.Key{}, nil)
+		robotMock.On("SetSSHKey", mock.Anything, mock.Anything).Return(
+			&models.Key{Name: rescueSSHKeyName, Fingerprint: sshFingerprint},
+			nil,
+		)
+		robotMock.On("GetReboot", mock.Anything).Return(&models.Reset{Type: []string{"sw", "hw"}}, nil)
+		robotMock.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
+		robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(&models.Rescue{Active: true}, nil)
+		robotMock.On("RebootBMServer", mock.Anything, infrav1.RebootTypeSoftware).Return(&models.ResetPost{}, nil)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{})
+
+		service := newTestService(
+			host,
+			&robotMock,
+			bmmock.NewSSHFactory(sshMock, sshMock, sshMock),
+			helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
+			helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"),
+		)
+
+		Expect(service.actionPreparing(context.Background())).To(BeAssignableToTypeOf(actionComplete{}))
+
+		Expect(host.Status.RobotProduct).To(Equal("EX44"))
+		// nodeAddresses returns no addresses while hardwareDetails is nil, so preparing must not set it.
+		Expect(host.Status.HardwareDetails).To(BeNil())
+	})
+
 	It("sets a permanent error when the server has no IPv4", func() {
 		host := helpers.BareMetalHost(
 			"test-host",
@@ -1992,6 +2032,11 @@ var _ = Describe("actionRegistering", func() {
 })
 
 func registeringSSHMock(storageStdOut string) *sshmock.Client {
+	return registeringSSHMockWithHardwareInfo(storageStdOut, sshclient.Output{StdOut: ex44HardwareInfo})
+}
+
+// registeringSSHMockWithHardwareInfo is registeringSSHMock with a custom output of hardware-info.sh.
+func registeringSSHMockWithHardwareInfo(storageStdOut string, hardwareInfo sshclient.Output) *sshmock.Client {
 	sshMock := &sshmock.Client{}
 	sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 	sshMock.On("GetHardwareDetailsRAM", mock.Anything).Return(sshclient.Output{StdOut: "10000"})
@@ -2008,6 +2053,7 @@ name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express
 	sshMock.On("GetHardwareDetailsCPUThreads", mock.Anything).Return(sshclient.Output{StdOut: "123"})
 	sshMock.On("GetHardwareDetailsCPUCores", mock.Anything).Return(sshclient.Output{StdOut: "12"})
 	sshMock.On("GetHardwareDetailsDebug", mock.Anything).Return(sshclient.Output{StdOut: "Dummy output"})
+	sshMock.On("GetHardwareInfo", mock.Anything).Return(hardwareInfo)
 	return sshMock
 }
 
