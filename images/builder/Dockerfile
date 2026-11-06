@@ -21,19 +21,19 @@ FROM cgr.dev/chainguard/wolfi-base:latest AS wolfi
 WORKDIR /
 
 # update: datasource=repology depName=wolfi/controller-gen versioning=apk
-ARG CONTROLLER_GEN_VERSION="0.20.0-r1"
+ARG CONTROLLER_GEN_VERSION="0.22.0-r1"
 
 # update: datasource=repology depName=wolfi/golangci-lint versioning=apk
-ARG GOLANGCI_VERSION="2.8.0-r2"
+ARG GOLANGCI_VERSION="2.14.0-r1"
 
 # update: datasource=repology depName=wolfi/helm versioning=apk
-ARG HELM_VERSION="4.1.0-r1"
+ARG HELM_VERSION="4.3.1-r0"
 
 # update: datasource=repology depName=wolfi/skopeo versioning=apk
-ARG SKOPEO_VERSION="1.21.0-r3"
+ARG SKOPEO_VERSION="1.23.0-r0"
 
 # update: datasource=repology depName=wolfi/trivy versioning=apk
-ARG TRIVY_VERSION="0.69.0-r1"
+ARG TRIVY_VERSION="0.70.0-r5"
 
 RUN apk add --no-cache \
     controller-gen=$CONTROLLER_GEN_VERSION \
@@ -55,7 +55,7 @@ FROM docker.io/hadolint/hadolint:v2.15.1-alpine@sha256:a1d49ae1a4e83c1dbad26b8c1
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.25-trixie@sha256:2c4c60ef415fbfa5e90300722293bef36c5e63fae17570ce18f580af933dbd73
+FROM docker.io/library/golang:1.26.9-trixie@sha256:f06b7122f888680048afb247c4e5f49c0069eb6c4c1ccae0f3f4834527a8d22c
 
 # Start of "we should move that to a previous Layer"
 # Note: We should keep the final layer clean. We could get most tools from wolfi.

@@ -534,7 +534,6 @@ golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 # golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39
 ## explicit; go 1.24.0
-golang.org/x/exp/maps
 golang.org/x/exp/slices
 # golang.org/x/mod v0.37.0
 ## explicit; go 1.25.0

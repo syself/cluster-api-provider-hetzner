@@ -13,6 +13,7 @@ metadata:
     app.kubernetes.io/instance: ccm
     app.kubernetes.io/version: "v2.0.6"
     app.kubernetes.io/managed-by: Helm
+
 ---
 # Source: ccm-hetzner/templates/serviceaccount.yaml
 kind: ClusterRoleBinding

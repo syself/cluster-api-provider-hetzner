@@ -79,7 +79,7 @@ func TestAllMethodsWrapUnauthorized(t *testing.T) {
 			switch {
 			case at == ctxType:
 				args[j] = reflect.ValueOf(context.Background())
-			case at.Kind() == reflect.Ptr:
+			case at.Kind() == reflect.Pointer:
 				args[j] = reflect.New(at.Elem())
 				fillNilPointers(args[j].Elem(), 3)
 			case at.Kind() == reflect.String:
@@ -119,7 +119,7 @@ func fillNilPointers(v reflect.Value, depth int) {
 		if v.Type().Field(i).Name == "Datacenter" {
 			continue
 		}
-		if !f.CanSet() || f.Kind() != reflect.Ptr || f.Type().Elem().Kind() != reflect.Struct {
+		if !f.CanSet() || f.Kind() != reflect.Pointer || f.Type().Elem().Kind() != reflect.Struct {
 			continue
 		}
 		f.Set(reflect.New(f.Type().Elem()))
