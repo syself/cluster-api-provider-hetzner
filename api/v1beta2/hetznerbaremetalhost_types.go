@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -126,7 +127,7 @@ const (
 type OngoingReboot struct {
 	// type is the kind of reboot we sent.
 	// +required
-	// +kubebuilder:validation:Enum=ssh;sw;hw
+	// +kubebuilder:validation:Enum=ssh;sw;hw;power_long;power
 	Type RebootType `json:"type,omitempty"`
 
 	// triggeredAt is when we sent the reboot.
@@ -196,6 +197,8 @@ type RebootType string
 const (
 	// RebootTypePower defines the power reboot. "Press power button of server".
 	RebootTypePower RebootType = "power"
+	// RebootTypePowerLong defines a long press of the power button. It turns the server off.
+	RebootTypePowerLong RebootType = "power_long"
 	// RebootTypeSoftware defines the software reboot. "Send CTRL+ALT+DEL to the server".
 	RebootTypeSoftware RebootType = "sw"
 	// RebootTypeHardware defines the hardware reboot. "Execute an automatic hardware reset".
@@ -211,11 +214,12 @@ const (
 // The string is CamelCase.
 func VerboseRebootType(rebootType RebootType) string {
 	return map[RebootType]string{
-		RebootTypePower:    "Power",
-		RebootTypeSoftware: "Software",
-		RebootTypeHardware: "Hardware",
-		RebootTypeManual:   "Manual",
-		RebootTypeSSH:      "SSH",
+		RebootTypePower:     "Power",
+		RebootTypePowerLong: "PowerLong",
+		RebootTypeSoftware:  "Software",
+		RebootTypeHardware:  "Hardware",
+		RebootTypeManual:    "Manual",
+		RebootTypeSSH:       "SSH",
 	}[rebootType]
 }
 
@@ -794,6 +798,13 @@ func (host *HetznerBareMetalHost) HasSoftwareReboot() bool {
 		}
 	}
 	return false
+}
+
+// HasPowerCycle returns true if Robot offers power_long and power for the server. power_long turns
+// the server off and power turns it on again.
+func (host *HetznerBareMetalHost) HasPowerCycle() bool {
+	return slices.Contains(host.Status.RebootTypes, RebootTypePowerLong) &&
+		slices.Contains(host.Status.RebootTypes, RebootTypePower)
 }
 
 // HasHardwareReboot returns a boolean indicating whether hardware reboot exists for the server.

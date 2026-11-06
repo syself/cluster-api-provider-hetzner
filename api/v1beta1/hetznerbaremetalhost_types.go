@@ -112,6 +112,12 @@ const (
 	ErrorTypeSoftwareRebootTriggered ErrorType = "software reboot triggered"
 	// ErrorTypeHardwareRebootTriggered is an error condition that triggers the hardware reboot.
 	ErrorTypeHardwareRebootTriggered ErrorType = "hardware reboot triggered"
+	// ErrorTypePowerLongRebootTriggered is an error condition that triggers the power_long reboot.
+	// It turns the server off as the first step of a power cycle.
+	ErrorTypePowerLongRebootTriggered ErrorType = "power long reboot triggered"
+	// ErrorTypePowerRebootTriggered is an error condition that triggers the power reboot.
+	// It turns the server on as the last step of a power cycle.
+	ErrorTypePowerRebootTriggered ErrorType = "power reboot triggered"
 
 	// ErrorTypeConnectionError ErrorType is an error condition indicating that the SSH command returned a connection refused error.
 	ErrorTypeConnectionError ErrorType = "connection refused error of SSH command"

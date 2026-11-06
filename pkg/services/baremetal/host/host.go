@@ -71,6 +71,17 @@ const (
 	// PostInstallScriptFinished is a marker in the output of installimage. If it is not present,
 	// then install-image failed.
 	PostInstallScriptFinished = "POST_INSTALL_SCRIPT_FINISHED"
+
+	// powerOffWaitTime is the minimum time between power_long and power. We send power once Robot
+	// reports "shut off" and this time has passed since power_long. Robot's answer to power_long
+	// usually reports "shut off" already. In that case the server is off for at least this long.
+	powerOffWaitTime time.Duration = 5 * time.Second
+	// powerOffTimeout is how long after power_long we try to send power. When Robot does not report
+	// "shut off" in time, or the Robot calls keep failing, we send a hardware reset.
+	powerOffTimeout time.Duration = 2 * time.Minute
+	// robotOperatingStatusShutOff is the operating_status that Robot's GET /reset/{server-number}
+	// reports for a server that is off.
+	robotOperatingStatusShutOff = "shut off"
 )
 
 var (
@@ -304,7 +315,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		}
 	}
 
-	// Check if software reboot is available. If it is not, choose hardware reboot.
+	// rebootTypeAfterTimeout picks a software reboot, a power cycle or a hardware reboot.
 	rebootType := rebootTypeAfterTimeout(s.scope.HetznerBareMetalHost)
 
 	if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), rebootType); err != nil {
@@ -415,7 +426,8 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 
 // handleIncompleteBoot checks if the reboot was successful.
 // If it was not successful, it tries other reboot methods.
-// Order: SSH -> Software -> Hardware.
+// Order: SSH -> Software -> Power cycle -> Hardware. We skip the reboot methods that Robot does not
+// offer for the server.
 // It returns failed=true when the server cannot be reached in time and the caller should
 // record a fatal error on the host.
 func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, isTimeout, isConnectionRefused bool) (failed bool, err error) {
@@ -478,6 +490,9 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 	case infrav1.RebootTypeSoftware:
 		return false, s.handleSoftwareRebootFailed(ctx, isTimeout, isRebootIntoRescue)
 
+	case infrav1.RebootTypePower:
+		return s.handlePowerRebootFailed(ctx, isTimeout, isRebootIntoRescue)
+
 	case infrav1.RebootTypeHardware:
 		return s.handleHardwareRebootFailed(isTimeout, isRebootIntoRescue)
 	}
@@ -502,7 +517,7 @@ func (s *Service) handleSSHRebootFailed(ctx context.Context, isSSHTimeoutError, 
 			}
 		}
 
-		// Check if software reboot is available. If it is not, choose hardware reboot.
+		// rebootTypeAfterTimeout picks a software reboot, a power cycle or a hardware reboot.
 		rebootType := rebootTypeAfterTimeout(s.scope.HetznerBareMetalHost)
 
 		if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), rebootType); err != nil {
@@ -517,10 +532,17 @@ func (s *Service) handleSSHRebootFailed(ctx context.Context, isSSHTimeoutError, 
 	return nil
 }
 
+// rebootTypeAfterTimeout returns the reboot type we send through Robot. It returns sw if Robot offers
+// it. Otherwise it returns power_long, the first step of a power cycle, if Robot offers power_long and
+// power. Otherwise it returns hw.
+// We prefer a power cycle to hw, because hw keeps the power on. Some GPUs, e.g. the NVIDIA RTX PRO
+// 6000 Blackwell, are sometimes missing from the PCI bus after hw. They come back after a power cycle.
 func rebootTypeAfterTimeout(host *infrav1.HetznerBareMetalHost) infrav1.RebootType {
 	switch {
 	case host.HasSoftwareReboot():
 		return infrav1.RebootTypeSoftware
+	case host.HasPowerCycle():
+		return infrav1.RebootTypePowerLong
 	case host.HasHardwareReboot():
 		return infrav1.RebootTypeHardware
 	default:
@@ -545,15 +567,18 @@ func (s *Service) handleSoftwareRebootFailed(ctx context.Context, isSSHTimeoutEr
 				return fmt.Errorf("failed to ensure rescue mode: %w", err)
 			}
 		}
-		// Perform hardware reboot
-		if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), infrav1.RebootTypeHardware); err != nil {
+		rebootType := infrav1.RebootTypeHardware
+		if s.scope.HetznerBareMetalHost.HasPowerCycle() {
+			rebootType = infrav1.RebootTypePowerLong
+		}
+		if _, err := s.scope.RobotClient.RebootBMServer(int(s.scope.HetznerBareMetalHost.Spec.ServerID), rebootType); err != nil {
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
 		msg := fmt.Sprintf("Reboot via type 'software' into %s failed. Now using rebootType %q.",
-			rebootInto, infrav1.RebootTypeHardware)
-		msg = s.createRebootEvent(ctx, s.scope.HetznerBareMetalHost, infrav1.RebootTypeHardware, msg)
-		setOngoingReboot(s.scope.HetznerBareMetalHost, infrav1.RebootTypeHardware, msg)
+			rebootInto, rebootType)
+		msg = s.createRebootEvent(ctx, s.scope.HetznerBareMetalHost, rebootType, msg)
+		setOngoingReboot(s.scope.HetznerBareMetalHost, rebootType, msg)
 	}
 
 	return nil
@@ -640,6 +665,119 @@ func (s *Service) handleHardwareRebootFailed(isSSHTimeoutError, wantsRescue bool
 	return false, nil
 }
 
+// handlePowerRebootFailed is called when the hostname check fails after a power cycle. It sends a
+// hardware reset when the server does not come back in time. It returns true when the caller should
+// record a fatal error on the host.
+func (s *Service) handlePowerRebootFailed(ctx context.Context, isSSHTimeoutError, wantsRescue bool) (bool, error) {
+	rebootInto := "node"
+	if wantsRescue {
+		rebootInto = "rescue mode"
+	}
+
+	// ssh returned a wrong hostname. The server booted into the wrong system. A hardware reset uses the
+	// same boot order. We give up right away.
+	if !isSSHTimeoutError {
+		msg := "The server did not boot into the installed operating system after the power cycle. Please check if the server is working properly."
+		if wantsRescue {
+			msg = "The server did not boot into the rescue system after the power cycle. Please ensure that the server tries to boot from network before booting from disk. This setting needs to be enabled permanently in the BIOS."
+		}
+		deprecatedv1beta1conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.ProvisionSucceededV1Beta1Condition,
+			infrav1.BootedIntoWrongSystemV1Beta1Reason,
+			clusterv1.ConditionSeverityError,
+			"%s",
+			msg,
+		)
+		conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalHostBootedIntoWrongSystemReason,
+			Message: msg,
+		})
+
+		s.scope.EventRecorder.Event(
+			s.scope.HetznerBareMetalHost,
+			corev1.EventTypeWarning,
+			infrav1.HetznerBareMetalHostBootedIntoWrongSystemReason,
+			msg,
+		)
+
+		return true, fmt.Errorf("server did not boot into %s after power cycle", rebootInto)
+	}
+
+	// ssh timed out. The server is probably still booting. We wait hardwareResetTimeout, as we do after
+	// a hardware reset.
+	if !hasTimedOut(s.scope.HetznerBareMetalHost.Status.OngoingReboot, hardwareResetTimeout) {
+		return false, nil
+	}
+
+	msg := fmt.Sprintf("Power cycle into %s timed out. Now using rebootType %q.", rebootInto, infrav1.RebootTypeHardware)
+	return false, s.sendHardwareResetAfterPowerCycle(ctx, wantsRescue, msg)
+}
+
+// continuePowerCycle sends power once Robot reports the server as off and powerOffWaitTime has passed
+// since power_long. power on a running server would shut it down. It sends a hardware reset when it
+// could not send power within powerOffTimeout.
+func (s *Service) continuePowerCycle(ctx context.Context, wantsRescue bool) actionResult {
+	host := s.scope.HetznerBareMetalHost
+
+	// 1. Wait until powerOffWaitTime has passed since power_long.
+	if !hasTimedOut(host.Status.OngoingReboot, powerOffWaitTime) {
+		return actionContinue{delay: powerOffWaitTime}
+	}
+
+	// 2. We could not send power in time. Send a hardware reset. We check this before the Robot calls
+	// below, so that a Robot call that keeps failing does not leave the server off.
+	if hasTimedOut(host.Status.OngoingReboot, powerOffTimeout) {
+		msg := fmt.Sprintf("Could not send power within %s after power_long. Now using rebootType %q.",
+			powerOffTimeout, infrav1.RebootTypeHardware)
+		if err := s.sendHardwareResetAfterPowerCycle(ctx, wantsRescue, msg); err != nil {
+			return actionError{err: err}
+		}
+		return actionContinue{delay: 10 * time.Second}
+	}
+
+	// 3. Ask Robot whether the server is off.
+	reset, err := s.scope.RobotClient.GetReboot(int(host.Spec.ServerID))
+	if err != nil {
+		s.handleRobotRateLimitExceeded(err, "GetReboot")
+		return actionError{err: fmt.Errorf("failed to get reboot: %w", err)}
+	}
+
+	// 4. The server is off. Turn it on.
+	if reset.OperatingStatus == robotOperatingStatusShutOff {
+		if _, err := s.scope.RobotClient.RebootBMServer(int(host.Spec.ServerID), infrav1.RebootTypePower); err != nil {
+			s.handleRobotRateLimitExceeded(err, rebootServerStr)
+			return actionError{err: fmt.Errorf(errMsgFailedReboot, err)}
+		}
+		msg := s.createRebootEvent(ctx, host, infrav1.RebootTypePower, "Robot reports the server as shut off. Turning it on.")
+		setOngoingReboot(host, infrav1.RebootTypePower, msg)
+		return actionContinue{delay: 10 * time.Second}
+	}
+
+	// 5. Robot does not report the server as off yet. Ask again in 15 seconds.
+	return actionContinue{delay: 15 * time.Second}
+}
+
+// sendHardwareResetAfterPowerCycle sends a hardware reset when the power cycle did not work, and
+// records it as the ongoing reboot.
+func (s *Service) sendHardwareResetAfterPowerCycle(ctx context.Context, wantsRescue bool, msg string) error {
+	host := s.scope.HetznerBareMetalHost
+	if wantsRescue {
+		if err := s.ensureRescueMode(); err != nil {
+			return fmt.Errorf("failed to ensure rescue mode: %w", err)
+		}
+	}
+	if _, err := s.scope.RobotClient.RebootBMServer(int(host.Spec.ServerID), infrav1.RebootTypeHardware); err != nil {
+		s.handleRobotRateLimitExceeded(err, rebootServerStr)
+		return fmt.Errorf(errMsgFailedReboot, err)
+	}
+	msg = s.createRebootEvent(ctx, host, infrav1.RebootTypeHardware, msg)
+	setOngoingReboot(host, infrav1.RebootTypeHardware, msg)
+	return nil
+}
+
 // hasTimedOut returns true if we sent the ongoing reboot more than timeout ago. It returns false when
 // there is no ongoing reboot.
 func hasTimedOut(ongoingReboot infrav1.OngoingReboot, timeout time.Duration) bool {
@@ -679,6 +817,11 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	}
 
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateRegistering)
+
+	// ssh cannot reach the server while it is off after power_long. Turn it on first.
+	if s.scope.HetznerBareMetalHost.Status.OngoingReboot.Type == infrav1.RebootTypePowerLong {
+		return s.continuePowerCycle(ctx, true)
+	}
 
 	rescueSecretRef := ptr.Deref(s.scope.HetznerCluster.Spec.SSHKeys.RescueSecretRef, infrav1.SSHSecretRef{})
 	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, rescueSecretRef.Key.Name, rescueSecretRef.Key.PublicKey, rescueSecretRef.Key.PrivateKey)
@@ -2234,6 +2377,11 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		return actionComplete{}
 	}
 
+	// ssh cannot reach the server while it is off after power_long. Turn it on first.
+	if s.scope.HetznerBareMetalHost.Status.OngoingReboot.Type == infrav1.RebootTypePowerLong {
+		return s.continuePowerCycle(ctx, false)
+	}
+
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.Name, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PublicKey, s.scope.HetznerBareMetalMachine.Spec.SSHSpec.SecretRef.Key.PrivateKey).PrivateKey,
 		Port:       int(ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SSHSpec.PortAfterInstallImage, infrav1.DefaultPortAfterInstallImage)),
@@ -2535,6 +2683,25 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	host := s.scope.HetznerBareMetalHost
 
+	// The server is off after power_long. Turn it on before anything else. The code below reads the
+	// Node from the workload cluster, and the API server might not answer while this node is off.
+	// If the reboot annotation is removed, the code below clears the ongoing reboot and we never send
+	// power.
+	if host.Status.OngoingReboot.Type == infrav1.RebootTypePowerLong {
+		return s.continuePowerCycle(ctx, false)
+	}
+
+	// The node did not come back within 5 minutes after power. Send a hardware reset. This check comes
+	// before we read the Node, because the API server might not answer while this node is down.
+	if host.Status.OngoingReboot.Type == infrav1.RebootTypePower && hasTimedOut(host.Status.OngoingReboot, 5*time.Minute) {
+		rebootDuration := time.Since(host.Status.OngoingReboot.TriggeredAt.Time)
+		msg := fmt.Sprintf("Power cycle timed out after: %s. Now using rebootType %q.", rebootDuration.Round(time.Second), infrav1.RebootTypeHardware)
+		if err := s.sendHardwareResetAfterPowerCycle(ctx, false, msg); err != nil {
+			return actionError{err: err}
+		}
+		return actionContinue{delay: 30 * time.Second}
+	}
+
 	// Connect to the workload cluster to read node state.
 	wlClient, err := s.scope.WorkloadClusterClientFactory.NewWorkloadClient(ctx)
 	if err != nil {
@@ -2773,8 +2940,11 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 			s.createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
 		} else {
-			// Hardware reboot: trigger via the Hetzner Robot API.
+			// Reboot via the Hetzner Robot API, with a power cycle or a hardware reset.
 			rebootType = infrav1.RebootTypeHardware
+			if host.HasPowerCycle() {
+				rebootType = infrav1.RebootTypePowerLong
+			}
 			if _, err := s.scope.RobotClient.RebootBMServer(int(host.Spec.ServerID), rebootType); err != nil {
 				// If Robot API returned "unauthorized" error - mark condition RobotCredentialsAvailable as false
 				// with reason RobotCredentialsInvalidReason and stop reconciling.
@@ -2821,7 +2991,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 				return actionError{err: err}
 			}
 
-			s.createHardwareRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
+			s.createRebootEvent(ctx, s.scope.HetznerBareMetalHost, rebootType, msg)
 
 			deprecatedv1beta1conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableV1Beta1Condition)
 			conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
@@ -3070,6 +3240,9 @@ func setOngoingReboot(host *infrav1.HetznerBareMetalHost, rebootType infrav1.Reb
 	case infrav1.RebootTypeHardware:
 		reason = infrav1.HetznerBareMetalHostActionCompletedHardwareRebootOngoingReason
 		v1beta1Reason = infrav1.ActionCompletedHardwareRebootTriggeredV1Beta1Reason
+	case infrav1.RebootTypePowerLong, infrav1.RebootTypePower:
+		reason = infrav1.HetznerBareMetalHostActionCompletedPowerCycleOngoingReason
+		v1beta1Reason = infrav1.ActionCompletedPowerCycleTriggeredV1Beta1Reason
 	default:
 		reason = infrav1.HetznerBareMetalHostActionCompletedUnknownErrorReason
 		v1beta1Reason = infrav1.ActionCompletedUnknownErrorV1Beta1Reason
@@ -3125,10 +3298,6 @@ func markProvisionPending(host *infrav1.HetznerBareMetalHost, state infrav1.Prov
 
 func (s *Service) createSSHRebootEvent(ctx context.Context, host *infrav1.HetznerBareMetalHost, msg string) {
 	s.createRebootEvent(ctx, host, infrav1.RebootTypeSSH, msg)
-}
-
-func (s *Service) createHardwareRebootEvent(ctx context.Context, host *infrav1.HetznerBareMetalHost, msg string) {
-	s.createRebootEvent(ctx, host, infrav1.RebootTypeHardware, msg)
 }
 
 func (s *Service) createRebootEvent(ctx context.Context, host *infrav1.HetznerBareMetalHost, rebootType infrav1.RebootType, msg string) string {
