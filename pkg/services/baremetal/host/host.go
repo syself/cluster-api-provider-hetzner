@@ -56,13 +56,11 @@ const (
 	softwareResetTimeout     time.Duration = 10 * time.Minute
 	hardwareResetTimeout     time.Duration = 10 * time.Minute
 	connectionRefusedTimeout time.Duration = 10 * time.Minute
-	// retry delay for wrong-ssh-key errors while registering.
-	registeringSSHErrorRetryDelay time.Duration = 5 * time.Minute
-	rescue                        string        = "rescue"
-	rescuePort                    int           = 22
-	gbToMebiBytes                 int           = 1000
-	gbToBytes                     int           = 1000000 * gbToMebiBytes
-	kikiToMebiBytes               int           = 1024
+	rescue                   string        = "rescue"
+	rescuePort               int           = 22
+	gbToMebiBytes            int           = 1000
+	gbToBytes                int           = 1000000 * gbToMebiBytes
+	kikiToMebiBytes          int           = 1024
 
 	errMsgFailedReboot                 = "failed to reboot bare metal server: %w"
 	errMsgInvalidSSHStdOut             = "invalid output in stdOut: %w"
@@ -683,11 +681,15 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		isSSHTimeoutError, isSSHConnectionRefusedError, err := s.analyzeSSHOutputRegistering(out)
 		if err != nil {
 			if errors.Is(err, errWrongSSHKey) {
-				// This can happen if the bare-metal server was taken by another mgt-cluster.
-				// Check in https://robot.hetzner.com/server for the "History" of the server.
 				markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost, infrav2.StateRegistering, err.Error())
+				conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+					Type:    infrav2.HetznerBareMetalHostSSHKeysAvailableCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav2.HetznerBareMetalHostSSHKeysWrongKeyReason,
+					Message: err.Error(),
+				})
 				s.scope.EventRecorder.Event(s.scope.HetznerBareMetalHost, corev1.EventTypeWarning, "SSHFailedWhileRegistering", err.Error())
-				return actionContinue{delay: registeringSSHErrorRetryDelay}
+				return actionContinue{delay: 5 * time.Minute}
 			}
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - registering: %w", err)}
 		}

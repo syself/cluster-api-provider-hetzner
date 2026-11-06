@@ -570,6 +570,8 @@ const (
 	HetznerBareMetalHostSSHKeysAvailableReason = clusterv1.AvailableReason
 	// HetznerBareMetalHostSSHKeysInvalidReason indicates SSH keys in the secret are invalid.
 	HetznerBareMetalHostSSHKeysInvalidReason = "Invalid"
+	// HetznerBareMetalHostSSHKeysWrongKeyReason indicates SSH authentication to the rescue system failed, so the configured key is wrong.
+	HetznerBareMetalHostSSHKeysWrongKeyReason = "WrongKey"
 	// HetznerBareMetalHostSSHKeyAlreadyExistsReason indicates the SSH key already exists under a different name in Hetzner Robot.
 	HetznerBareMetalHostSSHKeyAlreadyExistsReason = "AlreadyExists"
 	// HetznerBareMetalHostSSHSecretModifiedReason indicates the OS SSH secret changed while a provisioned host uses it.

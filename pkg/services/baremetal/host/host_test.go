@@ -1947,13 +1947,17 @@ var _ = Describe("actionRegistering", func() {
 
 		actResult := service.actionRegistering(ctx)
 
-		Expect(actResult).To(Equal(actionContinue{delay: registeringSSHErrorRetryDelay}))
+		Expect(actResult).To(Equal(actionContinue{delay: 5 * time.Minute}))
 		c := conditions.Get(host, infrav2.HetznerBareMetalHostProvisionSucceededCondition)
 		Expect(c).NotTo(BeNil())
 		Expect(c.Message).To(ContainSubstring("wrong ssh key"))
 		cV1Beta1 := deprecatedv1beta1conditions.Get(host, infrav2.ProvisionSucceededV1Beta1Condition)
 		Expect(cV1Beta1).NotTo(BeNil())
 		Expect(cV1Beta1.Message).To(ContainSubstring("wrong ssh key"))
+		sk := conditions.Get(host, infrav2.HetznerBareMetalHostSSHKeysAvailableCondition)
+		Expect(sk).NotTo(BeNil())
+		Expect(sk.Status).To(Equal(metav1.ConditionFalse))
+		Expect(sk.Reason).To(Equal(infrav2.HetznerBareMetalHostSSHKeysWrongKeyReason))
 
 		Expect(testEventRecorder.Events).To(HaveLen(1))
 		event := <-testEventRecorder.Events
