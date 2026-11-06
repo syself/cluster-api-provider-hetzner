@@ -706,6 +706,7 @@ type HardwareDetails struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=hbmh
+// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.provisioningState",description="Phase of provisioning"
 // +kubebuilder:printcolumn:name="HetznerBareMetalMachine",type="string",JSONPath=".spec.consumerRef.name",description="HetznerBareMetalMachine using this host"
 // +kubebuilder:printcolumn:name="Maintenance",type="boolean",JSONPath=".spec.maintenanceMode",description="Maintenance Mode"
