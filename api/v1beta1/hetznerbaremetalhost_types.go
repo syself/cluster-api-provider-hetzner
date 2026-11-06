@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -117,6 +118,12 @@ const (
 	ErrorTypeSoftwareRebootTriggered ErrorType = "software reboot triggered"
 	// ErrorTypeHardwareRebootTriggered is an error condition that triggers the hardware reboot.
 	ErrorTypeHardwareRebootTriggered ErrorType = "hardware reboot triggered"
+	// ErrorTypePowerLongRebootTriggered is an error condition that triggers the power_long reboot.
+	// It turns the server off as the first step of a power cycle.
+	ErrorTypePowerLongRebootTriggered ErrorType = "power long reboot triggered"
+	// ErrorTypePowerRebootTriggered is an error condition that triggers the power reboot.
+	// It turns the server on as the last step of a power cycle.
+	ErrorTypePowerRebootTriggered ErrorType = "power reboot triggered"
 
 	// ErrorTypeConnectionError ErrorType is an error condition indicating that the SSH command returned a connection refused error.
 	ErrorTypeConnectionError ErrorType = "connection refused error of SSH command"
@@ -192,6 +199,8 @@ type RebootType string
 const (
 	// RebootTypePower defines the power reboot. "Press power button of server".
 	RebootTypePower RebootType = "power"
+	// RebootTypePowerLong defines a long press of the power button. It turns the server off.
+	RebootTypePowerLong RebootType = "power_long"
 	// RebootTypeSoftware defines the software reboot. "Send CTRL+ALT+DEL to the server".
 	RebootTypeSoftware RebootType = "sw"
 	// RebootTypeHardware defines the hardware reboot. "Execute an automatic hardware reset".
@@ -207,11 +216,12 @@ const (
 // The string is CamelCase.
 func VerboseRebootType(rebootType RebootType) string {
 	return map[RebootType]string{
-		RebootTypePower:    "Power",
-		RebootTypeSoftware: "Software",
-		RebootTypeHardware: "Hardware",
-		RebootTypeManual:   "Manual",
-		RebootTypeSSH:      "SSH",
+		RebootTypePower:     "Power",
+		RebootTypePowerLong: "PowerLong",
+		RebootTypeSoftware:  "Software",
+		RebootTypeHardware:  "Hardware",
+		RebootTypeManual:    "Manual",
+		RebootTypeSSH:       "SSH",
 	}[rebootType]
 }
 
@@ -695,6 +705,13 @@ func (host *HetznerBareMetalHost) HasSoftwareReboot() bool {
 		}
 	}
 	return false
+}
+
+// HasPowerCycle returns true if Robot offers power_long and power for the server. power_long turns
+// the server off and power turns it on again.
+func (host *HetznerBareMetalHost) HasPowerCycle() bool {
+	return slices.Contains(host.Spec.Status.RebootTypes, RebootTypePowerLong) &&
+		slices.Contains(host.Spec.Status.RebootTypes, RebootTypePower)
 }
 
 // HasHardwareReboot returns a boolean indicating whether hardware reboot exists for the server.
