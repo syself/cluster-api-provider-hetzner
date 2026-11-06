@@ -164,7 +164,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 	}
 
 	if multierr != nil {
-		return fmt.Errorf("aggregate error - deleting placement groups: %w", err)
+		return fmt.Errorf("aggregate error - deleting placement groups: %w", multierr)
 	}
 
 	s.scope.EventRecorder.Event(
