@@ -30,7 +30,11 @@ type ILoadBalancerClient interface {
 	// Create creates a new Load Balancer.
 	Create(ctx context.Context, opts LoadBalancerCreateOpts) (LoadBalancerCreateResult, *Response, error)
 	// Delete deletes a Load Balancer.
+	//
+	// Deprecated: Use [LoadBalancerClient.DeleteWithResult] instead.
 	Delete(ctx context.Context, loadBalancer *LoadBalancer) (*Response, error)
+	// DeleteWithResult deletes a Load Balancer and returns an [Action].
+	DeleteWithResult(ctx context.Context, loadBalancer *LoadBalancer) (LoadBalancerDeleteResult, *Response, error)
 	// AddServerTarget adds a server target to a Load Balancer.
 	AddServerTarget(ctx context.Context, loadBalancer *LoadBalancer, opts LoadBalancerAddServerTargetOpts) (*Action, *Response, error)
 	// RemoveServerTarget removes a server target from a Load Balancer.
