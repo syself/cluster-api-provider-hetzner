@@ -1685,6 +1685,10 @@ func (s *Service) actionImageInstallingCustomProvisioner(ctx context.Context, ss
 		return actionStop{}
 
 	case sshclient.CustomProvisionerStateNotStarted:
+		if actionRes := s.wipeDiskAndDetectLinuxOnAnotherDisk(ctx, sshClient); actionRes != nil {
+			return actionRes
+		}
+
 		data, err := s.scope.GetRawBootstrapData(ctx)
 		if err != nil {
 			return actionError{err: fmt.Errorf("baremetal GetRawBootstrapData failed: %w", err)}
@@ -1809,60 +1813,10 @@ func (s *Service) actionImageInstallingCustomProvisioner(ctx context.Context, ss
 	}
 }
 
-func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Context, sshClient sshclient.Client) actionResult {
-	// CheckDisk before accessing the disk
-	info, err := sshClient.CheckDisk(ctx, s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN())
-	if err != nil {
-		_, annotationOk := s.scope.HetznerBareMetalHost.Annotations[infrav1.IgnoreCheckDiskAnnotation]
-		machineSkipsCheckDisk := ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SkipCheckDisk, false)
-		if !annotationOk && !machineSkipsCheckDisk {
-			// Neither the annotation nor the machine spec field is set. This is a permanent error.
-			msg := fmt.Sprintf(
-				"CheckDisk failed (permanent error): %s (set annotation %q on hbmh or skipCheckDisk on HetznerBareMetalMachine to skip)",
-				err.Error(), infrav1.IgnoreCheckDiskAnnotation,
-			)
-			deprecatedv1beta1conditions.MarkFalse(
-				s.scope.HetznerBareMetalHost,
-				infrav1.ProvisionSucceededV1Beta1Condition,
-				infrav1.CheckDiskFailedV1Beta1Reason,
-				clusterv1.ConditionSeverityError,
-				"%s",
-				msg,
-			)
-			conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
-				Type:    infrav1.HetznerBareMetalHostProvisionSucceededCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HetznerBareMetalHostCheckingDiskFailedReason,
-				Message: msg,
-			})
-			s.scope.EventRecorder.Event(
-				s.scope.HetznerBareMetalHost,
-				corev1.EventTypeWarning,
-				infrav1.HetznerBareMetalHostCheckingDiskFailedReason,
-				msg,
-			)
-			s.setHostError(infrav1.ErrorTypePermanent, msg)
-			return actionStop{}
-		}
-		// The annotation or machine spec field was set. Just create a warning and move on.
-		s.scope.EventRecorder.Eventf(
-			s.scope.HetznerBareMetalHost,
-			corev1.EventTypeWarning,
-			infrav1.HetznerBareMetalHostCheckingDiskFailedReason,
-			"CheckDisk failed. Skipping because %q is set or skipCheckDisk is true on HetznerBareMetalMachine: %s",
-			infrav1.IgnoreCheckDiskAnnotation,
-			err.Error(),
-		)
-	} else {
-		s.scope.EventRecorder.Eventf(
-			s.scope.HetznerBareMetalHost,
-			corev1.EventTypeNormal,
-			"DiskHealthy",
-			"Disk looks healthy: %s",
-			info,
-		)
-	}
-
+// wipeDiskAndDetectLinuxOnAnotherDisk wipes the disks listed in the WipeDiskAnnotation and
+// checks that there is no Linux on another disk. Both installimage and the custom provisioner
+// run it before they write to the disk. It returns nil if provisioning can go on.
+func (s *Service) wipeDiskAndDetectLinuxOnAnotherDisk(ctx context.Context, sshClient sshclient.Client) actionResult {
 	// Call WipeDisk if the corresponding annotation is set.
 	sliceOfWwns := strings.Fields(s.scope.HetznerBareMetalHost.Annotations[infrav1.WipeDiskAnnotation])
 	if len(sliceOfWwns) > 0 {
@@ -2003,6 +1957,66 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 		"OK, no Linux on another disk:\n%s\n\n%s",
 		out.StdOut, out.StdErr,
 	)
+	return nil
+}
+
+func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Context, sshClient sshclient.Client) actionResult {
+	// CheckDisk before accessing the disk
+	info, err := sshClient.CheckDisk(ctx, s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN())
+	if err != nil {
+		_, annotationOk := s.scope.HetznerBareMetalHost.Annotations[infrav1.IgnoreCheckDiskAnnotation]
+		machineSkipsCheckDisk := ptr.Deref(s.scope.HetznerBareMetalMachine.Spec.SkipCheckDisk, false)
+		if !annotationOk && !machineSkipsCheckDisk {
+			// Neither the annotation nor the machine spec field is set. This is a permanent error.
+			msg := fmt.Sprintf(
+				"CheckDisk failed (permanent error): %s (set annotation %q on hbmh or skipCheckDisk on HetznerBareMetalMachine to skip)",
+				err.Error(), infrav1.IgnoreCheckDiskAnnotation,
+			)
+			deprecatedv1beta1conditions.MarkFalse(
+				s.scope.HetznerBareMetalHost,
+				infrav1.ProvisionSucceededV1Beta1Condition,
+				infrav1.CheckDiskFailedV1Beta1Reason,
+				clusterv1.ConditionSeverityError,
+				"%s",
+				msg,
+			)
+			conditions.Set(s.scope.HetznerBareMetalHost, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalHostProvisionSucceededCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalHostCheckingDiskFailedReason,
+				Message: msg,
+			})
+			s.scope.EventRecorder.Event(
+				s.scope.HetznerBareMetalHost,
+				corev1.EventTypeWarning,
+				infrav1.HetznerBareMetalHostCheckingDiskFailedReason,
+				msg,
+			)
+			s.setHostError(infrav1.ErrorTypePermanent, msg)
+			return actionStop{}
+		}
+		// The annotation or machine spec field was set. Just create a warning and move on.
+		s.scope.EventRecorder.Eventf(
+			s.scope.HetznerBareMetalHost,
+			corev1.EventTypeWarning,
+			infrav1.HetznerBareMetalHostCheckingDiskFailedReason,
+			"CheckDisk failed. Skipping because %q is set or skipCheckDisk is true on HetznerBareMetalMachine: %s",
+			infrav1.IgnoreCheckDiskAnnotation,
+			err.Error(),
+		)
+	} else {
+		s.scope.EventRecorder.Eventf(
+			s.scope.HetznerBareMetalHost,
+			corev1.EventTypeNormal,
+			"DiskHealthy",
+			"Disk looks healthy: %s",
+			info,
+		)
+	}
+
+	if actionRes := s.wipeDiskAndDetectLinuxOnAnotherDisk(ctx, sshClient); actionRes != nil {
+		return actionRes
+	}
 
 	s.scope.EventRecorder.Event(
 		s.scope.HetznerBareMetalHost,
@@ -2018,7 +2032,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 
 	autoSetup := buildAutoSetup(&s.scope.HetznerBareMetalMachine.Spec.InstallImage, autoSetupInput)
 
-	out = sshClient.CreateAutoSetup(ctx, autoSetup)
+	out := sshClient.CreateAutoSetup(ctx, autoSetup)
 	if out.Err != nil {
 		return actionError{err: fmt.Errorf("failed to create autosetup: %q %q %w", out.StdOut, out.StdErr, out.Err)}
 	}

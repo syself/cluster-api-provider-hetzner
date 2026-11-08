@@ -469,6 +469,7 @@ var _ = Describe("actionImageInstalling (customProvisioner)", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateNotStarted, "", nil)
+		sshMock.On("DetectLinuxOnAnotherDisk", mock.Anything, mock.Anything).Return(sshclient.Output{})
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = customProvisioner
@@ -494,12 +495,66 @@ var _ = Describe("actionImageInstalling (customProvisioner)", func() {
 		Expect(cV1Beta1.Reason).To(Equal("CustomProvisionerStarted"))
 	})
 
+	It("wipes the disks of the wipe-disk annotation before starting the command", func() {
+		host, customProvisioner := newBaseHost()
+		host.Annotations = map[string]string{infrav1.WipeDiskAnnotation: "eui.0025388801b4dff2"}
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateNotStarted, "", nil)
+		sshMock.On("WipeDisk", mock.Anything, []string{"eui.0025388801b4dff2"}).Return("wiped", nil)
+		sshMock.On("DetectLinuxOnAnotherDisk", mock.Anything, []string{"eui.0025388801b4dff2"}).Return(sshclient.Output{})
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = customProvisioner
+		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner.DeviceStringType = infrav1.DeviceStringTypeWWN
+		svc.scope.HetznerBareMetalHost.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
+			WWN: "eui.0025388801b4dff2",
+		}
+
+		commandPath := filepath.Join(baremetalCustomProvisionerDir, customProvisioner.Command)
+		sshMock.On("StartCustomProvisioner", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"eui.0025388801b4dff2"}).Return(0, "", nil)
+
+		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "bootstrap-secret", Namespace: host.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
+		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
+		sshMock.AssertCalled(GinkgoT(), "WipeDisk", mock.Anything, []string{"eui.0025388801b4dff2"})
+		sshMock.AssertCalled(GinkgoT(), "DetectLinuxOnAnotherDisk", mock.Anything, []string{"eui.0025388801b4dff2"})
+		sshMock.AssertCalled(GinkgoT(), "StartCustomProvisioner", mock.Anything, commandPath, customProvisioner.URL, mock.Anything, svc.scope.Hostname(), []string{"eui.0025388801b4dff2"})
+		Expect(host.Annotations).ToNot(HaveKey(infrav1.WipeDiskAnnotation))
+	})
+
+	It("does not start the command when DetectLinuxOnAnotherDisk fails", func() {
+		host, customProvisioner := newBaseHost()
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateNotStarted, "", nil)
+		sshMock.On("DetectLinuxOnAnotherDisk", mock.Anything, []string{"eui.0025388801b4dff2"}).Return(sshclient.Output{Err: errors.New("connection refused")})
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = customProvisioner
+		svc.scope.HetznerBareMetalHost.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
+			WWN: "eui.0025388801b4dff2",
+		}
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
+		sshMock.AssertCalled(GinkgoT(), "DetectLinuxOnAnotherDisk", mock.Anything, []string{"eui.0025388801b4dff2"})
+		sshMock.AssertNotCalled(GinkgoT(), "StartCustomProvisioner", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		c := conditions.Get(host, infrav1.HetznerBareMetalHostProvisionSucceededCondition)
+		Expect(c.Reason).To(Equal(infrav1.HetznerBareMetalHostSSHToRescueSystemFailedReason))
+	})
+
 	It("passes WWN to StartCustomProvisioner when DeviceStringType is wwn", func() {
 		host, customProvisioner := newBaseHost()
 
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateNotStarted, "", nil)
+		sshMock.On("DetectLinuxOnAnotherDisk", mock.Anything, mock.Anything).Return(sshclient.Output{})
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = customProvisioner
@@ -531,6 +586,7 @@ var _ = Describe("actionImageInstalling (customProvisioner)", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateNotStarted, "", nil)
+		sshMock.On("DetectLinuxOnAnotherDisk", mock.Anything, mock.Anything).Return(sshclient.Output{})
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = customProvisioner
@@ -552,6 +608,7 @@ var _ = Describe("actionImageInstalling (customProvisioner)", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfCustomProvisioner", mock.Anything).Return(sshclient.CustomProvisionerStateNotStarted, "", nil)
+		sshMock.On("DetectLinuxOnAnotherDisk", mock.Anything, mock.Anything).Return(sshclient.Output{})
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		svc.scope.HetznerBareMetalMachine.Spec.CustomProvisioner = customProvisioner
