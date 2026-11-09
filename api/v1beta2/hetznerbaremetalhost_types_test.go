@@ -35,8 +35,8 @@ var _ = Describe("Test update secret status", func() {
 	Context("Test UpdateRescueSSHStatus", func() {
 		err = host.UpdateRescueSSHStatus(secret)
 		Expect(err).To(BeNil())
-		Expect(host.Status.SSHStatus.CurrentRescue.Reference.Name).Should(Equal(secret.Name))
-		Expect(host.Status.SSHStatus.CurrentRescue.Reference.Namespace).Should(Equal(secret.Namespace))
+		Expect(host.Status.SSHStatus.CurrentRescue.CredentialsRef.Name).Should(Equal(secret.Name))
+		Expect(host.Status.SSHStatus.CurrentRescue.CredentialsRef.Namespace).Should(Equal(secret.Namespace))
 		Expect(host.Status.SSHStatus.CurrentRescue.DataHash).Should(Equal(hash))
 	})
 
@@ -44,8 +44,8 @@ var _ = Describe("Test update secret status", func() {
 		err = host.UpdateOSSSHStatus(secret)
 		Expect(err).To(BeNil())
 
-		Expect(host.Status.SSHStatus.CurrentOS.Reference.Name).Should(Equal(secret.Name))
-		Expect(host.Status.SSHStatus.CurrentOS.Reference.Namespace).Should(Equal(secret.Namespace))
+		Expect(host.Status.SSHStatus.CurrentOS.CredentialsRef.Name).Should(Equal(secret.Name))
+		Expect(host.Status.SSHStatus.CurrentOS.CredentialsRef.Namespace).Should(Equal(secret.Namespace))
 		Expect(host.Status.SSHStatus.CurrentOS.DataHash).Should(Equal(hash))
 	})
 
@@ -53,8 +53,8 @@ var _ = Describe("Test update secret status", func() {
 		status, err := statusFromSecret(secret)
 		Expect(err).To(BeNil())
 
-		Expect(status.Reference.Name).Should(Equal(secret.Name))
-		Expect(status.Reference.Namespace).Should(Equal(secret.Namespace))
+		Expect(status.CredentialsRef.Name).Should(Equal(secret.Name))
+		Expect(status.CredentialsRef.Namespace).Should(Equal(secret.Namespace))
 		Expect(status.DataHash).Should(Equal(hash))
 	})
 
@@ -73,7 +73,7 @@ var _ = Describe("Test update secret status", func() {
 
 		DescribeTable("Test secretStatus.Match",
 			func(tc testCaseSecretStatusMatch) {
-				status := SecretStatus{Reference: &corev1.SecretReference{Name: tc.name, Namespace: tc.namespace}}
+				status := SecretStatus{CredentialsRef: &corev1.SecretReference{Name: tc.name, Namespace: tc.namespace}}
 
 				hash, err := HashOfSecretData(tc.data)
 				Expect(err).To(BeNil())
@@ -202,6 +202,19 @@ var _ = Describe("Test HasSoftwareReboot", func() {
 			rebootTypes: []RebootType{RebootTypeHardware, RebootTypeManual},
 			expectBool:  false,
 		}),
+	)
+})
+
+var _ = Describe("Test HasPowerCycle", func() {
+	DescribeTable("Test HasPowerCycle",
+		func(rebootTypes []RebootType, expectBool bool) {
+			host := HetznerBareMetalHost{}
+			host.Status.RebootTypes = rebootTypes
+			Expect(host.HasPowerCycle()).Should(Equal(expectBool))
+		},
+		Entry("has power_long and power", []RebootType{RebootTypePower, RebootTypePowerLong, RebootTypeHardware}, true),
+		Entry("has power but not power_long", []RebootType{RebootTypePower, RebootTypeHardware}, false),
+		Entry("has power_long but not power", []RebootType{RebootTypePowerLong, RebootTypeHardware}, false),
 	)
 })
 

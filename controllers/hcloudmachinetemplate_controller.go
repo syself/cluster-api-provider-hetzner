@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -72,11 +72,11 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		return ctrl.Result{}, err
 	}
 	if skipReconciliation {
-		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav2.SkipNamespaceAnnotation)
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 
-	hcloudMachineTemplate := &infrav2.HCloudMachineTemplate{}
+	hcloudMachineTemplate := &infrav1.HCloudMachineTemplate{}
 	if err := r.Get(ctx, req.NamespacedName, hcloudMachineTemplate); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
@@ -111,9 +111,9 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	if hasOwnerClusterClass(hcloudMachineTemplate.ObjectMeta) {
 		hcloudMachineTemplate.Status.OwnerType = "ClusterClass"
 		conditions.Set(hcloudMachineTemplate, metav1.Condition{
-			Type:   infrav2.HCloudMachineTemplateAvailableCondition,
+			Type:   infrav1.HCloudMachineTemplateAvailableCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav2.HCloudMachineTemplateOwnedByClusterClassReason,
+			Reason: infrav1.HCloudMachineTemplateOwnedByClusterClassReason,
 		})
 		return reconcile.Result{}, nil
 	}
@@ -123,13 +123,13 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			conditions.Set(hcloudMachineTemplate, metav1.Condition{
-				Type:   infrav2.HCloudMachineTemplateAvailableCondition,
+				Type:   infrav1.HCloudMachineTemplateAvailableCondition,
 				Status: metav1.ConditionUnknown,
-				Reason: infrav2.HCloudMachineTemplateWaitingForOwnerClusterReason,
+				Reason: infrav1.HCloudMachineTemplateWaitingForOwnerClusterReason,
 			})
 		} else {
 			conditions.Set(hcloudMachineTemplate, metav1.Condition{
-				Type:    infrav2.HCloudMachineTemplateAvailableCondition,
+				Type:    infrav1.HCloudMachineTemplateAvailableCondition,
 				Status:  metav1.ConditionUnknown,
 				Reason:  clusterv1.InternalErrorReason,
 				Message: err.Error(),
@@ -141,9 +141,9 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		log.Info(fmt.Sprintf("%s is missing ownerRef to cluster %s/%s",
 			hcloudMachineTemplate.Kind, hcloudMachineTemplate.Namespace, hcloudMachineTemplate.Name))
 		conditions.Set(hcloudMachineTemplate, metav1.Condition{
-			Type:   infrav2.HCloudMachineTemplateAvailableCondition,
+			Type:   infrav1.HCloudMachineTemplateAvailableCondition,
 			Status: metav1.ConditionUnknown,
-			Reason: infrav2.HCloudMachineTemplateWaitingForOwnerClusterReason,
+			Reason: infrav1.HCloudMachineTemplateWaitingForOwnerClusterReason,
 		})
 		return reconcile.Result{}, nil
 	}
@@ -154,14 +154,14 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	// Requeue if cluster has no infrastructure yet.
 	if !cluster.Spec.InfrastructureRef.IsDefined() {
 		conditions.Set(hcloudMachineTemplate, metav1.Condition{
-			Type:   infrav2.HCloudMachineTemplateAvailableCondition,
+			Type:   infrav1.HCloudMachineTemplateAvailableCondition,
 			Status: metav1.ConditionFalse,
-			Reason: infrav2.HCloudMachineTemplateMissingInfrastructureRefReason,
+			Reason: infrav1.HCloudMachineTemplateMissingInfrastructureRefReason,
 		})
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	hetznerCluster := &infrav2.HetznerCluster{}
+	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
 		Namespace: hcloudMachineTemplate.Namespace,
@@ -173,7 +173,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 			reason = clusterv1.WaitingForClusterInfrastructureReadyReason
 		}
 		conditions.Set(hcloudMachineTemplate, metav1.Condition{
-			Type:    infrav2.HCloudMachineTemplateAvailableCondition,
+			Type:    infrav1.HCloudMachineTemplateAvailableCondition,
 			Status:  metav1.ConditionUnknown,
 			Reason:  reason,
 			Message: err.Error(),
@@ -188,7 +188,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hcloudMachineTemplate, r, infrav2.HCloudMachineTemplateSummaryOpts())
+		return hcloudTokenErrorResult(ctx, err, hcloudMachineTemplate, r, infrav1.HCloudMachineTemplateSummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
@@ -202,7 +202,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	if err != nil {
 		err := fmt.Errorf("failed to create scope: %w", err)
 		conditions.Set(hcloudMachineTemplate, metav1.Condition{
-			Type:    infrav2.HCloudMachineTemplateAvailableCondition,
+			Type:    infrav1.HCloudMachineTemplateAvailableCondition,
 			Status:  metav1.ConditionUnknown,
 			Reason:  clusterv1.InternalErrorReason,
 			Message: err.Error(),
@@ -237,7 +237,7 @@ func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machine
 func (r *HCloudMachineTemplateReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
-		For(&infrav2.HCloudMachineTemplate{}).
+		For(&infrav1.HCloudMachineTemplate{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
 	if err != nil {

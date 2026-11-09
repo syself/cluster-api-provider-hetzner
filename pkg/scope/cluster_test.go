@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 func controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, annotation string, annotated bool) metav1.ObjectMeta {
@@ -51,30 +51,30 @@ func controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, annotati
 }
 
 func controlPlaneObjectMeta(namespace, name, clusterName string, annotated bool) metav1.ObjectMeta {
-	return controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, infrav2.ProxyProtocolForControlPlaneLoadBalancerAnnotation, annotated)
+	return controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation, annotated)
 }
 
-func controlPlaneHCloudMachine(namespace, name, clusterName string, annotated bool) *infrav2.HCloudMachine {
-	return &infrav2.HCloudMachine{
+func controlPlaneHCloudMachine(namespace, name, clusterName string, annotated bool) *infrav1.HCloudMachine {
+	return &infrav1.HCloudMachine{
 		ObjectMeta: controlPlaneObjectMeta(namespace, name, clusterName, annotated),
 	}
 }
 
-func controlPlaneBareMetalMachine(namespace, name, clusterName string, annotated bool) *infrav2.HetznerBareMetalMachine {
-	return &infrav2.HetznerBareMetalMachine{
+func controlPlaneBareMetalMachine(namespace, name, clusterName string, annotated bool) *infrav1.HetznerBareMetalMachine {
+	return &infrav1.HetznerBareMetalMachine{
 		ObjectMeta: controlPlaneObjectMeta(namespace, name, clusterName, annotated),
 	}
 }
 
-func controlPlaneHCloudMachineForHTTPHealthCheck(namespace, name, clusterName string, annotated bool) *infrav2.HCloudMachine {
-	return &infrav2.HCloudMachine{
-		ObjectMeta: controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, infrav2.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated),
+func controlPlaneHCloudMachineForHTTPHealthCheck(namespace, name, clusterName string, annotated bool) *infrav1.HCloudMachine {
+	return &infrav1.HCloudMachine{
+		ObjectMeta: controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, infrav1.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated),
 	}
 }
 
-func controlPlaneBareMetalMachineForHTTPHealthCheck(namespace, name, clusterName string, annotated bool) *infrav2.HetznerBareMetalMachine {
-	return &infrav2.HetznerBareMetalMachine{
-		ObjectMeta: controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, infrav2.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated),
+func controlPlaneBareMetalMachineForHTTPHealthCheck(namespace, name, clusterName string, annotated bool) *infrav1.HetznerBareMetalMachine {
+	return &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: controlPlaneObjectMetaWithAnnotation(namespace, name, clusterName, infrav1.HTTPHealthCheckForControlPlaneLoadBalancerAnnotation, annotated),
 	}
 }
 
@@ -87,7 +87,7 @@ func TestAllControlPlaneInfraMachinesAnnotatedForProxyProtocol(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
-	utilruntime.Must(infrav2.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
 
 	tests := []struct {
 		name     string
@@ -139,7 +139,7 @@ func TestAllControlPlaneInfraMachinesAnnotatedForProxyProtocol(t *testing.T) {
 			objects := append([]client.Object{}, tt.machines...)
 			// A worker infrastructure machine of the same cluster (no control-plane label) must never
 			// affect the result.
-			objects = append(objects, &infrav2.HCloudMachine{
+			objects = append(objects, &infrav1.HCloudMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "worker-1",
 					Namespace: namespace,
@@ -153,7 +153,7 @@ func TestAllControlPlaneInfraMachinesAnnotatedForProxyProtocol(t *testing.T) {
 				Cluster: &clusterv1.Cluster{
 					ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace},
 				},
-				HetznerCluster: &infrav2.HetznerCluster{
+				HetznerCluster: &infrav1.HetznerCluster{
 					ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace},
 				},
 			}
@@ -174,7 +174,7 @@ func TestAllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(t *testing.T) {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
-	utilruntime.Must(infrav2.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
 
 	tests := []struct {
 		name     string
@@ -232,7 +232,7 @@ func TestAllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(t *testing.T) {
 			objects := append([]client.Object{}, tt.machines...)
 			// A worker infrastructure machine of the same cluster (no control-plane label) must
 			// never affect the result.
-			objects = append(objects, &infrav2.HCloudMachine{
+			objects = append(objects, &infrav1.HCloudMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "worker-1",
 					Namespace: namespace,
@@ -246,7 +246,7 @@ func TestAllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(t *testing.T) {
 				Cluster: &clusterv1.Cluster{
 					ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace},
 				},
-				HetznerCluster: &infrav2.HetznerCluster{
+				HetznerCluster: &infrav1.HetznerCluster{
 					ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace},
 				},
 			}

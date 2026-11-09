@@ -577,10 +577,10 @@ spec:
           metadata:
             type: object
           spec:
-            description: HetznerClusterTemplateSpec defines the desired state of HetznerClusterTemplate.
+            description: spec is the desired state of HetznerClusterTemplate.
             properties:
               template:
-                description: HetznerClusterTemplateResource contains spec for HetznerClusterSpec.
+                description: template defines the desired state of HetznerClusterTemplate.
                 properties:
                   metadata:
                     description: |-
@@ -608,7 +608,8 @@ spec:
                         type: object
                     type: object
                   spec:
-                    description: HetznerClusterSpec defines the desired state of HetznerCluster.
+                    description: spec is the specification of the desired behavior
+                      of the HetznerCluster.
                     properties:
                       controlPlaneEndpoint:
                         description: controlPlaneEndpoint represents the endpoint
@@ -632,19 +633,16 @@ spec:
                       controlPlaneLoadBalancer:
                         description: controlPlaneLoadBalancer is an optional configuration
                           for customizing control plane behavior.
+                        minProperties: 1
                         properties:
                           algorithm:
-                            allOf:
-                            - enum:
-                              - round_robin
-                              - least_connections
-                            - enum:
-                              - round_robin
-                              - least_connections
                             default: round_robin
                             description: algorithm defines the type of load balancer
                               algorithm. It could be round_robin or least_connections.
                               The default value is "round_robin".
+                            enum:
+                            - round_robin
+                            - least_connections
                             type: string
                           enableProxyProtocol:
                             description: |-
@@ -664,29 +662,37 @@ spec:
                               malformed PROXY-protocol headers.
 
                               Enabling proxy protocol is a one-way operation — it is never turned back off.
+                              Not set means false.
                             type: boolean
                           enabled:
                             default: true
-                            description: enabled specifies if a load balancer should
-                              be created.
+                            description: |-
+                              enabled specifies if a load balancer should be created. When the whole
+                              controlPlaneLoadBalancer is left out, no default is applied and no load balancer is created.
                             type: boolean
                           extraServices:
-                            description: extraServices defines how traffic will be
-                              routed from the load balancer to your target server.
+                            description: |-
+                              extraServices defines how traffic will be routed from the load balancer to your target server.
+                              The limit is more than twice the Hetzner limit of 30 services on a load balancer. A higher Hetzner limit then still works.
                             items:
-                              description: LoadBalancerServiceSpec defines a load
-                                balancer Target.
+                              description: |-
+                                LoadBalancerServiceSpec defines a load balancer Target.
+
+                                Hetzner needs all three fields to create a service. They are optional only because a v1beta1
+                                HetznerCluster can have a service without one of them, and v1beta2 must accept that stored object.
                               properties:
                                 destinationPort:
                                   description: destinationPort defines the port on
                                     the server. It must be a valid port range (1-65535).
+                                  format: int32
                                   maximum: 65535
                                   minimum: 1
                                   type: integer
                                 listenPort:
-                                  description: listenPort, i.e. source port, defines
-                                    the incoming port open on the load balancer. It
-                                    must be a valid port range (1-65535).
+                                  description: listenPort defines the incoming port
+                                    (source port) open on the load balancer. It must
+                                    be a valid port range (1-65535).
+                                  format: int32
                                   maximum: 65535
                                   minimum: 1
                                   type: integer
@@ -700,6 +706,7 @@ spec:
                                   - tcp
                                   type: string
                               type: object
+                            maxItems: 64
                             type: array
                             x-kubernetes-list-type: atomic
                           healthCheck:
@@ -736,11 +743,13 @@ spec:
                                 description: |-
                                   domain sets the Host header sent with the HTTP(S) health check request. Only valid when
                                   protocol is http or https.
+                                maxLength: 128
                                 type: string
                               intervalSeconds:
                                 description: |-
                                   intervalSeconds is the time in seconds between two consecutive health checks. If omitted,
                                   Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec above).
+                                format: int32
                                 maximum: 60
                                 minimum: 3
                                 type: integer
@@ -748,12 +757,14 @@ spec:
                                 description: |-
                                   path is the HTTP(S) path requested for the health check, e.g. "/readyz". Only valid when
                                   protocol is http or https.
+                                maxLength: 256
                                 type: string
                               port:
                                 description: |-
                                   port is the target port the check runs against. It defaults to the service's destination
                                   port. Set it when the health-check endpoint is served on a different port than the API
                                   server itself.
+                                format: int32
                                 maximum: 65535
                                 minimum: 1
                                 type: integer
@@ -771,12 +782,14 @@ spec:
                                 description: |-
                                   response is a string that must be contained in the HTTP(S) response for the check to pass.
                                   Only valid when protocol is http or https.
+                                maxLength: 256
                                 type: string
                               retries:
                                 description: |-
                                   retries is the number of consecutive failed health checks before a target is considered
                                   unhealthy. The same number of successful checks makes it healthy again. If omitted,
                                   Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec above).
+                                format: int32
                                 maximum: 5
                                 minimum: 1
                                 type: integer
@@ -786,30 +799,35 @@ spec:
                                   Single codes ("200") and wildcards ("2??") are both allowed. If empty, Hetzner's own default
                                   is used (see the API reference on LoadBalancerHealthCheckSpec above). Only valid when
                                   protocol is http or https.
+                                  The limit of 16 characters for an item is far above the 3 characters of a status code.
                                 items:
+                                  maxLength: 16
                                   type: string
+                                maxItems: 20
                                 type: array
+                                x-kubernetes-list-type: atomic
                               timeoutSeconds:
                                 description: |-
                                   timeoutSeconds is the time in seconds to wait for a health check attempt to succeed. If
                                   omitted, Hetzner's own default is used (see the API reference on LoadBalancerHealthCheckSpec
                                   above).
+                                format: int32
                                 maximum: 60
                                 minimum: 1
                                 type: integer
-                            required:
-                            - protocol
                             type: object
                           name:
                             description: name defines the name of the load balancer.
                               It can be specified in order to use an existing load
                               balancer.
+                            maxLength: 128
                             type: string
                           port:
                             default: 6443
                             description: port defines the API Server port. It must
                               be a valid port range (1-65535). If omitted, the default
                               value is 6443.
+                            format: int32
                             maximum: 65535
                             minimum: 1
                             type: integer
@@ -880,21 +898,26 @@ spec:
                           - hil
                           - sin
                           type: string
+                        maxItems: 100
                         type: array
                         x-kubernetes-list-type: set
                       hcloudNetwork:
                         description: hcloudNetwork defines details about the private
                           Network for Hetzner Cloud. If left empty, no private Network
                           is configured.
+                        minProperties: 1
                         properties:
                           cidrBlock:
                             default: 10.0.0.0/16
                             description: cidrBlock defines the cidrBlock of the HCloud
                               Network. If omitted, default "10.0.0.0/16" will be used.
+                            maxLength: 49
+                            minLength: 1
                             type: string
                           enabled:
                             description: enabled defines whether the network should
-                              be enabled or not.
+                              be enabled or not. If it is not set, the network is
+                              not enabled.
                             type: boolean
                           networkZone:
                             default: eu-central
@@ -912,25 +935,37 @@ spec:
                             description: |-
                               subnetCidrBlock defines the cidrBlock for the subnet of the HCloud Network.
                               Note: A subnet is required.
+                            maxLength: 49
+                            minLength: 1
                             type: string
-                        required:
-                        - enabled
                         type: object
                       hcloudPlacementGroups:
+                        description: |-
+                          hcloudPlacementGroups are the placement groups that the controller creates in HCloud for this cluster.
+                          An HCloudMachine is added to one of them with placementGroupName.
+                          The limit allows 1000 servers, because a placement group in Hetzner has at most 10 servers.
                         items:
                           description: HCloudPlacementGroupSpec defines a PlacementGroup.
                           properties:
                             name:
+                              description: |-
+                                name is the name of the placement group. The placement group in HCloud gets the name
+                                "<HetznerCluster name>-<name>".
+                                The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+                              maxLength: 255
                               minLength: 1
                               type: string
                             type:
                               default: spread
+                              description: type is the type of the placement group.
+                                The only allowed value is spread.
                               enum:
                               - spread
                               type: string
                           required:
                           - name
                           type: object
+                        maxItems: 100
                         type: array
                         x-kubernetes-list-map-keys:
                         - name
@@ -955,6 +990,7 @@ spec:
                                   workload-cluster secret named "hcloud", and only if this field is not already "token". If
                                   the configured secret name is already "hcloud", the same token value is stored under both
                                   keys in that single secret. It defaults to "token".
+                                maxLength: 253
                                 type: string
                               hetznerRobotPassword:
                                 default: hetzner-robot-password
@@ -963,6 +999,7 @@ spec:
                                   is stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
                                   creating a secret in the wl-cluster. We recommend to use "robot-password", because this is
                                   the default of upstream hcloud-ccm.
+                                maxLength: 253
                                 type: string
                               hetznerRobotUser:
                                 default: hetzner-robot-user
@@ -971,12 +1008,14 @@ spec:
                                   stored. It gets used for reading the credential in the mgt-cluster, and it gets used for
                                   creating a secret in the wl-cluster. We recommend to use "robot-user", because this is the
                                   default of upstream hcloud-ccm.
+                                maxLength: 253
                                 type: string
                               sshKey:
                                 default: hcloud-ssh-key-name
                                 description: |-
                                   sshKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
                                   to the wl-cluster.
+                                maxLength: 253
                                 type: string
                             type: object
                           name:
@@ -995,10 +1034,11 @@ spec:
 
                               We recommend to use the value "hcloud". Set `spec.skipCreatingHetznerSecretInWorkloadCluster`
                               if you don't want workload-cluster secrets to be created.
+                            maxLength: 253
+                            minLength: 1
                             type: string
                         required:
                         - key
-                        - name
                         type: object
                       skipCreatingHetznerSecretInWorkloadCluster:
                         description: |-
@@ -1007,10 +1047,12 @@ spec:
                           in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
                           wl-cluster, you can set this to true, so that the secret is not created. Be sure to
                           run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
+                          Not set means false.
                         type: boolean
                       sshKeys:
                         description: sshKeys are cluster wide. Valid values are a
                           valid SSH key name.
+                        minProperties: 1
                         properties:
                           hcloud:
                             description: hcloud defines the SSH keys used for hcloud.
@@ -1020,56 +1062,62 @@ spec:
                                 fingerprint:
                                   description: fingerprint defines the fingerprint
                                     of the SSH key - added by the controller.
+                                  maxLength: 128
+                                  minLength: 1
                                   type: string
                                 name:
-                                  description: name defines the name of the SSH key.
+                                  description: |-
+                                    name defines the name of the SSH key.
+                                    The limit is the largest name limit that Hetzner documents, because Hetzner does not document a limit for this name.
+                                  maxLength: 255
                                   minLength: 1
                                   type: string
                               required:
                               - name
                               type: object
+                            maxItems: 100
                             type: array
                             x-kubernetes-list-map-keys:
                             - name
                             x-kubernetes-list-type: map
                           rescueSecretRef:
-                            description: rescueSecretRef defines the reference to
-                              the secret where the SSH key for the rescue system is
-                              stored.
+                            description: |-
+                              rescueSecretRef defines the reference to the secret where the SSH key for the rescue system is stored.
+                              When it is not set, no secret with a rescue SSH key is configured.
                             properties:
                               key:
                                 description: key contains details about the keys used
                                   in the data of the secret.
+                                minProperties: 1
                                 properties:
                                   name:
                                     description: name is the key in the secret's data
                                       where the SSH key's name is stored.
+                                    maxLength: 253
+                                    minLength: 1
                                     type: string
                                   privateKey:
                                     description: privateKey is the key in the secret's
                                       data where the SSH key's private key is stored.
+                                    maxLength: 253
+                                    minLength: 1
                                     type: string
                                   publicKey:
                                     description: publicKey is the key in the secret's
                                       data where the SSH key's public key is stored.
+                                    maxLength: 253
+                                    minLength: 1
                                     type: string
-                                required:
-                                - name
-                                - privateKey
-                                - publicKey
                                 type: object
                               name:
                                 description: name is the name of the secret.
+                                maxLength: 253
+                                minLength: 1
                                 type: string
-                            required:
-                            - key
-                            - name
                             type: object
                         type: object
                     required:
-                    - controlPlaneRegions
                     - hetznerSecretRef
-                    - sshKeys
                     type: object
                 required:
                 - spec

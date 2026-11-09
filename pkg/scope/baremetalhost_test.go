@@ -25,22 +25,22 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 var _ = Describe("SetHetznerBareMetalHostReadySummary", func() {
 	It("sets Ready=False with reason NotReady when a summary condition is False", func() {
-		host := &infrav2.HetznerBareMetalHost{}
+		host := &infrav1.HetznerBareMetalHost{}
 
 		conditions.Set(host, metav1.Condition{
-			Type:   infrav2.HetznerBareMetalHostRobotCredentialsAvailableCondition,
+			Type:   infrav1.HetznerBareMetalHostRobotCredentialsAvailableCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav2.HetznerBareMetalHostRobotCredentialsAvailableReason,
+			Reason: infrav1.HetznerBareMetalHostRobotCredentialsAvailableReason,
 		})
 		conditions.Set(host, metav1.Condition{
-			Type:    infrav2.HetznerBareMetalHostProvisionSucceededCondition,
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalHostServerNotFoundReason,
+			Reason:  infrav1.HetznerBareMetalHostServerNotFoundReason,
 			Message: "server not found",
 		})
 
@@ -54,18 +54,18 @@ var _ = Describe("SetHetznerBareMetalHostReadySummary", func() {
 	})
 
 	It("RobotCredentialsAvailable=False takes priority over ProvisionSucceeded=False", func() {
-		host := &infrav2.HetznerBareMetalHost{}
+		host := &infrav1.HetznerBareMetalHost{}
 
 		conditions.Set(host, metav1.Condition{
-			Type:    infrav2.HetznerBareMetalHostRobotCredentialsAvailableCondition,
+			Type:    infrav1.HetznerBareMetalHostRobotCredentialsAvailableCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalHostRobotCredentialsInvalidReason,
+			Reason:  infrav1.HetznerBareMetalHostRobotCredentialsInvalidReason,
 			Message: "invalid credentials",
 		})
 		conditions.Set(host, metav1.Condition{
-			Type:    infrav2.HetznerBareMetalHostProvisionSucceededCondition,
+			Type:    infrav1.HetznerBareMetalHostProvisionSucceededCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalHostServerNotFoundReason,
+			Reason:  infrav1.HetznerBareMetalHostServerNotFoundReason,
 			Message: "server not found",
 		})
 
@@ -84,14 +84,14 @@ var _ = Describe("SetHetznerBareMetalHostReadySummary", func() {
 	})
 
 	It("sets Ready=False when a permanent error parks the host", func() {
-		host := &infrav2.HetznerBareMetalHost{}
+		host := &infrav1.HetznerBareMetalHost{}
 
 		conditions.Set(host, metav1.Condition{
-			Type:   infrav2.HetznerBareMetalHostRobotCredentialsAvailableCondition,
+			Type:   infrav1.HetznerBareMetalHostRobotCredentialsAvailableCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav2.HetznerBareMetalHostRobotCredentialsAvailableReason,
+			Reason: infrav1.HetznerBareMetalHostRobotCredentialsAvailableReason,
 		})
-		host.SetError(infrav2.ErrorTypePermanent, "pre-provision command exited 1")
+		host.SetError(infrav1.ErrorTypePermanent, "pre-provision command exited 1")
 
 		SetHetznerBareMetalHostReadySummary(host)
 
@@ -103,17 +103,17 @@ var _ = Describe("SetHetznerBareMetalHostReadySummary", func() {
 	})
 
 	It("reports Ready=False while a reboot the controller triggered is in flight", func() {
-		host := &infrav2.HetznerBareMetalHost{}
+		host := &infrav1.HetznerBareMetalHost{}
 
 		conditions.Set(host, metav1.Condition{
-			Type:   infrav2.HetznerBareMetalHostRobotCredentialsAvailableCondition,
+			Type:   infrav1.HetznerBareMetalHostRobotCredentialsAvailableCondition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav2.HetznerBareMetalHostRobotCredentialsAvailableReason,
+			Reason: infrav1.HetznerBareMetalHostRobotCredentialsAvailableReason,
 		})
 		conditions.Set(host, metav1.Condition{
-			Type:    infrav2.HetznerBareMetalHostActionCompletedCondition,
+			Type:    infrav1.HetznerBareMetalHostActionCompletedCondition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav2.HetznerBareMetalHostActionCompletedSSHRebootOngoingReason,
+			Reason:  infrav1.HetznerBareMetalHostActionCompletedSSHRebootOngoingReason,
 			Message: "ssh reboot just triggered",
 		})
 

@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
@@ -41,8 +41,8 @@ type BareMetalMachineScopeParams struct {
 	Client           client.Client
 	Cluster          *clusterv1.Cluster
 	Machine          *clusterv1.Machine
-	BareMetalMachine *infrav2.HetznerBareMetalMachine
-	HetznerCluster   *infrav2.HetznerCluster
+	BareMetalMachine *infrav1.HetznerBareMetalMachine
+	HetznerCluster   *infrav1.HetznerCluster
 	HCloudClient     hcloudclient.Client
 	EventRecorder    record.EventRecorder
 }
@@ -102,8 +102,8 @@ type BareMetalMachineScope struct {
 	patchHelper      *patch.Helper
 	Cluster          *clusterv1.Cluster
 	Machine          *clusterv1.Machine
-	BareMetalMachine *infrav2.HetznerBareMetalMachine
-	HetznerCluster   *infrav2.HetznerCluster
+	BareMetalMachine *infrav1.HetznerBareMetalMachine
+	HetznerCluster   *infrav1.HetznerCluster
 
 	HCloudClient  hcloudclient.Client
 	EventRecorder record.EventRecorder
@@ -122,10 +122,10 @@ func (m *BareMetalMachineScope) Close(ctx context.Context) error {
 //
 // If the summary cannot be computed, Ready is set to Unknown with the InternalError reason and the
 // error message.
-func SetHetznerBareMetalMachineReadySummary(hbmm *infrav2.HetznerBareMetalMachine) {
+func SetHetznerBareMetalMachineReadySummary(hbmm *infrav1.HetznerBareMetalMachine) {
 	readyCondition, err := conditions.NewSummaryCondition(
 		hbmm, clusterv1.ReadyCondition,
-		infrav2.HetznerBareMetalMachineSummaryOpts()...,
+		infrav1.HetznerBareMetalMachineSummaryOpts()...,
 	)
 	if err != nil {
 		conditions.Set(hbmm, metav1.Condition{
@@ -144,22 +144,22 @@ func bareMetalMachinePatchOpts() []patch.Option {
 		// owned deprecated v1beta1 conditions.
 		patch.WithOwnedV1Beta1Conditions{Conditions: []clusterv1.ConditionType{
 			clusterv1.ReadyV1Beta1Condition,
-			infrav2.BootstrapReadyV1Beta1Condition,
-			infrav2.HCloudTokenAvailableV1Beta1Condition,
-			infrav2.HetznerAPIReachableV1Beta1Condition,
-			infrav2.HostAssociateSucceededV1Beta1Condition,
-			infrav2.HostReadyV1Beta1Condition,
-			infrav2.ServerAvailableV1Beta1Condition,
+			infrav1.BootstrapReadyV1Beta1Condition,
+			infrav1.HCloudTokenAvailableV1Beta1Condition,
+			infrav1.HetznerAPIReachableV1Beta1Condition,
+			infrav1.HostAssociateSucceededV1Beta1Condition,
+			infrav1.HostReadyV1Beta1Condition,
+			infrav1.ServerAvailableV1Beta1Condition,
 		}},
 		// owned conditions.
 		patch.WithOwnedConditions{Conditions: []string{
 			clusterv1.ReadyCondition,
-			infrav2.HCloudTokenAvailableCondition,
-			infrav2.HCloudRateLimitExceededCondition,
-			infrav2.HetznerBareMetalMachineHostAssociatedCondition,
-			infrav2.HetznerBareMetalMachineDeletingCondition,
-			infrav2.HetznerBareMetalMachineHostReadyCondition,
-			infrav2.HetznerBareMetalMachineServerAvailableCondition,
+			infrav1.HCloudTokenAvailableCondition,
+			infrav1.HCloudRateLimitExceededCondition,
+			infrav1.HetznerBareMetalMachineHostAssociatedCondition,
+			infrav1.HetznerBareMetalMachineDeletingCondition,
+			infrav1.HetznerBareMetalMachineHostReadyCondition,
+			infrav1.HetznerBareMetalMachineServerAvailableCondition,
 		}},
 	}
 }

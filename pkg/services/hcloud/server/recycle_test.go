@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
@@ -51,12 +51,12 @@ func Test_isRecyclableServer(t *testing.T) {
 		{name: "no labels", server: &hcloud.Server{}, want: false},
 		{
 			name:   "recycle label true",
-			server: &hcloud.Server{Labels: map[string]string{infrav2.ServerRecycleLabelKey: "true"}},
+			server: &hcloud.Server{Labels: map[string]string{infrav1.ServerRecycleLabelKey: "true"}},
 			want:   true,
 		},
 		{
 			name:   "recycle label false",
-			server: &hcloud.Server{Labels: map[string]string{infrav2.ServerRecycleLabelKey: "false"}},
+			server: &hcloud.Server{Labels: map[string]string{infrav1.ServerRecycleLabelKey: "false"}},
 			want:   false,
 		},
 		{
@@ -75,12 +75,12 @@ func Test_isRecyclableServer(t *testing.T) {
 func Test_recyclingEnabled(t *testing.T) {
 	tests := []struct {
 		name    string
-		recycle *infrav2.ServerRecycling
+		recycle *infrav1.ServerRecycling
 		want    bool
 	}{
 		{name: "nil recycle", recycle: nil, want: false},
-		{name: "disabled", recycle: &infrav2.ServerRecycling{Enabled: false}, want: false},
-		{name: "enabled", recycle: &infrav2.ServerRecycling{Enabled: true}, want: true},
+		{name: "disabled", recycle: &infrav1.ServerRecycling{Enabled: false}, want: false},
+		{name: "enabled", recycle: &infrav1.ServerRecycling{Enabled: true}, want: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -173,9 +173,9 @@ func Test_tryClaimRecyclableServer_firstReconcileOnlyWritesClaim(t *testing.T) {
 	require.NoError(t, err)
 
 	// The claim is written and the server has left the pool...
-	require.Equal(t, "worker-1", got.Labels[infrav2.ServerRecycleClaimantLabelKey])
-	require.Contains(t, got.Labels, infrav2.ServerRecycleClaimedAtLabelKey, "a claim must be timestamped so it can be reclaimed if abandoned")
-	require.NotContains(t, got.Labels, infrav2.ServerRecycleAvailableLabelKey)
+	require.Equal(t, "worker-1", got.Labels[infrav1.ServerRecycleClaimantLabelKey])
+	require.Contains(t, got.Labels, infrav1.ServerRecycleClaimedAtLabelKey, "a claim must be timestamped so it can be reclaimed if abandoned")
+	require.NotContains(t, got.Labels, infrav1.ServerRecycleAvailableLabelKey)
 
 	// ...but nothing irreversible has happened: no rebuild, no machine identity.
 	require.Equal(t, "pool-a", got.Name, "the machine identity must not be applied before the claim is verified")
@@ -197,11 +197,11 @@ func Test_tryClaimRecyclableServer_claimsAndRebuilds(t *testing.T) {
 	// The claimed server carries the machine name (both as server name and label) and the persistent
 	// recycle marker, and no longer advertises itself as available or claimed.
 	require.Equal(t, "worker-1", claimed.Name)
-	require.Equal(t, "worker-1", claimed.Labels[infrav2.MachineNameTagKey])
-	require.Equal(t, "true", claimed.Labels[infrav2.ServerRecycleLabelKey])
-	require.NotContains(t, claimed.Labels, infrav2.ServerRecycleAvailableLabelKey)
-	require.NotContains(t, claimed.Labels, infrav2.ServerRecycleClaimantLabelKey)
-	require.NotContains(t, claimed.Labels, infrav2.ServerRecycleClaimedAtLabelKey)
+	require.Equal(t, "worker-1", claimed.Labels[infrav1.MachineNameTagKey])
+	require.Equal(t, "true", claimed.Labels[infrav1.ServerRecycleLabelKey])
+	require.NotContains(t, claimed.Labels, infrav1.ServerRecycleAvailableLabelKey)
+	require.NotContains(t, claimed.Labels, infrav1.ServerRecycleClaimantLabelKey)
+	require.NotContains(t, claimed.Labels, infrav1.ServerRecycleClaimedAtLabelKey)
 
 	// It has been rebuilt with the requested image and is running.
 	require.NotNil(t, claimed.Image)
@@ -226,7 +226,7 @@ func Test_tryClaimRecyclableServer_noMatchingType(t *testing.T) {
 
 	got, err := client.GetServer(context.Background(), pool.ID)
 	require.NoError(t, err)
-	require.NotContains(t, got.Labels, infrav2.ServerRecycleClaimantLabelKey, "no claim may be written for a server that does not match")
+	require.NotContains(t, got.Labels, infrav1.ServerRecycleClaimantLabelKey, "no claim may be written for a server that does not match")
 }
 
 func Test_tryClaimRecyclableServer_notAvailable(t *testing.T) {
@@ -296,9 +296,9 @@ func Test_tryClaimRecyclableServer_losesClaimToLaterWriter(t *testing.T) {
 
 	got, err := client.GetServer(context.Background(), pool.ID)
 	require.NoError(t, err)
-	require.Equal(t, "worker-2", got.Labels[infrav2.ServerRecycleClaimantLabelKey], "the winner's claim must survive untouched")
+	require.Equal(t, "worker-2", got.Labels[infrav1.ServerRecycleClaimantLabelKey], "the winner's claim must survive untouched")
 	require.Nil(t, got.Image, "the loser must not rebuild a server it does not own")
-	require.NotContains(t, got.Labels, infrav2.ServerRecycleAvailableLabelKey, "the loser must not advertise a claimed server as available")
+	require.NotContains(t, got.Labels, infrav1.ServerRecycleAvailableLabelKey, "the loser must not advertise a claimed server as available")
 }
 
 // Test_tryClaimRecyclableServer_losesClaimJustBeforeRebuild covers the window the verification cannot
@@ -314,17 +314,17 @@ func Test_tryClaimRecyclableServer_losesClaimJustBeforeRebuild(t *testing.T) {
 		ServerType: &hcloud.ServerType{Name: recycleTestType},
 		Location:   &hcloud.Location{Name: recycleTestLocation},
 		Labels: map[string]string{
-			infrav2.ServerRecycleLabelKey:          "true",
-			infrav2.ServerRecycleClaimantLabelKey:  "worker-1",
-			infrav2.ServerRecycleClaimedAtLabelKey: "1700000000",
+			infrav1.ServerRecycleLabelKey:          "true",
+			infrav1.ServerRecycleClaimantLabelKey:  "worker-1",
+			infrav1.ServerRecycleClaimedAtLabelKey: "1700000000",
 		},
 	}
 	// The re-read just before the rebuild shows it has been taken over since.
 	theirs := &hcloud.Server{
 		ID: 7,
 		Labels: map[string]string{
-			infrav2.ServerRecycleLabelKey:         "true",
-			infrav2.ServerRecycleClaimantLabelKey: "worker-2",
+			infrav1.ServerRecycleLabelKey:         "true",
+			infrav1.ServerRecycleClaimantLabelKey: "worker-2",
 		},
 	}
 	mc.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{ours}, nil).Once()
@@ -356,8 +356,8 @@ func Test_tryClaimRecyclableServer_releasesSupernumeraryClaims(t *testing.T) {
 
 	got, err := client.GetServer(context.Background(), second.ID)
 	require.NoError(t, err)
-	require.Equal(t, "true", got.Labels[infrav2.ServerRecycleAvailableLabelKey], "the surplus claim must be returned to the pool")
-	require.NotContains(t, got.Labels, infrav2.ServerRecycleClaimantLabelKey)
+	require.Equal(t, "true", got.Labels[infrav1.ServerRecycleAvailableLabelKey], "the surplus claim must be returned to the pool")
+	require.NotContains(t, got.Labels, infrav1.ServerRecycleClaimantLabelKey)
 }
 
 // Test_tryClaimRecyclableServer_rebuildFailureReleasesReservation verifies that when the rebuild fails
@@ -380,8 +380,8 @@ func Test_tryClaimRecyclableServer_rebuildFailureReleasesReservation(t *testing.
 	// The claim was released: the server is available again and carries no claimant.
 	available := listAvailableRecyclable(t, client)
 	require.Len(t, available, 1, "the server must be returned to the available pool")
-	require.NotContains(t, available[0].Labels, infrav2.ServerRecycleClaimantLabelKey)
-	require.NotContains(t, available[0].Labels, infrav2.MachineNameTagKey, "an un-rebuilt server must not carry the machine identity")
+	require.NotContains(t, available[0].Labels, infrav1.ServerRecycleClaimantLabelKey)
+	require.NotContains(t, available[0].Labels, infrav1.MachineNameTagKey, "an un-rebuilt server must not carry the machine identity")
 }
 
 // Test_releaseReservation_keepsForeignClaim guards the cleanup path against destroying a claim that is
@@ -398,8 +398,8 @@ func Test_releaseReservation_keepsForeignClaim(t *testing.T) {
 
 	got, err := client.GetServer(context.Background(), server.ID)
 	require.NoError(t, err)
-	require.Equal(t, "worker-2", got.Labels[infrav2.ServerRecycleClaimantLabelKey], "a foreign claim must be left alone")
-	require.NotContains(t, got.Labels, infrav2.ServerRecycleAvailableLabelKey)
+	require.Equal(t, "worker-2", got.Labels[infrav1.ServerRecycleClaimantLabelKey], "a foreign claim must be left alone")
+	require.NotContains(t, got.Labels, infrav1.ServerRecycleAvailableLabelKey)
 	require.Empty(t, listAvailableRecyclable(t, client))
 }
 
@@ -414,8 +414,8 @@ func Test_releaseReservation_returnsOwnClaim(t *testing.T) {
 
 	got, err := client.GetServer(context.Background(), server.ID)
 	require.NoError(t, err)
-	require.Equal(t, "true", got.Labels[infrav2.ServerRecycleAvailableLabelKey])
-	require.NotContains(t, got.Labels, infrav2.ServerRecycleClaimantLabelKey)
+	require.Equal(t, "true", got.Labels[infrav1.ServerRecycleAvailableLabelKey])
+	require.NotContains(t, got.Labels, infrav1.ServerRecycleClaimantLabelKey)
 }
 
 // Test_reapAbandonedClaims covers the failure mode the claim timestamp exists for: a machine that dies
@@ -466,11 +466,11 @@ func Test_reapAbandonedClaims(t *testing.T) {
 
 			server := seedRecyclableServer(t, client, "pool-a", recycleTestType, recycleTestLocation, false)
 			labels := map[string]string{
-				infrav2.ServerRecycleLabelKey:         "true",
-				infrav2.ServerRecycleClaimantLabelKey: tt.claimant,
+				infrav1.ServerRecycleLabelKey:         "true",
+				infrav1.ServerRecycleClaimantLabelKey: tt.claimant,
 			}
 			if tt.claimedAt != "" {
-				labels[infrav2.ServerRecycleClaimedAtLabelKey] = tt.claimedAt
+				labels[infrav1.ServerRecycleClaimedAtLabelKey] = tt.claimedAt
 			}
 			_, err := client.UpdateServer(context.Background(), server, hcloud.ServerUpdateOpts{Labels: labels})
 			require.NoError(t, err)
@@ -480,12 +480,12 @@ func Test_reapAbandonedClaims(t *testing.T) {
 			got, err := client.GetServer(context.Background(), server.ID)
 			require.NoError(t, err)
 			if tt.wantReturned {
-				require.Equal(t, "true", got.Labels[infrav2.ServerRecycleAvailableLabelKey])
-				require.NotContains(t, got.Labels, infrav2.ServerRecycleClaimantLabelKey)
+				require.Equal(t, "true", got.Labels[infrav1.ServerRecycleAvailableLabelKey])
+				require.NotContains(t, got.Labels, infrav1.ServerRecycleClaimantLabelKey)
 				return
 			}
-			require.Equal(t, tt.claimant, got.Labels[infrav2.ServerRecycleClaimantLabelKey])
-			require.NotContains(t, got.Labels, infrav2.ServerRecycleAvailableLabelKey)
+			require.Equal(t, tt.claimant, got.Labels[infrav1.ServerRecycleClaimantLabelKey])
+			require.NotContains(t, got.Labels, infrav1.ServerRecycleAvailableLabelKey)
 		})
 	}
 }
@@ -498,9 +498,9 @@ func Test_reapAbandonedClaims_freesTheServerForANewClaim(t *testing.T) {
 
 	server := seedRecyclableServer(t, client, "pool-a", recycleTestType, recycleTestLocation, false)
 	_, err := client.UpdateServer(context.Background(), server, hcloud.ServerUpdateOpts{Labels: map[string]string{
-		infrav2.ServerRecycleLabelKey:          "true",
-		infrav2.ServerRecycleClaimantLabelKey:  "worker-dead",
-		infrav2.ServerRecycleClaimedAtLabelKey: strconv.FormatInt(time.Now().Add(-2*recycleClaimTTL).Unix(), 10),
+		infrav1.ServerRecycleLabelKey:          "true",
+		infrav1.ServerRecycleClaimantLabelKey:  "worker-dead",
+		infrav1.ServerRecycleClaimedAtLabelKey: strconv.FormatInt(time.Now().Add(-2*recycleClaimTTL).Unix(), 10),
 	}})
 	require.NoError(t, err)
 
@@ -510,7 +510,7 @@ func Test_reapAbandonedClaims_freesTheServerForANewClaim(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, claimed, "the reclaimed server must be usable straight away")
 	require.Equal(t, server.ID, claimed.ID)
-	require.Equal(t, "worker-1", claimed.Labels[infrav2.MachineNameTagKey])
+	require.Equal(t, "worker-1", claimed.Labels[infrav1.MachineNameTagKey])
 }
 
 func Test_returnServerToRecycling(t *testing.T) {
@@ -519,7 +519,7 @@ func Test_returnServerToRecycling(t *testing.T) {
 
 	// A server currently claimed by this machine: recycle marker set, available marker absent.
 	claimed := seedRecyclableServer(t, client, "worker-1", recycleTestType, recycleTestLocation, false)
-	claimed.Labels[infrav2.MachineNameTagKey] = "worker-1"
+	claimed.Labels[infrav1.MachineNameTagKey] = "worker-1"
 
 	_, err := svc.returnServerToRecycling(context.Background(), claimed)
 	require.NoError(t, err)
@@ -529,9 +529,9 @@ func Test_returnServerToRecycling(t *testing.T) {
 	require.NotNil(t, got)
 
 	// The machine-owned labels are stripped and the server is available again.
-	require.Equal(t, "true", got.Labels[infrav2.ServerRecycleLabelKey])
-	require.Equal(t, "true", got.Labels[infrav2.ServerRecycleAvailableLabelKey])
-	require.NotContains(t, got.Labels, infrav2.MachineNameTagKey)
+	require.Equal(t, "true", got.Labels[infrav1.ServerRecycleLabelKey])
+	require.Equal(t, "true", got.Labels[infrav1.ServerRecycleAvailableLabelKey])
+	require.NotContains(t, got.Labels, infrav1.MachineNameTagKey)
 	require.Equal(t, hcloud.ServerStatusOff, got.Status, "the returned server is shut down")
 }
 
@@ -542,13 +542,13 @@ func Test_returnServerToRecycling(t *testing.T) {
 func Test_returnServerToRecycling_detachesNetwork(t *testing.T) {
 	mc := mocks.NewClient(t)
 	scp := newRecycleScope(t, "worker-1", mc)
-	scp.HetznerCluster.Status.Network = &infrav2.NetworkStatus{ID: 4711}
+	scp.HetznerCluster.Status.Network = &infrav1.NetworkStatus{ID: 4711}
 	svc := &Service{scope: scp}
 
 	server := &hcloud.Server{
 		ID:     5,
 		Status: hcloud.ServerStatusRunning,
-		Labels: map[string]string{infrav2.MachineNameTagKey: "worker-1"},
+		Labels: map[string]string{infrav1.MachineNameTagKey: "worker-1"},
 	}
 	mc.On("ShutdownServer", mock.Anything, mock.Anything).Return(nil).Once()
 	mc.On("DetachServerFromNetwork", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
@@ -563,12 +563,12 @@ func Test_returnServerToRecycling_detachesNetwork(t *testing.T) {
 // the given hcloud client.
 func newRecycleScope(t *testing.T, machineName string, client hcloudclient.Client) *scope.MachineScope {
 	t.Helper()
-	hcloudMachine := &infrav2.HCloudMachine{
+	hcloudMachine := &infrav1.HCloudMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: machineName, Namespace: "default"},
-		Spec: infrav2.HCloudMachineSpec{
+		Spec: infrav1.HCloudMachineSpec{
 			Type:      recycleTestType,
 			ImageName: "snapshot",
-			Recycle:   &infrav2.ServerRecycling{Enabled: true},
+			Recycle:   &infrav1.ServerRecycling{Enabled: true},
 		},
 	}
 	hcloudMachine.Status.Region = recycleTestLocation
@@ -580,7 +580,7 @@ func newRecycleScope(t *testing.T, machineName string, client hcloudclient.Clien
 func recycleCreateOpts(machineName string) hcloud.ServerCreateOpts {
 	return hcloud.ServerCreateOpts{
 		Name:       machineName,
-		Labels:     map[string]string{infrav2.MachineNameTagKey: machineName},
+		Labels:     map[string]string{infrav1.MachineNameTagKey: machineName},
 		ServerType: &hcloud.ServerType{Name: recycleTestType},
 		Location:   &hcloud.Location{Name: recycleTestLocation},
 	}
@@ -589,9 +589,9 @@ func recycleCreateOpts(machineName string) hcloud.ServerCreateOpts {
 // seedRecyclableServer creates a recyclable server in the fake client's project.
 func seedRecyclableServer(t *testing.T, client hcloudclient.Client, name, serverType, location string, available bool) *hcloud.Server {
 	t.Helper()
-	labels := map[string]string{infrav2.ServerRecycleLabelKey: "true"}
+	labels := map[string]string{infrav1.ServerRecycleLabelKey: "true"}
 	if available {
-		labels[infrav2.ServerRecycleAvailableLabelKey] = "true"
+		labels[infrav1.ServerRecycleAvailableLabelKey] = "true"
 	}
 	res, err := client.CreateServer(context.Background(), hcloud.ServerCreateOpts{
 		Name:       name,
@@ -607,7 +607,7 @@ func seedRecyclableServer(t *testing.T, client hcloudclient.Client, name, server
 func listAvailableRecyclable(t *testing.T, client hcloudclient.Client) []*hcloud.Server {
 	t.Helper()
 	var opts hcloud.ServerListOpts
-	opts.LabelSelector = infrav2.ServerRecycleAvailableLabelKey + "==true"
+	opts.LabelSelector = infrav1.ServerRecycleAvailableLabelKey + "==true"
 	servers, err := client.ListServers(context.Background(), opts)
 	require.NoError(t, err)
 	return servers
@@ -618,9 +618,9 @@ func listAvailableRecyclable(t *testing.T, client hcloudclient.Client) []*hcloud
 func overwriteClaim(t *testing.T, client hcloudclient.Client, server *hcloud.Server, claimant string) {
 	t.Helper()
 	_, err := client.UpdateServer(context.Background(), server, hcloud.ServerUpdateOpts{Labels: map[string]string{
-		infrav2.ServerRecycleLabelKey:          "true",
-		infrav2.ServerRecycleClaimantLabelKey:  claimant,
-		infrav2.ServerRecycleClaimedAtLabelKey: strconv.FormatInt(time.Now().Unix(), 10),
+		infrav1.ServerRecycleLabelKey:          "true",
+		infrav1.ServerRecycleClaimantLabelKey:  claimant,
+		infrav1.ServerRecycleClaimedAtLabelKey: strconv.FormatInt(time.Now().Unix(), 10),
 	}})
 	require.NoError(t, err)
 }
@@ -636,8 +636,8 @@ func Test_returnServerToRecycling_refusesForeignServer(t *testing.T) {
 	// A recyclable server that now belongs to worker-2.
 	server := seedRecyclableServer(t, client, "worker-2", recycleTestType, recycleTestLocation, false)
 	_, err := client.UpdateServer(context.Background(), server, hcloud.ServerUpdateOpts{Labels: map[string]string{
-		infrav2.ServerRecycleLabelKey: "true",
-		infrav2.MachineNameTagKey:     "worker-2",
+		infrav1.ServerRecycleLabelKey: "true",
+		infrav1.MachineNameTagKey:     "worker-2",
 	}})
 	require.NoError(t, err)
 
@@ -646,8 +646,8 @@ func Test_returnServerToRecycling_refusesForeignServer(t *testing.T) {
 
 	got, err := client.GetServer(context.Background(), server.ID)
 	require.NoError(t, err)
-	require.Equal(t, "worker-2", got.Labels[infrav2.MachineNameTagKey], "the owner label must be untouched")
-	require.NotContains(t, got.Labels, infrav2.ServerRecycleAvailableLabelKey,
+	require.Equal(t, "worker-2", got.Labels[infrav1.MachineNameTagKey], "the owner label must be untouched")
+	require.NotContains(t, got.Labels, infrav1.ServerRecycleAvailableLabelKey,
 		"a server another machine is running on must not be advertised as available")
 	require.NotEqual(t, hcloud.ServerStatusOff, got.Status, "the new owner's server must not be shut down")
 }
@@ -666,13 +666,13 @@ func Test_assertRecycledServerStillOwned(t *testing.T) {
 		{
 			name:      "still ours",
 			recycling: true,
-			labels:    map[string]string{infrav2.MachineNameTagKey: "worker-1"},
+			labels:    map[string]string{infrav1.MachineNameTagKey: "worker-1"},
 			wantOwned: true,
 		},
 		{
 			name:       "taken over by another machine",
 			recycling:  true,
-			labels:     map[string]string{infrav2.MachineNameTagKey: "worker-2"},
+			labels:     map[string]string{infrav1.MachineNameTagKey: "worker-2"},
 			wantOwned:  false,
 			wantRemedy: true,
 		},
@@ -686,7 +686,7 @@ func Test_assertRecycledServerStillOwned(t *testing.T) {
 		{
 			name:      "recycling disabled: nothing else can claim the server, so no check",
 			recycling: false,
-			labels:    map[string]string{infrav2.MachineNameTagKey: "worker-2"},
+			labels:    map[string]string{infrav1.MachineNameTagKey: "worker-2"},
 			wantOwned: true,
 		},
 	}
@@ -709,7 +709,7 @@ func Test_assertRecycledServerStillOwned(t *testing.T) {
 			if tt.wantRemedy {
 				require.Equal(t, "", remediated, "remediate-machine annotation must be present")
 				require.Contains(t, svc.scope.Machine.Annotations, clusterv1.RemediateMachineAnnotation)
-				require.Equal(t, infrav2.HCloudBootStateProvisioningFailed, svc.scope.HCloudMachine.Status.BootState)
+				require.Equal(t, infrav1.HCloudBootStateProvisioningFailed, svc.scope.HCloudMachine.Status.BootState)
 				return
 			}
 			require.NotContains(t, svc.scope.Machine.Annotations, clusterv1.RemediateMachineAnnotation)
@@ -779,9 +779,9 @@ func Test_tryClaimRecyclableServer_addsServerToPlacementGroup(t *testing.T) {
 
 	group := &hcloud.PlacementGroup{ID: 7, Name: "cp-spread"}
 	labels := map[string]string{
-		infrav2.ServerRecycleLabelKey:          labelValueTrue,
-		infrav2.ServerRecycleClaimantLabelKey:  "worker-1",
-		infrav2.ServerRecycleClaimedAtLabelKey: "1700000000",
+		infrav1.ServerRecycleLabelKey:          labelValueTrue,
+		infrav1.ServerRecycleClaimantLabelKey:  "worker-1",
+		infrav1.ServerRecycleClaimedAtLabelKey: "1700000000",
 	}
 	claimedNoGroup := &hcloud.Server{
 		ID:         11,
@@ -830,9 +830,9 @@ func Test_tryClaimRecyclableServer_waitsForShutdownBeforePlacementGroup(t *testi
 		ServerType: &hcloud.ServerType{Name: recycleTestType},
 		Location:   &hcloud.Location{Name: recycleTestLocation},
 		Labels: map[string]string{
-			infrav2.ServerRecycleLabelKey:          labelValueTrue,
-			infrav2.ServerRecycleClaimantLabelKey:  "worker-1",
-			infrav2.ServerRecycleClaimedAtLabelKey: "1700000000",
+			infrav1.ServerRecycleLabelKey:          labelValueTrue,
+			infrav1.ServerRecycleClaimantLabelKey:  "worker-1",
+			infrav1.ServerRecycleClaimedAtLabelKey: "1700000000",
 		},
 	}
 	opts := recycleCreateOpts("worker-1")
@@ -862,9 +862,9 @@ func Test_tryClaimRecyclableServer_waitsForNetworkAttachment(t *testing.T) {
 		ServerType: &hcloud.ServerType{Name: recycleTestType},
 		Location:   &hcloud.Location{Name: recycleTestLocation},
 		Labels: map[string]string{
-			infrav2.ServerRecycleLabelKey:          labelValueTrue,
-			infrav2.ServerRecycleClaimantLabelKey:  "worker-1",
-			infrav2.ServerRecycleClaimedAtLabelKey: "1700000000",
+			infrav1.ServerRecycleLabelKey:          labelValueTrue,
+			infrav1.ServerRecycleClaimantLabelKey:  "worker-1",
+			infrav1.ServerRecycleClaimedAtLabelKey: "1700000000",
 		},
 	}
 	opts := recycleCreateOpts("worker-1")
@@ -889,9 +889,9 @@ func Test_tryClaimRecyclableServer_rebuildsOnceAttached(t *testing.T) {
 	svc := &Service{scope: newRecycleScope(t, "worker-1", mc)}
 
 	labels := map[string]string{
-		infrav2.ServerRecycleLabelKey:          labelValueTrue,
-		infrav2.ServerRecycleClaimantLabelKey:  "worker-1",
-		infrav2.ServerRecycleClaimedAtLabelKey: "1700000000",
+		infrav1.ServerRecycleLabelKey:          labelValueTrue,
+		infrav1.ServerRecycleClaimantLabelKey:  "worker-1",
+		infrav1.ServerRecycleClaimedAtLabelKey: "1700000000",
 	}
 	claimed := &hcloud.Server{
 		ID: 11, Status: hcloud.ServerStatusOff,
@@ -936,9 +936,9 @@ func recycleClaimedServer(t *testing.T) *hcloud.Server {
 		ServerType: &hcloud.ServerType{Name: recycleTestType},
 		Location:   &hcloud.Location{Name: recycleTestLocation},
 		Labels: map[string]string{
-			infrav2.ServerRecycleLabelKey:          labelValueTrue,
-			infrav2.ServerRecycleClaimantLabelKey:  "worker-1",
-			infrav2.ServerRecycleClaimedAtLabelKey: "1700000000",
+			infrav1.ServerRecycleLabelKey:          labelValueTrue,
+			infrav1.ServerRecycleClaimantLabelKey:  "worker-1",
+			infrav1.ServerRecycleClaimedAtLabelKey: "1700000000",
 		},
 	}
 }
@@ -963,8 +963,8 @@ func Test_tryClaimRecyclableServer_claimWriteFailureWritesNothingElse(t *testing
 		ServerType: &hcloud.ServerType{Name: recycleTestType},
 		Location:   &hcloud.Location{Name: recycleTestLocation},
 		Labels: map[string]string{
-			infrav2.ServerRecycleLabelKey:          labelValueTrue,
-			infrav2.ServerRecycleAvailableLabelKey: labelValueTrue,
+			infrav1.ServerRecycleLabelKey:          labelValueTrue,
+			infrav1.ServerRecycleAvailableLabelKey: labelValueTrue,
 		},
 	}
 	mc.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{candidate}, nil).Once()
@@ -1035,9 +1035,9 @@ func Test_reapAbandonedClaims_updateFailureIsSurvivable(t *testing.T) {
 	stale := &hcloud.Server{
 		ID: 22,
 		Labels: map[string]string{
-			infrav2.ServerRecycleLabelKey:          labelValueTrue,
-			infrav2.ServerRecycleClaimantLabelKey:  "worker-dead",
-			infrav2.ServerRecycleClaimedAtLabelKey: strconv.FormatInt(time.Now().Add(-2*recycleClaimTTL).Unix(), 10),
+			infrav1.ServerRecycleLabelKey:          labelValueTrue,
+			infrav1.ServerRecycleClaimantLabelKey:  "worker-dead",
+			infrav1.ServerRecycleClaimedAtLabelKey: strconv.FormatInt(time.Now().Add(-2*recycleClaimTTL).Unix(), 10),
 		},
 	}
 	mc.On("UpdateServer", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("api down")).Once()
@@ -1054,7 +1054,7 @@ func Test_returnServerToRecycling_shutdownFailureIsRetryable(t *testing.T) {
 	server := &hcloud.Server{
 		ID:     23,
 		Status: hcloud.ServerStatusRunning,
-		Labels: map[string]string{infrav2.MachineNameTagKey: "worker-1"},
+		Labels: map[string]string{infrav1.MachineNameTagKey: "worker-1"},
 	}
 	mc.On("ShutdownServer", mock.Anything, mock.Anything).Return(errors.New("api down")).Once()
 
@@ -1148,7 +1148,7 @@ func Test_finalizeReservation_handlesRequestWithoutLabels(t *testing.T) {
 
 	finalized, err := svc.finalizeReservation(context.Background(), server, opts)
 	require.NoError(t, err)
-	require.Equal(t, labelValueTrue, finalized.Labels[infrav2.ServerRecycleLabelKey],
+	require.Equal(t, labelValueTrue, finalized.Labels[infrav1.ServerRecycleLabelKey],
 		"the persistent recycle marker must survive even when the request carries no labels")
 }
 
@@ -1158,7 +1158,7 @@ func Test_returnServerToRecycling_relabelFailureIsRetryable(t *testing.T) {
 	server := &hcloud.Server{
 		ID:     23,
 		Status: hcloud.ServerStatusOff,
-		Labels: map[string]string{infrav2.MachineNameTagKey: "worker-1"},
+		Labels: map[string]string{infrav1.MachineNameTagKey: "worker-1"},
 	}
 	mc.On("UpdateServer", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("api down")).Once()
 
@@ -1246,7 +1246,7 @@ func Test_tryClaimRecyclableServer_reportsWhyNothingMatched(t *testing.T) {
 	// the reason it was skipped is the one recycleMismatchReason produces for it.
 	available := listAvailableRecyclable(t, client)
 	require.Len(t, available, 1)
-	require.NotContains(t, available[0].Labels, infrav2.ServerRecycleClaimantLabelKey)
+	require.NotContains(t, available[0].Labels, infrav1.ServerRecycleClaimantLabelKey)
 	require.Contains(t, recycleMismatchReason(available[0], recycleCreateOpts("worker-1")), "server type is")
 }
 
@@ -1276,14 +1276,14 @@ func Test_claimAPICallBudget(t *testing.T) {
 		ServerType: &hcloud.ServerType{Name: recycleTestType},
 		Location:   &hcloud.Location{Name: recycleTestLocation},
 		Labels: map[string]string{
-			infrav2.ServerRecycleLabelKey:          labelValueTrue,
-			infrav2.ServerRecycleAvailableLabelKey: labelValueTrue,
+			infrav1.ServerRecycleLabelKey:          labelValueTrue,
+			infrav1.ServerRecycleAvailableLabelKey: labelValueTrue,
 		},
 	}
 	claimedLabels := map[string]string{
-		infrav2.ServerRecycleLabelKey:          labelValueTrue,
-		infrav2.ServerRecycleClaimantLabelKey:  "worker-1",
-		infrav2.ServerRecycleClaimedAtLabelKey: "1700000000",
+		infrav1.ServerRecycleLabelKey:          labelValueTrue,
+		infrav1.ServerRecycleClaimantLabelKey:  "worker-1",
+		infrav1.ServerRecycleClaimedAtLabelKey: "1700000000",
 	}
 	claimed := &hcloud.Server{
 		ID: 31, Status: hcloud.ServerStatusOff,

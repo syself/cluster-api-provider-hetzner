@@ -218,6 +218,8 @@ const (
 	SSHToRescueSystemFailedV1Beta1Reason = "SSHToRescueSystemFailed"
 	// RebootTimedOutV1Beta1Reason indicates that the reboot timed out.
 	RebootTimedOutV1Beta1Reason = "RebootTimedOut"
+	// BootedIntoWrongSystemV1Beta1Reason indicates that the server booted into the wrong system after the hardware reboot.
+	BootedIntoWrongSystemV1Beta1Reason = "BootedIntoWrongSystem"
 	// CheckDiskFailedV1Beta1Reason indicates that checking the health of the disk was not successful.
 	CheckDiskFailedV1Beta1Reason = "CheckDiskFailed"
 )
@@ -278,6 +280,8 @@ const (
 	ActionCompletedSoftwareRebootTriggeredV1Beta1Reason = "SoftwareRebootTriggered"
 	// ActionCompletedHardwareRebootTriggeredV1Beta1Reason indicates a hardware reboot was triggered.
 	ActionCompletedHardwareRebootTriggeredV1Beta1Reason = "HardwareRebootTriggered"
+	// ActionCompletedPowerCycleTriggeredV1Beta1Reason indicates a power cycle via the Robot API was triggered.
+	ActionCompletedPowerCycleTriggeredV1Beta1Reason = "PowerCycleTriggered"
 	// ActionCompletedFatalErrorV1Beta1Reason indicates an unrecoverable error that deletes the CAPI Machine.
 	ActionCompletedFatalErrorV1Beta1Reason = "FatalError"
 	// ActionCompletedPermanentErrorV1Beta1Reason indicates an error that stays on the host until an operator clears it.
@@ -627,6 +631,8 @@ const (
 	HetznerBareMetalHostSSHToRescueSystemFailedReason = "SSHToRescueSystemFailed"
 	// HetznerBareMetalHostRebootTimeoutReachedReason indicates the reboot timeout was reached.
 	HetznerBareMetalHostRebootTimeoutReachedReason = "RebootTimeoutReached"
+	// HetznerBareMetalHostBootedIntoWrongSystemReason indicates the server booted into the wrong system after the hardware reboot.
+	HetznerBareMetalHostBootedIntoWrongSystemReason = "BootedIntoWrongSystem"
 	// HetznerBareMetalHostCheckingDiskFailedReason indicates checking the health of the disk was not successful.
 	HetznerBareMetalHostCheckingDiskFailedReason = "CheckingDiskFailed"
 )
@@ -686,6 +692,8 @@ const (
 	HetznerBareMetalHostActionCompletedSoftwareRebootOngoingReason = "SoftwareRebootOngoing"
 	// HetznerBareMetalHostActionCompletedHardwareRebootOngoingReason indicates we sent a hardware reboot via the Robot API and are waiting for it.
 	HetznerBareMetalHostActionCompletedHardwareRebootOngoingReason = "HardwareRebootOngoing"
+	// HetznerBareMetalHostActionCompletedPowerCycleOngoingReason indicates we sent power_long or power via the Robot API to power cycle the server and are waiting for it.
+	HetznerBareMetalHostActionCompletedPowerCycleOngoingReason = "PowerCycleOngoing"
 	// HetznerBareMetalHostActionCompletedFatalErrorReason indicates an unrecoverable error that deletes the CAPI Machine.
 	HetznerBareMetalHostActionCompletedFatalErrorReason = "FatalError"
 	// HetznerBareMetalHostActionCompletedPermanentErrorReason indicates an error that stays on the host until an operator clears it.

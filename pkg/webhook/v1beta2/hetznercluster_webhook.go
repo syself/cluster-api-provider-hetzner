@@ -21,10 +21,11 @@ import (
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -45,27 +46,31 @@ var regionNetworkZoneMap = map[string]string{
 
 // SetupWebhookWithManager initializes webhook manager for HetznerCluster.
 func (webhook *HetznerClusterWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &infrav2.HetznerCluster{}).
+	return ctrl.NewWebhookManagedBy(mgr, &infrav1.HetznerCluster{}).
 		WithValidator(webhook).
 		WithDefaulter(webhook).
 		Complete()
 }
 
-var _ admission.Defaulter[*infrav2.HetznerCluster] = &HetznerClusterWebhook{}
+// +kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta2-hetznercluster,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerclusters,verbs=create;update,versions=v1beta2,name=mutation.hetznercluster.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
+
+var _ admission.Defaulter[*infrav1.HetznerCluster] = &HetznerClusterWebhook{}
 
 // Default implements admission.Defaulter so a webhook will be registered for HetznerCluster.
-func (*HetznerClusterWebhook) Default(context.Context, *infrav2.HetznerCluster) error {
+func (*HetznerClusterWebhook) Default(context.Context, *infrav1.HetznerCluster) error {
 	return nil
 }
 
-var _ admission.Validator[*infrav2.HetznerCluster] = &HetznerClusterWebhook{}
+// +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznercluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerclusters,verbs=create;update,versions=v1beta2,name=validation.hetznercluster.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
+
+var _ admission.Validator[*infrav1.HetznerCluster] = &HetznerClusterWebhook{}
 
 // ValidateCreate implements admission.Validator so a webhook will be registered for HetznerCluster.
-func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav2.HetznerCluster) (admission.Warnings, error) {
+func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav1.HetznerCluster) (admission.Warnings, error) {
 	hetznerclusterlog.V(1).Info("validate create", "name", r.Name)
 	var allErrs field.ErrorList
 
-	allowEmptyControlPlaneAddress := r.Annotations[infrav2.AllowEmptyControlPlaneAddressAnnotation] == "true"
+	allowEmptyControlPlaneAddress := r.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] == "true"
 
 	if !allowEmptyControlPlaneAddress && len(r.Spec.ControlPlaneRegions) == 0 {
 		allErrs = append(allErrs, field.Invalid(
@@ -85,8 +90,8 @@ func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav2.Hetzn
 		}
 	}
 
-	if r.Spec.ControlPlaneLoadBalancer.Enabled {
-		if r.Spec.ControlPlaneLoadBalancer.Region == infrav2.Region("") {
+	if ptr.Deref(r.Spec.ControlPlaneLoadBalancer.Enabled, false) {
+		if r.Spec.ControlPlaneLoadBalancer.Region == infrav1.Region("") {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec", "controlPlaneLoadBalancer", "region"),
 				r.Spec.ControlPlaneLoadBalancer.Region,
@@ -96,7 +101,7 @@ func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav2.Hetzn
 	}
 
 	// Check whether regions are all in same network zone
-	if !r.Spec.HCloudNetwork.Enabled {
+	if !ptr.Deref(r.Spec.HCloudNetwork.Enabled, false) {
 		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil); err != nil {
 			allErrs = append(allErrs, err)
 		}
@@ -104,7 +109,7 @@ func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav2.Hetzn
 
 	// Check whether controlPlaneEndpoint is specified if allow empty is not set or false
 
-	if !allowEmptyControlPlaneAddress && !r.Spec.ControlPlaneLoadBalancer.Enabled {
+	if !allowEmptyControlPlaneAddress && !ptr.Deref(r.Spec.ControlPlaneLoadBalancer.Enabled, false) {
 		if r.Spec.ControlPlaneEndpoint.Host == "" ||
 			r.Spec.ControlPlaneEndpoint.Port == 0 {
 			allErrs = append(allErrs,
@@ -128,7 +133,7 @@ func (*HetznerClusterWebhook) ValidateCreate(_ context.Context, r *infrav2.Hetzn
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
-func isNetworkZoneSameForAllRegions(regions []infrav2.Region, defaultNetworkZone *string) *field.Error {
+func isNetworkZoneSameForAllRegions(regions []infrav1.Region, defaultNetworkZone *string) *field.Error {
 	if len(regions) == 0 {
 		return nil
 	}
@@ -146,19 +151,19 @@ func isNetworkZoneSameForAllRegions(regions []infrav2.Region, defaultNetworkZone
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for HetznerCluster.
-func (*HetznerClusterWebhook) ValidateUpdate(_ context.Context, oldC, r *infrav2.HetznerCluster) (admission.Warnings, error) {
+func (*HetznerClusterWebhook) ValidateUpdate(_ context.Context, oldC, r *infrav1.HetznerCluster) (admission.Warnings, error) {
 	hetznerclusterlog.V(1).Info("validate update", "name", r.Name)
 	var allErrs field.ErrorList
 
 	// Network settings are immutable
-	if !reflect.DeepEqual(oldC.Spec.HCloudNetwork, r.Spec.HCloudNetwork) {
+	if !reflect.DeepEqual(normalizeHetznerClusterSpec(oldC.Spec).HCloudNetwork, normalizeHetznerClusterSpec(r.Spec).HCloudNetwork) {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "hcloudNetwork"), r.Spec.HCloudNetwork, "field is immutable"),
 		)
 	}
 
 	// Check if all regions are in the same network zone if a private network is enabled
-	if oldC.Spec.HCloudNetwork.Enabled {
+	if ptr.Deref(oldC.Spec.HCloudNetwork.Enabled, false) {
 		var defaultNetworkZone *string
 		if len(oldC.Spec.ControlPlaneRegions) > 0 {
 			str := regionNetworkZoneMap[string(oldC.Spec.ControlPlaneRegions[0])]
@@ -171,7 +176,7 @@ func (*HetznerClusterWebhook) ValidateUpdate(_ context.Context, oldC, r *infrav2
 	}
 
 	// Load balancer enabled/disabled is immutable
-	if !reflect.DeepEqual(oldC.Spec.ControlPlaneLoadBalancer.Enabled, r.Spec.ControlPlaneLoadBalancer.Enabled) {
+	if ptr.Deref(oldC.Spec.ControlPlaneLoadBalancer.Enabled, false) != ptr.Deref(r.Spec.ControlPlaneLoadBalancer.Enabled, false) {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "controlPlaneLoadBalancer", "enabled"), r.Spec.ControlPlaneLoadBalancer.Enabled, "field is immutable"),
 		)
@@ -189,7 +194,7 @@ func (*HetznerClusterWebhook) ValidateUpdate(_ context.Context, oldC, r *infrav2
 		)
 	}
 
-	if oldC.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol && !r.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol {
+	if ptr.Deref(oldC.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol, false) && !ptr.Deref(r.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol, false) {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "controlPlaneLoadBalancer", "enableProxyProtocol"),
 				r.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol, "proxy protocol cannot be disabled once enabled"),
@@ -209,7 +214,7 @@ func (*HetznerClusterWebhook) ValidateUpdate(_ context.Context, oldC, r *infrav2
 
 // validateLoadBalancerHealthCheck rejects HTTP(S)-only fields set while the health check protocol
 // is tcp. All other combinations, including any change to an already-set health check, are allowed.
-func validateLoadBalancerHealthCheck(hc *infrav2.LoadBalancerHealthCheckSpec) *field.Error {
+func validateLoadBalancerHealthCheck(hc *infrav1.LoadBalancerHealthCheckSpec) *field.Error {
 	if hc == nil || hc.Protocol == "http" || hc.Protocol == "https" {
 		return nil
 	}
@@ -245,10 +250,10 @@ func validateLoadBalancerHealthCheck(hc *infrav2.LoadBalancerHealthCheckSpec) *f
 	return nil
 }
 
-func validateHetznerSecretKey(r *infrav2.HetznerCluster) *field.Error {
+func validateHetznerSecretKey(r *infrav1.HetznerCluster) *field.Error {
 	// Hetzner secret key needs to contain either HCloud or Hrobot credentials
-	if r.Spec.HetznerSecret.Key.HCloudToken == "" &&
-		(r.Spec.HetznerSecret.Key.HetznerRobotUser == "" || r.Spec.HetznerSecret.Key.HetznerRobotPassword == "") {
+	key := r.Spec.HetznerSecret.Key
+	if key.GetHCloudToken() == "" && (key.GetHetznerRobotUser() == "" || key.GetHetznerRobotPassword() == "") {
 		return field.Invalid(
 			field.NewPath("spec", "hetznerSecret", "key"),
 			r.Spec.HetznerSecret.Key,
@@ -258,7 +263,36 @@ func validateHetznerSecretKey(r *infrav2.HetznerCluster) *field.Error {
 	return nil
 }
 
+// normalizeHetznerClusterSpec returns a copy of spec in which every unset field gets the value that an
+// unset field means. A stored object and an update request can differ in which unset fields they send.
+// Without this, such an update looks like a change of an immutable field.
+func normalizeHetznerClusterSpec(spec infrav1.HetznerClusterSpec) infrav1.HetznerClusterSpec {
+	if spec.HCloudNetwork.Enabled == nil {
+		spec.HCloudNetwork.Enabled = ptr.To(false)
+	}
+	if spec.SSHKeys.RescueSecretRef == nil {
+		spec.SSHKeys.RescueSecretRef = &infrav1.SSHSecretRef{}
+	}
+	// A controlPlaneLoadBalancer that is left out gets no defaults, so an unset enabled means false.
+	if spec.ControlPlaneLoadBalancer.Enabled == nil {
+		spec.ControlPlaneLoadBalancer.Enabled = ptr.To(false)
+	}
+	if spec.ControlPlaneLoadBalancer.EnableProxyProtocol == nil {
+		spec.ControlPlaneLoadBalancer.EnableProxyProtocol = ptr.To(false)
+	}
+	if spec.SkipCreatingHetznerSecretInWorkloadCluster == nil {
+		spec.SkipCreatingHetznerSecretInWorkloadCluster = ptr.To(false)
+	}
+	// An unset key means the default of that key.
+	key := &spec.HetznerSecret.Key
+	key.HCloudToken = ptr.To(key.GetHCloudToken())
+	key.HetznerRobotUser = ptr.To(key.GetHetznerRobotUser())
+	key.HetznerRobotPassword = ptr.To(key.GetHetznerRobotPassword())
+	key.SSHKey = ptr.To(key.GetSSHKey())
+	return spec
+}
+
 // ValidateDelete implements admission.Validator so a webhook will be registered for HetznerCluster.
-func (*HetznerClusterWebhook) ValidateDelete(context.Context, *infrav2.HetznerCluster) (admission.Warnings, error) {
+func (*HetznerClusterWebhook) ValidateDelete(context.Context, *infrav1.HetznerCluster) (admission.Warnings, error) {
 	return nil, nil
 }

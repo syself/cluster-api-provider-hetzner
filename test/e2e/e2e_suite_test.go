@@ -54,8 +54,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // Test suite flags.
@@ -260,8 +260,8 @@ var _ = SynchronizedAfterSuite(func() {
 func initScheme() *runtime.Scheme {
 	sc := runtime.NewScheme()
 	framework.TryAddDefaultSchemes(sc)
+	_ = infrav1beta1.AddToScheme(sc)
 	_ = infrav1.AddToScheme(sc)
-	_ = infrav2.AddToScheme(sc)
 	return sc
 }
 
@@ -848,7 +848,7 @@ func logDeploymentContainerImages(containerType string, containers []corev1.Cont
 }
 
 func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
-	hmList := &infrav2.HCloudMachineList{}
+	hmList := &infrav1.HCloudMachineList{}
 	err := c.List(ctx, hmList)
 	if err != nil {
 		return err
@@ -882,11 +882,7 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 			addresses = append(addresses, a.Address)
 		}
 
-		id := ""
-		if hm.Spec.ProviderID != nil {
-			id = *hm.Spec.ProviderID
-		}
-		log("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
+		log("HCloudMachine: " + hm.Name + " " + hm.Spec.ProviderID + " " + strings.Join(addresses, " "))
 		log("  ProvisioningState: " + string(hm.Status.InstanceState))
 
 		readyC := conditions.Get(hm, clusterv1.ReadyCondition)
@@ -922,7 +918,7 @@ func logCaphDeployment(ctx context.Context, c client.Client) error {
 }
 
 func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
-	hbmhList := &infrav2.HetznerBareMetalHostList{}
+	hbmhList := &infrav1.HetznerBareMetalHostList{}
 	err := c.List(ctx, hbmhList)
 	if err != nil {
 		return err
@@ -954,10 +950,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		}
 
 		// log infos about that hbmh.
-		hbmmName := ""
-		if hbmh.Spec.ConsumerRef != nil {
-			hbmmName = hbmh.Spec.ConsumerRef.Name
-		}
+		hbmmName := hbmh.Spec.ConsumerRef.Name
 		logMsg := "BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID) +
 			" | IPv4: " + hbmh.Status.IPv4
 		if hbmmName != "" {
@@ -968,14 +961,14 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		// Show an Error, if set. The message for the current error is on the ActionCompleted
 		// condition.
 		errMessage := ""
-		if ac := conditions.Get(hbmh, infrav2.HetznerBareMetalHostActionCompletedCondition); ac != nil {
+		if ac := conditions.Get(hbmh, infrav1.HetznerBareMetalHostActionCompletedCondition); ac != nil {
 			errMessage = ac.Message
 		}
 		eMsg := string(hbmh.Status.ErrorType) + " " + errMessage
 		eMsg = strings.TrimSpace(eMsg)
 		if eMsg != "" {
 			log("  Error: " + eMsg)
-			if hbmh.Status.ErrorType == infrav2.ErrorTypePermanent {
+			if hbmh.Status.ErrorType == infrav1.ErrorTypePermanent {
 				allErrors = append(allErrors, fmt.Errorf("%w on HetznerBareMetalHost (stopping e2e test now) %q: %s", errPermanentHBMH, hbmh.Name, eMsg))
 			}
 		}
@@ -995,7 +988,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 }
 
 func checkBareMetalMachineNoAvailableHost(ctx context.Context, c client.Client) error {
-	machineList := &infrav2.HetznerBareMetalMachineList{}
+	machineList := &infrav1.HetznerBareMetalMachineList{}
 	if err := c.List(ctx, machineList); err != nil {
 		return fmt.Errorf("failed to list HetznerBareMetalMachines: %w", err)
 	}
@@ -1003,8 +996,8 @@ func checkBareMetalMachineNoAvailableHost(ctx context.Context, c client.Client) 
 		if machine.DeletionTimestamp != nil {
 			continue
 		}
-		cond := conditions.Get(&machine, infrav2.HetznerBareMetalMachineHostAssociatedCondition)
-		if cond != nil && cond.Status == metav1.ConditionFalse && cond.Reason == infrav2.HetznerBareMetalMachineNoAvailableHostReason {
+		cond := conditions.Get(&machine, infrav1.HetznerBareMetalMachineHostAssociatedCondition)
+		if cond != nil && cond.Status == metav1.ConditionFalse && cond.Reason == infrav1.HetznerBareMetalMachineNoAvailableHostReason {
 			return fmt.Errorf("%w: HetznerBareMetalMachine %s/%s: %s", errNoAvailableHost, machine.Namespace, machine.Name, cond.Message)
 		}
 	}

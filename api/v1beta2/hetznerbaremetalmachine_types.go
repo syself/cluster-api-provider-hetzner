@@ -20,10 +20,12 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"reflect"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 )
@@ -43,7 +45,7 @@ var errUnknownSuffix = errors.New("unknown suffix")
 type ImageType string
 
 // DeviceStringType controls what CAPH passes as the device argument to customProvisioner.command.
-// Allowed values are "" (same as "short"), "short", and "wwn".
+// Allowed values are "short" and "wwn". Not set means "short".
 type DeviceStringType string
 
 const (
@@ -73,6 +75,7 @@ const (
 )
 
 // HetznerBareMetalMachineSpec defines the desired state of HetznerBareMetalMachine.
+// +kubebuilder:validation:MinProperties=1
 type HetznerBareMetalMachineSpec struct {
 	// providerID is set by the controller to either (new) `hrobot://<server-id>` or (old)
 	// `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a providerID, then
@@ -81,31 +84,35 @@ type HetznerBareMetalMachineSpec struct {
 	// `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
 	// `"true"`.
 	// +optional
-	ProviderID *string `json:"providerID,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=512
+	ProviderID string `json:"providerID,omitempty"`
 
 	// installImage provisions the machine with the Hetzner installimage tool.
 	// Exactly one of installImage or customProvisioner must be set.
 	// +optional
-	InstallImage *InstallImage `json:"installImage,omitempty"`
+	InstallImage InstallImage `json:"installImage,omitempty,omitzero"`
 
 	// customProvisioner provisions the machine with a custom command instead of installimage.
 	// Exactly one of installImage or customProvisioner must be set.
 	// +optional
-	CustomProvisioner *CustomProvisioner `json:"customProvisioner,omitempty"`
+	CustomProvisioner CustomProvisioner `json:"customProvisioner,omitempty,omitzero"`
 
 	// hostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
 	// This is used to limit the set of HetznerBareMetalHost objects considered for
-	// claiming for a HetznerBareMetalMachine.
+	// claiming for a HetznerBareMetalMachine. When it is not set, every HetznerBareMetalHost matches.
 	// +optional
-	HostSelector HostSelector `json:"hostSelector,omitempty"`
+	HostSelector *HostSelector `json:"hostSelector,omitempty"`
 
 	// sshSpec gives a reference on the secret where SSH details are specified as well as ports for SSH.
-	SSHSpec SSHSpec `json:"sshSpec,omitempty"`
+	// +optional
+	SSHSpec SSHSpec `json:"sshSpec,omitempty,omitzero"`
 
 	// skipCheckDisk skips the CheckDisk step during provisioning.
 	// This is equivalent to setting the annotation capi.syself.com/ignore-check-disk on the HetznerBareMetalHost.
+	// Not set means false.
 	// +optional
-	SkipCheckDisk bool `json:"skipCheckDisk,omitempty"`
+	SkipCheckDisk *bool `json:"skipCheckDisk,omitempty"`
 }
 
 // HostSelector specifies matching criteria for labels on BareMetalHosts.
@@ -117,97 +124,162 @@ type HostSelector struct {
 	MatchLabels map[string]string `json:"matchLabels,omitempty"`
 
 	// matchExpressions defines the label match expressions that must be true on a chosen BareMetalHost.
+	// The limit is far above the number of expressions that a host selector needs.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=512
 	MatchExpressions []HostSelectorRequirement `json:"matchExpressions,omitempty"`
 }
 
 // HostSelectorRequirement defines a requirement used for MatchExpressions to select host machines.
 type HostSelectorRequirement struct {
 	// key defines the key of the label that should be matched in the host object.
-	Key string `json:"key"`
+	// The limit is above the longest Kubernetes label key, which has 317 characters.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=512
+	Key string `json:"key,omitempty"`
 
 	// operator defines the selection operator.
-	Operator selection.Operator `json:"operator"`
+	// +required
+	Operator selection.Operator `json:"operator,omitempty"`
 
 	// values define the values whose relation to the label value in the host machine is defined by the selection operator.
+	// The limits are far above what a host selector needs. A Kubernetes label value has at most 63 characters.
+	// +optional
 	// +listType=atomic
-	Values []string `json:"values"`
+	// +kubebuilder:validation:MaxItems=512
+	// +kubebuilder:validation:items:MaxLength=512
+	Values []string `json:"values,omitempty"`
 }
+
+// DefaultPortAfterInstallImage is the value of sshSpec.portAfterInstallImage when it is not set.
+// It must match the +kubebuilder:default marker of the field.
+const DefaultPortAfterInstallImage int32 = 22
 
 // SSHSpec defines specs for SSH.
 type SSHSpec struct {
 	// secretRef gives reference to the secret where the SSH key is stored.
-	SecretRef SSHSecretRef `json:"secretRef"`
+	// +required
+	SecretRef SSHSecretRef `json:"secretRef,omitempty"`
 
 	// noSSHAfterInstallImage disables SSH access to the machine after installimage
-	// completed successfully.
+	// completed successfully. Not set means false.
 	// +optional
-	NoSSHAfterInstallImage bool `json:"noSSHAfterInstallImage,omitempty"`
+	NoSSHAfterInstallImage *bool `json:"noSSHAfterInstallImage,omitempty"`
 
 	// portAfterInstallImage specifies the port that has to be used to connect to the machine
 	// by reaching the server via SSH after installing the image successfully.
 	// +kubebuilder:default=22
 	// +optional
-	PortAfterInstallImage int `json:"portAfterInstallImage"`
+	// +kubebuilder:validation:Maximum=65535
+	PortAfterInstallImage *int32 `json:"portAfterInstallImage,omitempty"`
 }
 
 // SSHSecretRef defines the secret containing all information of the SSH key used for the Hetzner robot.
 type SSHSecretRef struct {
 	// name is the name of the secret.
-	Name string `json:"name"`
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name,omitempty"`
 
 	// key contains details about the keys used in the data of the secret.
-	Key SSHSecretKeyRef `json:"key"`
+	// +optional
+	Key SSHSecretKeyRef `json:"key,omitempty,omitzero"`
 }
 
 // SSHSecretKeyRef defines the key name of the SSHSecret.
+// +kubebuilder:validation:MinProperties=1
 type SSHSecretKeyRef struct {
 	// name is the key in the secret's data where the SSH key's name is stored.
-	Name string `json:"name"`
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name,omitempty"`
 
 	// publicKey is the key in the secret's data where the SSH key's public key is stored.
-	PublicKey string `json:"publicKey"`
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	PublicKey string `json:"publicKey,omitempty"`
 
 	// privateKey is the key in the secret's data where the SSH key's private key is stored.
-	PrivateKey string `json:"privateKey"`
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	PrivateKey string `json:"privateKey,omitempty"`
 }
 
+// The values of the swraid fields when they are not set. They must match the +kubebuilder:default
+// markers of these fields.
+const (
+	// DefaultSwraid is the value of installImage.swraid and customProvisioner.swraid when they are not set.
+	DefaultSwraid int32 = 0
+
+	// DefaultSwraidLevel is the value of installImage.swraidLevel when it is not set.
+	DefaultSwraidLevel int32 = 1
+)
+
 // InstallImage defines the configuration for provisioning a machine with the Hetzner installimage tool.
+// +kubebuilder:validation:MinProperties=1
 type InstallImage struct {
 	// image is the image to be provisioned. It defines the image for baremetal machine.
-	Image Image `json:"image"`
+	// +optional
+	Image Image `json:"image,omitempty,omitzero"`
 
 	// postInstallScript (Bash) is used for configuring commands that should be executed after installimage.
 	// It is passed along with the installimage command.
+	// The limit is the Linux limit for one command argument, because CAPH sends the script to the server in one SSH command.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=131072
 	PostInstallScript string `json:"postInstallScript,omitempty"`
 
 	// partitions define the additional partitions to be created in installimage.
-	// +listType=atomic
-	Partitions []Partition `json:"partitions"`
-
-	// logicalVolumeDefinitions defines the logical volume definitions to be created.
+	// installimage needs at least one partition. The field is optional only because a v1beta1
+	// HetznerBareMetalMachine can have an empty list, and v1beta2 must accept that stored object.
+	// The limit is the number of entries in a default GPT partition table.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=128
+	Partitions []Partition `json:"partitions,omitempty"`
+
+	// logicalVolumeDefinitions defines the logical volume definitions to be created.
+	// The limit is the same as for partitions.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=128
 	LVMDefinitions []LVMDefinition `json:"logicalVolumeDefinitions,omitempty"`
 
 	// btrfsDefinitions define the btrfs subvolume definitions to be created.
+	// The limit is the same as for partitions.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=128
 	BTRFSDefinitions []BTRFSDefinition `json:"btrfsDefinitions,omitempty"`
 
 	// swraid defines the SWRAID in InstallImage. It enables or disables raids. Set 1 to enable.
 	// +optional
 	// +kubebuilder:default=0
 	// +kubebuilder:validation:Enum=0;1;
-	Swraid int `json:"swraid"`
+	Swraid *int32 `json:"swraid,omitempty"`
 
 	// swraidLevel defines the SWRAIDLEVEL in InstallImage. Only relevant if the raid is enabled.
 	// Pick one of 0,1,5,6,10. Ignored if swraid=0.
 	// +optional
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Enum=0;1;5;6;10;
-	SwraidLevel int `json:"swraidLevel,omitempty"`
+	SwraidLevel *int32 `json:"swraidLevel,omitempty"`
+}
+
+// IsDefined returns true if the InstallImage is set.
+func (i *InstallImage) IsDefined() bool {
+	if i == nil {
+		return false
+	}
+	return !reflect.DeepEqual(i, &InstallImage{})
 }
 
 // CustomProvisioner defines the configuration for provisioning a machine with a custom command
@@ -215,18 +287,23 @@ type InstallImage struct {
 type CustomProvisioner struct {
 	// url is the location of the image that command provisions the machine from. CAPH passes it to
 	// command in the rescue system.
+	// The limit is 8 KiB, the default URL length limit of common HTTP servers.
+	// +optional
 	// +kubebuilder:validation:MinLength=1
-	URL string `json:"url"`
+	// +kubebuilder:validation:MaxLength=8192
+	URL string `json:"url,omitempty"`
 
 	// command is the basename of a command file below /shared on the controller pod. CAPH copies
 	// that command into the rescue system and executes it there to provision the machine from url.
+	// +required
 	// +kubebuilder:validation:MinLength=1
-	Command string `json:"command"`
+	// +kubebuilder:validation:MaxLength=255
+	Command string `json:"command,omitempty"`
 
 	// deviceStringType instructs CAPH to either use the short device name, or the WWN when calling
-	// command. "" and "short" both pass the short device name (e.g. "sda"); "wwn" passes the WWN
+	// command. "short" or not set passes the short device name (e.g. "sda"); "wwn" passes the WWN
 	// (e.g. "eui.00253885910c8cec").
-	// +kubebuilder:validation:Enum="";short;wwn
+	// +kubebuilder:validation:Enum=short;wwn
 	// +optional
 	DeviceStringType DeviceStringType `json:"deviceStringType,omitempty"`
 
@@ -235,18 +312,36 @@ type CustomProvisioner struct {
 	// +optional
 	// +kubebuilder:default=0
 	// +kubebuilder:validation:Enum=0;1;
-	Swraid int `json:"swraid,omitempty"`
+	Swraid *int32 `json:"swraid,omitempty"`
+}
+
+// IsDefined returns true if the CustomProvisioner is set.
+func (p *CustomProvisioner) IsDefined() bool {
+	if p == nil {
+		return false
+	}
+	return !reflect.DeepEqual(p, &CustomProvisioner{})
 }
 
 // Image defines the properties for the autosetup config.
 type Image struct {
 	// url defines the remote URL for downloading a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
+	// The limit is 8 KiB, the default URL length limit of common HTTP servers.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=8192
 	URL string `json:"url,omitempty"`
 
 	// name defines the archive name after download. This has to be a valid name for Installimage.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
 	Name string `json:"name,omitempty"`
 
 	// path is the local path for a preinstalled image from upstream.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=4096
 	Path string `json:"path,omitempty"`
 }
 
@@ -297,48 +392,82 @@ type Partition struct {
 	// Identifier 'btrfs.X' to use this PART as volume for
 	// btrfs subvolumes. X can be replaced with a unique
 	// alphanumeric keyword. NOTE: no support for btrfs multi-device volumes.
-	Mount string `json:"mount"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=4096
+	Mount string `json:"mount,omitempty"`
 
 	// fileSystem can be ext2, ext3, ext4, btrfs, reiserfs, xfs, swap
 	// or name of the LVM volume group (VG), if this PART is a VG.
-	FileSystem string `json:"fileSystem"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	FileSystem string `json:"fileSystem,omitempty"`
 
 	// size can use the keyword 'all' to assign all the remaining space of the drive to the last partition.
 	// You can use M/G/T for unit specification in MiB/GiB/TiB.
-	Size string `json:"size"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=32
+	Size string `json:"size,omitempty"`
 }
 
 // BTRFSDefinition defines the btrfs subvolume definitions to be created.
 type BTRFSDefinition struct {
 	// volume defines the btrfs volume name.
-	Volume string `json:"volume"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	Volume string `json:"volume,omitempty"`
 
 	// subvolume defines the subvolume name.
-	SubVolume string `json:"subvolume"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=4096
+	SubVolume string `json:"subvolume,omitempty"`
 
 	// mount defines the mountpath.
-	Mount string `json:"mount"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=4096
+	Mount string `json:"mount,omitempty"`
 }
 
 // LVMDefinition defines the logical volume definitions to be created.
 type LVMDefinition struct {
 	// vg defines the vg name.
-	VG string `json:"vg"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	VG string `json:"vg,omitempty"`
 
 	// name defines the volume name.
-	Name string `json:"name"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	Name string `json:"name,omitempty"`
 
 	// mount defines the mountpath.
-	Mount string `json:"mount"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=4096
+	Mount string `json:"mount,omitempty"`
 
 	// filesystem defines the filesystem for this logical volume.
-	FileSystem string `json:"filesystem"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	FileSystem string `json:"filesystem,omitempty"`
 
 	// size defines the size in M/G/T or MiB/GiB/TiB.
-	Size string `json:"size"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=32
+	Size string `json:"size,omitempty"`
 }
 
 // HetznerBareMetalMachineStatus defines the observed state of HetznerBareMetalMachine.
+// +kubebuilder:validation:MinProperties=1
 type HetznerBareMetalMachineStatus struct {
 	// conditions represents the observations of a HetznerBareMetalMachine's current state.
 	// Known condition types are Ready, HCloudTokenAvailable, HostAssociated, HostReady, ServerAvailable and Deleting.
@@ -357,6 +486,7 @@ type HetznerBareMetalMachineStatus struct {
 	// This field is copied from the infrastructure provider reference.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=256
 	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
 
 	// phase represents the current phase of HetznerBareMetalMachineStatus actuation.
@@ -402,11 +532,9 @@ type HetznerBareMetalMachineV1Beta1DeprecatedStatus struct {
 	// conditions defines current service state of the HetznerBareMetalMachine.
 	//
 	// +optional
-	// +listType=map
-	// +listMapKey=type
 	//
 	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
 // HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
@@ -424,12 +552,17 @@ type HetznerBareMetalMachineV1Beta1DeprecatedStatus struct {
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message",priority=1
 type HetznerBareMetalMachine struct {
 	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// spec is the desired state of HetznerBareMetalMachine.
 	// +optional
-	Spec HetznerBareMetalMachineSpec `json:"spec,omitempty"`
+	Spec HetznerBareMetalMachineSpec `json:"spec,omitempty,omitzero"`
+	// status is the observed state of HetznerBareMetalMachine.
 	// +optional
-	Status HetznerBareMetalMachineStatus `json:"status,omitempty"`
+	Status HetznerBareMetalMachineStatus `json:"status,omitempty,omitzero"`
 }
 
 // GetConditions returns the set of conditions for the HetznerBareMetalMachine resource.
@@ -539,12 +672,12 @@ func GetImageSuffix(url string) (string, error) {
 }
 
 // Swraid returns the swraid setting of installImage or customProvisioner, whichever is set.
-func (hbmm *HetznerBareMetalMachine) Swraid() int {
-	if hbmm.Spec.InstallImage != nil {
-		return hbmm.Spec.InstallImage.Swraid
+func (hbmm *HetznerBareMetalMachine) Swraid() int32 {
+	if hbmm.Spec.InstallImage.IsDefined() {
+		return ptr.Deref(hbmm.Spec.InstallImage.Swraid, DefaultSwraid)
 	}
-	if hbmm.Spec.CustomProvisioner != nil {
-		return hbmm.Spec.CustomProvisioner.Swraid
+	if hbmm.Spec.CustomProvisioner.IsDefined() {
+		return ptr.Deref(hbmm.Spec.CustomProvisioner.Swraid, DefaultSwraid)
 	}
 	return 0
 }

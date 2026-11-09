@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // BareMetalRemediationScopeParams defines the input parameters used to create a new Scope.
@@ -36,9 +36,9 @@ type BareMetalRemediationScopeParams struct {
 	Logger               *logr.Logger
 	Client               client.Client
 	Machine              *clusterv1.Machine
-	BareMetalMachine     *infrav2.HetznerBareMetalMachine
-	HetznerCluster       *infrav2.HetznerCluster
-	BareMetalRemediation *infrav2.HetznerBareMetalRemediation
+	BareMetalMachine     *infrav1.HetznerBareMetalMachine
+	HetznerCluster       *infrav1.HetznerCluster
+	BareMetalRemediation *infrav1.HetznerBareMetalRemediation
 	EventRecorder        record.EventRecorder
 }
 
@@ -83,8 +83,8 @@ type BareMetalRemediationScope struct {
 	Client               client.Client
 	patchHelper          *patch.Helper
 	Machine              *clusterv1.Machine
-	BareMetalMachine     *infrav2.HetznerBareMetalMachine
-	BareMetalRemediation *infrav2.HetznerBareMetalRemediation
+	BareMetalMachine     *infrav1.HetznerBareMetalMachine
+	BareMetalRemediation *infrav1.HetznerBareMetalRemediation
 	EventRecorder        record.EventRecorder
 }
 

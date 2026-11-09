@@ -22,11 +22,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
-func validateHCloudMachineSpecUpdate(oldSpec, newSpec infrav2.HCloudMachineSpec) field.ErrorList {
+func validateHCloudMachineSpecUpdate(oldSpec, newSpec infrav1.HCloudMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	// Type is immutable
 	if !reflect.DeepEqual(oldSpec.Type, newSpec.Type) {
@@ -68,26 +68,26 @@ func validateHCloudMachineSpecUpdate(oldSpec, newSpec infrav2.HCloudMachineSpec)
 	return allErrs
 }
 
-func validateHCloudMachineSpec(spec infrav2.HCloudMachineSpec) field.ErrorList {
+func validateHCloudMachineSpec(spec infrav1.HCloudMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
-	if spec.ImageName != "" && spec.CustomProvisioner != nil {
+	if spec.ImageName != "" && spec.CustomProvisioner.IsDefined() {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "imageName"), spec.ImageName, "imageName and customProvisioner are mutually exclusive"))
 	}
 
-	if spec.ImageName == "" && spec.CustomProvisioner == nil {
+	if spec.ImageName == "" && !spec.CustomProvisioner.IsDefined() {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "imageName"), spec.ImageName, "imageName and customProvisioner empty. One of these attributes must be set"))
 	}
 
-	if spec.CustomProvisioner != nil {
-		allErrs = append(allErrs, validateHCloudCustomProvisioner(*spec.CustomProvisioner)...)
+	if spec.CustomProvisioner.IsDefined() {
+		allErrs = append(allErrs, validateHCloudCustomProvisioner(spec.CustomProvisioner)...)
 	}
 
 	// Server recycling reuses a pre-existing server by rebuilding it with the HCloudMachine's
 	// bootstrap data. A custom provisioner installs via the rescue system, which a rebuild cannot
 	// reproduce, so recycling is only supported with imageName.
-	if spec.Recycle != nil && spec.Recycle.Enabled && spec.CustomProvisioner != nil {
+	if spec.Recycle != nil && spec.Recycle.Enabled && spec.CustomProvisioner.IsDefined() {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "recycle", "enabled"), spec.Recycle.Enabled,
 				"server recycling is only supported with imageName, not customProvisioner"))
@@ -96,7 +96,7 @@ func validateHCloudMachineSpec(spec infrav2.HCloudMachineSpec) field.ErrorList {
 	return allErrs
 }
 
-func validateHCloudCustomProvisioner(customProvisioner infrav2.HCloudCustomProvisioner) field.ErrorList {
+func validateHCloudCustomProvisioner(customProvisioner infrav1.HCloudCustomProvisioner) field.ErrorList {
 	var allErrs field.ErrorList
 	base := field.NewPath("spec", "customProvisioner")
 

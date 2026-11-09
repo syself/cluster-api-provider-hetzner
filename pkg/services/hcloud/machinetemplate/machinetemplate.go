@@ -28,7 +28,7 @@ import (
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 )
@@ -55,7 +55,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			hcloudutil.HandleRateLimitExceeded(machineTemplate, s.scope.EventRecorder, err, "ListServerTypes")
 			err = fmt.Errorf("failed to list server types: %w", err)
 			conditions.Set(machineTemplate, metav1.Condition{
-				Type:    infrav2.HCloudMachineTemplateAvailableCondition,
+				Type:    infrav1.HCloudMachineTemplateAvailableCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  clusterv1.InternalErrorReason,
 				Message: err.Error(),
@@ -66,7 +66,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		capacity, found, err := getCapacity(serverTypes, string(machineTemplate.Spec.Template.Spec.Type))
 		if err != nil {
 			conditions.Set(machineTemplate, metav1.Condition{
-				Type:    infrav2.HCloudMachineTemplateAvailableCondition,
+				Type:    infrav1.HCloudMachineTemplateAvailableCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  clusterv1.InternalErrorReason,
 				Message: err.Error(),
@@ -77,9 +77,9 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			// wrong server type, not an internal error. don't retry with backoff, a restart
 			// picks it up again if hcloud starts offering it.
 			conditions.Set(machineTemplate, metav1.Condition{
-				Type:    infrav2.HCloudMachineTemplateAvailableCondition,
+				Type:    infrav1.HCloudMachineTemplateAvailableCondition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav2.HCloudMachineTemplateServerTypeNotFoundReason,
+				Reason:  infrav1.HCloudMachineTemplateServerTypeNotFoundReason,
 				Message: fmt.Sprintf("failed to find server type for %s", machineTemplate.Spec.Template.Spec.Type),
 			})
 			return reconcile.Result{}, nil
@@ -89,9 +89,9 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	conditions.Set(machineTemplate, metav1.Condition{
-		Type:   infrav2.HCloudMachineTemplateAvailableCondition,
+		Type:   infrav1.HCloudMachineTemplateAvailableCondition,
 		Status: metav1.ConditionTrue,
-		Reason: infrav2.HCloudMachineTemplateAvailableReason,
+		Reason: infrav1.HCloudMachineTemplateAvailableReason,
 	})
 	return reconcile.Result{}, nil
 }

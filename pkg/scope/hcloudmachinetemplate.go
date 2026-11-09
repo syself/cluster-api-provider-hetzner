@@ -27,7 +27,7 @@ import (
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
@@ -35,7 +35,7 @@ import (
 type HCloudMachineTemplateScopeParams struct {
 	Logger                *logr.Logger
 	HCloudClient          hcloudclient.Client
-	HCloudMachineTemplate *infrav2.HCloudMachineTemplate
+	HCloudMachineTemplate *infrav1.HCloudMachineTemplate
 	EventRecorder         record.EventRecorder
 }
 
@@ -67,7 +67,7 @@ type HCloudMachineTemplateScope struct {
 	*logr.Logger
 	HCloudClient hcloudclient.Client
 
-	HCloudMachineTemplate *infrav2.HCloudMachineTemplate
+	HCloudMachineTemplate *infrav1.HCloudMachineTemplate
 	EventRecorder         record.EventRecorder
 }
 
@@ -82,11 +82,11 @@ func (s *HCloudMachineTemplateScope) Namespace() string {
 }
 
 // SetHCloudMachineTemplateSummaryCondition computes and sets the HCloudMachineTemplate Ready condition.
-func SetHCloudMachineTemplateSummaryCondition(hcloudMachineTemplate *infrav2.HCloudMachineTemplate) error {
+func SetHCloudMachineTemplateSummaryCondition(hcloudMachineTemplate *infrav1.HCloudMachineTemplate) error {
 	readyCondition, err := conditions.NewSummaryCondition(
 		hcloudMachineTemplate,
 		clusterv1.ReadyCondition,
-		infrav2.HCloudMachineTemplateSummaryOpts()...,
+		infrav1.HCloudMachineTemplateSummaryOpts()...,
 	)
 	if err != nil {
 		return err
@@ -104,15 +104,15 @@ func MachineTemplatePatchOpts() []patch.Option {
 		// owned deprecated v1beta1 conditions.
 		patch.WithOwnedV1Beta1Conditions{Conditions: []clusterv1.ConditionType{
 			clusterv1.ReadyV1Beta1Condition,
-			infrav2.HCloudTokenAvailableV1Beta1Condition,
-			infrav2.HetznerAPIReachableV1Beta1Condition,
+			infrav1.HCloudTokenAvailableV1Beta1Condition,
+			infrav1.HetznerAPIReachableV1Beta1Condition,
 		}},
 		// owned conditions.
 		patch.WithOwnedConditions{Conditions: []string{
 			clusterv1.ReadyCondition,
-			infrav2.HCloudMachineTemplateAvailableCondition,
-			infrav2.HCloudTokenAvailableCondition,
-			infrav2.HCloudRateLimitExceededCondition,
+			infrav1.HCloudMachineTemplateAvailableCondition,
+			infrav1.HCloudTokenAvailableCondition,
+			infrav1.HCloudRateLimitExceededCondition,
 		}},
 	}
 }

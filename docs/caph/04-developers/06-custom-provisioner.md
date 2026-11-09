@@ -103,7 +103,7 @@ By default, CAPH passes short device names (e.g. `sda`) as the last argument to 
 For bare metal machines you can set `spec.customProvisioner.deviceStringType` (v1beta1:
 `spec.installImage.deviceStringType`) to control this:
 
-- `"short"` (or empty): passes the short device name, e.g. `sda`
+- `"short"` (or not set): passes the short device name, e.g. `sda`
 - `"wwn"`: passes the WWN from the `rootDeviceHints`, e.g. `eui.00253885910c8cec`
 
 Example:

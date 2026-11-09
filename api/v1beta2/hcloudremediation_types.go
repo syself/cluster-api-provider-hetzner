@@ -23,16 +23,28 @@ import (
 )
 
 // HCloudRemediationSpec defines the desired state of HCloudRemediation.
+// +kubebuilder:validation:MinProperties=1
 type HCloudRemediationSpec struct {
 	// strategy field defines remediation strategy.
-	Strategy *RemediationStrategy `json:"strategy,omitempty"`
+	// +optional
+	Strategy RemediationStrategy `json:"strategy,omitempty,omitzero"`
 }
 
 // HCloudRemediationStatus defines the observed state of HCloudRemediation.
+// +kubebuilder:validation:MinProperties=1
 type HCloudRemediationStatus struct {
+	// conditions represents the observations of a HCloudRemediation's current state.
+	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded and RemediationSkipped.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
 	// phase represents the current phase of machine remediation.
 	// One of Running, Waiting, Deleting machine or Succeeded.
 	// +optional
+	// +kubebuilder:validation:Enum=Running;Waiting;"Deleting machine";Succeeded
 	Phase string `json:"phase,omitempty"`
 
 	// retryCount records how many times the remediation controller has tried to
@@ -44,14 +56,6 @@ type HCloudRemediationStatus struct {
 	// A zero value is treated as absent.
 	// +optional
 	LastRemediated metav1.Time `json:"lastRemediated,omitempty,omitzero"`
-
-	// conditions represents the observations of a HCloudRemediation's current state.
-	// Known condition types are Ready, HCloudTokenAvailable, HCloudRateLimitExceeded and RemediationSkipped.
-	// +optional
-	// +listType=map
-	// +listMapKey=type
-	// +kubebuilder:validation:MaxItems=32
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// deprecated groups all the status fields that are deprecated and will be removed when support for v1beta1 is dropped.
 	// +optional
@@ -70,11 +74,9 @@ type HCloudRemediationV1Beta1DeprecatedStatus struct {
 	// conditions defines current service state of the HCloudRemediation.
 	//
 	// +optional
-	// +listType=map
-	// +listMapKey=type
 	//
 	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -93,12 +95,18 @@ type HCloudRemediationV1Beta1DeprecatedStatus struct {
 // HCloudRemediation is the Schema for the hcloudremediations API.
 type HCloudRemediation struct {
 	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// spec is the desired state of HCloudRemediation. It is empty when the template that
+	// created the remediation has no strategy. The controller then does nothing and records an event.
 	// +optional
-	Spec HCloudRemediationSpec `json:"spec,omitempty"`
+	Spec HCloudRemediationSpec `json:"spec,omitempty,omitzero"`
+	// status is the observed state of HCloudRemediation.
 	// +optional
-	Status HCloudRemediationStatus `json:"status,omitempty"`
+	Status HCloudRemediationStatus `json:"status,omitempty,omitzero"`
 }
 
 // GetConditions returns the set of conditions for the HCloudRemediation object.

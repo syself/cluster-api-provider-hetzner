@@ -15,6 +15,8 @@ on: # yamllint disable-line rule:truthy
       - ".github/workflows/e2e-*"
       - ".github/workflows/pr-*"
       - ".golangci.yaml"
+      - ".golangci-kal.yml"
+      - "hack/tools/.custom-gcl.yaml"
       - "images/caph/**"
       - "!**/vendor/**"
       - "test/e2e/**"

@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	kinderrors "sigs.k8s.io/kind/pkg/errors"
 
-	infrav2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 const (
@@ -218,7 +218,7 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 
 	switch m.Spec.InfrastructureRef.Kind {
 	case "HetznerBareMetalMachine":
-		hbmm := &infrav2.HetznerBareMetalMachine{}
+		hbmm := &infrav1.HetznerBareMetalMachine{}
 		if err := c.Get(ctx, key, hbmm); err != nil {
 			return "", fmt.Errorf("get HetznerBareMetalMachine %s: %w", key, err)
 		}
@@ -233,7 +233,7 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 		}
 		return hostIPAddr, nil
 	case "HCloudMachine":
-		hm := &infrav2.HCloudMachine{}
+		hm := &infrav1.HCloudMachine{}
 		if err := c.Get(ctx, key, hm); err != nil {
 			return "", fmt.Errorf("get HCloudMachine %s: %w", key, err)
 		}
@@ -247,7 +247,7 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 	}
 }
 
-func externalIPFromAssociatedHost(ctx context.Context, c client.Client, hbmm *infrav2.HetznerBareMetalMachine) (string, error) {
+func externalIPFromAssociatedHost(ctx context.Context, c client.Client, hbmm *infrav1.HetznerBareMetalMachine) (string, error) {
 	host, hostKey, err := associatedHostFromHBMM(ctx, c, hbmm)
 	if err != nil {
 		return "", err
@@ -267,14 +267,14 @@ func externalIPFromAssociatedHost(ctx context.Context, c client.Client, hbmm *in
 	return "", fmt.Errorf("HetznerBareMetalHost %s has no usable IPv4/IPv6 (IPv4=%q, IPv6=%q)", hostKey, host.Status.IPv4, host.Status.IPv6)
 }
 
-func associatedHostFromHBMM(ctx context.Context, c client.Client, hbmm *infrav2.HetznerBareMetalMachine) (*infrav2.HetznerBareMetalHost, client.ObjectKey, error) {
+func associatedHostFromHBMM(ctx context.Context, c client.Client, hbmm *infrav1.HetznerBareMetalMachine) (*infrav1.HetznerBareMetalHost, client.ObjectKey, error) {
 	if hbmm == nil {
 		return nil, client.ObjectKey{}, fmt.Errorf("hbmm is nil")
 	}
 
-	annotationValue, ok := hbmm.Annotations[infrav2.HostAnnotation]
+	annotationValue, ok := hbmm.Annotations[infrav1.HostAnnotation]
 	if !ok || annotationValue == "" {
-		return nil, client.ObjectKey{}, fmt.Errorf("annotation %q not found", infrav2.HostAnnotation)
+		return nil, client.ObjectKey{}, fmt.Errorf("annotation %q not found", infrav1.HostAnnotation)
 	}
 
 	hostNamespace := hbmm.Namespace
@@ -287,10 +287,10 @@ func associatedHostFromHBMM(ctx context.Context, c client.Client, hbmm *infrav2.
 		hostName = parts[1]
 	}
 	if hostName == "" {
-		return nil, client.ObjectKey{}, fmt.Errorf("associated host name in annotation %q is empty", infrav2.HostAnnotation)
+		return nil, client.ObjectKey{}, fmt.Errorf("associated host name in annotation %q is empty", infrav1.HostAnnotation)
 	}
 
-	host := &infrav2.HetznerBareMetalHost{}
+	host := &infrav1.HetznerBareMetalHost{}
 	hostKey := client.ObjectKey{
 		Namespace: hostNamespace,
 		Name:      hostName,

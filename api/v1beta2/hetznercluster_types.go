@@ -72,40 +72,50 @@ const (
 type HetznerClusterSpec struct {
 	// hcloudNetwork defines details about the private Network for Hetzner Cloud. If left empty, no private Network is configured.
 	// +optional
-	HCloudNetwork HCloudNetworkSpec `json:"hcloudNetwork"`
+	HCloudNetwork HCloudNetworkSpec `json:"hcloudNetwork,omitempty,omitzero"`
 
 	// controlPlaneRegions consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
 	// have a very low latency we could assume in some use cases that a region is behaving like a zone.
 	// https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
+	// +optional
 	// +listType=set
-	ControlPlaneRegions []Region `json:"controlPlaneRegions"`
+	// +kubebuilder:validation:MaxItems=100
+	ControlPlaneRegions []Region `json:"controlPlaneRegions,omitempty"`
 
 	// sshKeys are cluster wide. Valid values are a valid SSH key name.
-	SSHKeys HetznerSSHKeys `json:"sshKeys"`
+	// +optional
+	SSHKeys HetznerSSHKeys `json:"sshKeys,omitempty,omitzero"`
 
 	// controlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
 	ControlPlaneEndpoint APIEndpoint `json:"controlPlaneEndpoint,omitempty,omitzero"`
 
 	// controlPlaneLoadBalancer is an optional configuration for customizing control plane behavior.
-	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
+	// +optional
+	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty,omitzero"`
 
+	// hcloudPlacementGroups are the placement groups that the controller creates in HCloud for this cluster.
+	// An HCloudMachine is added to one of them with placementGroupName.
+	// The limit allows 1000 servers, because a placement group in Hetzner has at most 10 servers.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=100
 	HCloudPlacementGroups []HCloudPlacementGroupSpec `json:"hcloudPlacementGroups,omitempty"`
 
 	// hetznerSecretRef is a reference to a token to be used when reconciling this cluster.
 	// This is generated in the security section under API TOKENS. Read & write is necessary.
-	HetznerSecret HetznerSecretRef `json:"hetznerSecretRef"`
+	// +required
+	HetznerSecret HetznerSecretRef `json:"hetznerSecretRef,omitempty,omitzero"`
 
 	// skipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be
 	// created in the workload cluster. By default the secret gets created, so that the ccm (running
 	// in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
 	// wl-cluster, you can set this to true, so that the secret is not created. Be sure to
 	// run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
+	// Not set means false.
 	// +optional
-	SkipCreatingHetznerSecretInWorkloadCluster bool `json:"skipCreatingHetznerSecretInWorkloadCluster,omitempty"`
+	SkipCreatingHetznerSecretInWorkloadCluster *bool `json:"skipCreatingHetznerSecretInWorkloadCluster,omitempty"`
 }
 
 // APIEndpoint represents a reachable Kubernetes API endpoint.
@@ -125,6 +135,7 @@ type APIEndpoint struct {
 }
 
 // HetznerClusterStatus defines the observed state of HetznerCluster.
+// +kubebuilder:validation:MinProperties=1
 type HetznerClusterStatus struct {
 	// conditions represents the observations of a HetznerCluster's current state.
 	// +optional
@@ -138,14 +149,20 @@ type HetznerClusterStatus struct {
 	// +optional
 	Initialization HetznerClusterInitializationStatus `json:"initialization,omitempty,omitzero"`
 
+	// networkStatus is the observed state of the HCloud private network of the cluster.
 	// +optional
 	Network *NetworkStatus `json:"networkStatus,omitempty"`
 
+	// controlPlaneLoadBalancer is the observed state of the control plane load balancer in HCloud.
+	// +optional
 	ControlPlaneLoadBalancer *LoadBalancerStatus `json:"controlPlaneLoadBalancer,omitempty"`
 
+	// hcloudPlacementGroups are the placement groups in HCloud that belong to this cluster.
+	// The limit allows 1000 servers, because a placement group in Hetzner has at most 10 servers.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=100
 	HCloudPlacementGroups []HCloudPlacementGroupStatus `json:"hcloudPlacementGroups,omitempty"`
 
 	// failureDomains is a slice of failure domain objects synced from the infrastructure provider.
@@ -185,11 +202,9 @@ type HetznerClusterV1Beta1DeprecatedStatus struct {
 	// conditions defines current service state of the HetznerCluster.
 	//
 	// +optional
-	// +listType=map
-	// +listMapKey=type
 	//
 	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 is dropped.
-	Conditions []clusterv1.Condition `json:"conditions,omitempty"`
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -207,11 +222,18 @@ type HetznerClusterV1Beta1DeprecatedStatus struct {
 
 // HetznerCluster is the Schema for the hetznercluster API.
 type HetznerCluster struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HetznerClusterSpec   `json:"spec,omitempty"`
-	Status HetznerClusterStatus `json:"status,omitempty"`
+	// spec is the desired state of HetznerCluster.
+	// +optional
+	Spec HetznerClusterSpec `json:"spec,omitempty,omitzero"`
+	// status is the observed state of HetznerCluster.
+	// +optional
+	Status HetznerClusterStatus `json:"status,omitempty,omitzero"`
 }
 
 // HetznerClusterList contains a list of HetznerCluster
