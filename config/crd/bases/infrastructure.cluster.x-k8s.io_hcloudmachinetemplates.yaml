@@ -157,24 +157,15 @@ spec:
                               addresses enabled.
                             type: boolean
                         type: object
-                      recycle:
+                      serverRecycling:
                         description: |-
-                          Recycle enables server recycling for this machine. When enabled, instead of creating a new
-                          HCloud server, the controller claims a pre-existing server that is labelled as recyclable and
-                          matches this machine's Type and location, and rebuilds it with the machine's bootstrap data. On
-                          deletion the server is returned to the recyclable set instead of being deleted. This lets a fixed
-                          set of servers back a MachineDeployment, so nodes are reused instead of provisioned and destroyed
-                          on every scale event.
-
-                          Recycling is only supported together with ImageName (snapshot provisioning) and is a best-effort
-                          optimization: if no matching recyclable server is available, a new server is created as usual.
-                        properties:
-                          enabled:
-                            default: false
-                            description: Enabled turns server recycling on for this
-                              machine.
-                            type: boolean
-                        type: object
+                          ServerRecycling selects whether this machine reuses a pre-existing server instead of creating a
+                          new one. It is only supported together with ImageName (snapshot provisioning). When unset it
+                          behaves like Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
                       sshKeys:
                         description: SSHKeys define machine-specific SSH keys and
                           override cluster-wide SSH keys.
@@ -517,24 +508,15 @@ spec:
                               addresses enabled.
                             type: boolean
                         type: object
-                      recycle:
+                      serverRecycling:
                         description: |-
-                          recycle enables server recycling for this HCloudMachine. When enabled, the controller does not
-                          create a new server. It claims a pre-existing server that is labelled as recyclable and matches
-                          this HCloudMachine's type and location, and rebuilds it with the HCloudMachine's bootstrap data.
-                          On deletion the server is returned to the recyclable set instead of being deleted. This lets a
-                          fixed set of servers back a MachineDeployment, so nodes are reused instead of provisioned and
-                          destroyed on every scale event.
-
-                          Recycling requires imageName and cannot be combined with customProvisioner. It is best-effort:
-                          if no matching recyclable server is available, a new server is created as usual.
-                        properties:
-                          enabled:
-                            default: false
-                            description: enabled turns server recycling on for this
-                              HCloudMachine.
-                            type: boolean
-                        type: object
+                          serverRecycling selects whether this HCloudMachine reuses a pre-existing server instead of
+                          creating a new one. It requires imageName and cannot be combined with customProvisioner.
+                          Note: When unset it behaves like Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
                       sshKeys:
                         description: sshKeys define machine-specific SSH keys and
                           override cluster-wide SSH keys.

@@ -70,8 +70,7 @@ var errRecycleOwnershipLost = errors.New("recycled server is owned by another ma
 
 // recyclingEnabled reports whether server recycling is enabled for this machine.
 func (s *Service) recyclingEnabled() bool {
-	r := s.scope.HCloudMachine.Spec.Recycle
-	return r != nil && r.Enabled
+	return s.scope.HCloudMachine.Spec.ServerRecycling == infrav1.ServerRecyclingEnabled
 }
 
 // isRecyclableServer reports whether a server participates in recycling and must therefore be

@@ -242,8 +242,8 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 
 	// Server recycling is valid together with imageName.
 	allErrs = validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
-		ImageName: "ubuntu-24.04",
-		Recycle:   &infrav1.ServerRecycling{Enabled: true},
+		ImageName:       "ubuntu-24.04",
+		ServerRecycling: infrav1.ServerRecyclingEnabled,
 	})
 	require.Empty(t, allErrs)
 
@@ -254,9 +254,9 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 			URL:     "oci://ghcr.io/example/foo:v1",
 			Command: "custom-provisioner-foo.sh",
 		},
-		Recycle: &infrav1.ServerRecycling{Enabled: true},
+		ServerRecycling: infrav1.ServerRecyclingEnabled,
 	})
-	require.Equal(t, `spec.recycle.enabled: Invalid value: true: server recycling is only supported with imageName, not customProvisioner`, errorsToString(allErrs))
+	require.Equal(t, `spec.serverRecycling: Invalid value: "Enabled": server recycling is only supported with imageName, not customProvisioner`, errorsToString(allErrs))
 
 	// Disabled recycling does not restrict the customProvisioner flow.
 	allErrs = validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
@@ -264,7 +264,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 			URL:     "oci://ghcr.io/example/foo:v1",
 			Command: "custom-provisioner-foo.sh",
 		},
-		Recycle: &infrav1.ServerRecycling{Enabled: false},
+		ServerRecycling: infrav1.ServerRecyclingDisabled,
 	})
 	require.Empty(t, allErrs)
 }

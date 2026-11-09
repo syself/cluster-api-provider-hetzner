@@ -100,29 +100,31 @@ type HCloudMachineSpec struct {
 	// +optional
 	PublicNetwork *PublicNetworkSpec `json:"publicNetwork,omitempty"`
 
-	// Recycle enables server recycling for this machine. When enabled, instead of creating a new
-	// HCloud server, the controller claims a pre-existing server that is labelled as recyclable and
-	// matches this machine's Type and location, and rebuilds it with the machine's bootstrap data. On
-	// deletion the server is returned to the recyclable set instead of being deleted. This lets a fixed
-	// set of servers back a MachineDeployment, so nodes are reused instead of provisioned and destroyed
-	// on every scale event.
-	//
-	// Recycling is only supported together with ImageName (snapshot provisioning) and is a best-effort
-	// optimization: if no matching recyclable server is available, a new server is created as usual.
+	// ServerRecycling selects whether this machine reuses a pre-existing server instead of creating a
+	// new one. It is only supported together with ImageName (snapshot provisioning). When unset it
+	// behaves like Disabled.
+	// +kubebuilder:validation:Enum=Enabled;Disabled
 	// +optional
-	Recycle *ServerRecycling `json:"recycle,omitempty"`
+	ServerRecycling ServerRecyclingPolicy `json:"serverRecycling,omitempty"`
 }
 
-// ServerRecycling configures the reuse of pre-existing servers for an HCloudMachine.
+// ServerRecyclingPolicy selects whether a machine reuses a pre-existing server.
 //
-// A server becomes recyclable by carrying the label "caph-recycle": "true". A recyclable server that
-// is not currently claimed by a machine additionally carries "caph-recycle-available": "true".
-type ServerRecycling struct {
-	// Enabled turns server recycling on for this machine.
-	// +optional
-	// +kubebuilder:default=false
-	Enabled bool `json:"enabled,omitempty"`
-}
+// A server offers itself for reuse by carrying the label "caph-recycle": "true". One that is not
+// currently claimed by a machine additionally carries "caph-recycle-available": "true".
+type ServerRecyclingPolicy string
+
+const (
+	// ServerRecyclingDisabled creates a new server for the machine and deletes it again when the
+	// machine is deleted. This is the behavior when ServerRecycling is unset.
+	ServerRecyclingDisabled ServerRecyclingPolicy = "Disabled"
+
+	// ServerRecyclingEnabled claims a recyclable server that matches the machine's Type and location
+	// and rebuilds it with the machine's image and bootstrap data. On deletion the server returns to
+	// the recyclable set instead of being deleted. If no recyclable server matches, a new one is
+	// created as usual.
+	ServerRecyclingEnabled ServerRecyclingPolicy = "Enabled"
+)
 
 // HCloudMachineStatus defines the observed state of HCloudMachine.
 //

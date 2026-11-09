@@ -74,18 +74,18 @@ func Test_isRecyclableServer(t *testing.T) {
 
 func Test_recyclingEnabled(t *testing.T) {
 	tests := []struct {
-		name    string
-		recycle *infrav1.ServerRecycling
-		want    bool
+		name   string
+		policy infrav1.ServerRecyclingPolicy
+		want   bool
 	}{
-		{name: "nil recycle", recycle: nil, want: false},
-		{name: "disabled", recycle: &infrav1.ServerRecycling{Enabled: false}, want: false},
-		{name: "enabled", recycle: &infrav1.ServerRecycling{Enabled: true}, want: true},
+		{name: "unset", policy: "", want: false},
+		{name: "disabled", policy: infrav1.ServerRecyclingDisabled, want: false},
+		{name: "enabled", policy: infrav1.ServerRecyclingEnabled, want: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &Service{scope: newRecycleScope(t, "m", fakehcloudclient.NewHCloudClientFactory().NewClient(""))}
-			svc.scope.HCloudMachine.Spec.Recycle = tt.recycle
+			svc.scope.HCloudMachine.Spec.ServerRecycling = tt.policy
 			require.Equal(t, tt.want, svc.recyclingEnabled())
 		})
 	}
@@ -568,7 +568,7 @@ func newRecycleScope(t *testing.T, machineName string, client hcloudclient.Clien
 		Spec: infrav1.HCloudMachineSpec{
 			Type:      recycleTestType,
 			ImageName: "snapshot",
-			Recycle:   &infrav1.ServerRecycling{Enabled: true},
+			ServerRecycling: infrav1.ServerRecyclingEnabled,
 		},
 	}
 	hcloudMachine.Status.Region = recycleTestLocation
@@ -695,7 +695,7 @@ func Test_assertRecycledServerStillOwned(t *testing.T) {
 			client := fakehcloudclient.NewHCloudClientFactory().NewClient("")
 			svc := &Service{scope: newRecycleScope(t, "worker-1", client)}
 			if !tt.recycling {
-				svc.scope.HCloudMachine.Spec.Recycle = nil
+				svc.scope.HCloudMachine.Spec.ServerRecycling = infrav1.ServerRecyclingDisabled
 			}
 
 			owned, err := svc.assertRecycledServerStillOwned(context.Background(),

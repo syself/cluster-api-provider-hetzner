@@ -1637,7 +1637,7 @@ var _ = Describe("Reconcile", func() {
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 
 		By("enabling recycling on the machine")
-		service.scope.HCloudMachine.Spec.Recycle = &infrav1.ServerRecycling{Enabled: true}
+		service.scope.HCloudMachine.Spec.ServerRecycling = infrav1.ServerRecyclingEnabled
 
 		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(&hcloud.ServerType{
 			Architecture: hcloud.ArchitectureX86,

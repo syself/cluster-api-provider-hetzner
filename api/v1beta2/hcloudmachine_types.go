@@ -83,17 +83,12 @@ type HCloudMachineSpec struct {
 	// +optional
 	PublicNetwork *PublicNetworkSpec `json:"publicNetwork,omitempty"`
 
-	// recycle enables server recycling for this HCloudMachine. When enabled, the controller does not
-	// create a new server. It claims a pre-existing server that is labelled as recyclable and matches
-	// this HCloudMachine's type and location, and rebuilds it with the HCloudMachine's bootstrap data.
-	// On deletion the server is returned to the recyclable set instead of being deleted. This lets a
-	// fixed set of servers back a MachineDeployment, so nodes are reused instead of provisioned and
-	// destroyed on every scale event.
-	//
-	// Recycling requires imageName and cannot be combined with customProvisioner. It is best-effort:
-	// if no matching recyclable server is available, a new server is created as usual.
+	// serverRecycling selects whether this HCloudMachine reuses a pre-existing server instead of
+	// creating a new one. It requires imageName and cannot be combined with customProvisioner.
+	// Note: When unset it behaves like Disabled.
+	// +kubebuilder:validation:Enum=Enabled;Disabled
 	// +optional
-	Recycle *ServerRecycling `json:"recycle,omitempty"`
+	ServerRecycling ServerRecyclingPolicy `json:"serverRecycling,omitempty"`
 }
 
 // HCloudCustomProvisioner defines the configuration for provisioning an HCloud machine with a
@@ -137,16 +132,24 @@ func (p *HCloudCustomProvisioner) IsDefined() bool {
 	return p.URL != "" || p.Command != ""
 }
 
-// ServerRecycling configures the reuse of pre-existing servers for an HCloudMachine.
+// ServerRecyclingPolicy selects whether an HCloudMachine reuses a pre-existing server.
 //
-// A server becomes recyclable by carrying the Hetzner Cloud label "caph-recycle": "true". A
-// recyclable server that no HCloudMachine has claimed also carries "caph-recycle-available": "true".
-type ServerRecycling struct {
-	// enabled turns server recycling on for this HCloudMachine.
-	// +optional
-	// +kubebuilder:default=false
-	Enabled bool `json:"enabled,omitempty"`
-}
+// A server offers itself for reuse by carrying the Hetzner Cloud label "caph-recycle": "true". One
+// that no HCloudMachine has claimed also carries "caph-recycle-available": "true".
+type ServerRecyclingPolicy string
+
+const (
+	// ServerRecyclingDisabled creates a new server for the HCloudMachine and deletes it again when
+	// the HCloudMachine is deleted. This is the behavior when serverRecycling is unset.
+	ServerRecyclingDisabled ServerRecyclingPolicy = "Disabled"
+
+	// ServerRecyclingEnabled claims a recyclable server that matches the HCloudMachine's type and
+	// location and rebuilds it with the HCloudMachine's image and bootstrap data. On deletion the
+	// server returns to the recyclable set instead of being deleted, which lets a fixed set of
+	// servers back a MachineDeployment. If no recyclable server matches, a new one is created as
+	// usual.
+	ServerRecyclingEnabled ServerRecyclingPolicy = "Enabled"
+)
 
 // HCloudMachineStatus defines the observed state of HCloudMachine.
 // +kubebuilder:validation:MinProperties=1
