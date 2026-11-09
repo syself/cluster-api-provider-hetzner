@@ -33,8 +33,7 @@ spec:
     spec:
       type: cpx31
       imageName: my-snapshot
-      recycle:
-        enabled: true
+      serverRecycling: Enabled
 ```
 
 Recycling requires `imageName`. The admission webhook rejects it together with `customProvisioner`
@@ -68,17 +67,22 @@ have to be rebuilt up front.
 
 When an `HCloudMachine` with recycling enabled is created, the controller:
 
-1. Lists the servers carrying `caph-recycle=true`.
+1. Lists the servers carrying `caph-recycle=true`. This covers the whole Hetzner project, not one
+   cluster: if several clusters share a project, a server that one of them returned can be claimed by
+   any of the others.
 2. Keeps those that are available and match the server type and location, and picks one at random.
 3. **Claims** it by dropping `caph-recycle-available` and adding `caph-recycle-claimant` with its own
    name, plus `caph-recycle-claimed-at`. It then requeues.
 4. On the **next reconcile**, reads the labels again. If another `HCloudMachine`'s write landed in
    between, that one is the claimant now and this one starts over.
-5. **Rebuilds** the server with the image and the bootstrap data. Ownership is checked once more
-   directly before the rebuild. If the template names a placement group the server is not in yet, the
-   server is added to that group first.
-6. **Finalizes** the claim: the server gets the `HCloudMachine`'s name and identity label, and the
-   claimant and timestamp labels are dropped.
+5. **Prepares** the server for the rebuild, if the template asks for anything the server does not have
+   yet: the placement group it names, and the cluster's private network. hcloud applies both
+   asynchronously and rejects a rebuild while an action is still running, so each step is confirmed on
+   a later reconcile before the next one starts.
+6. **Rebuilds** the server with the image and the bootstrap data. Ownership is checked once more
+   directly before the rebuild.
+7. **Finalizes** the claim: the server gets the `HCloudMachine`'s name and the identity label
+   `machine.caph-name`, and the claimant and timestamp labels are dropped.
 
 The identity label is applied only in the last step, after a successful rebuild. That keeps the claim
 idempotent. If the rebuild fails, the claim is released and the server returns to the pool, and a
@@ -87,6 +91,20 @@ server behaves like a freshly created one.
 
 If no matching server is available, the controller creates a new one as usual. Recycling is an
 optimization, not a requirement.
+
+### Placement groups
+
+hcloud only moves a server into a placement group while the server is off, and it refuses to add one
+that is already in a group. A claim therefore powers the server off and, if it still carries another
+cluster's group, takes it out of that one first. Each of those is a separate hcloud action, so the
+claim spans a few reconciles before the rebuild starts.
+
+A spread placement group is what keeps servers on separate physical hosts, which matters for control
+planes: one provisioned outside the group can share a host with another. The claim moves a server into
+the group the template names, so a pool shared between control planes and workers does not need to be
+split by group. An `HCloudMachine` that names no placement group leaves whatever group the server
+carries alone.
+
 
 ### A claim is not a lock
 
@@ -101,17 +119,17 @@ Losing a race costs a reconcile, not a server.
 
 ### Losing a claimed server
 
-The controller finds its server by ProviderID, and that says nothing about who owns it. The identity
-label is therefore checked again on every reconcile that touches a live server. What happens next
-depends on how far the claim had come:
+A claim can be lost at three points, and what happens next depends on which one:
 
-- **Before the rebuild**, at the check in step 4: the `HCloudMachine` is not the claimant, so it starts
-  over and picks another candidate.
-- **Directly before the rebuild**, at the last ownership check in step 5: the `HCloudMachine` creates a
-  new server instead.
-- **After provisioning**: the server belongs to someone else now. The `HCloudMachine` annotates its
-  CAPI `Machine` with `cluster.x-k8s.io/remediate-machine` and stops reconciling. It does not
-  provision hardware that is not its own, and it does not return that server to the pool on deletion.
+- **Before the rebuild**, at the check in step 4: `caph-recycle-claimant` names someone else, so the
+  `HCloudMachine` starts over and picks another candidate.
+- **Directly before the rebuild**, at the last ownership check: same label, same answer, but there is
+  no candidate left to try in this reconcile, so the `HCloudMachine` creates a new server instead.
+- **After provisioning**: the server carries someone else's `machine.caph-name`. This case needs its
+  own check, because from here on the controller finds its server by ProviderID, which says nothing
+  about who owns it; without the check an `HCloudMachine` would keep provisioning a server another one
+  had taken over, and would return it to the pool on deletion while the new owner runs on it. Instead
+  it annotates its CAPI `Machine` with `cluster.x-k8s.io/remediate-machine` and stops reconciling.
 
 Deleting and replacing a `Machine` is CAPI's job, not the provider's, and only a `MachineHealthCheck`
 acts on that annotation. Without one the `HCloudMachine` stays behind, annotated and unprovisioned,
@@ -127,12 +145,17 @@ than 15 minutes returns that server to the pool.
 
 ## Returning a server to the pool
 
-On deletion a server carrying `caph-recycle=true` is not deleted. The controller shuts it down,
+On deletion a server carrying `caph-recycle=true` is not deleted. The controller powers it off,
 detaches it from the cluster's private network, and returns it to the pool: the
 `HCloudMachine`-owned labels are removed and `caph-recycle-available=true` is set again.
 
-The shutdown happens first, while the server still carries the `HCloudMachine`'s identity, so a failed
-shutdown can be retried and the server never rejoins the pool while it still runs the deleted node.
+The power off comes first, while the server still carries the `HCloudMachine`'s identity, so a failed
+attempt can be retried. `caph-recycle-available` is written last, once hcloud reports the server as
+off, so everything in the pool is off and the next claim does not have to stop it. There is nothing
+left to shut down gracefully for at this point: the node has been drained, and the next claim
+overwrites the disk with a rebuild before the server is used again. A graceful shutdown would depend
+on the guest reacting to it and could take minutes or never finish.
+
 The network has to be detached explicitly. A normal delete relies on the server deletion to detach it,
 so a server that is kept would stay attached and later block deletion of the network.
 
@@ -142,22 +165,15 @@ recyclable server is therefore never destroyed, even if recycling has been disab
 ## Limitations
 
 - Recycling requires `imageName` and cannot be combined with `customProvisioner`.
-- Matching is by server type, location and placement group. Beyond that the candidates are
-  interchangeable.
+- Matching is by server type and location. Beyond that the candidates are interchangeable.
 - **Create-time server properties are not reproduced by a rebuild.** The public network configuration
   and the SSH keys of a claimed server are the ones the pool server already had; they are not applied
-  from the template. Node bootstrap does not need injected SSH keys, because RKE2 joins through
-  cloud-init, but you cannot rely on the template's SSH keys being present on a recycled node.
-- **Placement groups need care for control planes.** A rebuild does not move a server between
-  placement groups, and hcloud cannot take a server out of one. A candidate in a different group is
-  therefore skipped, and one in no group is added to the requested group before the rebuild. A spread
-  placement group is what keeps servers on separate physical hosts, so a control plane outside it can
-  end up sharing a host with another one. If a pool is meant for control planes, either leave its
-  servers without a placement group, or put them in the group the template names.
-- A server has to be stopped before hcloud moves it into a placement group, and it does so
-  asynchronously. A server that was just returned to the pool is usually still shutting down. The
-  claim asks it to stop and tries again on the next reconcile. A server whose OS ignores the shutdown
-  request never gets there, and its claim keeps retrying.
+  from the template. Node bootstrap does not need injected SSH keys, because the bootstrap data
+  arrives through cloud-init, but you cannot rely on the template's SSH keys being present on a
+  recycled node.
+- **A claimed server is powered off, not shut down gracefully.** A server offered to the pool while it
+  is still running is cut off when an `HCloudMachine` claims it. That claim overwrites the disk with a
+  rebuild in the next step, so only mark a server as available once you are done with what is on it.
 - **A broken server returns to the pool, it is not quarantined.** When a `MachineHealthCheck`
   remediates a recycled node, the `Machine` is deleted and the server goes back to the recyclable set,
   where it can be claimed again. For a transient fault that is the intended self-healing. A server
@@ -169,9 +185,9 @@ recyclable server is therefore never destroyed, even if recycling has been disab
   labels are reset, so parked servers show a stale name in the Hetzner console.
 - **A claim costs six hcloud API calls**, and more when the template asks for extras: two pool
   listings, the claim write, the ownership check before the rebuild, the rebuild and the finalize.
-  Attaching a private network adds two, a placement group two more. Hetzner rate-limits per project,
-  so a large fleet reconciling at once uses a noticeable share of that budget. A unit test pins the
-  count so that it cannot grow unnoticed.
+  Attaching a private network adds two, a placement group two more, and powering a running server off
+  or taking it out of another group one each. Hetzner rate-limits per project, so a large fleet
+  reconciling at once uses a noticeable share of that budget.
 - Cleanup after a failed claim is best-effort. If both the rebuild and the release fail, for example
   during a longer API outage, a server can stay claimed. That is logged, and the claim is reclaimed
   once it ages out. Such a server is never mistaken for a provisioned node, so it costs capacity, not
