@@ -521,10 +521,26 @@ func Test_returnServerToRecycling(t *testing.T) {
 	claimed := seedRecyclableServer(t, client, "worker-1", recycleTestType, recycleTestLocation, false)
 	claimed.Labels[infrav1.MachineNameTagKey] = "worker-1"
 
-	_, err := svc.returnServerToRecycling(context.Background(), claimed)
+	// A running server is powered off first and is not handed back yet.
+	res, err := svc.returnServerToRecycling(context.Background(), claimed)
 	require.NoError(t, err)
+	require.Equal(t, recycleServerOffDelay, res.RequeueAfter)
 
 	got, err := client.GetServer(context.Background(), claimed.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, hcloud.ServerStatusOff, got.Status)
+	require.NotContains(t, got.Labels, infrav1.ServerRecycleAvailableLabelKey,
+		"a server is not advertised before hcloud reports it as off")
+	require.Equal(t, "worker-1", got.Labels[infrav1.MachineNameTagKey],
+		"the identity stays until the server is off, so the machine can still find it")
+
+	// The next reconcile reads it as off and returns it to the pool.
+	res, err = svc.returnServerToRecycling(context.Background(), got)
+	require.NoError(t, err)
+	require.Zero(t, res.RequeueAfter)
+
+	got, err = client.GetServer(context.Background(), claimed.ID)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
@@ -532,7 +548,7 @@ func Test_returnServerToRecycling(t *testing.T) {
 	require.Equal(t, "true", got.Labels[infrav1.ServerRecycleLabelKey])
 	require.Equal(t, "true", got.Labels[infrav1.ServerRecycleAvailableLabelKey])
 	require.NotContains(t, got.Labels, infrav1.MachineNameTagKey)
-	require.Equal(t, hcloud.ServerStatusOff, got.Status, "the returned server is shut down")
+	require.Equal(t, hcloud.ServerStatusOff, got.Status)
 }
 
 // Test_returnServerToRecycling_detachesNetwork verifies that, when the cluster has a private network,
@@ -550,13 +566,18 @@ func Test_returnServerToRecycling_detachesNetwork(t *testing.T) {
 		Status: hcloud.ServerStatusRunning,
 		Labels: map[string]string{infrav1.MachineNameTagKey: "worker-1"},
 	}
-	mc.On("ShutdownServer", mock.Anything, mock.Anything).Return(nil).Once()
+	mc.On("PowerOffServer", mock.Anything, mock.Anything).Return(nil).Once()
 	mc.On("DetachServerFromNetwork", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	mc.On("UpdateServer", mock.Anything, mock.Anything, mock.Anything).Return(server, nil).Once()
 
 	_, err := svc.returnServerToRecycling(context.Background(), server)
 	require.NoError(t, err)
-	// mc asserts on cleanup that ShutdownServer, DetachServerFromNetwork and UpdateServer were all called.
+
+	// The detach happens on the reconcile that finds the server off.
+	server.Status = hcloud.ServerStatusOff
+	_, err = svc.returnServerToRecycling(context.Background(), server)
+	require.NoError(t, err)
+	// mc asserts on cleanup that PowerOffServer, DetachServerFromNetwork and UpdateServer were all called.
 }
 
 // newRecycleScope builds a Service scope for a worker HCloudMachine with recycling enabled, wired to
@@ -819,7 +840,7 @@ func Test_tryClaimRecyclableServer_addsServerToPlacementGroup(t *testing.T) {
 // routinely in: returning a server issues an asynchronous ACPI shutdown and re-pools it straight away,
 // so a quickly re-claimed server is still running — and hcloud refuses to move a running server into a
 // placement group. The claim must ask it to stop and come back, not fail.
-func Test_tryClaimRecyclableServer_waitsForShutdownBeforePlacementGroup(t *testing.T) {
+func Test_tryClaimRecyclableServer_waitsForPowerOffBeforePlacementGroup(t *testing.T) {
 	mc := mocks.NewClient(t)
 	svc := &Service{scope: newRecycleScope(t, "worker-1", mc)}
 
@@ -840,7 +861,7 @@ func Test_tryClaimRecyclableServer_waitsForShutdownBeforePlacementGroup(t *testi
 
 	mc.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{stillRunning}, nil).Once()
 	mc.On("GetServer", mock.Anything, int64(11)).Return(stillRunning, nil).Once()
-	mc.On("ShutdownServer", mock.Anything, mock.Anything).Return(nil).Once()
+	mc.On("PowerOffServer", mock.Anything, mock.Anything).Return(nil).Once()
 
 	claimed, err := svc.tryClaimRecyclableServer(context.Background(), opts, &hcloud.Image{ID: 42}, nil)
 	require.Nil(t, claimed)
@@ -1047,7 +1068,7 @@ func Test_reapAbandonedClaims_updateFailureIsSurvivable(t *testing.T) {
 	// The next reconcile tries again; the claim stays visible until it succeeds.
 }
 
-func Test_returnServerToRecycling_shutdownFailureIsRetryable(t *testing.T) {
+func Test_returnServerToRecycling_powerOffFailureIsRetryable(t *testing.T) {
 	mc := mocks.NewClient(t)
 	svc := &Service{scope: newRecycleScope(t, "worker-1", mc)}
 
@@ -1056,7 +1077,7 @@ func Test_returnServerToRecycling_shutdownFailureIsRetryable(t *testing.T) {
 		Status: hcloud.ServerStatusRunning,
 		Labels: map[string]string{infrav1.MachineNameTagKey: "worker-1"},
 	}
-	mc.On("ShutdownServer", mock.Anything, mock.Anything).Return(errors.New("api down")).Once()
+	mc.On("PowerOffServer", mock.Anything, mock.Anything).Return(errors.New("api down")).Once()
 
 	_, err := svc.returnServerToRecycling(context.Background(), server)
 	require.Error(t, err, "the error must surface so the deletion is retried")

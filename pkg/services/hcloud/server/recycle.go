@@ -49,6 +49,11 @@ const recycleClaimVerifyDelay = 1 * time.Second
 // legitimate and never races an attempt that is still making progress.
 const recycleClaimTTL = 15 * time.Minute
 
+// recycleServerOffDelay is how long the delete path waits before looking again at a server it has
+// powered off. A power off takes effect at once, so this only bridges the moment until hcloud reports
+// the new status.
+const recycleServerOffDelay = 5 * time.Second
+
 // errRecycleClaimPending is returned once a claim has been written but not yet verified. The caller
 // turns it into a short requeue; the claim is picked up again by the next reconcile.
 var errRecycleClaimPending = errors.New("recyclable server claim pending verification")
@@ -426,13 +431,14 @@ func (s *Service) rebuildRecyclableServer(ctx context.Context, server *hcloud.Se
 	// picks the claim up again on its next pass: the claim stays ours, so this costs a reconcile and
 	// nothing else.
 	if opts.PlacementGroup != nil && server.PlacementGroup == nil {
-		// hcloud only moves a stopped server into a placement group. A server that was just returned to
-		// the pool may still be on its way down, because returning it issues an asynchronous ACPI
-		// shutdown and re-pools it immediately. Ask again and come back on the next reconcile; the claim
-		// stays ours in the meantime.
+		// hcloud only moves a stopped server into a placement group. A server that the delete path
+		// returned to the pool is off already; one an operator labelled by hand can still be running, so
+		// it is powered off here. That is a hard stop, which is what the claim does to it anyway: the
+		// rebuild below overwrites the disk. Come back on the next reconcile once hcloud reports it as
+		// off; the claim stays ours in the meantime.
 		if server.Status != hcloud.ServerStatusOff {
-			if err := s.scope.HCloudClient.ShutdownServer(ctx, server); err != nil {
-				return fmt.Errorf("failed to shut down server %d before adding it to placement group %d: %w",
+			if err := s.scope.HCloudClient.PowerOffServer(ctx, server); err != nil {
+				return fmt.Errorf("failed to power off server %d before adding it to placement group %d: %w",
 					server.ID, opts.PlacementGroup.ID, err)
 			}
 			return fmt.Errorf("server %d is %q and must be off to join placement group %d: %w",
@@ -546,12 +552,15 @@ func (s *Service) releaseReservation(ctx context.Context, server *hcloud.Server)
 // deleting a recyclable server, it shuts the server down and returns it to the available pool so it can
 // be claimed again by a future machine.
 //
-// The shutdown happens first, while the server still carries this machine's identity, so that a failed
-// shutdown can be retried: the machine can still find the server on the next reconcile. The available
-// marker is re-added last, so the server rejoins the pool only once it is on its way down. The shutdown
-// is an asynchronous ACPI request, so the server may still report Running for a short while (or longer
-// if the OS ignores ACPI); this is harmless because the node has already been drained and the next
-// claim rebuilds the server before it is used again.
+// The server is stopped first, while it still carries this machine's identity, so that a failed stop
+// can be retried: the machine can still find the server on the next reconcile. The available marker is
+// written last, once hcloud reports the server as off, so that everything in the pool is off. A claim
+// relies on that: hcloud only moves a stopped server into a placement group.
+//
+// Stopping means a power off, not an ACPI shutdown. A graceful shutdown would depend on the guest
+// reacting to it and could therefore take minutes or never finish, while there is nothing left to
+// shut down gracefully for: the node has been drained, and the next claim overwrites the disk with a
+// rebuild before the server is used again.
 func (s *Service) returnServerToRecycling(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
 	// A deleted machine must only return a server it still owns. Because findServer resolves by
 	// ProviderID, a machine that lost its server to another claimant would otherwise arrive here and
@@ -565,9 +574,12 @@ func (s *Service) returnServerToRecycling(ctx context.Context, server *hcloud.Se
 	}
 
 	if server.Status != hcloud.ServerStatusOff {
-		if err := s.scope.HCloudClient.ShutdownServer(ctx, server); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to shut down server %d before recycling: %w", server.ID, err)
+		if err := s.scope.HCloudClient.PowerOffServer(ctx, server); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to power off server %d before recycling: %w", server.ID, err)
 		}
+		s.scope.Info("powering off a recyclable server before returning it to the recyclable set",
+			"serverID", server.ID, "status", server.Status)
+		return reconcile.Result{RequeueAfter: recycleServerOffDelay}, nil
 	}
 
 	// Detach the server from the cluster's private network. A normal delete relies on server deletion

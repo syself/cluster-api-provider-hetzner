@@ -741,6 +741,16 @@ func (c *cacheHCloudClient) RebootServer(_ context.Context, _ *hcloud.Server) er
 	return nil
 }
 
+func (c *cacheHCloudClient) PowerOffServer(_ context.Context, server *hcloud.Server) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if _, found := c.serverCache.idMap[server.ID]; !found {
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+	c.serverCache.idMap[server.ID].Status = hcloud.ServerStatusOff
+	return nil
+}
+
 func (c *cacheHCloudClient) PowerOnServer(_ context.Context, server *hcloud.Server) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
