@@ -83,6 +83,7 @@ type Client interface {
 	DeletePlacementGroup(context.Context, int64) error
 	ListPlacementGroups(context.Context, hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error)
 	AddServerToPlacementGroup(context.Context, *hcloud.Server, *hcloud.PlacementGroup) error
+	RemoveServerFromPlacementGroup(context.Context, *hcloud.Server) error
 
 	EnableRescueSystem(context.Context, *hcloud.Server, *hcloud.ServerEnableRescueOpts) (hcloud.ServerEnableRescueResult, error)
 
@@ -342,6 +343,11 @@ func (c *realClient) ListPlacementGroups(ctx context.Context, opts hcloud.Placem
 
 func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hcloud.Server, pg *hcloud.PlacementGroup) error {
 	_, _, err := c.client.Server.AddToPlacementGroup(ctx, server, pg)
+	return wrapUnauthorized(err)
+}
+
+func (c *realClient) RemoveServerFromPlacementGroup(ctx context.Context, server *hcloud.Server) error {
+	_, _, err := c.client.Server.RemoveFromPlacementGroup(ctx, server)
 	return wrapUnauthorized(err)
 }
 

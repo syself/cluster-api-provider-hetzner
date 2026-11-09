@@ -338,10 +338,6 @@ func recycleMismatchReason(server *hcloud.Server, opts hcloud.ServerCreateOpts) 
 	if opts.Location != nil && (server.Location == nil || server.Location.Name != opts.Location.Name) {
 		return fmt.Sprintf("location is %q, machine wants %q", locationName(server), opts.Location.Name)
 	}
-	if !placementGroupSatisfiable(server, opts) {
-		return fmt.Sprintf("already in placement group %q, machine wants %q (hcloud cannot move a server between groups)",
-			server.PlacementGroup.Name, opts.PlacementGroup.Name)
-	}
 	return ""
 }
 
@@ -359,20 +355,9 @@ func locationName(server *hcloud.Server) string {
 	return server.Location.Name
 }
 
-// placementGroupSatisfiable reports whether the server can end up in the placement group the request
-// asks for. hcloud offers no way to take a server out of a group, so a server that already sits in a
-// different one can never satisfy the request; a server in no group at all is fine, because
-// rebuildRecyclableServer adds it before the rebuild.
-//
-// This is not cosmetic. Control planes are spread across physical hosts via a spread placement group;
-// a control plane silently provisioned outside that group turns a single host failure into a lost etcd
-// quorum. A machine that asks for no group is left alone: keeping a group it already had constrains
-// nothing the template cares about.
-func placementGroupSatisfiable(server *hcloud.Server, opts hcloud.ServerCreateOpts) bool {
-	if opts.PlacementGroup == nil {
-		return true
-	}
-	return server.PlacementGroup == nil || server.PlacementGroup.ID == opts.PlacementGroup.ID
+// serverInPlacementGroup reports whether the server already sits in the given placement group.
+func serverInPlacementGroup(server *hcloud.Server, group *hcloud.PlacementGroup) bool {
+	return server.PlacementGroup != nil && group != nil && server.PlacementGroup.ID == group.ID
 }
 
 // writeClaim takes a server out of the available pool by replacing its labels with the recycle marker,
@@ -422,15 +407,28 @@ func (s *Service) rebuildRecyclableServer(ctx context.Context, server *hcloud.Se
 		return err
 	}
 
-	// Put the server in the requested placement group before the rebuild. serverMatchesRequest has
-	// already ruled out a server that sits in a different group, so this only ever adds one that is in
-	// none.
+	// Put the server in the requested placement group before the rebuild. This matters for control
+	// planes: a spread group keeps them on separate physical hosts, and one provisioned outside the
+	// group can share a host with another. A machine that asks for no group is left alone, because the
+	// group a server happens to carry constrains nothing the template cares about.
 	//
 	// hcloud performs this asynchronously and the rebuild below would race it — a server with an action
 	// still running is locked and rejects the rebuild. Rather than poll, the reconcile stops here and
 	// picks the claim up again on its next pass: the claim stays ours, so this costs a reconcile and
 	// nothing else.
-	if opts.PlacementGroup != nil && server.PlacementGroup == nil {
+	if opts.PlacementGroup != nil && !serverInPlacementGroup(server, opts.PlacementGroup) {
+		// A server returned to the pool keeps the group of the cluster that used it, and hcloud rejects
+		// adding a server that is already in a group. Take it out first; unlike adding, removing works
+		// on a running server. The next reconcile sees it without a group and goes on from there.
+		if server.PlacementGroup != nil {
+			if err := s.scope.HCloudClient.RemoveServerFromPlacementGroup(ctx, server); err != nil {
+				return fmt.Errorf("failed to remove server %d from placement group %d: %w",
+					server.ID, server.PlacementGroup.ID, err)
+			}
+			return fmt.Errorf("server %d is leaving placement group %d to join %d: %w",
+				server.ID, server.PlacementGroup.ID, opts.PlacementGroup.ID, errRecycleRebuildPrereqPending)
+		}
+
 		// hcloud only moves a stopped server into a placement group. A server that the delete path
 		// returned to the pool is off already; one an operator labelled by hand can still be running, so
 		// it is powered off here. That is a hard stop, which is what the claim does to it anyway: the

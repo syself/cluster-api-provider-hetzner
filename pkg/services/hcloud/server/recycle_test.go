@@ -587,8 +587,8 @@ func newRecycleScope(t *testing.T, machineName string, client hcloudclient.Clien
 	hcloudMachine := &infrav1.HCloudMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: machineName, Namespace: "default"},
 		Spec: infrav1.HCloudMachineSpec{
-			Type:      recycleTestType,
-			ImageName: "snapshot",
+			Type:            recycleTestType,
+			ImageName:       "snapshot",
 			ServerRecycling: infrav1.ServerRecyclingEnabled,
 		},
 	}
@@ -776,10 +776,10 @@ func Test_serverMatchesRequest_placementGroup(t *testing.T) {
 		{name: "group requested, server already in it", server: base(group), opts: opts(group), want: true},
 		{name: "group requested, server in none: can be added before the rebuild", server: base(nil), opts: opts(group), want: true},
 		{
-			name:   "group requested, server in a DIFFERENT one: unusable, hcloud cannot move it out",
+			name:   "group requested, server in a different one: can be moved before the rebuild",
 			server: base(&hcloud.PlacementGroup{ID: 99, Name: "other"}),
 			opts:   opts(group),
-			want:   false,
+			want:   true,
 		},
 		{name: "no group requested: an existing group constrains nothing the template asked for", server: base(group), opts: opts(nil), want: true},
 	}
@@ -867,6 +867,39 @@ func Test_tryClaimRecyclableServer_waitsForPowerOffBeforePlacementGroup(t *testi
 	require.Nil(t, claimed)
 	require.ErrorIs(t, err, errRecycleClaimPending, "the claim is kept and retried, not thrown away")
 	// mc asserts on cleanup that neither AddServerToPlacementGroup nor RebuildServer ran on a running server.
+}
+
+// Test_tryClaimRecyclableServer_leavesAForeignPlacementGroup covers a candidate that still carries the
+// placement group of the cluster that used it before. hcloud rejects adding a server that is already in
+// a group, so the claim takes it out first and picks the claim up again on the next reconcile.
+func Test_tryClaimRecyclableServer_leavesAForeignPlacementGroup(t *testing.T) {
+	mc := mocks.NewClient(t)
+	svc := &Service{scope: newRecycleScope(t, "worker-1", mc)}
+
+	inForeignGroup := &hcloud.Server{
+		ID:             11,
+		Status:         hcloud.ServerStatusOff,
+		ServerType:     &hcloud.ServerType{Name: recycleTestType},
+		Location:       &hcloud.Location{Name: recycleTestLocation},
+		PlacementGroup: &hcloud.PlacementGroup{ID: 99, Name: "other"},
+		Labels: map[string]string{
+			infrav1.ServerRecycleLabelKey:          labelValueTrue,
+			infrav1.ServerRecycleClaimantLabelKey:  "worker-1",
+			infrav1.ServerRecycleClaimedAtLabelKey: "1700000000",
+		},
+	}
+	opts := recycleCreateOpts("worker-1")
+	opts.PlacementGroup = &hcloud.PlacementGroup{ID: 7, Name: "cp-spread"}
+
+	mc.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{inForeignGroup}, nil).Once()
+	mc.On("GetServer", mock.Anything, int64(11)).Return(inForeignGroup, nil).Once()
+	mc.On("RemoveServerFromPlacementGroup", mock.Anything, mock.Anything).Return(nil).Once()
+
+	claimed, err := svc.tryClaimRecyclableServer(context.Background(), opts, &hcloud.Image{ID: 42}, nil)
+	require.Nil(t, claimed)
+	require.ErrorIs(t, err, errRecycleClaimPending, "the claim is kept and retried, not thrown away")
+	// mc asserts on cleanup that the server was not added to the new group, and not rebuilt, in the
+	// same reconcile that asked hcloud to take it out of the old one.
 }
 
 // Test_tryClaimRecyclableServer_waitsForNetworkAttachment covers the same async trap as the placement
@@ -1223,6 +1256,7 @@ func Test_recycleMismatchReason(t *testing.T) {
 			wantSub: `location is "hel1"`,
 		},
 		{
+			// The claim moves the server out of the group it carries, so this is not a mismatch.
 			name: "in another placement group",
 			server: &hcloud.Server{
 				ServerType: fits.ServerType, Location: fits.Location,
@@ -1233,7 +1267,7 @@ func Test_recycleMismatchReason(t *testing.T) {
 				o.PlacementGroup = group
 				return o
 			}(),
-			wantSub: `already in placement group "other"`,
+			wantSub: "",
 		},
 	}
 	for _, tt := range tests {

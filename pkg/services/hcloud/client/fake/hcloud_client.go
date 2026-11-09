@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"sync"
 	"time"
 
@@ -977,6 +978,21 @@ func (c *cacheHCloudClient) AddServerToPlacementGroup(_ context.Context, server 
 
 	// Add it
 	c.placementGroupCache.idMap[pg.ID].Servers = append(c.placementGroupCache.idMap[pg.ID].Servers, server.ID)
+	return nil
+}
+
+func (c *cacheHCloudClient) RemoveServerFromPlacementGroup(_ context.Context, server *hcloud.Server) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	cached, found := c.serverCache.idMap[server.ID]
+	if !found {
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	for _, pg := range c.placementGroupCache.idMap {
+		pg.Servers = slices.DeleteFunc(pg.Servers, func(id int64) bool { return id == server.ID })
+	}
+	cached.PlacementGroup = nil
 	return nil
 }
 
