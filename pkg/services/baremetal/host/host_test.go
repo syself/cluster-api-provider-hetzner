@@ -18,6 +18,7 @@ package host
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -2417,5 +2418,324 @@ var _ = Describe("actionProvisioned when the Node is missing in the workload clu
 			events = append(events, <-testEventRecorder.Events)
 		}
 		Expect(events).To(ContainElement(ContainSubstring(infrav1.HetznerBareMetalHostNodeNotFoundV1Beta2Reason)))
+	})
+})
+
+// These tests check the power cycle that the controller sends when Robot offers power_long and power
+// for the server:
+//   - the controller starts the power cycle with power_long,
+//   - it sends power once Robot reports the server as "shut off",
+//   - it sends hw when it could not send power in time, or the server does not come back in time.
+var _ = Describe("power cycle", func() {
+	// The reset types of a server that offers a power cycle, but no software reset.
+	powerCycleRebootTypes := []infrav1.RebootType{
+		infrav1.RebootTypePower,
+		infrav1.RebootTypePowerLong,
+		infrav1.RebootTypeHardware,
+		infrav1.RebootTypeManual,
+	}
+
+	newPowerCycleHost := func(rebootTypes []infrav1.RebootType, errorType infrav1.ErrorType, rebootTriggeredAt time.Time) *infrav1.HetznerBareMetalHost {
+		opts := []helpers.HostOpts{
+			helpers.WithRebootTypes(rebootTypes),
+			helpers.WithSSHSpec(),
+			helpers.WithSSHStatus(),
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		}
+		if errorType != "" {
+			opts = append(opts,
+				helpers.WithError(errorType, "", 1),
+				helpers.WithRebootTriggeredAt(metav1.NewTime(rebootTriggeredAt)),
+			)
+		}
+		return helpers.BareMetalHost("test-host", "default", opts...)
+	}
+
+	newRobotMock := func(operatingStatus string) *robotmock.Client {
+		robotMock := &robotmock.Client{}
+		robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
+		robotMock.On("GetReboot", mock.Anything).Return(&models.Reset{OperatingStatus: operatingStatus}, nil)
+		robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
+		return robotMock
+	}
+
+	It("sends power_long to reboot into the rescue system before provisioning", func() {
+		host := helpers.BareMetalHost("test-host", "default", helpers.WithSSHSpecInclPorts(22))
+
+		robotMock := &robotmock.Client{}
+		robotMock.On("GetBMServer", mock.Anything).Return(&models.Server{ServerNumber: 1, ServerIP: "1.2.3.4"}, nil)
+		robotMock.On("ListSSHKeys").Return([]models.Key{}, nil)
+		robotMock.On("SetSSHKey", mock.Anything, mock.Anything).Return(&models.Key{Name: rescueSSHKeyName, Fingerprint: sshFingerprint}, nil)
+		robotMock.On("GetReboot", mock.Anything).Return(&models.Reset{Type: []string{"power", "power_long", "hw", "man"}}, nil)
+		robotMock.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
+		robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(&models.Rescue{Active: true}, nil)
+		robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
+
+		// ssh does not answer, so the controller reboots via the Robot API
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{})
+
+		service := newTestService(host, robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock),
+			helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		Expect(service.actionPreparing(context.Background())).To(BeAssignableToTypeOf(actionComplete{}))
+
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerLongRebootTriggered))
+		robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypePowerLong)
+		robotMock.AssertNumberOfCalls(GinkgoT(), "RebootBMServer", 1)
+	})
+
+	DescribeTable("sends power_long when the ongoing reboot timed out",
+		func(rebootTypes []infrav1.RebootType, errorType infrav1.ErrorType) {
+			host := newPowerCycleHost(rebootTypes, errorType, time.Now().Add(-time.Hour))
+			robotMock := newRobotMock("running")
+			service := newTestService(host, robotMock, nil, nil, nil)
+
+			_, err := service.handleIncompleteBoot(context.Background(), true, true, false)
+			Expect(err).To(Succeed())
+
+			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerLongRebootTriggered))
+			robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypePowerLong)
+			robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypeHardware)
+		},
+		Entry("ssh reboot timed out, Robot offers no software reboot", powerCycleRebootTypes, infrav1.ErrorTypeSSHRebootTriggered),
+		Entry("software reboot timed out", append([]infrav1.RebootType{infrav1.RebootTypeSoftware}, powerCycleRebootTypes...), infrav1.ErrorTypeSoftwareRebootTriggered),
+	)
+
+	It("sends a hardware reset when Robot offers power but not power_long", func() {
+		host := newPowerCycleHost([]infrav1.RebootType{infrav1.RebootTypePower, infrav1.RebootTypeHardware}, infrav1.ErrorTypeSSHRebootTriggered, time.Now().Add(-time.Hour))
+		robotMock := newRobotMock("running")
+		service := newTestService(host, robotMock, nil, nil, nil)
+
+		_, err := service.handleIncompleteBoot(context.Background(), true, true, false)
+		Expect(err).To(Succeed())
+
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeHardwareRebootTriggered))
+		robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypeHardware)
+	})
+
+	It("waits powerOffWaitTime after power_long before it asks Robot whether the server is off", func() {
+		host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerLongRebootTriggered, time.Now())
+		robotMock := newRobotMock(robotOperatingStatusShutOff)
+		service := newTestService(host, robotMock, nil, nil, nil)
+
+		Expect(service.continuePowerCycle(context.Background(), true)).To(Equal(actionContinue{delay: powerOffWaitTime}))
+
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerLongRebootTriggered))
+		robotMock.AssertNotCalled(GinkgoT(), "GetReboot", mock.Anything)
+		robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)
+	})
+
+	It("sends power when Robot reports the server as shut off", func() {
+		host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerLongRebootTriggered, time.Now().Add(-50*time.Second))
+		robotMock := newRobotMock(robotOperatingStatusShutOff)
+		service := newTestService(host, robotMock, nil, nil, nil)
+
+		Expect(service.continuePowerCycle(context.Background(), true)).To(BeAssignableToTypeOf(actionContinue{}))
+
+		// the reboot is now power. Its timeouts start when power was sent.
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerRebootTriggered))
+		Expect(time.Since(host.Spec.Status.RebootTriggeredAt.Time)).To(BeNumerically("<", 5*time.Second))
+		robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypePower)
+		robotMock.AssertNumberOfCalls(GinkgoT(), "RebootBMServer", 1)
+	})
+
+	It("asks Robot again when it does not report the server as shut off yet", func() {
+		host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerLongRebootTriggered, time.Now().Add(-10*time.Second))
+		robotMock := newRobotMock("running")
+		service := newTestService(host, robotMock, nil, nil, nil)
+
+		Expect(service.continuePowerCycle(context.Background(), true)).To(Equal(actionContinue{delay: 15 * time.Second}))
+
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerLongRebootTriggered))
+		robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)
+	})
+
+	It("returns an error and sends nothing when Robot does not answer whether the server is off", func() {
+		host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerLongRebootTriggered, time.Now().Add(-10*time.Second))
+		robotMock := &robotmock.Client{}
+		robotMock.On("GetReboot", mock.Anything).Return(nil, errors.New("robot is down"))
+		service := newTestService(host, robotMock, nil, nil, nil)
+
+		Expect(service.continuePowerCycle(context.Background(), true)).To(BeAssignableToTypeOf(actionError{}))
+
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerLongRebootTriggered))
+		robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)
+	})
+
+	It("returns an error and keeps waiting to send power when the power call fails", func() {
+		host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerLongRebootTriggered, time.Now().Add(-10*time.Second))
+		robotMock := &robotmock.Client{}
+		robotMock.On("GetReboot", mock.Anything).Return(&models.Reset{OperatingStatus: robotOperatingStatusShutOff}, nil)
+		robotMock.On("RebootBMServer", mock.Anything, infrav1.RebootTypePower).Return(nil, errors.New("robot is down"))
+		service := newTestService(host, robotMock, nil, nil, nil)
+
+		Expect(service.continuePowerCycle(context.Background(), true)).To(BeAssignableToTypeOf(actionError{}))
+
+		// the next reconcile asks Robot again and sends power again
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerLongRebootTriggered))
+	})
+
+	// GetReboot fails here. The hardware reset must not depend on it.
+	It("sends a hardware reset when it could not send power within powerOffTimeout", func() {
+		host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerLongRebootTriggered, time.Now().Add(-2*powerOffTimeout))
+		robotMock := &robotmock.Client{}
+		robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
+		robotMock.On("GetReboot", mock.Anything).Return(nil, errors.New("robot is down"))
+		robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
+		service := newTestService(host, robotMock, nil, nil, nil)
+
+		Expect(service.continuePowerCycle(context.Background(), true)).To(BeAssignableToTypeOf(actionContinue{}))
+
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeHardwareRebootTriggered))
+		robotMock.AssertNotCalled(GinkgoT(), "GetReboot", mock.Anything)
+		robotMock.AssertCalled(GinkgoT(), "GetBootRescue", mock.Anything)
+		robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypeHardware)
+		robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypePower)
+	})
+
+	It("actionRegistering continues the power cycle without ssh, because the server is off", func() {
+		host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerLongRebootTriggered, time.Now().Add(-10*time.Second))
+		robotMock := newRobotMock(robotOperatingStatusShutOff)
+		sshMock := &sshmock.Client{}
+		service := newTestService(host, robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		Expect(service.actionRegistering(context.Background())).To(BeAssignableToTypeOf(actionContinue{}))
+
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerRebootTriggered))
+		robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypePower)
+		sshMock.AssertNotCalled(GinkgoT(), "GetHostName", mock.Anything)
+	})
+
+	It("actionEnsureProvisioned continues the power cycle without ssh, because the server is off", func() {
+		host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerLongRebootTriggered, time.Now().Add(-10*time.Second))
+		robotMock := newRobotMock(robotOperatingStatusShutOff)
+		sshMock := &sshmock.Client{}
+		service := newTestService(host, robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock),
+			helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		Expect(service.actionEnsureProvisioned(context.Background())).To(BeAssignableToTypeOf(actionContinue{}))
+
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerRebootTriggered))
+		robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypePower)
+		sshMock.AssertNotCalled(GinkgoT(), "GetHostName", mock.Anything)
+	})
+
+	It("waits for the server to boot after power", func() {
+		host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerRebootTriggered, time.Now().Add(-2*time.Minute))
+		robotMock := newRobotMock("running")
+		service := newTestService(host, robotMock, nil, nil, nil)
+
+		failed, err := service.handleIncompleteBoot(context.Background(), true, true, false)
+		Expect(err).To(Succeed())
+		Expect(failed).To(BeFalse())
+
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerRebootTriggered))
+		robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)
+	})
+
+	It("sends a hardware reset when the server does not boot in time after power", func() {
+		host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerRebootTriggered, time.Now().Add(-2*hardwareResetTimeout))
+		robotMock := newRobotMock("running")
+		service := newTestService(host, robotMock, nil, nil, nil)
+
+		failed, err := service.handleIncompleteBoot(context.Background(), true, true, false)
+		Expect(err).To(Succeed())
+		Expect(failed).To(BeFalse())
+
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeHardwareRebootTriggered))
+		robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypeHardware)
+	})
+
+	DescribeTable("fails right away if the server booted into the wrong system after the power cycle",
+		func(isRebootIntoRescue bool) {
+			host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerRebootTriggered, time.Now().Add(-2*time.Minute))
+			robotMock := newRobotMock("running")
+			service := newTestService(host, robotMock, nil, nil, nil)
+
+			failed, err := service.handleIncompleteBoot(context.Background(), isRebootIntoRescue, false, false)
+			Expect(err).To(MatchError(ContainSubstring("after power cycle")))
+			Expect(failed).To(BeTrue())
+
+			Expect(v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition).Reason).To(Equal(infrav1.BootedIntoWrongSystemReason))
+			robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)
+		},
+		Entry("rescue", true),
+		Entry("node", false),
+	)
+
+	Context("reboot annotation with NoSSHAfterInstallImage=true", func() {
+		It("sends power_long", func() {
+			host := newPowerCycleHost(powerCycleRebootTypes, "", time.Time{})
+			host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
+			host.Spec.Status.SSHSpec.NoSSHAfterInstallImage = true
+			robotMock := newRobotMock("running")
+			service := newTestService(host, robotMock, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+			Expect(service.actionProvisioned(context.Background())).To(BeAssignableToTypeOf(actionContinue{}))
+
+			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerLongRebootTriggered))
+			robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypePowerLong)
+			robotMock.AssertNumberOfCalls(GinkgoT(), "RebootBMServer", 1)
+		})
+
+		// The workload cluster client is never set up in this test. actionProvisioned must send power
+		// before it reads the Node, because the API server might not answer while this node is off.
+		It("sends power when Robot reports the server as shut off, before it reads the Node", func() {
+			host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerLongRebootTriggered, time.Now().Add(-10*time.Second))
+			host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
+			host.Spec.Status.NodeBootID = fakeBootID
+			host.Spec.Status.Rebooted = true
+			host.Spec.Status.SSHSpec.NoSSHAfterInstallImage = true
+			robotMock := newRobotMock(robotOperatingStatusShutOff)
+			service := newTestService(host, robotMock, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+			service.scope.WorkloadClusterClientFactory = nil
+
+			Expect(service.actionProvisioned(context.Background())).To(BeAssignableToTypeOf(actionContinue{}))
+
+			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerRebootTriggered))
+			robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypePower)
+		})
+
+		It("sends power even when the reboot annotation was removed during the power cycle", func() {
+			host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerLongRebootTriggered, time.Now().Add(-10*time.Second))
+			robotMock := newRobotMock(robotOperatingStatusShutOff)
+			service := newTestService(host, robotMock, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+			Expect(service.actionProvisioned(context.Background())).To(BeAssignableToTypeOf(actionContinue{}))
+
+			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypePowerRebootTriggered))
+			robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypePower)
+		})
+
+		It("clears the power cycle from errorType when the reboot annotation is gone", func() {
+			host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerRebootTriggered, time.Now().Add(-10*time.Second))
+			host.Spec.Status.NodeBootID = fakeBootID
+			service := newTestService(host, newRobotMock("running"), nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+			Expect(service.actionProvisioned(context.Background())).To(BeAssignableToTypeOf(actionFinished{}))
+
+			Expect(host.Spec.Status.ErrorType).To(BeEmpty())
+		})
+
+		It("sends a hardware reset when the node does not come back in time after power", func() {
+			host := newPowerCycleHost(powerCycleRebootTypes, infrav1.ErrorTypePowerRebootTriggered, time.Now().Add(-6*time.Minute))
+			host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
+			host.Spec.Status.NodeBootID = fakeBootID
+			host.Spec.Status.Rebooted = true
+			host.Spec.Status.SSHSpec.NoSSHAfterInstallImage = true
+			robotMock := newRobotMock("running")
+			service := newTestService(host, robotMock, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+			// the hardware reset must not need the workload cluster, which might not answer
+			service.scope.WorkloadClusterClientFactory = nil
+
+			Expect(service.actionProvisioned(context.Background())).To(BeAssignableToTypeOf(actionContinue{}))
+
+			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeHardwareRebootTriggered))
+			Expect(host.Spec.Status.HasFatalError()).To(BeFalse())
+			robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypeHardware)
+		})
 	})
 })
