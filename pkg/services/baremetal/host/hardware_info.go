@@ -78,6 +78,7 @@ func (s *Service) addHardwareInfo(ctx context.Context, sshClient sshclient.Clien
 func parseHardwareInfo(stdOut string, hardwareDetails *infrav1.HardwareDetails) error {
 	var errs []error
 	skippedPCIDevices := 0
+	var memoryTotalWidth, memoryDataWidth, memoryErrorCorrection string
 
 	for line := range strings.Lines(stdOut) {
 		key, value, found := strings.Cut(line, "=")
@@ -150,16 +151,12 @@ func parseHardwareInfo(stdOut string, hardwareDetails *infrav1.HardwareDetails) 
 			if value != "Unknown" && value != "Other" {
 				hardwareDetails.Memory.Type = value
 			}
-		case "memory_ecc":
-			// dmidecode reports the kind of error correction, for example "Multi-bit ECC", or "None".
-			switch value {
-			case "None":
-				hardwareDetails.Memory.ECC = infrav1.ECCDisabled
-			case "Unknown", "Other":
-				// the firmware does not know it, so ecc stays empty.
-			default:
-				hardwareDetails.Memory.ECC = infrav1.ECCEnabled
-			}
+		case "memory_total_width":
+			memoryTotalWidth = value
+		case "memory_data_width":
+			memoryDataWidth = value
+		case "memory_error_correction":
+			memoryErrorCorrection = value
 
 		case "watchdog_driver":
 			hardwareDetails.WatchdogDriver = value
@@ -194,11 +191,46 @@ func parseHardwareInfo(stdOut string, hardwareDetails *infrav1.HardwareDetails) 
 		}
 	}
 
+	hardwareDetails.Memory.ECC = eccState(memoryTotalWidth, memoryDataWidth, memoryErrorCorrection)
+
 	if skippedPCIDevices > 0 {
 		errs = append(errs, fmt.Errorf("found %d PCI devices, the last %d are left out", maxPCIDevices+skippedPCIDevices, skippedPCIDevices))
 	}
 
 	return errors.Join(errs...)
+}
+
+// eccState tells whether ECC memory is installed and whether error correction is on.
+// totalWidth and dataWidth come from the first installed memory module, for example "72 bits" and
+// "64 bits". errorCorrection is what the firmware reports for the memory array, for example
+// "Multi-bit ECC" or "None". It returns an empty state when dmidecode does not know enough.
+func eccState(totalWidth, dataWidth, errorCorrection string) infrav1.ECCState {
+	errorCorrectionKnown := errorCorrection != "" && errorCorrection != "Unknown" && errorCorrection != "Other"
+	errorCorrectionOn := errorCorrectionKnown && errorCorrection != "None"
+
+	total, totalErr := strconv.Atoi(strings.TrimSuffix(totalWidth, " bits"))
+	data, dataErr := strconv.Atoi(strings.TrimSuffix(dataWidth, " bits"))
+	if totalErr != nil || dataErr != nil {
+		// without the widths, error correction that is on still shows that ECC memory is installed.
+		if errorCorrectionOn {
+			return infrav1.ECCActive
+		}
+		return ""
+	}
+
+	// an ECC module has extra bits for the error correction, so its total width is larger than its data width.
+	if total <= data {
+		return infrav1.ECCNotInstalled
+	}
+
+	switch {
+	case errorCorrectionOn:
+		return infrav1.ECCActive
+	case errorCorrectionKnown:
+		return infrav1.ECCInactive
+	default:
+		return ""
+	}
 }
 
 // parseInt32 parses value and checks the Minimum limit of its API field.

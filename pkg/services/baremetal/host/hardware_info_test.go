@@ -46,7 +46,9 @@ cpu_stepping=2
 cpu_microcode=0x3d
 cpu_flags=fpu lm cx16 lahf_lm popcnt pni sse4_1 sse4_2 ssse3 avx avx2 bmi1 bmi2 f16c fma abm movbe xsave
 memory_type=DDR4
-memory_ecc=None
+memory_total_width=64 bits
+memory_data_width=64 bits
+memory_error_correction=None
 watchdog_driver=iTCO_wdt
 pci_device=0000:00:02.0 0x8086 0x4680 0x030000 i915
 pci_device=0000:00:17.0 0x8086 0x7a62 0x010601 ahci
@@ -68,7 +70,9 @@ cpu_stepping=0
 cpu_microcode=0x8701034
 cpu_flags=fpu lm cx16 lahf_lm popcnt pni sse4_1 sse4_2 ssse3 avx avx2 bmi1 bmi2 f16c fma abm movbe xsave
 memory_type=DDR4
-memory_ecc=None
+memory_total_width=64 bits
+memory_data_width=64 bits
+memory_error_correction=None
 watchdog_driver=sp5100-tco
 pci_device=0000:08:00.0 0x1b21 0x0612 0x010601
 pci_device=0000:09:00.0 0x10ec 0x8168 0x020000 r8169
@@ -103,7 +107,7 @@ var _ = Describe("parseHardwareInfo", func() {
 		}))
 		Expect(hardwareDetails.Memory).To(Equal(infrav1.Memory{
 			Type: "DDR4",
-			ECC:  infrav1.ECCDisabled,
+			ECC:  infrav1.ECCNotInstalled,
 		}))
 		Expect(hardwareDetails.WatchdogDriver).To(Equal("iTCO_wdt"))
 		Expect(hardwareDetails.PCIDevices).To(Equal([]infrav1.PCIDevice{
@@ -166,16 +170,16 @@ var _ = Describe("parseHardwareInfo", func() {
 		Expect(hardwareDetails.PCIDevices).To(HaveLen(maxPCIDevices))
 	})
 
-	DescribeTable("memory_ecc",
-		func(value string, want infrav1.ECCState) {
-			var hardwareDetails infrav1.HardwareDetails
-			Expect(parseHardwareInfo("memory_ecc="+value, &hardwareDetails)).To(Succeed())
-			Expect(hardwareDetails.Memory.ECC).To(Equal(want))
+	DescribeTable("eccState",
+		func(totalWidth, dataWidth, errorCorrection string, want infrav1.ECCState) {
+			Expect(eccState(totalWidth, dataWidth, errorCorrection)).To(Equal(want))
 		},
-		Entry("None means disabled", "None", infrav1.ECCDisabled),
-		Entry("Multi-bit ECC means enabled", "Multi-bit ECC", infrav1.ECCEnabled),
-		Entry("Single-bit ECC means enabled", "Single-bit ECC", infrav1.ECCEnabled),
-		Entry("Unknown stays empty", "Unknown", infrav1.ECCState("")),
+		Entry("ECC modules with error correction on are active", "72 bits", "64 bits", "Multi-bit ECC", infrav1.ECCActive),
+		Entry("ECC modules with error correction off are inactive", "72 bits", "64 bits", "None", infrav1.ECCInactive),
+		Entry("modules without ECC are not installed", "64 bits", "64 bits", "None", infrav1.ECCNotInstalled),
+		Entry("unknown widths with error correction on are active", "Unknown", "Unknown", "Single-bit ECC", infrav1.ECCActive),
+		Entry("unknown widths without error correction stay empty", "Unknown", "Unknown", "None", infrav1.ECCState("")),
+		Entry("ECC modules with unknown error correction stay empty", "72 bits", "64 bits", "Unknown", infrav1.ECCState("")),
 	)
 
 	It("sets amx when the CPU has the flag amx_tile", func() {

@@ -333,11 +333,12 @@ spec:
                         description: Memory describes the memory modules of the host.
                         properties:
                           ecc:
-                            description: ECC tells whether the memory uses error correction
-                              (ECC).
+                            description: ECC tells whether ECC memory is installed
+                              and whether error correction is on.
                             enum:
-                            - Enabled
-                            - Disabled
+                            - Active
+                            - Inactive
+                            - NotInstalled
                             type: string
                           type:
                             description: Type is the memory type of the first installed
@@ -1334,11 +1335,12 @@ spec:
                     minProperties: 1
                     properties:
                       ecc:
-                        description: ecc tells whether the memory uses error correction
-                          (ECC).
+                        description: ecc tells whether ECC memory is installed and
+                          whether error correction is on.
                         enum:
-                        - Enabled
-                        - Disabled
+                        - Active
+                        - Inactive
+                        - NotInstalled
                         type: string
                       type:
                         description: type is the memory type of the first installed

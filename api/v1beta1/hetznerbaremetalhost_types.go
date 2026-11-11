@@ -633,20 +633,23 @@ type Memory struct {
 	// Type is the memory type of the first installed module, for example DDR4 or DDR5.
 	Type string `json:"type,omitempty"`
 
-	// ECC tells whether the memory uses error correction (ECC).
+	// ECC tells whether ECC memory is installed and whether error correction is on.
 	ECC ECCState `json:"ecc,omitempty"`
 }
 
-// ECCState tells whether the memory uses error correction (ECC).
-// +kubebuilder:validation:Enum=Enabled;Disabled
+// ECCState tells whether ECC memory is installed and whether error correction is on.
+// +kubebuilder:validation:Enum=Active;Inactive;NotInstalled
 type ECCState string
 
 const (
-	// ECCEnabled means that the memory uses error correction.
-	ECCEnabled ECCState = "Enabled"
+	// ECCActive means that ECC memory is installed and error correction is on.
+	ECCActive ECCState = "Active"
 
-	// ECCDisabled means that the memory does not use error correction.
-	ECCDisabled ECCState = "Disabled"
+	// ECCInactive means that ECC memory is installed, but the firmware reports that error correction is off.
+	ECCInactive ECCState = "Inactive"
+
+	// ECCNotInstalled means that the installed memory modules do not have ECC.
+	ECCNotInstalled ECCState = "NotInstalled"
 )
 
 // PCIDevice describes one storage, network or display device on the PCI bus of the host.

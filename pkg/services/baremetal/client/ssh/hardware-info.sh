@@ -43,10 +43,20 @@ echo "cpu_stepping=$(cpuinfo "stepping")"
 echo "cpu_microcode=$(cpuinfo "microcode")"
 echo "cpu_flags=$(cpuinfo "flags")"
 
-# dmidecode type 17 lists the memory devices (one for each slot) and type 16 the physical memory array.
-# the type of the first installed module. Empty slots report "Size: No Module Installed" and "Type: Unknown".
-echo "memory_type=$(dmidecode -t 17 | awk -F': ' '/^[ \t]+Size:/ { size = $2 } /^[ \t]+Type:/ && size !~ /No Module/ { print $2; exit }')"
-echo "memory_ecc=$(dmidecode -t 16 | awk -F': ' '/Error Correction Type:/ { print $2; exit }')"
+# dmidecode type 17 lists the memory devices, one for each slot. The script prints the type and the
+# total and data width of the first installed module. An ECC module is 8 bits wider than its data,
+# for example "Total Width: 72 bits" and "Data Width: 64 bits". Empty slots report "Size: No Module Installed".
+dmidecode -t 17 | awk -F': ' '
+    /^Memory Device/ { total = ""; data = ""; size = "" }
+    /^[ \t]+Total Width:/ { total = $2 }
+    /^[ \t]+Data Width:/ { data = $2 }
+    /^[ \t]+Size:/ { size = $2 }
+    /^[ \t]+Type:/ && size !~ /No Module/ { type = $2; exit }
+    END { print "memory_type=" type; print "memory_total_width=" total; print "memory_data_width=" data }'
+
+# dmidecode type 16 is the physical memory array. "Error Correction Type" says whether error
+# correction is on, for example "Multi-bit ECC" or "None".
+echo "memory_error_correction=$(dmidecode -t 16 | awk -F': ' '/Error Correction Type:/ { print $2; exit }')"
 
 watchdog_driver=""
 if [ -e /sys/class/watchdog/watchdog0/device/driver ]; then
