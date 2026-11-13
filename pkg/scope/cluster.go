@@ -280,8 +280,8 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 // control-plane infrastructure machine template's spec.template.metadata.
 //
 // Machines from an earlier template do not carry the annotation, so the check stays false
-// until the last of them is replaced. It returns false (no error) while the cluster has no
-// control-plane infrastructure machines yet.
+// until the last of them is replaced. It returns true (no error) while the cluster has no
+// control-plane infrastructure machines yet, because no API server runs behind the load balancer.
 func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx context.Context) (bool, error) {
 	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation, "proxy protocol")
 }
@@ -297,6 +297,7 @@ func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(c
 
 // allControlPlaneInfraMachinesAnnotated returns true when every control-plane infrastructure
 // machine (HCloudMachine and HetznerBareMetalMachine) carries annotation with value "true".
+// It also returns true when there are no control-plane infrastructure machines at all.
 // logLabel prefixes the debug logs so they name the feature being gated (e.g. "proxy protocol",
 // "http health check").
 func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context, annotation, logLabel string) (bool, error) {
@@ -339,8 +340,8 @@ func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context
 	}
 
 	if found == 0 {
-		s.V(1).Info(logLabel + ": no control-plane infrastructure machines found yet")
-		return false, nil
+		// No API server runs behind the load balancer yet, so there is nothing to protect.
+		s.V(1).Info(logLabel + ": no control-plane infrastructure machines found, nothing to wait for")
 	}
 
 	return true, nil
