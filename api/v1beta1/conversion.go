@@ -424,6 +424,7 @@ func Convert_v1beta1_ControllerGeneratedStatus_To_v1beta2_HetznerBareMetalHostSt
 		}
 	}
 
+	out.RobotProduct = in.RobotProduct
 	out.IPv4 = in.IPv4
 	out.IPv6 = in.IPv6
 	out.RebootTypes = convertRebootTypesToV1Beta2(in.RebootTypes)
@@ -492,6 +493,7 @@ func Convert_v1beta2_HetznerBareMetalHostStatus_To_v1beta1_ControllerGeneratedSt
 		}
 	}
 
+	out.RobotProduct = in.RobotProduct
 	out.IPv4 = in.IPv4
 	out.IPv6 = in.IPv6
 	out.RebootTypes = convertRebootTypesToV1Beta1(in.RebootTypes)

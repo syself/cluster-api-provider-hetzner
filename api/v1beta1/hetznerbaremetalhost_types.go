@@ -277,6 +277,12 @@ type ControllerGeneratedStatus struct {
 	// +optional
 	HardwareDetails *HardwareDetails `json:"hardwareDetails,omitempty"`
 
+	// RobotProduct is the product name of the server in Hetzner Robot, for example "EX44".
+	// For a server from the server auction, Robot returns "Server Auction".
+	// The controller reads it from the Robot API in the preparing state, before registering sets hardwareDetails.
+	// +optional
+	RobotProduct string `json:"robotProduct,omitempty"`
+
 	// IPv4 address of server.
 	// +optional
 	IPv4 string `json:"ipv4"`
@@ -548,6 +554,120 @@ type CPU struct {
 	Flags          []string   `json:"flags,omitempty"`
 	Threads        int        `json:"threads,omitempty"`
 	Cores          int        `json:"cores,omitempty"`
+
+	// Family is the CPU family number from /proc/cpuinfo.
+	Family int32 `json:"family,omitempty"`
+
+	// ModelID is the CPU model number from /proc/cpuinfo. Together with family and stepping, it
+	// names the CPU generation and the microcode file for this CPU.
+	// +kubebuilder:validation:Minimum=0
+	ModelID *int32 `json:"modelID,omitempty"`
+
+	// Stepping is the CPU stepping number from /proc/cpuinfo.
+	// +kubebuilder:validation:Minimum=0
+	Stepping *int32 `json:"stepping,omitempty"`
+
+	// Microcode is the microcode revision that the CPU runs, for example "0x3d".
+	Microcode string `json:"microcode,omitempty"`
+
+	// X86Level is the x86-64 microarchitecture level of the CPU, from 1 to 4.
+	// Level 4 means that the CPU has AVX-512.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4
+	X86Level int32 `json:"x86Level,omitempty"`
+
+	// AMX tells whether the CPU has AMX (Advanced Matrix Extensions).
+	AMX CPUFeatureSupport `json:"amx,omitempty"`
+}
+
+// CPUFeatureSupport tells whether the CPU has a feature.
+// +kubebuilder:validation:Enum=Supported;Unsupported
+type CPUFeatureSupport string
+
+const (
+	// CPUFeatureSupported means that the CPU has the feature.
+	CPUFeatureSupported CPUFeatureSupport = "Supported"
+
+	// CPUFeatureUnsupported means that the CPU does not have the feature.
+	CPUFeatureUnsupported CPUFeatureSupport = "Unsupported"
+)
+
+// Board describes the mainboard of the host, as the firmware reports it.
+type Board struct {
+	// Vendor is the manufacturer of the mainboard.
+	Vendor string `json:"vendor,omitempty"`
+
+	// Name is the product name of the mainboard.
+	Name string `json:"name,omitempty"`
+
+	// Version is the revision of the mainboard.
+	Version string `json:"version,omitempty"`
+}
+
+// Firmware describes the firmware (BIOS or UEFI) of the host.
+type Firmware struct {
+	// Vendor is the vendor of the firmware.
+	Vendor string `json:"vendor,omitempty"`
+
+	// Version is the version of the firmware.
+	Version string `json:"version,omitempty"`
+
+	// BootMode is the mode in which the firmware booted the rescue system.
+	BootMode BootMode `json:"bootMode,omitempty"`
+}
+
+// BootMode is the mode in which the firmware boots the host.
+// +kubebuilder:validation:Enum=UEFI;Legacy
+type BootMode string
+
+const (
+	// BootModeUEFI means that the firmware boots in UEFI mode.
+	BootModeUEFI BootMode = "UEFI"
+
+	// BootModeLegacy means that the firmware boots in legacy BIOS mode.
+	BootModeLegacy BootMode = "Legacy"
+)
+
+// Memory describes the memory modules of the host.
+type Memory struct {
+	// Type is the memory type of the first installed module, for example DDR4 or DDR5.
+	Type string `json:"type,omitempty"`
+
+	// ECC tells whether ECC memory is installed and whether error correction is on.
+	ECC ECCState `json:"ecc,omitempty"`
+}
+
+// ECCState tells whether ECC memory is installed and whether error correction is on.
+// +kubebuilder:validation:Enum=Active;Inactive;NotInstalled
+type ECCState string
+
+const (
+	// ECCActive means that ECC memory is installed and error correction is on.
+	ECCActive ECCState = "Active"
+
+	// ECCInactive means that ECC memory is installed, but the firmware reports that error correction is off.
+	ECCInactive ECCState = "Inactive"
+
+	// ECCNotInstalled means that the installed memory modules do not have ECC.
+	ECCNotInstalled ECCState = "NotInstalled"
+)
+
+// PCIDevice describes one storage, network or display device on the PCI bus of the host.
+type PCIDevice struct {
+	// Address is the PCI address of the device, for example "0000:05:00.0".
+	Address string `json:"address"`
+
+	// VendorID is the PCI vendor ID, for example "0x10ec".
+	VendorID string `json:"vendorID,omitempty"`
+
+	// DeviceID is the PCI device ID, for example "0x8125".
+	DeviceID string `json:"deviceID,omitempty"`
+
+	// Class is the PCI class code, for example "0x020000" for an Ethernet controller.
+	Class string `json:"class,omitempty"`
+
+	// Driver is the Linux driver that the rescue system uses for the device. It is empty when no driver is loaded.
+	Driver string `json:"driver,omitempty"`
 }
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
@@ -586,7 +706,7 @@ type NIC struct {
 	// The name of the network interface, e.g. "en0"
 	Name string `json:"name,omitempty"`
 
-	// The vendor and product IDs of the NIC, e.g. "0x8086 0x1572"
+	// The lspci description of the NIC, e.g. "Intel Corporation I210 Gigabit Network Connection (rev 03)"
 	Model string `json:"model,omitempty"`
 
 	// The device MAC address
@@ -609,6 +729,23 @@ type HardwareDetails struct {
 	NIC     []NIC     `json:"nics,omitempty"`
 	Storage []Storage `json:"storage,omitempty"`
 	CPU     CPU       `json:"cpu,omitempty"`
+
+	// Board describes the mainboard of the host.
+	Board Board `json:"board,omitempty,omitzero"`
+
+	// Firmware describes the firmware of the host.
+	Firmware Firmware `json:"firmware,omitempty,omitzero"`
+
+	// Memory describes the memory modules of the host.
+	Memory Memory `json:"memory,omitempty,omitzero"`
+
+	// WatchdogDriver is the Linux driver of the hardware watchdog, for example iTCO_wdt or sp5100-tco.
+	// It is empty when the rescue system did not find a hardware watchdog.
+	WatchdogDriver string `json:"watchdogDriver,omitempty"`
+
+	// PCIDevices is the list of storage, network and display devices on the PCI bus of the host.
+	// It also lists network devices without a link, which nics leaves out.
+	PCIDevices []PCIDevice `json:"pciDevices,omitempty"`
 }
 
 // HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
