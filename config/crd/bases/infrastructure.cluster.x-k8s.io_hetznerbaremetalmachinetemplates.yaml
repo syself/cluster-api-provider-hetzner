@@ -23,6 +23,7 @@ spec:
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    deprecated: true
     name: v1beta1
     schema:
       openAPIV3Schema:
@@ -359,7 +360,7 @@ spec:
             type: object
         type: object
     served: true
-    storage: true
+    storage: false
     subresources: {}
   - additionalPrinterColumns:
     - description: Time duration since creation of HetznerBareMetalMachineTemplate
@@ -772,5 +773,5 @@ spec:
             type: object
         type: object
     served: true
-    storage: false
+    storage: true
     subresources: {}
