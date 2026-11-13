@@ -894,7 +894,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
 	}
 
-	s.addHardwareInfo(ctx, sshClient, &hardwareDetails)
+	s.addHardwareInfo(ctx, sshClient, s.scope.HetznerBareMetalHost.Status.HardwareDetails, &hardwareDetails)
 
 	if s.scope.HetznerBareMetalHost.Status.HardwareDetails != nil {
 		diff := cmp.Diff(*s.scope.HetznerBareMetalHost.Status.HardwareDetails, hardwareDetails)

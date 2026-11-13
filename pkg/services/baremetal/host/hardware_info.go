@@ -62,15 +62,43 @@ var x86LevelFlags = [][]string{
 }
 
 // addHardwareInfo adds the board, firmware, CPU, memory, watchdog and PCI device details that
-// hardware-info.sh prints to hardwareDetails. Nothing in the controller reads these values. When a
-// value cannot be read, its field stays empty and the controller logs an error, but registering
-// continues.
-func (s *Service) addHardwareInfo(ctx context.Context, sshClient sshclient.Client, hardwareDetails *infrav1.HardwareDetails) {
+// hardware-info.sh prints to hardwareDetails. Nothing in the controller reads these values, so
+// registering continues when they cannot be read, and the controller logs an error.
+// When the ssh command fails, nothing was read, and the values from the last registering in
+// previous are kept. When a single value cannot be read or parsed, its field stays empty.
+func (s *Service) addHardwareInfo(ctx context.Context, sshClient sshclient.Client, previous, hardwareDetails *infrav1.HardwareDetails) {
 	out := sshClient.GetHardwareInfo(ctx)
+
+	if out.Err != nil {
+		copyHardwareInfo(previous, hardwareDetails)
+		s.scope.Error(out.Err, "failed to run hardware-info.sh, keeping the hardware details from the last registering")
+		return
+	}
 
 	if err := errors.Join(handleSSHError(out), parseHardwareInfo(out.StdOut, hardwareDetails)); err != nil {
 		s.scope.Error(err, "failed to read some hardware details, their fields stay empty", "stdout", out.StdOut)
 	}
+}
+
+// copyHardwareInfo copies the values that addHardwareInfo sets from one hardwareDetails to another.
+// It does nothing when from is nil.
+func copyHardwareInfo(from, to *infrav1.HardwareDetails) {
+	if from == nil {
+		return
+	}
+
+	to.Board = from.Board
+	to.Firmware = from.Firmware
+	to.Memory = from.Memory
+	to.WatchdogDriver = from.WatchdogDriver
+	to.PCIDevices = slices.Clone(from.PCIDevices)
+
+	to.CPU.Family = from.CPU.Family
+	to.CPU.ModelID = from.CPU.ModelID
+	to.CPU.Stepping = from.CPU.Stepping
+	to.CPU.Microcode = from.CPU.Microcode
+	to.CPU.X86Level = from.CPU.X86Level
+	to.CPU.AMX = from.CPU.AMX
 }
 
 // parseHardwareInfo sets the fields of hardwareDetails from the key=value lines of hardware-info.sh.
@@ -205,8 +233,17 @@ func parseHardwareInfo(stdOut string, hardwareDetails *infrav1.HardwareDetails) 
 // "64 bits". errorCorrection is what the firmware reports for the memory array, for example
 // "Multi-bit ECC" or "None". It returns an empty state when dmidecode does not know enough.
 func eccState(totalWidth, dataWidth, errorCorrection string) infrav1.ECCState {
-	errorCorrectionKnown := errorCorrection != "" && errorCorrection != "Unknown" && errorCorrection != "Other"
-	errorCorrectionOn := errorCorrectionKnown && errorCorrection != "None"
+	// dmidecode prints one of these values for the memory array (SMBIOS type 16): "Other", "Unknown",
+	// "None", "Parity", "Single-bit ECC", "Multi-bit ECC" or "CRC". Only the two ECC values and "None"
+	// tell whether ECC is on. Parity only detects errors, and the others are rare or unknown.
+	var errorCorrectionKnown, errorCorrectionOn bool
+	switch errorCorrection {
+	case "Single-bit ECC", "Multi-bit ECC":
+		errorCorrectionKnown = true
+		errorCorrectionOn = true
+	case "None":
+		errorCorrectionKnown = true
+	}
 
 	total, totalErr := strconv.Atoi(strings.TrimSuffix(totalWidth, " bits"))
 	data, dataErr := strconv.Atoi(strings.TrimSuffix(dataWidth, " bits"))

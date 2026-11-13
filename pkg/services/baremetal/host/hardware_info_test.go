@@ -180,6 +180,8 @@ var _ = Describe("parseHardwareInfo", func() {
 		Entry("unknown widths with error correction on are active", "Unknown", "Unknown", "Single-bit ECC", infrav1.ECCActive),
 		Entry("unknown widths without error correction stay empty", "Unknown", "Unknown", "None", infrav1.ECCState("")),
 		Entry("ECC modules with unknown error correction stay empty", "72 bits", "64 bits", "Unknown", infrav1.ECCState("")),
+		Entry("ECC modules with parity stay empty", "72 bits", "64 bits", "Parity", infrav1.ECCState("")),
+		Entry("ECC modules with CRC stay empty", "72 bits", "64 bits", "CRC", infrav1.ECCState("")),
 	)
 
 	It("sets amx when the CPU has the flag amx_tile", func() {
@@ -232,6 +234,24 @@ var _ = Describe("actionRegistering with hardware-info.sh", func() {
 		Expect(host.Status.HardwareDetails.Board.Name).To(Equal("PRIME B760M-A D4"))
 		Expect(host.Status.HardwareDetails.PCIDevices).To(HaveLen(4))
 		// the values that getHardwareDetails reads are still set.
+		Expect(host.Status.HardwareDetails.CPU.Model).To(Equal("mymodel"))
+	})
+
+	It("keeps the values from the last registering when the ssh command for hardware-info.sh fails", func() {
+		host, service := registeringHost(sshclient.Output{Err: errors.New("ssh: connection reset by peer")})
+		host.Status.HardwareDetails = &infrav1.HardwareDetails{
+			Board:      infrav1.Board{Name: "PRIME B760M-A D4"},
+			CPU:        infrav1.CPU{Model: "old-model", Family: 6, Stepping: ptr.To[int32](2)},
+			PCIDevices: []infrav1.PCIDevice{{Address: "0000:05:00.0", VendorID: "0x10ec"}},
+		}
+
+		Expect(service.actionRegistering(ctx)).To(BeAssignableToTypeOf(actionComplete{}))
+
+		Expect(host.Status.HardwareDetails.Board.Name).To(Equal("PRIME B760M-A D4"))
+		Expect(host.Status.HardwareDetails.CPU.Family).To(Equal(int32(6)))
+		Expect(host.Status.HardwareDetails.CPU.Stepping).To(Equal(ptr.To[int32](2)))
+		Expect(host.Status.HardwareDetails.PCIDevices).To(HaveLen(1))
+		// getHardwareDetails reads the other cpu values again.
 		Expect(host.Status.HardwareDetails.CPU.Model).To(Equal("mymodel"))
 	})
 
