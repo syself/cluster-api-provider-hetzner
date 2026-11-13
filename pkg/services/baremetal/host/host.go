@@ -225,6 +225,8 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		Reason: infrav1.HetznerBareMetalHostRobotCredentialsAvailableV1Beta2Reason,
 	})
 
+	s.scope.HetznerBareMetalHost.Spec.Status.RobotProduct = server.Product
+
 	if server.ServerIP == "" {
 		msg := fmt.Sprintf("bare metal server %d has no IPv4 address assigned", s.scope.HetznerBareMetalHost.Spec.ServerID)
 		v1beta1conditions.MarkFalse(
@@ -862,6 +864,8 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 	if err != nil {
 		return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
 	}
+
+	s.addHardwareInfo(ctx, sshClient, s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails, &hardwareDetails)
 
 	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails != nil {
 		diff := cmp.Diff(*s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails, hardwareDetails)
