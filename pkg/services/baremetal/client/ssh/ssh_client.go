@@ -83,6 +83,9 @@ var checkDiskShellScript string
 //go:embed nic-info.sh
 var nicInfoShellScript string
 
+//go:embed hardware-info.sh
+var hardwareInfoShellScript string
+
 //go:embed download-from-oci.sh
 var downloadFromOciShellScript string
 
@@ -194,6 +197,11 @@ type Client interface {
 	GetHardwareDetailsCPUThreads(ctx context.Context) Output
 	GetHardwareDetailsCPUCores(ctx context.Context) Output
 	GetHardwareDetailsDebug(ctx context.Context) Output
+
+	// GetHardwareInfo runs hardware-info.sh. It prints the board, firmware, CPU, memory, watchdog
+	// and PCI device details as key=value lines.
+	GetHardwareInfo(ctx context.Context) Output
+
 	GetInstallImageState(ctx context.Context) (InstallImageState, error)
 	GetResultOfInstallImage(ctx context.Context) (string, error)
 	GetCloudInitOutput(ctx context.Context) Output
@@ -592,6 +600,16 @@ func (c *sshClient) GetHardwareDetailsDebug(ctx context.Context) Output {
 	ethtool "*"; echo ==========----------==========;
 	lspci; echo ==========----------==========;
 	`)
+}
+
+// GetHardwareInfo implements the GetHardwareInfo method of the SSHClient interface.
+func (c *sshClient) GetHardwareInfo(ctx context.Context) Output {
+	return c.runSSH(ctx, fmt.Sprintf(`cat >/root/hardware-info.sh <<'EOF_VIA_SSH'
+%s
+EOF_VIA_SSH
+chmod a+rx /root/hardware-info.sh
+/root/hardware-info.sh
+`, hardwareInfoShellScript))
 }
 
 // CreateAutoSetup implements the CreateAutoSetup method of the SSHClient interface.
