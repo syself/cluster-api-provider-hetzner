@@ -82,6 +82,13 @@ type HCloudMachineSpec struct {
 	// the primary IP address of the server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled.
 	// +optional
 	PublicNetwork *PublicNetworkSpec `json:"publicNetwork,omitempty"`
+
+	// serverRecycling selects whether this HCloudMachine reuses a pre-existing server instead of
+	// creating a new one. It requires imageName and cannot be combined with customProvisioner.
+	// Note: When unset it behaves like Disabled.
+	// +kubebuilder:validation:Enum=Enabled;Disabled
+	// +optional
+	ServerRecycling ServerRecyclingPolicy `json:"serverRecycling,omitempty"`
 }
 
 // HCloudCustomProvisioner defines the configuration for provisioning an HCloud machine with a
@@ -124,6 +131,25 @@ func (p *HCloudCustomProvisioner) IsDefined() bool {
 	}
 	return p.URL != "" || p.Command != ""
 }
+
+// ServerRecyclingPolicy selects whether an HCloudMachine reuses a pre-existing server.
+//
+// A server offers itself for reuse by carrying the Hetzner Cloud label "caph-recycle": "true". One
+// that no HCloudMachine has claimed also carries "caph-recycle-available": "true".
+type ServerRecyclingPolicy string
+
+const (
+	// ServerRecyclingDisabled creates a new server for the HCloudMachine and deletes it again when
+	// the HCloudMachine is deleted. This is the behavior when serverRecycling is unset.
+	ServerRecyclingDisabled ServerRecyclingPolicy = "Disabled"
+
+	// ServerRecyclingEnabled claims a recyclable server that matches the HCloudMachine's type and
+	// location and rebuilds it with the HCloudMachine's image and bootstrap data. On deletion the
+	// server returns to the recyclable set instead of being deleted, which lets a fixed set of
+	// servers back a MachineDeployment. If no recyclable server matches, a new one is created as
+	// usual.
+	ServerRecyclingEnabled ServerRecyclingPolicy = "Enabled"
+)
 
 // HCloudMachineStatus defines the observed state of HCloudMachine.
 // +kubebuilder:validation:MinProperties=1

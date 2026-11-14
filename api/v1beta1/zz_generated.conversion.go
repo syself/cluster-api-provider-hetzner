@@ -1155,6 +1155,7 @@ func autoConvert_v1beta1_HCloudMachineSpec_To_v1beta2_HCloudMachineSpec(in *HClo
 	} else {
 		out.PublicNetwork = nil
 	}
+	out.ServerRecycling = v1beta2.ServerRecyclingPolicy(in.ServerRecycling)
 	return nil
 }
 
@@ -1176,6 +1177,7 @@ func autoConvert_v1beta2_HCloudMachineSpec_To_v1beta1_HCloudMachineSpec(in *v1be
 	} else {
 		out.PublicNetwork = nil
 	}
+	out.ServerRecycling = ServerRecyclingPolicy(in.ServerRecycling)
 	return nil
 }
 

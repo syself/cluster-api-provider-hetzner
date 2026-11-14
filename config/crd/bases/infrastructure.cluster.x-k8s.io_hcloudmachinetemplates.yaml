@@ -157,6 +157,15 @@ spec:
                               addresses enabled.
                             type: boolean
                         type: object
+                      serverRecycling:
+                        description: |-
+                          ServerRecycling selects whether this machine reuses a pre-existing server instead of creating a
+                          new one. It is only supported together with ImageName (snapshot provisioning). When unset it
+                          behaves like Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
                       sshKeys:
                         description: SSHKeys define machine-specific SSH keys and
                           override cluster-wide SSH keys.
@@ -499,6 +508,15 @@ spec:
                               addresses enabled.
                             type: boolean
                         type: object
+                      serverRecycling:
+                        description: |-
+                          serverRecycling selects whether this HCloudMachine reuses a pre-existing server instead of
+                          creating a new one. It requires imageName and cannot be combined with customProvisioner.
+                          Note: When unset it behaves like Disabled.
+                        enum:
+                        - Enabled
+                        - Disabled
+                        type: string
                       sshKeys:
                         description: sshKeys define machine-specific SSH keys and
                           override cluster-wide SSH keys.
