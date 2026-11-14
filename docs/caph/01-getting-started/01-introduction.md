@@ -1,9 +1,7 @@
 ---
 title: Introduction
-description: Cluster API Provider Hetzner automates the lifecycle and provisioning of Kubernetes clusters on cloud or bare metal.
-metatitle: What is the Cluster API Provider Hetzner and Compatible Versions
-ogTitle: "Cluster API Hetzner: Versions"
-ogDescription: Hetzner's Cluster API automates Kubernetes lifecycle and setup.
+description: Run self-managed Kubernetes on Hetzner Cloud and bare metal with Cluster API. See what CAPH does, which versions it supports, and where to start.
+metatitle: "CAPH: Cluster API Provider for Hetzner"
 ---
 
 Welcome to the official documentation for the Cluster API Provider Hetzner (CAPH). If you are new to it, you can keep reading the Getting Started section, the Quickstart guide will walk you through your first cluster setup.
