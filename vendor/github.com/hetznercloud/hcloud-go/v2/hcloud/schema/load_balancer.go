@@ -27,13 +27,17 @@ type LoadBalancerPublicNet struct {
 }
 
 type LoadBalancerPublicNetIPv4 struct {
-	IP     string `json:"ip"`
-	DNSPtr string `json:"dns_ptr"`
+	ID      int64  `json:"id"`
+	IP      string `json:"ip"`
+	Blocked bool   `json:"blocked"`
+	DNSPtr  string `json:"dns_ptr"`
 }
 
 type LoadBalancerPublicNetIPv6 struct {
-	IP     string `json:"ip"`
-	DNSPtr string `json:"dns_ptr"`
+	ID      int64  `json:"id"`
+	IP      string `json:"ip"`
+	Blocked bool   `json:"blocked"`
+	DNSPtr  string `json:"dns_ptr"`
 }
 
 type LoadBalancerPrivateNet struct {
@@ -64,6 +68,7 @@ type LoadBalancerServiceHTTP struct {
 	Certificates   []int64 `json:"certificates"`
 	RedirectHTTP   bool    `json:"redirect_http"`
 	StickySessions bool    `json:"sticky_sessions"`
+	TimeoutIdle    int     `json:"timeout_idle"`
 }
 
 type LoadBalancerServiceHealthCheck struct {
@@ -94,8 +99,10 @@ type LoadBalancerTarget struct {
 }
 
 type LoadBalancerTargetHealthStatus struct {
-	ListenPort int    `json:"listen_port"`
-	Status     string `json:"status"`
+	ListenPort     int     `json:"listen_port"`
+	Status         string  `json:"status"`
+	Detail         *string `json:"detail"`
+	HTTPStatusCode *int    `json:"http_status_code"`
 }
 
 type LoadBalancerTargetServer struct {
@@ -180,6 +187,7 @@ type LoadBalancerActionAddServiceRequestHTTP struct {
 	Certificates   *[]int64 `json:"certificates,omitempty"`
 	RedirectHTTP   *bool    `json:"redirect_http,omitempty"`
 	StickySessions *bool    `json:"sticky_sessions,omitempty"`
+	TimeoutIdle    *int     `json:"timeout_idle,omitempty"`
 }
 
 type LoadBalancerActionAddServiceRequestHealthCheck struct {
@@ -218,6 +226,7 @@ type LoadBalancerActionUpdateServiceRequestHTTP struct {
 	Certificates   *[]int64 `json:"certificates,omitempty"`
 	RedirectHTTP   *bool    `json:"redirect_http,omitempty"`
 	StickySessions *bool    `json:"sticky_sessions,omitempty"`
+	TimeoutIdle    *int     `json:"timeout_idle,omitempty"`
 }
 
 type LoadBalancerActionUpdateServiceRequestHealthCheck struct {
@@ -259,11 +268,17 @@ type LoadBalancerCreateRequest struct {
 	Targets          []LoadBalancerCreateRequestTarget   `json:"targets,omitempty"`
 	Services         []LoadBalancerCreateRequestService  `json:"services,omitempty"`
 	PublicInterface  *bool                               `json:"public_interface,omitempty"`
+	PublicNet        *LoadBalancerCreateRequestPublicNet `json:"public_net,omitempty"`
 	Network          *int64                              `json:"network,omitempty"`
 }
 
 type LoadBalancerCreateRequestAlgorithm struct {
 	Type string `json:"type"`
+}
+
+type LoadBalancerCreateRequestPublicNet struct {
+	IPv4 int64 `json:"ipv4,omitempty"`
+	IPv6 int64 `json:"ipv6,omitempty"`
 }
 
 type LoadBalancerCreateRequestTarget struct {
@@ -301,6 +316,7 @@ type LoadBalancerCreateRequestServiceHTTP struct {
 	Certificates   *[]int64 `json:"certificates,omitempty"`
 	RedirectHTTP   *bool    `json:"redirect_http,omitempty"`
 	StickySessions *bool    `json:"sticky_sessions,omitempty"`
+	TimeoutIdle    *int     `json:"timeout_idle,omitempty"`
 }
 
 type LoadBalancerCreateRequestServiceHealthCheck struct {
@@ -402,7 +418,7 @@ type LoadBalancerGetMetricsResponse struct {
 // LoadBalancerTimeSeriesVals contains the values for a Load Balancer time
 // series.
 type LoadBalancerTimeSeriesVals struct {
-	Values []interface{} `json:"values"`
+	Values []any `json:"values"`
 }
 
 // LoadBalancerActionChangeDNSPtrRequest defines the schema for the request to
