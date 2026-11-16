@@ -37,9 +37,9 @@ const (
 	// label and is returned to the recyclable set instead of being deleted.
 	ServerRecycleLabelKey = NameHetznerProviderPrefix + "recycle"
 
-	// ServerRecycleAvailableLabelKey marks a recyclable server as not currently claimed by an HCloudMachine
-	// (value "true"). It is removed when an HCloudMachine claims the server and re-added when the
-	// HCloudMachine is deleted.
+	// ServerRecycleAvailableLabelKey marks a recyclable server that no HCloudMachine uses or claims (value
+	// "true"). A claim removes it. Returning the server when its HCloudMachine is deleted, releasing a
+	// failed claim and reaping an abandoned one set it again.
 	ServerRecycleAvailableLabelKey = NameHetznerProviderPrefix + "recycle-available"
 
 	// ServerRecycleClaimantLabelKey holds the name of the HCloudMachine that is currently claiming a
@@ -50,10 +50,11 @@ const (
 	ServerRecycleClaimantLabelKey = NameHetznerProviderPrefix + "recycle-claimant"
 
 	// ServerRecycleClaimedAtLabelKey holds the Unix timestamp (seconds) at which the claim recorded in
-	// ServerRecycleClaimantLabelKey was written. A claim is only ever short-lived: it is verified on the
-	// next reconcile and then either completed or released. If the controller dies in between, the
-	// claim would otherwise pin the server out of the pool forever, because a claimed server carries no
-	// available marker and therefore matches no lookup. This timestamp lets any other HCloudMachine recognise
-	// such an abandoned claim and return the server to the pool.
+	// ServerRecycleClaimantLabelKey was written. The claimant continues its claim until it completes or
+	// fails, also across controller restarts. If the claimant goes away first, the claim would otherwise
+	// keep the server out of the pool for good, because a claimed server carries no available marker and
+	// therefore matches no lookup. This timestamp lets a recycling HCloudMachine that is looking for a
+	// server recognise such an abandoned claim and return the server to the pool. It also tells which
+	// rebuild of the server belongs to the current claim.
 	ServerRecycleClaimedAtLabelKey = NameHetznerProviderPrefix + "recycle-claimed-at"
 )

@@ -90,6 +90,7 @@ type Client interface {
 	Reboot(context.Context, *hcloud.Server) (*hcloud.Action, error)
 
 	GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error)
+	ListServerActions(context.Context, *hcloud.Server, hcloud.ActionListOpts) ([]*hcloud.Action, error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -365,6 +366,11 @@ func (c *realClient) Reboot(ctx context.Context, server *hcloud.Server) (*hcloud
 		return action, wrapUnauthorized(fmt.Errorf("Reboot failed for %d: %w", server.ID, err))
 	}
 	return action, nil
+}
+
+func (c *realClient) ListServerActions(ctx context.Context, server *hcloud.Server, opts hcloud.ActionListOpts) ([]*hcloud.Action, error) {
+	actions, _, err := c.client.Server.Action.ListFor(ctx, server, opts)
+	return actions, wrapUnauthorized(err)
 }
 
 func (c *realClient) GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error) {

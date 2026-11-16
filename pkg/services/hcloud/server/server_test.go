@@ -657,6 +657,43 @@ var _ = Describe("Delete", func() {
 		hcloudClient.AssertNotCalled(GinkgoT(), "DeleteServer", mock.Anything, mock.Anything)
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
+
+	It("leaves the load balancer target of a recycled server that another machine owns now", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "my-machine",
+				Namespace:         "default",
+				DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				Labels:            map[string]string{clusterv1.MachineControlPlaneLabel: ""},
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ProviderID: "hcloud://1234567",
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		service.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = ptr.To(true)
+		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
+			Target: []infrav1.LoadBalancerTarget{{Type: infrav1.LoadBalancerTargetTypeServer, ServerID: 1234567}},
+		}
+
+		// The server was taken over by another control plane, which runs on it and is its target now.
+		takenOver := &hcloud.Server{
+			ID:     1234567,
+			Status: hcloud.ServerStatusRunning,
+			Labels: map[string]string{
+				infrav1.ServerRecycleLabelKey: "true",
+				infrav1.MachineNameTagKey:     "other-machine",
+			},
+		}
+		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(takenOver, nil).Once()
+
+		res, err := service.Delete(context.Background())
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+		// hcloudClient fails the test if the target is removed from the load balancer or the server is
+		// powered off or relabelled.
+	})
 })
 
 var _ = Describe("handleBootStateEnablingRescue", func() {
@@ -1673,10 +1710,6 @@ var _ = Describe("Reconcile", func() {
 				infrav1.ServerRecycleAvailableLabelKey: "true",
 			},
 		}
-		// The cluster has no private network, so provisioning requires a public IPv4. A rebuild cannot
-		// add one, so a pool server without it is rejected before any claim is written.
-		poolServer.PublicNet.IPv4.IP = net.ParseIP("1.2.3.4")
-		poolServer.PublicNet.IPv6.IP = net.ParseIP("2a01::1")
 		hcloudClient.On("ListServers", mock.Anything, poolListOpts).
 			Return([]*hcloud.Server{poolServer}, nil).Once()
 
@@ -1692,8 +1725,79 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil(), "a pending claim is a normal intermediate state, not an error")
 		Expect(result.RequeueAfter).To(Equal(recycleClaimVerifyDelay))
 		Expect(updates).To(Equal(1), "exactly one label write, the claim")
-		// hcloudClient asserts on cleanup that neither CreateServer nor RebuildServer was called: the
-		// machine must neither fall through to a normal create nor rebuild before the claim is verified.
+		// hcloudClient fails the test if CreateServer or RebuildServer is called: the machine must neither
+		// fall through to a normal create nor rebuild before the claim is verified.
+	})
+
+	It("waits before claiming again when a claim failed", func() {
+		By("setting the bootstrap data")
+		err := testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		By("enabling recycling on the machine")
+		service.scope.HCloudMachine.Spec.ServerRecycling = infrav1.ServerRecyclingEnabled
+
+		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(&hcloud.ServerType{
+			Architecture: hcloud.ArchitectureX86,
+		}, nil)
+		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: "caph-image-name==ubuntu-24.04",
+			},
+			Architecture: []hcloud.Architecture{hcloud.ArchitectureX86},
+		}).Return([]*hcloud.Image{{ID: 123456, Name: "ubuntu"}}, nil)
+		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+			Name:         "ubuntu-24.04",
+			Architecture: []hcloud.Architecture{hcloud.ArchitectureX86},
+		}).Return([]*hcloud.Image{}, nil)
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return([]*hcloud.SSHKey{
+			{
+				ID:          1,
+				Name:        "sshKey1",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+			},
+		}, nil)
+
+		By("holding a verified claim on a pool server")
+		poolListOpts := hcloud.ServerListOpts{}
+		poolListOpts.LabelSelector = infrav1.ServerRecycleLabelKey + "==true"
+		claimed := &hcloud.Server{
+			ID:         4711,
+			Name:       "pool-a",
+			Status:     hcloud.ServerStatusOff,
+			ServerType: &hcloud.ServerType{Name: "cpx22"},
+			Location:   &hcloud.Location{Name: "nbg1"},
+			Labels: map[string]string{
+				infrav1.ServerRecycleLabelKey:          "true",
+				infrav1.ServerRecycleClaimantLabelKey:  "my-machine",
+				infrav1.ServerRecycleClaimedAtLabelKey: "1700000000",
+			},
+		}
+		hcloudClient.On("ListServers", mock.Anything, poolListOpts).Return([]*hcloud.Server{claimed}, nil).Once()
+		hcloudClient.On("GetServer", mock.Anything, int64(4711)).Return(claimed, nil)
+
+		By("letting the rebuild fail, which releases the claim")
+		hcloudClient.On("RebuildServer", mock.Anything, mock.Anything, mock.Anything).
+			Return(hcloud.ServerRebuildResult{}, hcloud.Error{Code: hcloud.ErrorCodeServerError, Message: "internal error"}).Once()
+		hcloudClient.On("UpdateServer", mock.Anything, mock.Anything, mock.Anything).Return(claimed, nil).Once()
+
+		By("calling reconcile")
+		result, err := service.Reconcile(ctx)
+
+		By("ensuring the machine waits before it claims again")
+		Expect(err).To(BeNil(), "the failure is retried after a delay, not right away")
+		Expect(result.RequeueAfter).To(Equal(recycleClaimRetryDelay))
+		// hcloudClient asserts on cleanup that the claim was released, and fails the test if CreateServer
+		// is called.
 	})
 
 	It("recovers from a uniqueness error on CreateServer by adopting the existing server", func() {

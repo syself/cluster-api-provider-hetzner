@@ -111,7 +111,7 @@ type HCloudMachineSpec struct {
 // ServerRecyclingPolicy selects whether a machine reuses a pre-existing server.
 //
 // A server offers itself for reuse by carrying the label "caph-recycle": "true". One that is not
-// currently claimed by a machine additionally carries "caph-recycle-available": "true".
+// used or claimed by a machine additionally carries "caph-recycle-available": "true".
 type ServerRecyclingPolicy string
 
 const (

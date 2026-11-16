@@ -103,9 +103,9 @@ func TestAllMethodsWrapUnauthorized(t *testing.T) {
 	}
 }
 
-// fillNilPointers sets string fields of v to "x" and nil struct pointer fields to non-nil zero
-// values, so that the hcloud SDK accepts the opts and can dereference them while building the
-// request.
+// fillNilPointers sets string fields of v to "x", ID fields to 1 and nil struct pointer fields to
+// non-nil zero values, so that the hcloud SDK accepts the opts and can dereference them while building
+// the request. Some SDK calls refuse a resource without an ID before sending anything.
 func fillNilPointers(v reflect.Value, depth int) {
 	if depth == 0 || v.Kind() != reflect.Struct {
 		return
@@ -114,6 +114,9 @@ func fillNilPointers(v reflect.Value, depth int) {
 		f := v.Field(i)
 		if f.CanSet() && f.Kind() == reflect.String {
 			f.SetString("x")
+		}
+		if f.CanSet() && f.Kind() == reflect.Int64 && v.Type().Field(i).Name == "ID" {
+			f.SetInt(1)
 		}
 		// Datacenter is mutually exclusive with Location in ServerCreateOpts.
 		if v.Type().Field(i).Name == "Datacenter" {

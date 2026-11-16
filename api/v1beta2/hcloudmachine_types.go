@@ -135,7 +135,7 @@ func (p *HCloudCustomProvisioner) IsDefined() bool {
 // ServerRecyclingPolicy selects whether an HCloudMachine reuses a pre-existing server.
 //
 // A server offers itself for reuse by carrying the Hetzner Cloud label "caph-recycle": "true". One
-// that no HCloudMachine has claimed also carries "caph-recycle-available": "true".
+// that no HCloudMachine uses or claims also carries "caph-recycle-available": "true".
 type ServerRecyclingPolicy string
 
 const (

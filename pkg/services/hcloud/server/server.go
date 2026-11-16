@@ -295,13 +295,20 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			})
 			return reconcile.Result{}, nil
 		}
-		// A recyclable server has been claimed but not verified yet. The verification is deliberately
-		// deferred to the next reconcile so that a competing claim has time to land and be observed;
-		// this requeue is that wait. See tryClaimRecyclableServer.
+		// A recyclable server has been claimed but not verified yet, or the claim waits for hcloud to
+		// finish preparing the server. The verification is deliberately deferred to the next reconcile so
+		// that a competing claim has time to land and be observed; this requeue is that wait. See
+		// tryClaimRecyclableServer.
 		if errors.Is(err, errRecycleClaimPending) {
-			s.scope.Info("claimed a recyclable server, verifying the claim on the next reconcile",
-				"delay", recycleClaimVerifyDelay)
-			return reconcile.Result{RequeueAfter: recycleClaimVerifyDelay}, nil
+			delay := claimRequeueDelay(err)
+			s.scope.Info("recyclable server claim in progress, continuing on the next reconcile", "delay", delay)
+			return reconcile.Result{RequeueAfter: delay}, nil
+		}
+
+		// A claim failed and was given up. Retrying at once would not back off, see recycleClaimRetryDelay.
+		if errors.Is(err, errRecycleClaimFailed) {
+			s.scope.Error(err, "recyclable server claim failed, trying again later", "delay", recycleClaimRetryDelay)
+			return reconcile.Result{RequeueAfter: recycleClaimRetryDelay}, nil
 		}
 
 		if errors.Is(err, errServerCreateNotPossible) {
@@ -1356,8 +1363,10 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, nil
 	}
 
-	// control planes have to be deleted as targets of server
-	if s.scope.IsControlPlane() && ptr.Deref(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled, false) {
+	// control planes have to be deleted as targets of server. A recyclable server that another machine
+	// owns by now is that machine's load balancer target, so it is left alone, see returnServerToRecycling.
+	if s.scope.IsControlPlane() && ptr.Deref(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled, false) &&
+		!recycledServerOwnedByAnotherMachine(server, s.scope.Name()) {
 		for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
 			if target.Type == infrav1.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
 				if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
@@ -1369,7 +1378,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	// Recyclable servers are returned to the recyclable set instead of being deleted. This is gated on
-	// the server's own label, not on Spec.Recycle, so a recyclable server is never destroyed even if
+	// the server's own label, not on Spec.ServerRecycling, so a recyclable server is never destroyed even if
 	// recycling has since been disabled on the machine.
 	if isRecyclableServer(server) {
 		updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)

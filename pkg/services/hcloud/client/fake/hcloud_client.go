@@ -45,11 +45,13 @@ type cacheHCloudClient struct {
 	placementGroupCache     placementGroupCache
 	loadBalancerCache       loadBalancerCache
 	networkCache            networkCache
+	serverActions           map[int64][]*hcloud.Action
 	mutex                   sync.RWMutex
 	serverIDCounter         int64
 	placementGroupIDCounter int64
 	loadBalancerIDCounter   int64
 	networkIDCounter        int64
+	actionIDCounter         int64
 }
 
 // NewClient gives reference to the fake client using cache for HCloud API.
@@ -84,10 +86,13 @@ func (c *cacheHCloudClient) Reset() {
 		nameMap: make(map[string]struct{}),
 	}
 
+	cacheHCloudClientInstance.serverActions = make(map[int64][]*hcloud.Action)
+
 	cacheHCloudClientInstance.serverIDCounter = 0
 	cacheHCloudClientInstance.placementGroupIDCounter = 0
 	cacheHCloudClientInstance.loadBalancerIDCounter = 0
 	cacheHCloudClientInstance.networkIDCounter = 0
+	cacheHCloudClientInstance.actionIDCounter = 0
 }
 
 type cacheHCloudClientFactory struct{}
@@ -111,6 +116,7 @@ var cacheHCloudClientInstance = &cacheHCloudClient{
 		idMap:   make(map[int64]*hcloud.Network),
 		nameMap: make(map[string]struct{}),
 	},
+	serverActions: make(map[int64][]*hcloud.Action),
 }
 
 // NewHCloudClientFactory creates new fake HCloud client factories using cache.
@@ -630,8 +636,30 @@ func (c *cacheHCloudClient) RebuildServer(_ context.Context, server *hcloud.Serv
 	}
 
 	s.Image = opts.Image
+	// Like the real API, a rebuild leaves the server running, whatever its status was before.
 	s.Status = hcloud.ServerStatusRunning
-	return hcloud.ServerRebuildResult{Action: &hcloud.Action{ID: 1}}, nil
+	c.actionIDCounter++
+	action := &hcloud.Action{
+		ID:      c.actionIDCounter,
+		Command: "rebuild_server",
+		Status:  hcloud.ActionStatusSuccess,
+		Started: time.Now(),
+	}
+	c.serverActions[server.ID] = append(c.serverActions[server.ID], action)
+	return hcloud.ServerRebuildResult{Action: action}, nil
+}
+
+// ListServerActions returns the actions recorded for a server, newest first. Only rebuilds are recorded.
+func (c *cacheHCloudClient) ListServerActions(_ context.Context, server *hcloud.Server, _ hcloud.ActionListOpts) ([]*hcloud.Action, error) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	recorded := c.serverActions[server.ID]
+	actions := make([]*hcloud.Action, 0, len(recorded))
+	for i := len(recorded) - 1; i >= 0; i-- {
+		actions = append(actions, recorded[i])
+	}
+	return actions, nil
 }
 
 func (c *cacheHCloudClient) UpdateServer(_ context.Context, server *hcloud.Server, opts hcloud.ServerUpdateOpts) (*hcloud.Server, error) {
@@ -694,7 +722,8 @@ func (c *cacheHCloudClient) DetachServerFromNetwork(_ context.Context, server *h
 			return nil
 		}
 	}
-	return hcloud.Error{Code: hcloud.ErrorCodeServerNotAttachedToNetwork, Message: "not attached"}
+	// This is what the real API answers for a server that is not attached to the network.
+	return hcloud.Error{Code: hcloud.ErrorCodeServiceError, Message: "resource not found"}
 }
 
 func (c *cacheHCloudClient) ListServers(_ context.Context, opts hcloud.ServerListOpts) ([]*hcloud.Server, error) {
