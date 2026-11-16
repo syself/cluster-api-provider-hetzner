@@ -133,6 +133,7 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 		onExhaustion             infrav1.OnExhaustionAction
 		retryCount               int
 		healthCheckMessage       string
+		nodeHealthy              bool
 		expectHostPermanentError bool
 		expectErrorMessage       string
 	}
@@ -188,6 +189,14 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 					Message: tc.healthCheckMessage,
 				})
 			}
+			// A Ready Node does not end remediation while the health check still fails.
+			if tc.nodeHealthy {
+				conditions.Set(machine, metav1.Condition{
+					Type:   clusterv1.MachineNodeHealthyCondition,
+					Status: metav1.ConditionTrue,
+					Reason: clusterv1.MachineNodeHealthyReason,
+				})
+			}
 
 			c := fakeclient.NewClientBuilder().
 				WithScheme(scheme).
@@ -201,10 +210,9 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 				BareMetalRemediation: remediation,
 			}}
 
-			// handlePhaseWaiting decides the node is healthy by checking the MachineNodeHealthy
-			// condition on the owner Machine. This test machine has no such condition, so the
-			// node is treated as unhealthy and the onExhaustion decision applies instead of
-			// marking the remediation succeeded.
+			// handlePhaseWaiting ends remediation as succeeded only when the owner Machine has
+			// MachineNodeHealthy True and HealthCheckSucceeded is not False. No case here meets
+			// both, so the onExhaustion decision applies.
 			res, err := service.handlePhaseWaiting(ctx, host)
 			Expect(err).To(BeNil())
 			Expect(res.RequeueAfter).To(BeZero())
@@ -253,6 +261,21 @@ var _ = Describe("Test handlePhaseWaiting onExhaustion", func() {
 			healthCheckMessage:       "Health check failed: Condition Ready on Node is reporting status Unknown for more than 5m0s",
 			expectHostPermanentError: true,
 			expectErrorMessage:       "Health check failed: Condition Ready on Node is reporting status Unknown for more than 5m0s",
+		}),
+		Entry("Retire when the Node is Ready but a custom Node condition still fails the health check", testCaseOnExhaustion{
+			onExhaustion:             infrav1.OnExhaustionRetire,
+			retryCount:               1,
+			nodeHealthy:              true,
+			healthCheckMessage:       "Health check failed: Condition NodeActivationFailed on Node is reporting status True for more than 1m0s",
+			expectHostPermanentError: true,
+			expectErrorMessage:       "Health check failed: Condition NodeActivationFailed on Node is reporting status True for more than 1m0s",
+		}),
+		Entry("Reuse deletes the machine when the Node is Ready but the health check still fails", testCaseOnExhaustion{
+			onExhaustion:             infrav1.OnExhaustionReuse,
+			retryCount:               1,
+			nodeHealthy:              true,
+			healthCheckMessage:       "Health check failed: Condition NodeActivationFailed on Node is reporting status True for more than 1m0s",
+			expectHostPermanentError: false,
 		}),
 	)
 })
