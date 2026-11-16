@@ -151,7 +151,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 }
 
 // Delete implements deletion of placement groups.
-func (s *Service) Delete(ctx context.Context) (err error) {
+func (s *Service) Delete(ctx context.Context) error {
 	// Delete placement groups which are not in status but in specs
 	var multierr error
 	for _, pg := range s.scope.HetznerCluster.Status.HCloudPlacementGroups {

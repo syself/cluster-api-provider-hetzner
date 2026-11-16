@@ -34,9 +34,14 @@ func TestDeleteReturnsUnderlyingError(t *testing.T) {
 	hcloudClient := mocks.NewClient(t)
 	hcloudClient.On("DeletePlacementGroup", mock.Anything, int64(42)).
 		Return(hcloud.Error{Code: hcloud.ErrorCodeLocked, Message: "placement group is locked"})
+	hcloudClient.On("DeletePlacementGroup", mock.Anything, int64(43)).
+		Return(hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "placement group not found"})
 
 	hetznerCluster := &infrav1.HetznerCluster{}
-	hetznerCluster.Status.HCloudPlacementGroups = []infrav1.HCloudPlacementGroupStatus{{ID: 42, Name: "md-0"}}
+	hetznerCluster.Status.HCloudPlacementGroups = []infrav1.HCloudPlacementGroupStatus{
+		{ID: 42, Name: "md-0"},
+		{ID: 43, Name: "md-1"},
+	}
 
 	svc := NewService(&scope.ClusterScope{
 		HCloudClient:   hcloudClient,
@@ -48,4 +53,6 @@ func TestDeleteReturnsUnderlyingError(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, hcloud.IsError(err, hcloud.ErrorCodeLocked), "expected the hcloud error to be wrapped, got: %v", err)
 	require.Contains(t, err.Error(), "placement group is locked")
+	require.False(t, hcloud.IsError(err, hcloud.ErrorCodeNotFound), "expected NotFound to be skipped, got: %v", err)
+	require.NotContains(t, err.Error(), "placement group not found")
 }
