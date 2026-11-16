@@ -35,6 +35,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // Service defines struct with machine scope to reconcile HCloudRemediation.
@@ -249,11 +250,12 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (reconcile.Result, err
 		return reconcile.Result{RequeueAfter: nextCheck}, nil
 	}
 
-	// If the Node is healthy again, the reboot worked. Finish remediation
-	// without touching MachineOwnerRemediatedCondition: that condition belongs
-	// to the Machine's owning controller (MachineSet/KCP/MachineDeployment),
-	// not to external remediation. Leaving it unset keeps the machine alive.
-	if conditions.IsTrue(s.scope.Machine, clusterv1.MachineNodeHealthyCondition) {
+	// If the Node is healthy again and the MachineHealthCheck passes, the reboot
+	// worked. Finish remediation without touching MachineOwnerRemediatedCondition:
+	// that condition belongs to the Machine's owning controller
+	// (MachineSet/KCP/MachineDeployment), not to external remediation. Leaving it
+	// unset keeps the machine alive.
+	if utils.MachineRecoveredAfterReboot(s.scope.Machine) {
 		if err := s.markRemediationSucceeded(ctx,
 			"reboot remediation succeeded: Node is healthy again"); err != nil {
 			s.scope.EventRecorder.Event(

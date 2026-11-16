@@ -26,10 +26,15 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -119,4 +124,66 @@ var _ = Describe("Test rate limit condition", func() {
 		// and the deprecated HetznerAPIReachable counterpart, kept for the v1beta1 API.
 		Expect(deprecatedv1beta1conditions.IsFalse(hcloudRemediation, infrav1.HetznerAPIReachableV1Beta1Condition)).To(BeTrue())
 	})
+})
+
+var _ = Describe("Test handlePhaseWaiting after the last reboot", func() {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
+
+	DescribeTable("finishes remediation as succeeded only when the health check passes",
+		func(healthCheck metav1.ConditionStatus, wantPhase string) {
+			ctx := context.Background()
+
+			machine := &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-machine", Namespace: "default",
+					Annotations: map[string]string{clusterv1.RemediateMachineAnnotation: ""},
+				},
+			}
+			conditions.Set(machine, metav1.Condition{
+				Type: clusterv1.MachineNodeHealthyCondition, Status: metav1.ConditionTrue, Reason: clusterv1.MachineNodeHealthyReason,
+			})
+			conditions.Set(machine, metav1.Condition{
+				Type: clusterv1.MachineHealthCheckSucceededCondition, Status: healthCheck, Reason: "Test",
+				Message: "Condition NodeActivationFailed on Node is reporting status True for more than 1m0s",
+			})
+			hcloudMachine := &infrav1.HCloudMachine{ObjectMeta: metav1.ObjectMeta{Name: "test-hcloud-machine", Namespace: "default"}}
+			remediation := &infrav1.HCloudRemediation{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-machine", Namespace: "default"},
+				Spec: infrav1.HCloudRemediationSpec{Strategy: infrav1.RemediationStrategy{
+					Type: infrav1.RemediationTypeReboot, RetryLimit: ptr.To(int32(1)), TimeoutSeconds: ptr.To(int32(1)),
+				}},
+				Status: infrav1.HCloudRemediationStatus{
+					Phase:          infrav1.PhaseWaiting,
+					RetryCount:     ptr.To(int32(1)),
+					LastRemediated: metav1.Time{Time: time.Now().Add(-2 * time.Second)},
+				},
+			}
+
+			c := fakeclient.NewClientBuilder().WithScheme(scheme).
+				WithObjects(machine, hcloudMachine, remediation).
+				WithStatusSubresource(machine, hcloudMachine).Build()
+			service := Service{scope: &scope.HCloudRemediationScope{
+				Client: c, Machine: machine, HCloudMachine: hcloudMachine,
+				HCloudRemediation: remediation, EventRecorder: record.NewFakeRecorder(10),
+			}}
+
+			_, err := service.handlePhaseWaiting(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(remediation.Status.Phase).To(Equal(wantPhase))
+
+			updated := &clusterv1.Machine{}
+			Expect(c.Get(ctx, client.ObjectKeyFromObject(machine), updated)).To(Succeed())
+			if wantPhase == infrav1.PhaseDeleting {
+				// The owner deletes the Machine because remediation could not fix it.
+				Expect(conditions.IsFalse(updated, clusterv1.MachineOwnerRemediatedCondition)).To(BeTrue())
+			} else {
+				Expect(conditions.Get(updated, clusterv1.MachineOwnerRemediatedCondition)).To(BeNil())
+				Expect(updated.Annotations).NotTo(HaveKey(clusterv1.RemediateMachineAnnotation))
+			}
+		},
+		Entry("health check passes", metav1.ConditionTrue, infrav1.PhaseSucceeded),
+		Entry("Node is Ready but a custom Node condition still fails the health check", metav1.ConditionFalse, infrav1.PhaseDeleting),
+	)
 })

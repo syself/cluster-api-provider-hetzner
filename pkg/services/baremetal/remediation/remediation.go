@@ -37,6 +37,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // Service defines struct with BareMetalRemediationScope to reconcile HetznerBareMetalRemediations.
@@ -250,7 +251,7 @@ func (s *Service) handlePhaseWaiting(ctx context.Context, host *infrav1.HetznerB
 	if err != nil && !apierrors.IsNotFound(err) {
 		return reconcile.Result{}, fmt.Errorf("failed to get owner machine: %w", err)
 	}
-	if capiMachine != nil && conditions.IsTrue(capiMachine, clusterv1.MachineNodeHealthyCondition) {
+	if capiMachine != nil && utils.MachineRecoveredAfterReboot(capiMachine) {
 		return reconcile.Result{}, s.markRemediationSucceeded(ctx, capiMachine,
 			"reboot remediation succeeded: Node is healthy again")
 	}
