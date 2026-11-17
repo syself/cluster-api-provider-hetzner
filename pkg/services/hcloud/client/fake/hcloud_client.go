@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"sync"
 	"time"
 
@@ -44,11 +45,13 @@ type cacheHCloudClient struct {
 	placementGroupCache     placementGroupCache
 	loadBalancerCache       loadBalancerCache
 	networkCache            networkCache
+	serverActions           map[int64][]*hcloud.Action
 	mutex                   sync.RWMutex
 	serverIDCounter         int64
 	placementGroupIDCounter int64
 	loadBalancerIDCounter   int64
 	networkIDCounter        int64
+	actionIDCounter         int64
 }
 
 // NewClient gives reference to the fake client using cache for HCloud API.
@@ -83,10 +86,13 @@ func (c *cacheHCloudClient) Reset() {
 		nameMap: make(map[string]struct{}),
 	}
 
+	cacheHCloudClientInstance.serverActions = make(map[int64][]*hcloud.Action)
+
 	cacheHCloudClientInstance.serverIDCounter = 0
 	cacheHCloudClientInstance.placementGroupIDCounter = 0
 	cacheHCloudClientInstance.loadBalancerIDCounter = 0
 	cacheHCloudClientInstance.networkIDCounter = 0
+	cacheHCloudClientInstance.actionIDCounter = 0
 }
 
 type cacheHCloudClientFactory struct{}
@@ -110,6 +116,7 @@ var cacheHCloudClientInstance = &cacheHCloudClient{
 		idMap:   make(map[int64]*hcloud.Network),
 		nameMap: make(map[string]struct{}),
 	},
+	serverActions: make(map[int64][]*hcloud.Action),
 }
 
 // NewHCloudClientFactory creates new fake HCloud client factories using cache.
@@ -595,6 +602,7 @@ func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCr
 		Labels:         opts.Labels,
 		Image:          opts.Image,
 		ServerType:     opts.ServerType,
+		Location:       opts.Location,
 		PlacementGroup: opts.PlacementGroup,
 		Status:         hcloud.ServerStatusRunning,
 	}
@@ -616,6 +624,62 @@ func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCr
 	c.serverCache.idMap[server.ID] = server
 	c.serverCache.nameMap[server.Name] = struct{}{}
 	return result, nil
+}
+
+func (c *cacheHCloudClient) RebuildServer(_ context.Context, server *hcloud.Server, opts hcloud.ServerRebuildOpts) (hcloud.ServerRebuildResult, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	s, found := c.serverCache.idMap[server.ID]
+	if !found {
+		return hcloud.ServerRebuildResult{}, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	s.Image = opts.Image
+	// Like the real API, a rebuild leaves the server running, whatever its status was before.
+	s.Status = hcloud.ServerStatusRunning
+	c.actionIDCounter++
+	action := &hcloud.Action{
+		ID:      c.actionIDCounter,
+		Command: "rebuild_server",
+		Status:  hcloud.ActionStatusSuccess,
+		Started: time.Now(),
+	}
+	c.serverActions[server.ID] = append(c.serverActions[server.ID], action)
+	return hcloud.ServerRebuildResult{Action: action}, nil
+}
+
+// ListServerActions returns the actions recorded for a server, newest first. Only rebuilds are recorded.
+func (c *cacheHCloudClient) ListServerActions(_ context.Context, server *hcloud.Server, _ hcloud.ActionListOpts) ([]*hcloud.Action, error) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	recorded := c.serverActions[server.ID]
+	actions := make([]*hcloud.Action, 0, len(recorded))
+	for i := len(recorded) - 1; i >= 0; i-- {
+		actions = append(actions, recorded[i])
+	}
+	return actions, nil
+}
+
+func (c *cacheHCloudClient) UpdateServer(_ context.Context, server *hcloud.Server, opts hcloud.ServerUpdateOpts) (*hcloud.Server, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	s, found := c.serverCache.idMap[server.ID]
+	if !found {
+		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	if opts.Labels != nil {
+		s.Labels = opts.Labels
+	}
+	if opts.Name != "" {
+		delete(c.serverCache.nameMap, s.Name)
+		s.Name = opts.Name
+		c.serverCache.nameMap[s.Name] = struct{}{}
+	}
+	return s, nil
 }
 
 func (c *cacheHCloudClient) AttachServerToNetwork(_ context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) error {
@@ -641,6 +705,45 @@ func (c *cacheHCloudClient) AttachServerToNetwork(_ context.Context, server *hcl
 	// Add it
 	c.networkCache.idMap[opts.Network.ID].Servers = append(c.networkCache.idMap[opts.Network.ID].Servers, server)
 	return nil
+}
+
+func (c *cacheHCloudClient) DetachServerFromNetwork(_ context.Context, server *hcloud.Server, opts hcloud.ServerDetachFromNetworkOpts) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	network, found := c.networkCache.idMap[opts.Network.ID]
+	if !found {
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	for i, s := range network.Servers {
+		if s.ID == server.ID {
+			network.Servers = append(network.Servers[:i], network.Servers[i+1:]...)
+			return nil
+		}
+	}
+	// This is what the real API answers for a server that is not attached to the network.
+	return hcloud.Error{Code: hcloud.ErrorCodeServiceError, Message: "resource not found"}
+}
+
+// DetachVolume removes the volume from the server it is attached to.
+func (c *cacheHCloudClient) DetachVolume(_ context.Context, volume *hcloud.Volume) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for _, server := range c.serverCache.idMap {
+		for i, attached := range server.Volumes {
+			if attached.ID != volume.ID {
+				continue
+			}
+			remaining := make([]*hcloud.Volume, 0, len(server.Volumes)-1)
+			remaining = append(remaining, server.Volumes[:i]...)
+			server.Volumes = append(remaining, server.Volumes[i+1:]...)
+			return nil
+		}
+	}
+	// This is what the real API answers for a volume that is not attached to a server.
+	return hcloud.Error{Code: hcloud.ErrorCodeServiceError, Message: "volume not attached to a server"}
 }
 
 func (c *cacheHCloudClient) ListServers(_ context.Context, opts hcloud.ServerListOpts) ([]*hcloud.Server, error) {
@@ -685,6 +788,16 @@ func (c *cacheHCloudClient) ShutdownServer(_ context.Context, server *hcloud.Ser
 }
 
 func (c *cacheHCloudClient) RebootServer(_ context.Context, _ *hcloud.Server) error {
+	return nil
+}
+
+func (c *cacheHCloudClient) PowerOffServer(_ context.Context, server *hcloud.Server) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if _, found := c.serverCache.idMap[server.ID]; !found {
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+	c.serverCache.idMap[server.ID].Status = hcloud.ServerStatusOff
 	return nil
 }
 
@@ -914,6 +1027,21 @@ func (c *cacheHCloudClient) AddServerToPlacementGroup(_ context.Context, server 
 
 	// Add it
 	c.placementGroupCache.idMap[pg.ID].Servers = append(c.placementGroupCache.idMap[pg.ID].Servers, server.ID)
+	return nil
+}
+
+func (c *cacheHCloudClient) RemoveServerFromPlacementGroup(_ context.Context, server *hcloud.Server) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	cached, found := c.serverCache.idMap[server.ID]
+	if !found {
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	for _, pg := range c.placementGroupCache.idMap {
+		pg.Servers = slices.DeleteFunc(pg.Servers, func(id int64) bool { return id == server.ID })
+	}
+	cached.PlacementGroup = nil
 	return nil
 }
 

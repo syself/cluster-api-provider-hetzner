@@ -62,13 +62,18 @@ type Client interface {
 	DeleteServiceFromLoadBalancer(context.Context, *hcloud.LoadBalancer, int) error
 	ListImages(context.Context, hcloud.ImageListOpts) ([]*hcloud.Image, error)
 	CreateServer(context.Context, hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error)
+	RebuildServer(context.Context, *hcloud.Server, hcloud.ServerRebuildOpts) (hcloud.ServerRebuildResult, error)
+	UpdateServer(context.Context, *hcloud.Server, hcloud.ServerUpdateOpts) (*hcloud.Server, error)
 	AttachServerToNetwork(context.Context, *hcloud.Server, hcloud.ServerAttachToNetworkOpts) error
+	DetachServerFromNetwork(context.Context, *hcloud.Server, hcloud.ServerDetachFromNetworkOpts) error
+	DetachVolume(context.Context, *hcloud.Volume) error
 	ListServers(context.Context, hcloud.ServerListOpts) ([]*hcloud.Server, error)
 	GetServer(context.Context, int64) (*hcloud.Server, error)
 	DeleteServer(context.Context, *hcloud.Server) error
 	ListServerTypes(context.Context) ([]*hcloud.ServerType, error)
 	GetServerType(context.Context, string) (*hcloud.ServerType, error)
 	PowerOnServer(context.Context, *hcloud.Server) error
+	PowerOffServer(context.Context, *hcloud.Server) error
 	ShutdownServer(context.Context, *hcloud.Server) error
 	RebootServer(context.Context, *hcloud.Server) error
 	CreateNetwork(context.Context, hcloud.NetworkCreateOpts) (*hcloud.Network, error)
@@ -79,12 +84,14 @@ type Client interface {
 	DeletePlacementGroup(context.Context, int64) error
 	ListPlacementGroups(context.Context, hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error)
 	AddServerToPlacementGroup(context.Context, *hcloud.Server, *hcloud.PlacementGroup) error
+	RemoveServerFromPlacementGroup(context.Context, *hcloud.Server) error
 
 	EnableRescueSystem(context.Context, *hcloud.Server, *hcloud.ServerEnableRescueOpts) (hcloud.ServerEnableRescueResult, error)
 
 	Reboot(context.Context, *hcloud.Server) (*hcloud.Action, error)
 
 	GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error)
+	ListServerActions(context.Context, *hcloud.Server, hcloud.ActionListOpts) ([]*hcloud.Action, error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -233,8 +240,28 @@ func (c *realClient) CreateServer(ctx context.Context, opts hcloud.ServerCreateO
 	return res, wrapUnauthorized(err)
 }
 
+func (c *realClient) RebuildServer(ctx context.Context, server *hcloud.Server, opts hcloud.ServerRebuildOpts) (hcloud.ServerRebuildResult, error) {
+	res, _, err := c.client.Server.RebuildWithResult(ctx, server, opts)
+	return res, wrapUnauthorized(err)
+}
+
+func (c *realClient) UpdateServer(ctx context.Context, server *hcloud.Server, opts hcloud.ServerUpdateOpts) (*hcloud.Server, error) {
+	res, _, err := c.client.Server.Update(ctx, server, opts)
+	return res, wrapUnauthorized(err)
+}
+
 func (c *realClient) AttachServerToNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) error {
 	_, _, err := c.client.Server.AttachToNetwork(ctx, server, opts)
+	return wrapUnauthorized(err)
+}
+
+func (c *realClient) DetachServerFromNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerDetachFromNetworkOpts) error {
+	_, _, err := c.client.Server.DetachFromNetwork(ctx, server, opts)
+	return wrapUnauthorized(err)
+}
+
+func (c *realClient) DetachVolume(ctx context.Context, volume *hcloud.Volume) error {
+	_, _, err := c.client.Volume.Detach(ctx, volume)
 	return wrapUnauthorized(err)
 }
 
@@ -273,6 +300,11 @@ func (c *realClient) RebootServer(ctx context.Context, server *hcloud.Server) er
 
 func (c *realClient) PowerOnServer(ctx context.Context, server *hcloud.Server) error {
 	_, _, err := c.client.Server.Poweron(ctx, server)
+	return wrapUnauthorized(err)
+}
+
+func (c *realClient) PowerOffServer(ctx context.Context, server *hcloud.Server) error {
+	_, _, err := c.client.Server.Poweroff(ctx, server)
 	return wrapUnauthorized(err)
 }
 
@@ -321,6 +353,11 @@ func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hclo
 	return wrapUnauthorized(err)
 }
 
+func (c *realClient) RemoveServerFromPlacementGroup(ctx context.Context, server *hcloud.Server) error {
+	_, _, err := c.client.Server.RemoveFromPlacementGroup(ctx, server)
+	return wrapUnauthorized(err)
+}
+
 func (c *realClient) EnableRescueSystem(ctx context.Context, server *hcloud.Server, rescueOpts *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
 	result, _, err := c.client.Server.EnableRescue(ctx, server, *rescueOpts)
 	if err != nil {
@@ -335,6 +372,11 @@ func (c *realClient) Reboot(ctx context.Context, server *hcloud.Server) (*hcloud
 		return action, wrapUnauthorized(fmt.Errorf("Reboot failed for %d: %w", server.ID, err))
 	}
 	return action, nil
+}
+
+func (c *realClient) ListServerActions(ctx context.Context, server *hcloud.Server, opts hcloud.ActionListOpts) ([]*hcloud.Action, error) {
+	actions, _, err := c.client.Server.Action.ListFor(ctx, server, opts)
+	return actions, wrapUnauthorized(err)
 }
 
 func (c *realClient) GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error) {

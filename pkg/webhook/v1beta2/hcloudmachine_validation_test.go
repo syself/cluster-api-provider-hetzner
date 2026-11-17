@@ -239,6 +239,34 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 		},
 	})
 	require.Equal(t, `spec.customProvisioner.command: Invalid value: "custom-provisioner-foo..sh": must not contain '..'`, errorsToString(allErrs))
+
+	// Server recycling is valid together with imageName.
+	allErrs = validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
+		ImageName:       "ubuntu-24.04",
+		ServerRecycling: infrav1.ServerRecyclingEnabled,
+	})
+	require.Empty(t, allErrs)
+
+	// Server recycling and customProvisioner are mutually exclusive: the rescue-system flow cannot be
+	// reproduced by a rebuild.
+	allErrs = validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
+		CustomProvisioner: infrav1.HCloudCustomProvisioner{
+			URL:     "oci://ghcr.io/example/foo:v1",
+			Command: "custom-provisioner-foo.sh",
+		},
+		ServerRecycling: infrav1.ServerRecyclingEnabled,
+	})
+	require.Equal(t, `spec.serverRecycling: Invalid value: "Enabled": server recycling is only supported with imageName, not customProvisioner`, errorsToString(allErrs))
+
+	// Disabled recycling does not restrict the customProvisioner flow.
+	allErrs = validateHCloudMachineSpec(infrav1.HCloudMachineSpec{
+		CustomProvisioner: infrav1.HCloudCustomProvisioner{
+			URL:     "oci://ghcr.io/example/foo:v1",
+			Command: "custom-provisioner-foo.sh",
+		},
+		ServerRecycling: infrav1.ServerRecyclingDisabled,
+	})
+	require.Empty(t, allErrs)
 }
 
 func errorsToString(allErrs field.ErrorList) string {

@@ -30,4 +30,31 @@ const (
 
 	// MachineNameTagKey is the tag key that has the name of the HCloudMachine of a server.
 	MachineNameTagKey = "machine." + NameHetznerProviderPrefix + "name"
+
+	// ServerRecycleLabelKey marks an HCloud server as recyclable. When ServerRecycling is enabled for an
+	// HCloudMachine, a server with this label (value "true") that matches the HCloudMachine's type and location
+	// can be claimed and rebuilt instead of creating a new server. On deletion the server keeps this
+	// label and is returned to the recyclable set instead of being deleted.
+	ServerRecycleLabelKey = NameHetznerProviderPrefix + "recycle"
+
+	// ServerRecycleAvailableLabelKey marks a recyclable server that no HCloudMachine uses or claims (value
+	// "true"). A claim removes it. Returning the server when its HCloudMachine is deleted, releasing a
+	// failed claim and reaping an abandoned one set it again.
+	ServerRecycleAvailableLabelKey = NameHetznerProviderPrefix + "recycle-available"
+
+	// ServerRecycleClaimantLabelKey holds the name of the HCloudMachine that is currently claiming a
+	// recyclable server (value = HCloudMachine name). It is set while a server is being reserved and rebuilt,
+	// after the available marker is dropped but before the machine identity is applied. Because this key
+	// is not the one the server lookup matches on, a reserved-but-not-yet-rebuilt server is never
+	// adopted as a provisioned HCloudMachine, which keeps the claim idempotent if the rebuild fails.
+	ServerRecycleClaimantLabelKey = NameHetznerProviderPrefix + "recycle-claimant"
+
+	// ServerRecycleClaimedAtLabelKey holds the Unix timestamp (seconds) at which the claim recorded in
+	// ServerRecycleClaimantLabelKey was written. The claimant continues its claim until it completes or
+	// fails, also across controller restarts. If the claimant goes away first, the claim would otherwise
+	// keep the server out of the pool for good, because a claimed server carries no available marker and
+	// therefore matches no lookup. This timestamp lets a recycling HCloudMachine that is looking for a
+	// server recognise such an abandoned claim and return the server to the pool. It also tells which
+	// rebuild of the server belongs to the current claim.
+	ServerRecycleClaimedAtLabelKey = NameHetznerProviderPrefix + "recycle-claimed-at"
 )
