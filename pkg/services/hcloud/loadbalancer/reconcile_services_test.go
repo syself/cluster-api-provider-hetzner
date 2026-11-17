@@ -734,8 +734,10 @@ func TestReconcileServices_ProxyProtocolMigration_NoControlPlaneMachines_Switche
 	mockClient.AssertExpectations(t)
 }
 
-// TestReconcileServices_HealthCheckMigration_NoControlPlaneMachines_SwitchesInPlace is the
-// health-check counterpart of the test above.
+// TestReconcileServices_HealthCheckMigration_NoControlPlaneMachines_SwitchesInPlace verifies
+// that a new cluster on an existing load balancer (no control-plane machines yet) switches the
+// health check from tcp to http in place via UpdateServiceOnLoadBalancer, without waiting for
+// the annotation and without requeueing, because no API server runs behind the load balancer.
 func TestReconcileServices_HealthCheckMigration_NoControlPlaneMachines_SwitchesInPlace(t *testing.T) {
 	mockClient := &mocks.Client{}
 	svc := newHealthCheckMigrationService(t, mockClient)
@@ -747,10 +749,20 @@ func TestReconcileServices_HealthCheckMigration_NoControlPlaneMachines_SwitchesI
 			},
 		},
 	}
-	mockClient.On("UpdateServiceOnLoadBalancer", mock.Anything, hcloudLB, mock.Anything, mock.Anything).Return(nil)
+	var capturedOpts hcloud.LoadBalancerUpdateServiceOpts
+	mockClient.On("UpdateServiceOnLoadBalancer", mock.Anything, hcloudLB, testKubeAPIListenPort, mock.Anything).
+		Run(func(args mock.Arguments) {
+			capturedOpts = args.Get(3).(hcloud.LoadBalancerUpdateServiceOpts)
+		}).
+		Return(nil)
 
 	res, err := svc.reconcileServices(context.Background(), hcloudLB)
 	require.NoError(t, err)
 	require.Zero(t, res.RequeueAfter)
+	require.NotNil(t, capturedOpts.HealthCheck)
+	require.Equal(t, hcloud.LoadBalancerServiceProtocolHTTP, capturedOpts.HealthCheck.Protocol)
+	require.Equal(t, "/readyz", *capturedOpts.HealthCheck.HTTP.Path)
+	require.NotNil(t, capturedOpts.HealthCheck.Port)
+	require.Equal(t, testLBDestPort, *capturedOpts.HealthCheck.Port)
 	mockClient.AssertExpectations(t)
 }

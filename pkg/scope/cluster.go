@@ -340,7 +340,7 @@ func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context
 	}
 
 	if found == 0 {
-		// No API server runs behind the load balancer yet, so there is nothing to protect.
+		// No API server runs behind the load balancer yet, so changing the service cannot take the API server offline.
 		s.V(1).Info(logLabel + ": no control-plane infrastructure machines found, nothing to wait for")
 	}
 
