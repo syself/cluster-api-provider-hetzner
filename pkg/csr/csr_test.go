@@ -17,9 +17,14 @@ limitations under the License.
 package csr_test
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
+	"net"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,5 +54,33 @@ var _ = Describe("Validate Kubelet CSR", func() {
 
 	It("should not fail", func() {
 		Expect(csr.ValidateKubeletCSR(cr, name, addresses)).To(Succeed())
+	})
+
+	It("should report every validation error, not only the last one", func() {
+		// Build a CSR that violates several rules at once: two disallowed IP
+		// addresses and a disallowed DNS name. The returned error has to mention
+		// all of them so an operator can see every reason a kubelet CSR was denied.
+		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		Expect(err).To(BeNil())
+
+		template := x509.CertificateRequest{
+			Subject: pkix.Name{
+				CommonName:   "system:node:" + name,
+				Organization: []string{"system:nodes"},
+			},
+			DNSNames:    []string{"not-the-machine-name"},
+			IPAddresses: []net.IP{net.ParseIP("10.0.0.1"), net.ParseIP("10.0.0.2")},
+		}
+		der, err := x509.CreateCertificateRequest(rand.Reader, &template, key)
+		Expect(err).To(BeNil())
+
+		request, err := x509.ParseCertificateRequest(der)
+		Expect(err).To(BeNil())
+
+		err = csr.ValidateKubeletCSR(request, name, addresses)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(`the DNS name "not-the-machine-name" is not allowed`))
+		Expect(err.Error()).To(ContainSubstring(`the IP address "10.0.0.1" is not allowed`))
+		Expect(err.Error()).To(ContainSubstring(`the IP address "10.0.0.2" is not allowed`))
 	})
 })
