@@ -56,18 +56,18 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, addres
 		},
 	}
 	if !reflect.DeepEqual(subjectExpected, csr.Subject) {
-		multierr = errors.Join(fmt.Errorf("unexpected subject actual=%+#v, expected=%+#v", csr.Subject, subjectExpected))
+		multierr = errors.Join(multierr, fmt.Errorf("unexpected subject actual=%+#v, expected=%+#v", csr.Subject, subjectExpected))
 	}
 
 	// check for DNS Names
 	if len(csr.EmailAddresses) > 0 {
-		multierr = errors.Join(fmt.Errorf("email addresses are not allow on the request: %v", csr.EmailAddresses))
+		multierr = errors.Join(multierr, fmt.Errorf("email addresses are not allow on the request: %v", csr.EmailAddresses))
 	}
 
 	// allow only certain DNS names
 	for _, name := range csr.DNSNames {
 		if name != machineName {
-			multierr = errors.Join(fmt.Errorf("the DNS name %q is not allowed", name))
+			multierr = errors.Join(multierr, fmt.Errorf("the DNS name %q is not allowed", name))
 		}
 	}
 
@@ -82,7 +82,7 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, addres
 
 	for _, ip := range csr.IPAddresses {
 		if _, ok := allowedIPAddresses[ip.String()]; !ok {
-			multierr = errors.Join(fmt.Errorf("the IP address %q is not allowed", ip.String()))
+			multierr = errors.Join(multierr, fmt.Errorf("the IP address %q is not allowed", ip.String()))
 		}
 	}
 
