@@ -1477,6 +1477,23 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					Proxyprotocol:   ptr.To(false),
 				})).To(Succeed())
 
+				By("creating a control plane HCloudMachine without the proxy protocol annotation")
+				// With no control plane machines the load balancer does not wait, because no API
+				// server runs behind it. This machine makes it wait for the annotation.
+				cpMachine := &infrav1.HCloudMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "control-plane-",
+						Namespace:    namespace,
+						Labels: map[string]string{
+							clusterv1.ClusterNameLabel:         capiCluster.Name,
+							clusterv1.MachineControlPlaneLabel: "",
+						},
+					},
+					Spec: infrav1.HCloudMachineSpec{ImageName: "my-control-plane", Type: "cpx32"},
+				}
+				Expect(testEnv.Create(ctx, cpMachine)).To(Succeed())
+				DeferCleanup(func() { Expect(testEnv.Cleanup(ctx, cpMachine)).To(Succeed()) })
+
 				By("creating a HetznerCluster that enables proxy protocol on this load balancer")
 				instance.Spec.ControlPlaneLoadBalancer.Name = &lbName
 				instance.Spec.ControlPlaneLoadBalancer.EnableProxyProtocol = ptr.To(true)
