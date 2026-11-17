@@ -53,6 +53,11 @@ const recycleClaimTTL = 15 * time.Minute
 // powered off. hcloud takes several seconds to report such a server as off.
 const recycleServerOffDelay = 5 * time.Second
 
+// recycleVolumeDetachDelay is how long the delete path waits before looking again at a server it is
+// detaching volumes from. hcloud takes several seconds to detach a volume and lists it on the server
+// until it has.
+const recycleVolumeDetachDelay = 5 * time.Second
+
 // recycleClaimRetryDelay is how long a machine waits before it claims again after a claim failed. Without
 // it a failure that repeats on every attempt would claim and release servers as fast as the controller
 // requeues: the requeue that verifies a claim resets the controller's backoff, so the backoff never builds
@@ -437,8 +442,8 @@ func claimTimestamp(server *hcloud.Server) (time.Time, bool) {
 // A rebuild only replaces the disk, and a claim does not change a server's type or location, so a server
 // that differs in either is not a candidate. Neither is a server with rebuild protection, because hcloud
 // refuses to rebuild it. The placement group and the private networks are brought in line with the request
-// before the rebuild, see rebuildRecyclableServer. The public network and the SSH keys stay what the pool
-// server already had; the documentation lists that as a limitation.
+// before the rebuild, and attached volumes are detached, see rebuildRecyclableServer. The public network
+// and the SSH keys stay what the pool server already had; the documentation lists that as a limitation.
 func serverMatchesRequest(server *hcloud.Server, opts hcloud.ServerCreateOpts) bool {
 	return recycleMismatchReason(server, opts) == ""
 }
@@ -643,6 +648,19 @@ func (s *Service) rebuildRecyclableServer(ctx context.Context, server *hcloud.Se
 		}
 	}
 
+	// A rebuild replaces the server's own disk, but attached volumes stay attached, and the new node could
+	// mount them and read the data of the cluster they belong to. The delete path detaches them before it
+	// returns a server, but a server labelled by hand can still have some, and nothing stops a volume from
+	// being attached to a parked server. So the rebuild waits until hcloud lists no volume on the server.
+	// This comes after the check above, so it never detaches a volume from the node this claim started.
+	if len(current.Volumes) > 0 {
+		if err := s.detachVolumes(ctx, current); err != nil {
+			return err
+		}
+		return fmt.Errorf("server %d still has volumes %v attached: %w",
+			server.ID, volumeIDs(current), errRecycleRebuildPrereqPending)
+	}
+
 	rebuildOpts := hcloud.ServerRebuildOpts{Image: image}
 	if len(userData) > 0 {
 		rebuildOpts.UserData = ptr.To(string(userData))
@@ -711,6 +729,61 @@ func networkRequested(networks []*hcloud.Network, id int64) bool {
 		}
 	}
 	return false
+}
+
+// detachVolumes asks hcloud to detach every volume attached to the server. hcloud detaches
+// asynchronously and lists a volume on the server until it is detached, so the caller looks again later.
+// A volume that is still being detached is locked, and hcloud answers another detach with locked; that is
+// the same wait.
+func (s *Service) detachVolumes(ctx context.Context, server *hcloud.Server) error {
+	for _, volume := range server.Volumes {
+		err := s.scope.HCloudClient.DetachVolume(ctx, volume)
+		if err == nil || hcloud.IsError(err, hcloud.ErrorCodeLocked) {
+			continue
+		}
+		// The server was read at the start of this reconcile. If an earlier detach has finished since,
+		// hcloud answers this one with a plain service_error, so the server is read again before the
+		// error counts.
+		if hcloud.IsError(err, hcloud.ErrorCodeServiceError) {
+			attached, checkErr := s.volumeStillAttached(ctx, server.ID, volume.ID)
+			if checkErr != nil {
+				return checkErr
+			}
+			if !attached {
+				continue
+			}
+		}
+		return handleRateLimit(s.scope.HCloudMachine, s.scope.EventRecorder, err, "DetachVolume",
+			fmt.Sprintf("failed to detach volume %d from server %d", volume.ID, server.ID))
+	}
+	return nil
+}
+
+// volumeStillAttached reads the server again and reports whether hcloud still lists the volume on it.
+func (s *Service) volumeStillAttached(ctx context.Context, serverID, volumeID int64) (bool, error) {
+	current, err := s.scope.HCloudClient.GetServer(ctx, serverID)
+	if err != nil {
+		return false, handleRateLimit(s.scope.HCloudMachine, s.scope.EventRecorder, err, "GetServer",
+			fmt.Sprintf("failed to check whether volume %d is still attached to server %d", volumeID, serverID))
+	}
+	if current == nil {
+		return false, fmt.Errorf("server %d disappeared while detaching volume %d", serverID, volumeID)
+	}
+	for _, volume := range current.Volumes {
+		if volume.ID == volumeID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// volumeIDs returns the IDs of the volumes attached to the server, for logs and errors.
+func volumeIDs(server *hcloud.Server) []int64 {
+	ids := make([]int64, 0, len(server.Volumes))
+	for _, volume := range server.Volumes {
+		ids = append(ids, volume.ID)
+	}
+	return ids
 }
 
 // finalizeReservation applies this machine's identity to a rebuilt server: it gives the server the
@@ -790,13 +863,14 @@ func (s *Service) powerOffForPool(ctx context.Context, server *hcloud.Server) {
 // be claimed again by a future machine.
 //
 // The server is powered off first, while it still carries this machine's identity, so that a retry
-// still passes the ownership check below. The available marker is written last, once hcloud reports the
-// server as off, so a server this path returns is off and cannot boot the drained node again.
+// still passes the ownership check below. The available marker is written last, once hcloud reports
+// the server as off and without volumes, so a server this path returns is off, cannot boot the old
+// node again and carries none of this cluster's volumes.
 //
 // Stopping means a power off, not an ACPI shutdown. A graceful shutdown would depend on the guest
-// reacting to it and could therefore take minutes or never finish, while there is nothing left to
-// shut down gracefully for: the node has been drained, and the next claim overwrites the disk with a
-// rebuild before the server is used again.
+// reacting to it and could therefore take minutes or never finish, while there is nothing left to shut
+// down gracefully for: the node has been drained or its whole cluster is being deleted, and the next
+// claim overwrites the disk with a rebuild before the server is used again.
 func (s *Service) returnServerToRecycling(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
 	// A deleted machine must only return a server it still owns. findServer returns the server the
 	// ProviderID points to without checking its labels, so a machine that lost its server to another
@@ -826,6 +900,21 @@ func (s *Service) returnServerToRecycling(ctx context.Context, server *hcloud.Se
 		s.scope.Info("powering off a recyclable server before returning it to the recyclable set",
 			"serverID", server.ID, "status", server.Status)
 		return reconcile.Result{RequeueAfter: recycleServerOffDelay}, nil
+	}
+
+	// Detach every volume. A normal delete detaches them by deleting the server, but a rebuild keeps them,
+	// so a volume still attached here would reach the node of whichever machine claims the server next,
+	// and that node could mount it and read this cluster's data. CAPI waits for the volumes of a deleted
+	// Machine to be detached, but skips that wait in some cases, for example when the cluster is being
+	// deleted, so the CSI driver may have left some. The server is marked available only once hcloud lists
+	// no volume on it.
+	if len(server.Volumes) > 0 {
+		if err := s.detachVolumes(ctx, server); err != nil {
+			return reconcile.Result{}, err
+		}
+		s.scope.Info("detaching volumes from a recyclable server before returning it to the recyclable set",
+			"serverID", server.ID, "volumes", volumeIDs(server))
+		return reconcile.Result{RequeueAfter: recycleVolumeDetachDelay}, nil
 	}
 
 	// Detach the server from the cluster's private network. A normal delete detaches it by deleting the

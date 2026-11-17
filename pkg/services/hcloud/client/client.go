@@ -66,6 +66,7 @@ type Client interface {
 	UpdateServer(context.Context, *hcloud.Server, hcloud.ServerUpdateOpts) (*hcloud.Server, error)
 	AttachServerToNetwork(context.Context, *hcloud.Server, hcloud.ServerAttachToNetworkOpts) error
 	DetachServerFromNetwork(context.Context, *hcloud.Server, hcloud.ServerDetachFromNetworkOpts) error
+	DetachVolume(context.Context, *hcloud.Volume) error
 	ListServers(context.Context, hcloud.ServerListOpts) ([]*hcloud.Server, error)
 	GetServer(context.Context, int64) (*hcloud.Server, error)
 	DeleteServer(context.Context, *hcloud.Server) error
@@ -256,6 +257,11 @@ func (c *realClient) AttachServerToNetwork(ctx context.Context, server *hcloud.S
 
 func (c *realClient) DetachServerFromNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerDetachFromNetworkOpts) error {
 	_, _, err := c.client.Server.DetachFromNetwork(ctx, server, opts)
+	return wrapUnauthorized(err)
+}
+
+func (c *realClient) DetachVolume(ctx context.Context, volume *hcloud.Volume) error {
+	_, _, err := c.client.Volume.Detach(ctx, volume)
 	return wrapUnauthorized(err)
 }
 

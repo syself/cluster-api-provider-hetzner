@@ -726,6 +726,26 @@ func (c *cacheHCloudClient) DetachServerFromNetwork(_ context.Context, server *h
 	return hcloud.Error{Code: hcloud.ErrorCodeServiceError, Message: "resource not found"}
 }
 
+// DetachVolume removes the volume from the server it is attached to.
+func (c *cacheHCloudClient) DetachVolume(_ context.Context, volume *hcloud.Volume) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for _, server := range c.serverCache.idMap {
+		for i, attached := range server.Volumes {
+			if attached.ID != volume.ID {
+				continue
+			}
+			remaining := make([]*hcloud.Volume, 0, len(server.Volumes)-1)
+			remaining = append(remaining, server.Volumes[:i]...)
+			server.Volumes = append(remaining, server.Volumes[i+1:]...)
+			return nil
+		}
+	}
+	// This is what the real API answers for a volume that is not attached to a server.
+	return hcloud.Error{Code: hcloud.ErrorCodeServiceError, Message: "volume not attached to a server"}
+}
+
 func (c *cacheHCloudClient) ListServers(_ context.Context, opts hcloud.ServerListOpts) ([]*hcloud.Server, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()

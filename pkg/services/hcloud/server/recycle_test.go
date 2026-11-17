@@ -1233,6 +1233,8 @@ func Test_completeClaim_finishesAFinalizeWithoutRebuildingAgain(t *testing.T) {
 	svc := &Service{scope: newRecycleScope(t, "worker-1", mc)}
 	claimed := recycleClaimedServer(t)
 	claimed.Status = hcloud.ServerStatusRunning
+	// By now the node can have a volume of its own attached, which has to stay.
+	claimed.Volumes = []*hcloud.Volume{{ID: 3}}
 
 	mc.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{claimed}, nil).Once()
 	mc.On("GetServer", mock.Anything, int64(21)).Return(claimed, nil).Once()
@@ -1245,7 +1247,7 @@ func Test_completeClaim_finishesAFinalizeWithoutRebuildingAgain(t *testing.T) {
 	got, err := svc.tryClaimRecyclableServer(context.Background(), recycleCreateOpts("worker-1"), &hcloud.Image{ID: 42}, nil)
 	require.NoError(t, err)
 	require.NotNil(t, got)
-	// mc fails the test if RebuildServer is called.
+	// mc fails the test if RebuildServer or DetachVolume is called.
 }
 
 func Test_rebuiltByThisClaim(t *testing.T) {
@@ -1687,6 +1689,11 @@ func Test_completeClaim_failuresInTheRebuildStep(t *testing.T) {
 			mc.On("AttachServerToNetwork", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 			mc.On("GetServer", mock.Anything, claimed.ID).Return(nil, fail).Once()
 		}},
+		{"detaching a volume", func(mc *mocks.Client, claimed *hcloud.Server, _ *hcloud.ServerCreateOpts, fail error) {
+			claimed.Volumes = []*hcloud.Volume{{ID: 3}}
+			mc.On("GetServer", mock.Anything, claimed.ID).Return(claimed, nil).Once()
+			mc.On("DetachVolume", mock.Anything, mock.Anything).Return(fail).Once()
+		}},
 		{"rebuild", func(mc *mocks.Client, claimed *hcloud.Server, _ *hcloud.ServerCreateOpts, fail error) {
 			mc.On("GetServer", mock.Anything, claimed.ID).Return(claimed, nil).Once()
 			mc.On("RebuildServer", mock.Anything, mock.Anything, mock.Anything).Return(hcloud.ServerRebuildResult{}, fail).Once()
@@ -1981,4 +1988,172 @@ func Test_returnServerToRecycling_alreadyReturned(t *testing.T) {
 	require.Zero(t, res.RequeueAfter)
 	require.Empty(t, recorder.Events, "no warning about a foreign owner")
 	// mc fails the test if the server is touched.
+}
+
+// Test_tryClaimRecyclableServer_detachesVolumesBeforeTheRebuild covers a pool server that still has
+// volumes attached. A rebuild keeps them, so the new node could mount them and read another cluster's
+// data. The claim detaches them and rebuilds only once hcloud lists none.
+func Test_tryClaimRecyclableServer_detachesVolumesBeforeTheRebuild(t *testing.T) {
+	mc := mocks.NewClient(t)
+	svc := &Service{scope: newRecycleScope(t, "worker-1", mc)}
+	claimed := recycleClaimedServer(t)
+	claimed.Volumes = []*hcloud.Volume{{ID: 3}, {ID: 4}}
+
+	mc.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{claimed}, nil).Once()
+	mc.On("GetServer", mock.Anything, claimed.ID).Return(claimed, nil).Once()
+	mc.On("DetachVolume", mock.Anything, &hcloud.Volume{ID: 3}).Return(nil).Once()
+	mc.On("DetachVolume", mock.Anything, &hcloud.Volume{ID: 4}).Return(nil).Once()
+
+	got, err := svc.tryClaimRecyclableServer(context.Background(), recycleCreateOpts("worker-1"), &hcloud.Image{ID: 42}, nil)
+	require.Nil(t, got)
+	require.ErrorIs(t, err, errRecycleClaimWaiting, "the claim is kept and looks again once hcloud has detached the volumes")
+
+	// On the next look hcloud is still detaching one of them, and answers its detach with locked.
+	claimed.Volumes = []*hcloud.Volume{{ID: 4}}
+	mc.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{claimed}, nil).Once()
+	mc.On("GetServer", mock.Anything, claimed.ID).Return(claimed, nil).Once()
+	mc.On("DetachVolume", mock.Anything, &hcloud.Volume{ID: 4}).
+		Return(hcloud.Error{Code: hcloud.ErrorCodeLocked, Message: "cannot perform operation because resource is locked"}).Once()
+
+	got, err = svc.tryClaimRecyclableServer(context.Background(), recycleCreateOpts("worker-1"), &hcloud.Image{ID: 42}, nil)
+	require.Nil(t, got)
+	require.ErrorIs(t, err, errRecycleClaimWaiting)
+
+	// Once hcloud lists no volume, the server is rebuilt.
+	claimed.Volumes = nil
+	mc.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{claimed}, nil).Once()
+	mc.On("GetServer", mock.Anything, claimed.ID).Return(claimed, nil).Once()
+	mc.On("RebuildServer", mock.Anything, mock.Anything, mock.Anything).Return(hcloud.ServerRebuildResult{}, nil).Once()
+	finalized := &hcloud.Server{ID: claimed.ID, Name: "worker-1", Labels: map[string]string{infrav1.MachineNameTagKey: "worker-1"}}
+	mc.On("UpdateServer", mock.Anything, mock.Anything, mock.Anything).Return(finalized, nil).Once()
+
+	got, err = svc.tryClaimRecyclableServer(context.Background(), recycleCreateOpts("worker-1"), &hcloud.Image{ID: 42}, nil)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	// mc fails the test if RebuildServer is called while a volume is still listed, because it only
+	// expects the rebuild on the last pass.
+}
+
+// Test_returnServerToRecycling_detachesVolumes covers a server whose volumes are still attached when its
+// machine is deleted, which happens when the cluster is deleted: CAPI does not wait for volumes to be
+// detached then. The server is marked available only once hcloud lists no volume on it.
+func Test_returnServerToRecycling_detachesVolumes(t *testing.T) {
+	mc := mocks.NewClient(t)
+	svc := &Service{scope: newRecycleScope(t, "worker-1", mc)}
+
+	server := &hcloud.Server{
+		ID:      5,
+		Status:  hcloud.ServerStatusOff,
+		Labels:  map[string]string{infrav1.MachineNameTagKey: "worker-1"},
+		Volumes: []*hcloud.Volume{{ID: 3}, {ID: 4}},
+	}
+	mc.On("DetachVolume", mock.Anything, &hcloud.Volume{ID: 3}).Return(nil).Once()
+	mc.On("DetachVolume", mock.Anything, &hcloud.Volume{ID: 4}).Return(nil).Once()
+
+	res, err := svc.returnServerToRecycling(context.Background(), server)
+	require.NoError(t, err)
+	require.Equal(t, recycleVolumeDetachDelay, res.RequeueAfter)
+
+	// On the next look hcloud is still detaching one of them, and answers its detach with locked.
+	server.Volumes = []*hcloud.Volume{{ID: 4}}
+	mc.On("DetachVolume", mock.Anything, &hcloud.Volume{ID: 4}).
+		Return(hcloud.Error{Code: hcloud.ErrorCodeLocked, Message: "cannot perform operation because resource is locked"}).Once()
+
+	res, err = svc.returnServerToRecycling(context.Background(), server)
+	require.NoError(t, err)
+	require.Equal(t, recycleVolumeDetachDelay, res.RequeueAfter)
+
+	// Once hcloud lists no volume, the server goes back to the pool.
+	server.Volumes = nil
+	mc.On("UpdateServer", mock.Anything, mock.Anything, mock.Anything).Return(server, nil).Once()
+
+	res, err = svc.returnServerToRecycling(context.Background(), server)
+	require.NoError(t, err)
+	require.Zero(t, res.RequeueAfter)
+	// mc fails the test if the server is relabelled while a volume is still listed, because it only
+	// expects UpdateServer on the last pass.
+}
+
+func Test_returnServerToRecycling_volumeDetachFailureIsRetryable(t *testing.T) {
+	mc := mocks.NewClient(t)
+	svc := &Service{scope: newRecycleScope(t, "worker-1", mc)}
+
+	server := &hcloud.Server{
+		ID:      5,
+		Status:  hcloud.ServerStatusOff,
+		Labels:  map[string]string{infrav1.MachineNameTagKey: "worker-1"},
+		Volumes: []*hcloud.Volume{{ID: 3}},
+	}
+	mc.On("DetachVolume", mock.Anything, mock.Anything).
+		Return(hcloud.Error{Code: hcloud.ErrorCodeServerError, Message: "internal error"}).Once()
+
+	_, err := svc.returnServerToRecycling(context.Background(), server)
+	require.Error(t, err, "the error must surface so the deletion is retried")
+	// mc fails the test if the server is re-pooled with the volume still attached.
+}
+
+// errVolumeNotAttached is what hcloud answers for a detach of a volume that is not attached.
+var errVolumeNotAttached = hcloud.Error{Code: hcloud.ErrorCodeServiceError, Message: "volume not attached to a server"}
+
+// Test_returnServerToRecycling_volumeDetachedInTheMeantime covers a detach that finished between reading
+// the server and sending the detach again. hcloud answers with a plain service_error, which must not fail
+// the deletion when the server no longer lists the volume.
+func Test_returnServerToRecycling_volumeDetachedInTheMeantime(t *testing.T) {
+	mc := mocks.NewClient(t)
+	svc := &Service{scope: newRecycleScope(t, "worker-1", mc)}
+
+	server := &hcloud.Server{
+		ID:      5,
+		Status:  hcloud.ServerStatusOff,
+		Labels:  map[string]string{infrav1.MachineNameTagKey: "worker-1"},
+		Volumes: []*hcloud.Volume{{ID: 3}},
+	}
+	mc.On("DetachVolume", mock.Anything, &hcloud.Volume{ID: 3}).Return(errVolumeNotAttached).Once()
+	mc.On("GetServer", mock.Anything, int64(5)).Return(&hcloud.Server{ID: 5, Status: hcloud.ServerStatusOff}, nil).Once()
+
+	res, err := svc.returnServerToRecycling(context.Background(), server)
+	require.NoError(t, err)
+	require.Equal(t, recycleVolumeDetachDelay, res.RequeueAfter, "the next look starts from a fresh listing")
+}
+
+// Test_returnServerToRecycling_volumeDetachServiceErrorIsRetryable covers a service_error for a volume
+// that hcloud still lists on the server. That is a real failure and has to surface.
+func Test_returnServerToRecycling_volumeDetachServiceErrorIsRetryable(t *testing.T) {
+	mc := mocks.NewClient(t)
+	svc := &Service{scope: newRecycleScope(t, "worker-1", mc)}
+
+	server := &hcloud.Server{
+		ID:      5,
+		Status:  hcloud.ServerStatusOff,
+		Labels:  map[string]string{infrav1.MachineNameTagKey: "worker-1"},
+		Volumes: []*hcloud.Volume{{ID: 3}},
+	}
+	mc.On("DetachVolume", mock.Anything, &hcloud.Volume{ID: 3}).Return(errVolumeNotAttached).Once()
+	mc.On("GetServer", mock.Anything, int64(5)).Return(server, nil).Once()
+
+	_, err := svc.returnServerToRecycling(context.Background(), server)
+	require.Error(t, err)
+	require.True(t, hcloud.IsError(err, hcloud.ErrorCodeServiceError))
+	// mc fails the test if the server is re-pooled with the volume still attached.
+}
+
+// Test_tryClaimRecyclableServer_volumeDetachedInTheMeantimeKeepsTheClaim covers the same race in the
+// claim. Giving the claim up would wait a minute and record a warning for nothing.
+func Test_tryClaimRecyclableServer_volumeDetachedInTheMeantimeKeepsTheClaim(t *testing.T) {
+	mc := mocks.NewClient(t)
+	svc := &Service{scope: newRecycleScope(t, "worker-1", mc)}
+	claimed := recycleClaimedServer(t)
+	claimed.Volumes = []*hcloud.Volume{{ID: 3}}
+	detached := recycleClaimedServer(t)
+
+	mc.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{claimed}, nil).Once()
+	mc.On("GetServer", mock.Anything, claimed.ID).Return(claimed, nil).Once()
+	mc.On("DetachVolume", mock.Anything, &hcloud.Volume{ID: 3}).Return(errVolumeNotAttached).Once()
+	mc.On("GetServer", mock.Anything, claimed.ID).Return(detached, nil).Once()
+
+	got, err := svc.tryClaimRecyclableServer(context.Background(), recycleCreateOpts("worker-1"), &hcloud.Image{ID: 42}, nil)
+	require.Nil(t, got)
+	require.ErrorIs(t, err, errRecycleClaimWaiting, "the claim is kept and rebuilds on the next look")
+	require.NotErrorIs(t, err, errRecycleClaimFailed)
+	// mc fails the test if the claim is released, which would need an UpdateServer.
 }

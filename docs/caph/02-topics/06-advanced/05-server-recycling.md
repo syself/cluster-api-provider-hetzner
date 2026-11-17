@@ -62,7 +62,8 @@ To hand an existing server to CAPH, set the first two labels on it, for example 
 `hcloud server add-label`. Make sure its server type and location match the `HCloudMachine`s that
 should claim it. Any server works this way, including one that was created by hand, and it does not
 have to be rebuilt up front. Turn off its rebuild protection, though: a claim rebuilds the server, so a
-server with rebuild protection is skipped.
+server with rebuild protection is skipped. Volumes that are still attached to it are detached when it
+is claimed.
 
 ## How a claim works
 
@@ -83,8 +84,10 @@ When an `HCloudMachine` with recycling enabled is created, the controller:
    wait ends the reconcile, and the next one, five seconds later, checks the claim again and goes on
    from there. A `locked` answer means hcloud is still busy with the previous step and is handled the
    same way.
-6. **Rebuilds** the server with the image and the bootstrap data. hcloud starts the server once the
-   rebuild is done, whether it was running before or not.
+6. **Rebuilds** the server with the image and the bootstrap data. A rebuild replaces the server's own
+   disk, but attached volumes stay attached, and the new node could mount them. Volumes that are still
+   attached are therefore detached first, and the rebuild waits until hcloud no longer lists them on the
+   server. hcloud starts the server once the rebuild is done, whether it was running before or not.
 7. **Finalizes** the claim: the server gets the `HCloudMachine`'s name and the identity label
    `machine.caph-name`, and the claimant and timestamp labels are dropped.
 
@@ -167,18 +170,24 @@ for a server and finds a claim older than 15 minutes powers that server off and 
 ## Returning a server to the pool
 
 On deletion a server carrying `caph-recycle=true` is not deleted. The controller powers it off,
-detaches it from the cluster's private network, and returns it to the pool: its labels are replaced
-with `caph-recycle=true` and `caph-recycle-available=true`.
+detaches its volumes and the cluster's private network, and returns it to the pool: its labels are
+replaced with `caph-recycle=true` and `caph-recycle-available=true`.
 
 The power off comes first, while the server still carries the `HCloudMachine`'s identity, so a failed
-attempt can be retried. `caph-recycle-available` is written last, once hcloud reports the server as
-off, so a server this path returns is off and cannot boot the drained node again. There is nothing
-left to shut down gracefully for at this point: the node has been drained, and the next claim
-overwrites the disk with a rebuild before the server is used again. A graceful shutdown would depend
-on the guest reacting to it and could take minutes or never finish.
+attempt can be retried. `caph-recycle-available` is written last, once hcloud reports the server as off
+and without volumes, so a server this path returns is off and cannot boot the old node again. There is
+nothing left to shut down gracefully for at this point: the node has been drained or its whole cluster
+is being deleted, and the next claim overwrites the disk with a rebuild before the server is used
+again. A graceful shutdown would depend on the guest reacting to it and could take minutes or never
+finish.
 
-The network has to be detached explicitly. A normal delete detaches it by deleting the server, so a
-server that is kept would keep its private IP in the cluster's network. A claim that fails after
+Volumes have to be detached explicitly. A normal delete detaches them by deleting the server, but a
+rebuild keeps them, so the node of the next claim could mount a volume that is still attached and read
+this cluster's data. CAPI waits for the volumes of a deleted `Machine` to be detached, but skips that wait
+in some cases, for example when the cluster is being deleted.
+
+The network has to be detached explicitly, too. A normal delete detaches it by deleting the server, so
+a server that is kept would keep its private IP in the cluster's network. A claim that fails after
 attaching the network only resets the labels when it releases the server, so the next claim detaches
 every network other than its own cluster's before the rebuild.
 
