@@ -94,8 +94,9 @@ Running the above command will give you an output in the following manner:
 Required Variables:
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE
   - HCLOUD_REGION
-  - SSH_KEY_NAME
   - HCLOUD_WORKER_MACHINE_TYPE
+  - KUBERNETES_VERSION
+  - SSH_KEY_NAME
 
 Optional Variables:
   - CLUSTER_NAME                 (defaults to my-cluster)

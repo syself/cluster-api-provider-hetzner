@@ -6,11 +6,11 @@ metatitle: Custom Node Images for Nodes in Clusters Managed by CAPH
 
 ## What are node-images?
 
-Node-images are pre-configured operating system (OS) images for setting up nodes within a Kubernetes cluster. A Kubernetes cluster consists of multiple nodes that are physical or virtual machines. To run the necessary Kubernetes components for a fully functional cluster, each node runs an operating system that hosts these components. These OS images should be compatible with Kubernetes and ensure that the node has the required environment to join and perform in the cluster. The images often comes with necessary components that are pre-installed or can be easy installable facilitating a smooth setup process for Kubernetes nodes.
+Node-images are pre-configured operating system (OS) images for setting up nodes within a Kubernetes cluster. A Kubernetes cluster consists of multiple nodes that are physical or virtual machines. To run the necessary Kubernetes components for a fully functional cluster, each node runs an operating system that hosts these components. These OS images should be compatible with Kubernetes and ensure that the node has the required environment to join and perform in the cluster. The images often come with necessary components that are pre-installed or can be easily installed, facilitating a smooth setup process for Kubernetes nodes.
 
 ## Node-images in CAPH
 
-Node-image is necessary for using CAPH in production and as a user, there can be some specific needs as per your requirements that needs to be in the linux instance. The popular linux distributions might not contain all of those specifics. In such cases, the user need to build a node-image. These images can be uploaded to the Hetzner cloud as a snapshot and then the user can use these node-images for cluster creation.
+Node-image is necessary for using CAPH in production and as a user, there can be some specific needs as per your requirements that need to be in the linux instance. The popular linux distributions might not contain all of those specifics. In such cases, the user needs to build a node-image. These images can be uploaded to the Hetzner cloud as a snapshot and then the user can use these node-images for cluster creation.
 
 ## Creating a Node Image
 

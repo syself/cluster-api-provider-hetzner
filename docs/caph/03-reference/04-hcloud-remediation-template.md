@@ -24,6 +24,10 @@ Timeout sets the timeout between remediation retries. It should be of the form "
 Type represents the type of the remediation strategy. At the moment, only "Reboot" is supported.
 </PropField>
 
+<PropField name="template.spec.strategy.cooldown" type="string" defaultValue="30m" required={false}>
+Minimum time between two remediations of the same CAPI Machine. If a new remediation starts within this time after the last successful one, CAPH skips the reboot, and the CAPI Machine gets deleted. Set it to "0s" to turn this check off.
+</PropField>
+
 </Collapsible>
 
 </PropField>
