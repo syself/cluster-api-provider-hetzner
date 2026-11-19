@@ -242,6 +242,19 @@ var _ = Describe("reconcileServices proxy protocol migration", func() {
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(infrav1.HetznerClusterLoadBalancerWaitingToActivateProxyProtocolV1Beta2Reason))
 	})
+
+	It("switches proxy protocol on in place when the cluster has no control-plane infrastructure machines yet", func() {
+		// No API server runs behind the load balancer yet, so there is nothing to wait for.
+		svc, lb := newServiceWithExistingKubeAPIService()
+
+		res, err := svc.reconcileServices(context.Background(), lb)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.RequeueAfter).To(BeZero())
+
+		Expect(lb.Services).To(HaveLen(1))
+		Expect(lb.Services[0].Proxyprotocol).To(BeTrue())
+		Expect(svc.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ProxyProtocolEnabled).To(BeTrue())
+	})
 })
 
 var _ = Describe("createOptsFromSpec", func() {
@@ -492,16 +505,30 @@ var _ = Describe("reconcileServices health check migration", func() {
 		Expect(cond.Reason).To(Equal(infrav1.HetznerClusterLoadBalancerWaitingToActivateHTTPHealthCheckV1Beta2Reason))
 	})
 
+	It("switches the health check to http when the cluster has no control-plane machines yet", func() {
+		// No API server runs behind the load balancer yet, so there is nothing to wait for.
+		svc, lb := newServiceWantingHTTPCheck()
+
+		res, err := svc.reconcileServices(context.Background(), lb)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.RequeueAfter).To(BeZero())
+
+		Expect(lb.Services).To(HaveLen(1))
+		Expect(string(lb.Services[0].HealthCheck.Protocol)).To(Equal("http"))
+		Expect(lb.Services[0].HealthCheck.HTTP).NotTo(BeNil())
+		Expect(lb.Services[0].HealthCheck.HTTP.Path).To(Equal("/readyz"))
+	})
+
 	It("switches the health check from http back to tcp without waiting for the annotation", func() {
 		checkPort := 8443
 		path := "/readyz"
 		tlsOff := false
-		// No machines at all, so the gate would block if this path went through it.
+		// The machine misses the annotation, so the gate would block if this path went through it.
 		svc, lb := newServiceWithExistingCheck(&hcloud.LoadBalancerAddServiceOptsHealthCheck{
 			Protocol: hcloud.LoadBalancerServiceProtocolHTTP,
 			Port:     &checkPort,
 			HTTP:     &hcloud.LoadBalancerAddServiceOptsHealthCheckHTTP{Path: &path, TLS: &tlsOff},
-		})
+		}, cpMachine("cp-1", false))
 		svc.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerHealthCheckSpec{
 			Protocol: "tcp",
 		}
@@ -519,12 +546,12 @@ var _ = Describe("reconcileServices health check migration", func() {
 		checkPort := 8443
 		oldPath := "/healthz"
 		tlsOff := false
-		// No machines at all, so the gate would block if this path went through it.
+		// The machine misses the annotation, so the gate would block if this path went through it.
 		svc, lb := newServiceWithExistingCheck(&hcloud.LoadBalancerAddServiceOptsHealthCheck{
 			Protocol: hcloud.LoadBalancerServiceProtocolHTTP,
 			Port:     &checkPort,
 			HTTP:     &hcloud.LoadBalancerAddServiceOptsHealthCheckHTTP{Path: &oldPath, TLS: &tlsOff},
-		})
+		}, cpMachine("cp-1", false))
 
 		res, err := svc.reconcileServices(context.Background(), lb)
 		Expect(err).NotTo(HaveOccurred())

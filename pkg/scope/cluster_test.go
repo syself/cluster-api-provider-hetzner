@@ -81,7 +81,7 @@ func TestAllControlPlaneInfraMachinesAnnotatedForProxyProtocol(t *testing.T) {
 		{
 			name:     "no control-plane infrastructure machines yet",
 			machines: nil,
-			want:     false,
+			want:     true,
 		},
 		{
 			name: "all hcloud control planes annotated",
@@ -184,7 +184,7 @@ func TestAllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(t *testing.T) {
 		{
 			name:     "no control-plane machines yet",
 			machines: nil,
-			want:     false,
+			want:     true,
 		},
 		{
 			name:     "all control planes annotated for the http health check",

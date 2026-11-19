@@ -276,8 +276,8 @@ func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 // control-plane infrastructure machine template's spec.template.metadata.
 //
 // Machines from an earlier template do not carry the annotation, so the check stays false
-// until the last of them is replaced. It returns false (no error) while the cluster has no
-// control-plane infrastructure machines yet.
+// until the last of them is replaced. It returns true (no error) while the cluster has no
+// control-plane infrastructure machines yet, because no API server runs behind the load balancer.
 func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForProxyProtocol(ctx context.Context) (bool, error) {
 	return s.allControlPlaneInfraMachinesAnnotated(ctx, infrav1.ProxyProtocolForControlPlaneLoadBalancerAnnotation, "proxy protocol")
 }
@@ -296,9 +296,8 @@ func (s *ClusterScope) AllControlPlaneInfraMachinesAnnotatedForHTTPHealthCheck(c
 // machine (HCloudMachine and HetznerBareMetalMachine) carries annotation with value "true". The
 // annotation is set on the control-plane infrastructure machine template, so a machine from an
 // earlier template does not carry it and the check stays false until the last such machine is
-// replaced. It returns
-// false (no error) while the cluster has no control-plane infrastructure machines yet. logLabel
-// prefixes the debug logs so they name the feature being gated.
+// replaced. It also returns true when there are no control-plane infrastructure machines at all.
+// logLabel prefixes the debug logs so they name the feature being gated.
 func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context, annotation, logLabel string) (bool, error) {
 	listOptions := []client.ListOption{
 		client.InNamespace(s.Namespace()),
@@ -339,8 +338,8 @@ func (s *ClusterScope) allControlPlaneInfraMachinesAnnotated(ctx context.Context
 	}
 
 	if found == 0 {
-		s.V(1).Info(logLabel + ": no control-plane infrastructure machines found yet")
-		return false, nil
+		// No API server runs behind the load balancer yet, so changing the service cannot take the API server offline.
+		s.V(1).Info(logLabel + ": no control-plane infrastructure machines found, nothing to wait for")
 	}
 
 	return true, nil
