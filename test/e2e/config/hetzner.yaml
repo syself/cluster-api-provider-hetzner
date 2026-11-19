@@ -72,17 +72,13 @@ providers:
         files:
           - sourcePath: "../../../out/metadata.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
       - name: v1.1.99 # next; use manifest from source files
         value: ../../../config/default
         contract: v1beta1
@@ -96,62 +92,22 @@ providers:
         files:
           - sourcePath: "../../../metadata.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
-
-      ## Update and uncomment, if you want to do a caph upgrade test.
-      # - name: v1.1.99 # next; use manifest from source files
-      #   value: ../../../config/default
-      #   contract: v1beta1
-      #   replacements:
-      #     - old: ghcr.io/syself/caph-staging:latest
-      #       new: ghcr.io/syself/caph-staging:${CAPH_CONTAINER_TAG}
-      #     - old: "imagePullPolicy: Always"
-      #       new: "imagePullPolicy: IfNotPresent"
-      #     - old: --metrics-bind-addr=localhost:8080
-      #       new: --metrics-bind-addr=:8080
-      #   files:
-      #     - sourcePath: "../../../metadata.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
 
 variables:
-  # Upgrade Test
   KUBERNETES_VERSION_MANAGEMENT: "v1.36.0"
   KUBERNETES_VERSION: "${KUBERNETES_VERSION:-v1.36.0}"
-  KUBERNETES_VERSION_UPGRADE_FROM: "v1.35.4"
-  KUBERNETES_VERSION_UPGRADE_TO: "v1.36.0"
-  CONTROL_PLANE_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-control-plane"
-  WORKERS_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-worker"
-  KUBERNETES_IMAGE_UPGRADE_FROM: ${KUBERNETES_IMAGE_UPGRADE_FROM:-}
-  KUBERNETES_IMAGE_UPGRADE_TO: ${KUBERNETES_IMAGE_UPGRADE_TO:-}
-  ETCD_VERSION_UPGRADE_TO: "3.6.8-0"
-  COREDNS_VERSION_UPGRADE_TO: "v1.14.2"
   IP_FAMILY: "IPv4"
 
   # NOTE: INIT_WITH_BINARY and INIT_WITH_KUBERNETES_VERSION are only used by the clusterctl upgrade test to initialize
   # the management cluster to be upgraded.
   INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.13.4/clusterctl-linux-amd64"
-  INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
   INIT_WITH_KUBERNETES_VERSION: "v1.36.0"
   INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION}
 
@@ -160,12 +116,6 @@ variables:
   CCM: "./data/ccm/hcloud-ccm.yaml"
   CCM_NETWORK: "./data/ccm/hcloud-ccm-network.yaml"
   CCM_HETZNER: "./data/ccm/syself-ccm-hetzner.yaml"
-
-  # Conformance testing variables
-  CONFORMANCE_WORKER_MACHINE_COUNT: 3
-  CONFORMANCE_CONTROL_PLANE_MACHINE_COUNT: 3
-  KUBETEST_CONFIGURATION: "${KUBETEST_CONF_PATH:=./data/kubetest/conformance.yaml}"
-  NODE_DRAIN_TIMEOUT_SECONDS: "60"
 
   # Enabling the feature flags by setting the env variables.
   EXP_CLUSTER_RESOURCE_SET: "true"
@@ -190,18 +140,9 @@ intervals:
   default/wait-cluster: ["5m", "2s"] ## wait until Infrastructure == ready and ControlPlaneEndpoint is valid
   default/wait-control-plane: ["20m", "2s"] ## wait until first control plane is ready
   default/wait-worker-nodes: ["28m", "2s"] ## wait until all workers are ready from the moment when the control plane is ready
-  default/wait-machine-pool-nodes: ["5m", "2s"]
   default/wait-delete-cluster: ["20m", "2s"] ## wait until cluster is deleted
-  default/wait-machine-upgrade: ["20m", "2s"]
-  default/wait-control-plane-upgrade: ["45m", "10s"]
-  default/wait-machine-deployment-upgrade: ["45m", "10s"]
-  default/wait-machine-pool-upgrade: ["5m", "2s"]
-  default/wait-nodes-ready: ["10m", "2s"]
   default/wait-machine-remediation: ["5m", "2s"]
   default/wait-autoscaler: ["5m", "2s"]
-  node-drain/wait-deployment-available: ["3m", "2s"]
-  node-drain/wait-control-plane: ["15m", "2s"]
-  node-drain/wait-machine-deleted: ["2m", "2s"]
   kcp-remediation/wait-machines: ["5m", "2s"]
   kcp-remediation/check-machines-stable: ["30s", "5s"]
   kcp-remediation/wait-machine-provisioned: ["5m", "2s"]
