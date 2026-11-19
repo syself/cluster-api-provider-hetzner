@@ -1622,6 +1622,65 @@ func (_c *Client_ListServers_Call) RunAndReturn(run func(context.Context, hcloud
 	return _c
 }
 
+// PowerOffServer provides a mock function with given fields: _a0, _a1
+func (_m *Client) PowerOffServer(_a0 context.Context, _a1 *hcloud.Server) (*hcloud.Action, error) {
+	ret := _m.Called(_a0, _a1)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PowerOffServer")
+	}
+
+	var r0 *hcloud.Action
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *hcloud.Server) (*hcloud.Action, error)); ok {
+		return rf(_a0, _a1)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *hcloud.Server) *hcloud.Action); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*hcloud.Action)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *hcloud.Server) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Client_PowerOffServer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PowerOffServer'
+type Client_PowerOffServer_Call struct {
+	*mock.Call
+}
+
+// PowerOffServer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.Server
+func (_e *Client_Expecter) PowerOffServer(_a0 interface{}, _a1 interface{}) *Client_PowerOffServer_Call {
+	return &Client_PowerOffServer_Call{Call: _e.mock.On("PowerOffServer", _a0, _a1)}
+}
+
+func (_c *Client_PowerOffServer_Call) Run(run func(_a0 context.Context, _a1 *hcloud.Server)) *Client_PowerOffServer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.Server))
+	})
+	return _c
+}
+
+func (_c *Client_PowerOffServer_Call) Return(_a0 *hcloud.Action, _a1 error) *Client_PowerOffServer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_PowerOffServer_Call) RunAndReturn(run func(context.Context, *hcloud.Server) (*hcloud.Action, error)) *Client_PowerOffServer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PowerOnServer provides a mock function with given fields: _a0, _a1
 func (_m *Client) PowerOnServer(_a0 context.Context, _a1 *hcloud.Server) error {
 	ret := _m.Called(_a0, _a1)
