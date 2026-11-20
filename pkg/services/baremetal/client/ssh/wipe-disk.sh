@@ -79,6 +79,28 @@ for wwn in "$@"; do
         exit 3
     fi
 
+    # Deactivate every LVM volume group that has an active logical volume on
+    # this disk. An active logical volume keeps everything below it (the mdraid
+    # array, the partition, the disk) busy, so stopping mdraid or wiping the
+    # disk would otherwise fail with "device or resource busy".
+    #
+    # lsblk lists all devices stacked on the disk, however deep the stack is,
+    # and lvs says which volume group a logical volume belongs to. Both use the
+    # same /dev/mapper path for a logical volume, so we can match on it.
+    if command -v lvs >/dev/null; then
+        devices_on_disk=$(lsblk --list --noheadings --paths -o NAME "/dev/$device")
+        volume_groups=$(lvs --noheadings -o lv_dm_path,vg_name |
+            while read -r lv_path vg; do
+                if grep -qFx "$lv_path" <<<"$devices_on_disk"; then
+                    echo "$vg"
+                fi
+            done | sort -u)
+        for vg in $volume_groups; do
+            echo "INFO: Deactivating LVM volume group $vg for $wwn (/dev/$device)"
+            vgchange -an "$vg"
+        done
+    fi
+
     lsblk --list --noheadings "/dev/$device" -o NAME | { grep -P '^md' || true; } | sort -u |
         while read -r md; do
             echo "INFO: Stopping mdraid $md for $wwn (/dev/$device)"
