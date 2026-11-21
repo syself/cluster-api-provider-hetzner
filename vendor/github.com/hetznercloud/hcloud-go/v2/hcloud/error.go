@@ -32,7 +32,6 @@ const (
 	ErrorCodeRobotUnavailable      ErrorCode = "robot_unavailable"       // Robot was not available. The caller may retry the operation after a short delay
 	ErrorCodeResourceLocked        ErrorCode = "resource_locked"         // The resource is locked. The caller should contact support
 	ErrorCodeServerError           ErrorCode = "server_error"            // Error within the API backend
-	ErrorCodeTokenReadonly         ErrorCode = "token_readonly"          // The token is only allowed to perform GET requests
 	ErrorCodeBadGateway            ErrorCode = "bad_gateway"             // The request could not be answered by the API backend, please retry
 	ErrorCodeTimeout               ErrorCode = "timeout"                 // The request could not be answered in time, please retry
 	ErrorUnsupportedError          ErrorCode = "unsupported_error"       // The given resource does not support this
@@ -111,6 +110,14 @@ const (
 	//
 	//go:fix inline
 	ErrorCodeLimitReached = ErrorCodeRateLimitExceeded
+
+	// ErrorCodeTokenReadonly is returned if the token is only allowed to perform GET
+	// requests
+	//
+	// Deprecated: This error code is deprecated, please use [ErrorCodeForbidden] instead.
+	//
+	//go:fix inline
+	ErrorCodeTokenReadonly = ErrorCodeForbidden
 )
 
 // Error is an error returned from the API.
@@ -199,8 +206,7 @@ func IsError(err error, code ...ErrorCode) bool {
 
 // StabilizeError returns an error without any correlation ID.
 func StabilizeError(err error) error {
-	var e Error
-	if errors.As(err, &e) {
+	if e, ok := errors.AsType[Error](err); ok {
 		e.response = nil
 		return e
 	}

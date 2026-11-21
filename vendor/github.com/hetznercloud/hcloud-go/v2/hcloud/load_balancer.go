@@ -48,14 +48,18 @@ type LoadBalancerPublicNet struct {
 
 // LoadBalancerPublicNetIPv4 represents a Load Balancer's public IPv4 address.
 type LoadBalancerPublicNetIPv4 struct {
-	IP     net.IP
-	DNSPtr string
+	ID      int64
+	IP      net.IP
+	Blocked bool
+	DNSPtr  string
 }
 
 // LoadBalancerPublicNetIPv6 represents a Load Balancer's public IPv6 address.
 type LoadBalancerPublicNetIPv6 struct {
-	IP     net.IP
-	DNSPtr string
+	ID      int64
+	IP      net.IP
+	Blocked bool
+	DNSPtr  string
 }
 
 // LoadBalancerPrivateNet represents a Load Balancer's private network.
@@ -193,10 +197,32 @@ const (
 	LoadBalancerTargetHealthStatusStatusUnhealthy LoadBalancerTargetHealthStatusStatus = "unhealthy"
 )
 
+// LoadBalancerTargetHealthStatusDetail describes additional details about why
+// a health check failed. It is only present when the health status is
+// unhealthy.
+type LoadBalancerTargetHealthStatusDetail string
+
+const (
+	// LoadBalancerTargetHealthStatusDetailUnspecified denotes that the reason for a failed health check is unspecified.
+	LoadBalancerTargetHealthStatusDetailUnspecified LoadBalancerTargetHealthStatusDetail = "unspecified"
+	// LoadBalancerTargetHealthStatusDetailLayer4NoConnection denotes that no connection could be established to the target.
+	LoadBalancerTargetHealthStatusDetailLayer4NoConnection LoadBalancerTargetHealthStatusDetail = "layer4_no_connection"
+	// LoadBalancerTargetHealthStatusDetailLayer4Timeout denotes that the target did not respond in time.
+	LoadBalancerTargetHealthStatusDetailLayer4Timeout LoadBalancerTargetHealthStatusDetail = "layer4_timeout"
+	// LoadBalancerTargetHealthStatusDetailLayer7Timeout denotes that the target did not respond in time.
+	LoadBalancerTargetHealthStatusDetailLayer7Timeout LoadBalancerTargetHealthStatusDetail = "layer7_timeout"
+	// LoadBalancerTargetHealthStatusDetailUnexpectedHTTPStatus denotes that the target responded with an unexpected HTTP status code.
+	LoadBalancerTargetHealthStatusDetailUnexpectedHTTPStatus LoadBalancerTargetHealthStatusDetail = "unexpected_http_status"
+	// LoadBalancerTargetHealthStatusDetailUnexpectedHTTPContent denotes that the target responded with unexpected HTTP content.
+	LoadBalancerTargetHealthStatusDetailUnexpectedHTTPContent LoadBalancerTargetHealthStatusDetail = "unexpected_http_content"
+)
+
 // LoadBalancerTargetHealthStatus describes a target's health for a specific service.
 type LoadBalancerTargetHealthStatus struct {
-	ListenPort int
-	Status     LoadBalancerTargetHealthStatusStatus
+	ListenPort     int
+	Status         LoadBalancerTargetHealthStatusStatus
+	Detail         *LoadBalancerTargetHealthStatusDetail
+	HTTPStatusCode *int
 }
 
 // LoadBalancerProtection represents the protection level of a Load Balancer.
@@ -378,6 +404,7 @@ type LoadBalancerCreateOpts struct {
 	Targets          []LoadBalancerCreateOptsTarget
 	Services         []LoadBalancerCreateOptsService
 	PublicInterface  *bool
+	PublicNet        *LoadBalancerCreateOptsPublicNet
 	Network          *Network
 }
 
@@ -389,6 +416,13 @@ type LoadBalancerCreateOptsTarget struct {
 	LabelSelector LoadBalancerCreateOptsTargetLabelSelector
 	IP            LoadBalancerCreateOptsTargetIP
 	UsePrivateIP  *bool
+}
+
+// LoadBalancerCreateOptsPublicNet holds options for specifying the public network
+// when creating a new Load Balancer.
+type LoadBalancerCreateOptsPublicNet struct {
+	IPv4 *PrimaryIP
+	IPv6 *PrimaryIP
 }
 
 // LoadBalancerCreateOptsTargetServer holds options for specifying a server target
@@ -481,13 +515,35 @@ func (c *LoadBalancerClient) Create(ctx context.Context, opts LoadBalancerCreate
 }
 
 // Delete deletes a Load Balancer.
+//
+// Deprecated: Use [LoadBalancerClient.DeleteWithResult] instead.
 func (c *LoadBalancerClient) Delete(ctx context.Context, loadBalancer *LoadBalancer) (*Response, error) {
+	_, resp, err := c.DeleteWithResult(ctx, loadBalancer)
+	return resp, err
+}
+
+// LoadBalancerDeleteResult is the result of a delete [LoadBalancer] operation.
+type LoadBalancerDeleteResult struct {
+	Action *Action
+}
+
+// DeleteWithResult deletes a Load Balancer and returns an [Action].
+func (c *LoadBalancerClient) DeleteWithResult(ctx context.Context, loadBalancer *LoadBalancer) (LoadBalancerDeleteResult, *Response, error) {
 	const opPath = "/load_balancers/%d"
 	ctx = ctxutil.SetOpPath(ctx, opPath)
 
 	reqPath := fmt.Sprintf(opPath, loadBalancer.ID)
 
-	return deleteRequestNoResult(ctx, c.client, reqPath)
+	result := LoadBalancerDeleteResult{}
+
+	respBody, resp, err := deleteRequest[schema.ActionGetResponse](ctx, c.client, reqPath)
+	if err != nil {
+		return result, resp, err
+	}
+
+	result.Action = ActionFromSchema(respBody.Action)
+
+	return result, resp, nil
 }
 
 func (c *LoadBalancerClient) addTarget(ctx context.Context, loadBalancer *LoadBalancer, reqBody schema.LoadBalancerActionAddTargetRequest) (*Action, *Response, error) {
@@ -806,10 +862,10 @@ func (c *LoadBalancerClient) AttachToNetwork(ctx context.Context, loadBalancer *
 		Network: opts.Network.ID,
 	}
 	if opts.IP != nil {
-		reqBody.IP = Ptr(opts.IP.String())
+		reqBody.IP = new(opts.IP.String())
 	}
 	if opts.IPRange != nil {
-		reqBody.IPRange = Ptr(opts.IPRange.String())
+		reqBody.IPRange = new(opts.IPRange.String())
 	}
 
 	respBody, resp, err := postRequest[schema.LoadBalancerActionAttachToNetworkResponse](ctx, c.client, reqPath, reqBody)

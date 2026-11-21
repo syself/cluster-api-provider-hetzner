@@ -47,7 +47,11 @@ func delimiterCase(s string, delimiter rune, upperCase bool) string {
 		curr = next
 	}
 
-	if len(s) > 0 {
+	if isDelimiter(curr) {
+		if !isDelimiter(prev) {
+			buffer = append(buffer, delimiter)
+		}
+	} else if len(s) > 0 {
 		if isUpper(curr) && isLower(prev) && prev != 0 {
 			buffer = append(buffer, delimiter)
 		}

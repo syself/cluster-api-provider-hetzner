@@ -104,9 +104,8 @@ func (i *Instrumenter) instrumentRoundTripperEndpoint(counter *prometheus.Counte
 func registerOrReuse[C prometheus.Collector](registry prometheus.Registerer, collector C) C {
 	err := registry.Register(collector)
 	if err != nil {
-		var arErr prometheus.AlreadyRegisteredError
 		// If we get a AlreadyRegisteredError we can return the existing collector
-		if errors.As(err, &arErr) {
+		if arErr, ok := errors.AsType[prometheus.AlreadyRegisteredError](err); ok {
 			if existingCollector, ok := arErr.ExistingCollector.(C); ok {
 				collector = existingCollector
 			} else {

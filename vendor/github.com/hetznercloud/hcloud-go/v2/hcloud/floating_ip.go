@@ -228,10 +228,10 @@ func (c *FloatingIPClient) Create(ctx context.Context, opts FloatingIPCreateOpts
 		Name:        opts.Name,
 	}
 	if opts.HomeLocation != nil {
-		reqBody.HomeLocation = Ptr(opts.HomeLocation.Name)
+		reqBody.HomeLocation = new(opts.HomeLocation.Name)
 	}
 	if opts.Server != nil {
-		reqBody.Server = Ptr(opts.Server.ID)
+		reqBody.Server = new(opts.Server.ID)
 	}
 	if opts.Labels != nil {
 		reqBody.Labels = &opts.Labels

@@ -30,9 +30,13 @@ type Image struct {
 	Architecture Architecture
 
 	Protection ImageProtection
-	Deprecated time.Time // The zero value denotes the image is not deprecated.
 	Labels     map[string]string
 	Deleted    time.Time
+
+	// Deprecated: Use [Image.Deprecation] instead.
+	// The zero value denotes the image is not deprecated.
+	Deprecated time.Time
+	DeprecatableResource
 }
 
 func (o *Image) pathID() (string, error) {
@@ -40,11 +44,6 @@ func (o *Image) pathID() (string, error) {
 		return "", missingField(o, "ID")
 	}
 	return strconv.FormatInt(o.ID, 10), nil
-}
-
-// IsDeprecated returns whether the image is deprecated.
-func (o *Image) IsDeprecated() bool {
-	return !o.Deprecated.IsZero()
 }
 
 // IsDeleted returns whether the image is deleted.
@@ -247,7 +246,7 @@ func (c *ImageClient) Update(ctx context.Context, image *Image, opts ImageUpdate
 		Description: opts.Description,
 	}
 	if opts.Type != "" {
-		reqBody.Type = Ptr(string(opts.Type))
+		reqBody.Type = new(string(opts.Type))
 	}
 	if opts.Labels != nil {
 		reqBody.Labels = &opts.Labels
