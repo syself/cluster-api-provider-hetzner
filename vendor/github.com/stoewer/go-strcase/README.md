@@ -1,4 +1,4 @@
-[![GH Actions](https://github.com/stoewer/go-strcase/actions/workflows/lint-test.yml/badge.svg?branch=master)](https://github.com/stoewer/go-strcase/actions)
+[![Lint and Test](https://github.com/stoewer/go-strcase/actions/workflows/lint-test.yml/badge.svg)](https://github.com/stoewer/go-strcase/actions/workflows/lint-test.yml)
 [![codecov](https://codecov.io/github/stoewer/go-strcase/branch/master/graph/badge.svg?token=c0UokYnop5)](https://codecov.io/github/stoewer/go-strcase)
 [![GoDoc](https://godoc.org/github.com/stoewer/go-strcase?status.svg)](https://pkg.go.dev/github.com/stoewer/go-strcase)
 ---

@@ -58,6 +58,7 @@ You can find a documentation of goverter here: https://goverter.jmattheis.de/
 // goverter:extend int64FromZone
 // goverter:extend floatingIPFromInt64
 // goverter:extend int64FromFloatingIP
+// goverter:extend int64FromPrimaryIP
 // goverter:extend storageBoxFromInt64
 // goverter:extend int64FromStorageBox
 // goverter:extend mapFromFloatingIPDNSPtrSchema
@@ -84,6 +85,8 @@ You can find a documentation of goverter here: https://goverter.jmattheis.de/
 // goverter:extend locationFromServerTypeLocationSchema
 // goverter:extend schemaPtrFromDatacenterServerTypes
 // goverter:extend deprecatedStrFromDeprecationSchema
+// goverter:extend deprecatedTimeFromDeprecationSchema
+// goverter:extend deprecatedTimePtrSchemaFromDeprecation
 type converter interface {
 
 	// goverter:map Error.Code ErrorCode
@@ -182,10 +185,14 @@ type converter interface {
 
 	ImageFromSchema(schema.Image) *Image
 
+	// goverter:map DeprecatableResource.Deprecation Deprecated | deprecatedTimeFromDeprecationSchema
+	intImageFromSchema(schema.Image) Image
+
 	SchemaFromImage(*Image) schema.Image
 
 	// Needed because of how goverter works internally, see https://github.com/jmattheis/goverter/issues/114
 	// goverter:map ImageSize | mapZeroFloat32ToNil
+	// goverter:map DeprecatableResource.Deprecation Deprecated | deprecatedTimePtrSchemaFromDeprecation
 	intSchemaFromImage(Image) schema.Image
 
 	// goverter:ignore Currency
@@ -211,6 +218,10 @@ type converter interface {
 	NetworkRouteFromSchema(schema.NetworkRoute) NetworkRoute
 
 	SchemaFromNetworkRoute(NetworkRoute) schema.NetworkRoute
+
+	NetworkMemberFromSchema(schema.NetworkMember) *NetworkMember
+
+	SchemaFromNetworkMember(*NetworkMember) schema.NetworkMember
 
 	LoadBalancerFromSchema(schema.LoadBalancer) *LoadBalancer
 
@@ -628,6 +639,13 @@ func floatingIPFromInt64(id int64) *FloatingIP {
 }
 
 func int64FromFloatingIP(f *FloatingIP) int64 {
+	if f == nil {
+		return 0
+	}
+	return f.ID
+}
+
+func int64FromPrimaryIP(f *PrimaryIP) int64 {
 	if f == nil {
 		return 0
 	}
@@ -1066,12 +1084,26 @@ func isDeprecationNotNil(d *DeprecationInfo) bool {
 	return d != nil
 }
 
+func deprecatedTimePtrSchemaFromDeprecation(d *DeprecationInfo) *time.Time {
+	if d != nil {
+		return &d.Announced
+	}
+	return nil
+}
+
 func deprecatedStrFromDeprecationSchema(d *schema.DeprecationInfo) *string {
 	if d != nil {
 		value := d.Announced.Format(time.RFC3339)
 		return &value
 	}
 	return nil
+}
+
+func deprecatedTimeFromDeprecationSchema(d *schema.DeprecationInfo) time.Time {
+	if d != nil {
+		return d.Announced
+	}
+	return time.Time{}
 }
 
 // int64SlicePtrFromCertificatePtrSlice is needed so that a nil slice is mapped to nil instead of &nil.
@@ -1118,10 +1150,10 @@ func mapStorageBoxWeekdayPtrToIntPtr(w *time.Weekday) *int {
 	}
 
 	if *w == time.Sunday {
-		return Ptr(7)
+		return new(7)
 	}
 
-	return Ptr(int(*w))
+	return new(int(*w))
 }
 
 func mapStorageBoxIntPtrToWeekdayPtr(i *int) *time.Weekday {
@@ -1130,10 +1162,10 @@ func mapStorageBoxIntPtrToWeekdayPtr(i *int) *time.Weekday {
 	}
 
 	if *i == 7 {
-		return Ptr(time.Sunday)
+		return new(time.Sunday)
 	}
 
-	return Ptr(time.Weekday(*i))
+	return new(time.Weekday(*i))
 }
 
 // hcloud.DatacenterServerTypes is not nullable but *schema.DatacenterServerTypes is.
@@ -1142,5 +1174,5 @@ func schemaPtrFromDatacenterServerTypes(dst DatacenterServerTypes) *schema.Datac
 	if dst.Available == nil && dst.AvailableForMigration == nil && dst.Supported == nil {
 		return nil
 	}
-	return Ptr(schemaFromDatacenterServerTypes(dst))
+	return new(schemaFromDatacenterServerTypes(dst))
 }

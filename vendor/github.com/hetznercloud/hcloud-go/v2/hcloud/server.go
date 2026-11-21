@@ -633,7 +633,7 @@ func (c *ServerClient) CreateImage(ctx context.Context, server *Server, opts *Se
 			reqBody.Description = opts.Description
 		}
 		if opts.Type != "" {
-			reqBody.Type = Ptr(string(opts.Type))
+			reqBody.Type = new(string(opts.Type))
 		}
 		if opts.Labels != nil {
 			reqBody.Labels = &opts.Labels
@@ -673,7 +673,7 @@ func (c *ServerClient) EnableRescue(ctx context.Context, server *Server, opts Se
 	reqPath := fmt.Sprintf(opPath, server.ID)
 
 	reqBody := schema.ServerActionEnableRescueRequest{
-		Type: Ptr(string(opts.Type)),
+		Type: new(string(opts.Type)),
 	}
 	for _, sshKey := range opts.SSHKeys {
 		reqBody.SSHKeys = append(reqBody.SSHKeys, sshKey.ID)
@@ -932,14 +932,14 @@ func (c *ServerClient) AttachToNetwork(ctx context.Context, server *Server, opts
 		Network: opts.Network.ID,
 	}
 	if opts.IP != nil {
-		reqBody.IP = Ptr(opts.IP.String())
+		reqBody.IP = new(opts.IP.String())
 	}
 	for _, aliasIP := range opts.AliasIPs {
-		reqBody.AliasIPs = append(reqBody.AliasIPs, Ptr(aliasIP.String()))
+		reqBody.AliasIPs = append(reqBody.AliasIPs, new(aliasIP.String()))
 	}
 
 	if opts.IPRange != nil {
-		reqBody.IPRange = Ptr(opts.IPRange.String())
+		reqBody.IPRange = new(opts.IPRange.String())
 	}
 
 	respBody, resp, err := postRequest[schema.ServerActionAttachToNetworkResponse](ctx, c.client, reqPath, reqBody)
