@@ -251,9 +251,9 @@ var _ = Describe("health check option builders", func() {
 			Expect(opts.HTTP).To(BeNil())
 		})
 
-		It("sets TLS for an https health check", func() {
+		It("sends an https health check as http with TLS", func() {
 			opts := healthCheckCreateOpts(spec("https"), servicePort)
-			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolHTTPS))
+			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolHTTP))
 			Expect(opts.HTTP).NotTo(BeNil())
 			Expect(*opts.HTTP.TLS).To(BeTrue())
 			Expect(*opts.HTTP.Domain).To(Equal("example.com"))
@@ -284,6 +284,12 @@ var _ = Describe("health check option builders", func() {
 			Expect(*opts.Retries).To(Equal(5))
 			Expect(*opts.HTTP.TLS).To(BeFalse())
 		})
+
+		It("sends an https health check as http with TLS", func() {
+			opts := healthCheckAddOpts(spec("https"), servicePort)
+			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolHTTP))
+			Expect(*opts.HTTP.TLS).To(BeTrue())
+		})
 	})
 
 	Describe("healthCheckUpdateOpts", func() {
@@ -296,6 +302,12 @@ var _ = Describe("health check option builders", func() {
 			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolHTTP))
 			Expect(*opts.Interval).To(Equal(5 * time.Second))
 			Expect(*opts.HTTP.Domain).To(Equal("example.com"))
+		})
+
+		It("sends an https health check as http with TLS", func() {
+			opts := healthCheckUpdateOpts(spec("https"), servicePort)
+			Expect(opts.Protocol).To(Equal(hcloud.LoadBalancerServiceProtocolHTTP))
+			Expect(*opts.HTTP.TLS).To(BeTrue())
 		})
 	})
 
@@ -378,6 +390,15 @@ var _ = Describe("health check option builders", func() {
 		It("reports an update when switching from http to https", func() {
 			want := &infrav1.LoadBalancerHealthCheckSpec{Protocol: "https", Port: 4711}
 			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeTrue())
+		})
+
+		It("reports no update for an https spec when the load balancer reports http with TLS", func() {
+			// copy HTTP before changing it, because got shares it with the lb fixture.
+			http := *got.HTTP
+			http.TLS = true
+			got.HTTP = &http
+			want := &infrav1.LoadBalancerHealthCheckSpec{Protocol: "https", Port: 4711}
+			Expect(healthCheckDiffers(got, want, destinationPort)).To(BeFalse())
 		})
 
 		It("treats an empty protocol as tcp and reports the mismatch against the http fixture", func() {

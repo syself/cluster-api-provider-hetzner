@@ -633,10 +633,7 @@ func healthCheckOptsFromSpec(spec *infrav1.LoadBalancerHealthCheckSpec, serviceP
 		return nil
 	}
 
-	protocol := hcloud.LoadBalancerServiceProtocolTCP
-	if spec.Protocol != "" {
-		protocol = hcloud.LoadBalancerServiceProtocol(spec.Protocol)
-	}
+	protocol, tls := healthCheckProtocolFromSpec(spec.Protocol)
 
 	// 0 means the field is not set.
 	port := servicePort
@@ -660,22 +657,15 @@ func healthCheckOptsFromSpec(spec *infrav1.LoadBalancerHealthCheckSpec, serviceP
 		opts.Timeout = &timeout
 	}
 
-	if isHTTPHealthCheckProtocol(protocol) {
+	if protocol == hcloud.LoadBalancerServiceProtocolHTTP {
 		opts.Domain = spec.Domain
 		opts.Path = spec.Path
 		opts.Response = spec.Response
 		opts.StatusCodes = spec.StatusCodes
-		tls := protocol == hcloud.LoadBalancerServiceProtocolHTTPS
 		opts.TLS = &tls
 	}
 
 	return opts
-}
-
-// isHTTPHealthCheckProtocol reports whether protocol is one that sends an HTTP(S) request,
-// as opposed to a plain tcp check.
-func isHTTPHealthCheckProtocol(protocol hcloud.LoadBalancerServiceProtocol) bool {
-	return protocol == hcloud.LoadBalancerServiceProtocolHTTP || protocol == hcloud.LoadBalancerServiceProtocolHTTPS
 }
 
 // healthCheckDiffers reports whether the load balancer's observed health check differs from
@@ -687,10 +677,7 @@ func healthCheckDiffers(observed hcloud.LoadBalancerServiceHealthCheck, desired 
 		return false
 	}
 
-	desiredProtocol := hcloud.LoadBalancerServiceProtocolTCP
-	if desired.Protocol != "" {
-		desiredProtocol = hcloud.LoadBalancerServiceProtocol(desired.Protocol)
-	}
+	desiredProtocol, desiredTLS := healthCheckProtocolFromSpec(desired.Protocol)
 	if desiredProtocol != observed.Protocol {
 		return true
 	}
@@ -714,11 +701,10 @@ func healthCheckDiffers(observed hcloud.LoadBalancerServiceHealthCheck, desired 
 		return true
 	}
 
-	if !isHTTPHealthCheckProtocol(desiredProtocol) {
+	if desiredProtocol != hcloud.LoadBalancerServiceProtocolHTTP {
 		return false
 	}
 
-	desiredTLS := desiredProtocol == hcloud.LoadBalancerServiceProtocolHTTPS
 	if observed.HTTP == nil || observed.HTTP.TLS != desiredTLS {
 		return true
 	}
@@ -751,11 +737,23 @@ func healthCheckMigratesToHTTP(got hcloud.LoadBalancerServiceHealthCheck, want *
 	if want == nil {
 		return false
 	}
-	wantProtocol := hcloud.LoadBalancerServiceProtocolTCP
-	if want.Protocol != "" {
-		wantProtocol = hcloud.LoadBalancerServiceProtocol(want.Protocol)
+	wantProtocol, _ := healthCheckProtocolFromSpec(want.Protocol)
+	return wantProtocol == hcloud.LoadBalancerServiceProtocolHTTP && got.Protocol != hcloud.LoadBalancerServiceProtocolHTTP
+}
+
+// healthCheckProtocolFromSpec returns the health check protocol the Hetzner API expects for
+// specProtocol, and whether the check uses TLS. An empty specProtocol means tcp. The API accepts
+// only tcp and http as a health check protocol. An https check is sent as http with TLS, and the
+// API reports it back the same way.
+func healthCheckProtocolFromSpec(specProtocol string) (protocol hcloud.LoadBalancerServiceProtocol, tls bool) {
+	switch specProtocol {
+	case "":
+		return hcloud.LoadBalancerServiceProtocolTCP, false
+	case string(hcloud.LoadBalancerServiceProtocolHTTPS):
+		return hcloud.LoadBalancerServiceProtocolHTTP, true
+	default:
+		return hcloud.LoadBalancerServiceProtocol(specProtocol), false
 	}
-	return isHTTPHealthCheckProtocol(wantProtocol) && !isHTTPHealthCheckProtocol(got.Protocol)
 }
 
 func createOptsFromSpec(hc *infrav1.HetznerCluster) hcloud.LoadBalancerCreateOpts {
