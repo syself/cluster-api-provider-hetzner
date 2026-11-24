@@ -326,6 +326,38 @@ func TestReconcileServices_HealthCheckMatchesLive_NoUpdateCall(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+// TestReconcileServices_HTTPSHealthCheckMatchesLive_NoUpdateCall verifies that no update is
+// issued for an https check that is already live. The load balancer reports an https check as
+// protocol http with TLS true, so this must count as a match.
+func TestReconcileServices_HTTPSHealthCheckMatchesLive_NoUpdateCall(t *testing.T) {
+	hetznerCluster := newTestHetznerCluster()
+	hetznerCluster.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerHealthCheckSpec{
+		Protocol: "https",
+		Path:     ptr.To("/readyz"),
+	}
+
+	mockClient := &mocks.Client{}
+	svc := newTestService(t, hetznerCluster, mockClient)
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{
+				ListenPort: testKubeAPIListenPort,
+				HealthCheck: hcloud.LoadBalancerServiceHealthCheck{
+					Protocol: hcloud.LoadBalancerServiceProtocolHTTP,
+					Port:     testLBDestPort,
+					HTTP:     &hcloud.LoadBalancerServiceHealthCheckHTTP{Path: "/readyz", TLS: true},
+				},
+			},
+		},
+	}
+
+	_, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	// No UpdateServiceOnLoadBalancer expectation was set up, so AssertExpectations fails here if
+	// the live https check counted as a change.
+	mockClient.AssertExpectations(t)
+}
+
 // TestReconcileServices_HealthCheckUnset_LeavesLiveConfigAlone verifies that CAPH never touches
 // the load balancer's health check when spec.healthCheck is omitted, even if the live service's
 // health check doesn't match Hetzner's own tcp default (e.g. configured out-of-band).
@@ -585,6 +617,43 @@ func TestReconcileServices_HealthCheckMigration_MachinesReady_SwitchesInPlace(t 
 	require.Equal(t, "/readyz", *capturedOpts.HealthCheck.HTTP.Path)
 	require.NotNil(t, capturedOpts.HealthCheck.Port)
 	require.Equal(t, testLBDestPort, *capturedOpts.HealthCheck.Port)
+	mockClient.AssertExpectations(t)
+}
+
+// TestReconcileServices_HTTPSHealthCheckMigration_MachinesReady_SendsHTTPWithTLS verifies that a
+// switch from tcp to https sends protocol http with TLS true. The Hetzner API accepts only tcp
+// and http as a health check protocol, and rejects https.
+func TestReconcileServices_HTTPSHealthCheckMigration_MachinesReady_SendsHTTPWithTLS(t *testing.T) {
+	mockClient := &mocks.Client{}
+	svc := newMigrationTestService(t, mockClient, func(hc *infrav1.HetznerCluster) {
+		hc.Spec.ControlPlaneLoadBalancer.HealthCheck = &infrav1.LoadBalancerHealthCheckSpec{
+			Protocol: "https",
+			Path:     ptr.To("/readyz"),
+		}
+	}, controlPlaneMachineForHTTPHealthCheck("cp-1", true))
+	hcloudLB := &hcloud.LoadBalancer{
+		Services: []hcloud.LoadBalancerService{
+			{
+				ListenPort:  testKubeAPIListenPort,
+				HealthCheck: hcloud.LoadBalancerServiceHealthCheck{Protocol: hcloud.LoadBalancerServiceProtocolTCP, Port: testLBDestPort},
+			},
+		},
+	}
+
+	var capturedOpts hcloud.LoadBalancerUpdateServiceOpts
+	mockClient.On("UpdateServiceOnLoadBalancer", mock.Anything, hcloudLB, testKubeAPIListenPort, mock.Anything).
+		Run(func(args mock.Arguments) {
+			capturedOpts = args.Get(3).(hcloud.LoadBalancerUpdateServiceOpts)
+		}).
+		Return(nil)
+
+	res, err := svc.reconcileServices(context.Background(), hcloudLB)
+	require.NoError(t, err)
+	require.Zero(t, res.RequeueAfter)
+	require.NotNil(t, capturedOpts.HealthCheck)
+	require.Equal(t, hcloud.LoadBalancerServiceProtocolHTTP, capturedOpts.HealthCheck.Protocol)
+	require.True(t, *capturedOpts.HealthCheck.HTTP.TLS)
+	require.Equal(t, "/readyz", *capturedOpts.HealthCheck.HTTP.Path)
 	mockClient.AssertExpectations(t)
 }
 
