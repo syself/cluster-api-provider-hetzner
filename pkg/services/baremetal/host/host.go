@@ -274,20 +274,17 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 
 	s.scope.HetznerBareMetalHost.Status.SSHStatus.RescueKey = sshKey
 
-	// Populate reboot methods in status
-	if len(s.scope.HetznerBareMetalHost.Status.RebootTypes) == 0 {
-		reboot, err := s.scope.RobotClient.GetReboot(int(s.scope.HetznerBareMetalHost.Spec.ServerID))
-		if err != nil {
-			s.handleRobotRateLimitExceeded(err, "GetReboot")
-			return actionError{err: fmt.Errorf("failed to get reboot: %w", err)}
-		}
-
-		rebootTypes, err := rebootTypesFromStringList(reboot.Type)
-		if err != nil {
-			return actionError{err: fmt.Errorf("failed to unmarshal: %w", err)}
-		}
-		s.scope.HetznerBareMetalHost.Status.RebootTypes = rebootTypes
+	reboot, err := s.scope.RobotClient.GetReboot(int(s.scope.HetznerBareMetalHost.Spec.ServerID))
+	if err != nil {
+		s.handleRobotRateLimitExceeded(err, "GetReboot")
+		return actionError{err: fmt.Errorf("failed to get reboot: %w", err)}
 	}
+
+	rebootTypes, err := rebootTypesFromStringList(reboot.Type)
+	if err != nil {
+		return actionError{err: fmt.Errorf("failed to unmarshal: %w", err)}
+	}
+	s.scope.HetznerBareMetalHost.Status.RebootTypes = rebootTypes
 
 	if err := s.enforceRescueMode(); err != nil {
 		return actionError{err: fmt.Errorf("failed to enforce rescue mode: %w", err)}
