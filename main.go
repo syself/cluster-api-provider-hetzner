@@ -368,7 +368,7 @@ func setUpWebhookWithManager(mgr ctrl.Manager) {
 
 func setupCRDMigrator(ctx context.Context, mgr *strictManager) error {
 	crdMigratorConfig := map[client.Object]crdmigrator.ByObjectConfig{
-		&infrav1beta1.HCloudMachineTemplate{}: {
+		&infrav1.HCloudMachineTemplate{}: {
 			// UseCache should be set to true only if an informer already exists for the API type
 			// (i.e. there is a controller watching this resource).
 			UseCache: true,
@@ -376,43 +376,43 @@ func setupCRDMigrator(ctx context.Context, mgr *strictManager) error {
 			// UseStatusForStorageVersionMigration should be enabled only if the CRD defines a status subresource.
 			UseStatusForStorageVersionMigration: true,
 		},
-		&infrav1beta1.HCloudMachine{}: {
+		&infrav1.HCloudMachine{}: {
 			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
-		&infrav1beta1.HCloudRemediationTemplate{}: {
+		&infrav1.HCloudRemediationTemplate{}: {
 			UseCache:                            false,
 			UseStatusForStorageVersionMigration: true,
 		},
-		&infrav1beta1.HCloudRemediation{}: {
+		&infrav1.HCloudRemediation{}: {
 			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
-		&infrav1beta1.HetznerBareMetalHost{}: {
+		&infrav1.HetznerBareMetalHost{}: {
 			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
-		&infrav1beta1.HetznerBareMetalMachineTemplate{}: {
-			UseCache:                            false,
-			UseStatusForStorageVersionMigration: false,
-		},
-		&infrav1beta1.HetznerBareMetalMachine{}: {
-			UseCache:                            true,
-			UseStatusForStorageVersionMigration: true,
-		},
-		&infrav1beta1.HetznerBareMetalRemediationTemplate{}: {
-			UseCache:                            false,
-			UseStatusForStorageVersionMigration: true,
-		},
-		&infrav1beta1.HetznerBareMetalRemediation{}: {
-			UseCache:                            true,
-			UseStatusForStorageVersionMigration: true,
-		},
-		&infrav1beta1.HetznerClusterTemplate{}: {
+		&infrav1.HetznerBareMetalMachineTemplate{}: {
 			UseCache:                            false,
 			UseStatusForStorageVersionMigration: false,
 		},
-		&infrav1beta1.HetznerCluster{}: {
+		&infrav1.HetznerBareMetalMachine{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrav1.HetznerBareMetalRemediationTemplate{}: {
+			UseCache:                            false,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrav1.HetznerBareMetalRemediation{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrav1.HetznerClusterTemplate{}: {
+			UseCache:                            false,
+			UseStatusForStorageVersionMigration: false,
+		},
+		&infrav1.HetznerCluster{}: {
 			UseCache:                            true,
 			UseStatusForStorageVersionMigration: true,
 		},
