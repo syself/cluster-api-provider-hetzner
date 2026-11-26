@@ -1,0 +1,10 @@
+bases:
+  - ../../bases/kct-md-0-ubuntu.yaml
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /metadata/name
+        value: "${CLUSTER_NAME}-md-1"
+    target:
+      kind: KubeadmConfigTemplate
