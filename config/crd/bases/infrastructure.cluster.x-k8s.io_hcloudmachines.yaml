@@ -271,6 +271,11 @@ spec:
                       result of EnableRescueSystem.
                     format: int64
                     type: integer
+                  actionIdPowerOffServer:
+                    description: ActionIDPowerOffServer is the hcloud API Action result
+                      of PowerOffServer.
+                    format: int64
+                    type: integer
                 type: object
               failureMessage:
                 description: |-
@@ -311,6 +316,13 @@ spec:
                 - hil
                 - sin
                 type: string
+              rescuePowerCycleCount:
+                description: |-
+                  RescuePowerCycleCount counts how often the controller powered the server off and on again
+                  because it failed to reach the rescue system. It bounds the retries: transitions reset
+                  BootStateSince, so the per-state timeouts alone cannot stop a loop.
+                format: int32
+                type: integer
               sshKeys:
                 description: SSHKeys specifies the ssh keys that were used for provisioning
                   the server.
