@@ -41,8 +41,6 @@ git restore config
 
 echo "# Created from $E2E_CONF_FILE_SOURCE by $0" >"$E2E_CONF_FILE"
 echo "Running: $CLUSTERCTL generate yaml <$E2E_CONF_FILE_SOURCE >>$E2E_CONF_FILE"
-export KUBERNETES_IMAGE_UPGRADE_FROM=
-export KUBERNETES_IMAGE_UPGRADE_TO=
 $CLUSTERCTL generate yaml --list-variables <"$E2E_CONF_FILE_SOURCE" | yq -r '.Variables[]' |
     while read -r var; do
         echo "   using $var=${!var-}"

@@ -73,9 +73,6 @@ var (
 	// If it is not set, a local clusterctl repository (including a clusterctl config) will be created automatically.
 	clusterctlConfig string
 
-	// kubetestConfigFilePath is the path to the kubetest configuration file.
-	kubetestConfigFilePath string
-
 	// alsoLogToFile enables additional logging to a timestamped 'ginkgo-log-MM-DD_HH-MM-SS.txt' file in the artifact folder.
 	// These logs also contain timestamps.
 	alsoLogToFile bool
@@ -169,7 +166,6 @@ func init() {
 	flag.BoolVar(&skipCleanup, "e2e.skip-resource-cleanup", false, "if true, the resource cleanup after tests will be skipped")
 	flag.StringVar(&clusterctlConfig, "e2e.clusterctl-config", "", "file which tests will use as a clusterctl config. If it is not set, a local clusterctl repository (including a clusterctl config) will be created automatically.")
 	flag.BoolVar(&useExistingCluster, "e2e.use-existing-cluster", false, "if true, the test uses the current cluster instead of creating a new one (default discovery rules apply)")
-	flag.StringVar(&kubetestConfigFilePath, "kubetest.config-file", "", "path to the kubetest configuration file")
 
 	ctrl.SetLogger(klog.Background())
 }
