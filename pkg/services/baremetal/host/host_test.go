@@ -1390,6 +1390,54 @@ var _ = Describe("actionPreparing", func() {
 		Expect(host.Status.HardwareDetails).To(BeNil())
 	})
 
+	It("replaces the stored reboot types with the ones Robot offers now", func() {
+		// rebootTypes still has power and power_long, but Robot no longer offers them
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRebootTypes([]infrav1.RebootType{
+				infrav1.RebootTypePower,
+				infrav1.RebootTypePowerLong,
+				infrav1.RebootTypeHardware,
+				infrav1.RebootTypeManual,
+			}),
+		)
+
+		robotMock := robotmock.Client{}
+		robotMock.On("GetBMServer", mock.Anything).Return(&models.Server{ServerNumber: 1, ServerIP: "1.2.3.4"}, nil)
+		robotMock.On("ListSSHKeys").Return([]models.Key{}, nil)
+		robotMock.On("SetSSHKey", mock.Anything, mock.Anything).Return(
+			&models.Key{Name: rescueSSHKeyName, Fingerprint: sshFingerprint},
+			nil,
+		)
+		robotMock.On("GetReboot", mock.Anything).Return(&models.Reset{Type: []string{"sw", "hw", "man"}}, nil)
+		robotMock.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
+		robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(&models.Rescue{Active: true}, nil)
+		robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName", mock.Anything).Return(sshclient.Output{})
+
+		service := newTestService(
+			host,
+			&robotMock,
+			bmmock.NewSSHFactory(sshMock, sshMock, sshMock),
+			helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
+			helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"),
+		)
+
+		Expect(service.actionPreparing(context.Background())).To(BeAssignableToTypeOf(actionComplete{}))
+
+		// rebootTypeAfterTimeout picks sw from the new list. With the old list it would pick power_long.
+		Expect(host.Status.RebootTypes).To(Equal([]infrav1.RebootType{
+			infrav1.RebootTypeSoftware,
+			infrav1.RebootTypeHardware,
+			infrav1.RebootTypeManual,
+		}))
+		robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypeSoftware)
+		robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, infrav1.RebootTypePowerLong)
+	})
+
 	It("sets a permanent error when the server has no IPv4", func() {
 		host := helpers.BareMetalHost(
 			"test-host",
