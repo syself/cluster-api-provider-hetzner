@@ -75,7 +75,7 @@ next reconcile without waiting for the gate.
 
 <PropField name="hcloudNetwork" type="object" required={false}>
 
-Specifies details about Hetzner cloud private networks.
+Specifies details about Hetzner cloud private networks. Cannot be changed after the HetznerCluster is created.
 
 <Collapsible title="properties">
 
@@ -92,18 +92,18 @@ Defines the CIDR block of the subnet. Note that one subnet is required.
 </PropField>
 
 <PropField name="hcloudNetwork.networkZone" type="string" defaultValue='"eu-central"' required={false}>
-Defines the network zone. Must be eu-central, us-east or us-west.
+Defines the network zone. Must be eu-central, us-east, us-west or ap-southeast.
 </PropField>
 
 </Collapsible>
 
 </PropField>
 
-<PropField name="controlPlaneRegions" type="[]string" defaultValue={"[]string{fsn1}"} required={false}>
+<PropField name="controlPlaneRegions" type="[]string" required={true}>
 This is the base for the failureDomains of the cluster.
 </PropField>
 
-<PropField name="sshKeys" type="object" required={false}>
+<PropField name="sshKeys" type="object" required={true}>
 
 Cluster-wide SSH keys that serve as default for machines as well.
 
@@ -185,14 +185,14 @@ Defines port.
 
 </PropField>
 
-<PropField name="controlPlaneLoadBalancer" type="object" required={true}>
+<PropField name="controlPlaneLoadBalancer" type="object" required={false}>
 
 Defines specs of load balancer.
 
 <Collapsible title="properties">
 
 <PropField name="controlPlaneLoadBalancer.enabled" type="bool" defaultValue="true" required={false}>
-Specifies if a load balancer should be created.
+Specifies if a load balancer should be created. Cannot be changed after the HetznerCluster is created.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.name" type="string" required={false}>
@@ -208,7 +208,7 @@ Type of load balancer. One of lb11, lb21, lb31.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.port" type="int" defaultValue="6443" required={false}>
-Load balancer port. Must be in range 1-65535.
+Load balancer port. Must be in range 1-65535. Cannot be changed after the HetznerCluster is created.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.extraServices" type="[]object" required={false}>
@@ -233,12 +233,16 @@ Defines destination port. Must be in range 1-65535.
 
 </PropField>
 
+<PropField name="controlPlaneLoadBalancer.region" type="string" required={false}>
+Name of the HCloud location where the load balancer runs, for example fsn1. Required when the load balancer is enabled. Cannot be changed after the HetznerCluster is created.
+</PropField>
+
 <PropField name="controlPlaneLoadBalancer.targetAddressFamily" type="string" defaultValue="dualstack" required={false}>
 Which addresses of a bare metal control plane server are attached as load balancer targets. One of `ipv4`, `ipv6`, `dualstack`. Has no effect on HCloud servers. See [Bare metal control planes and the load balancer](/docs/caph/02-topics/05-baremetal/05-load-balancer-targets.md).
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.enableProxyProtocol" type="bool" defaultValue="false" required={false}>
-Enables proxy protocol on the kube-apiserver load balancer service. Cannot be disabled once enabled.
+Enables proxy protocol on the kube-apiserver load balancer service. Cannot be disabled once enabled. For an existing cluster, CAPH switches the service after every control plane HCloudMachine or HetznerBareMetalMachine has the annotation `capi.syself.com/proxy-protocol-for-controlplane-loadbalancer: "true"`. See [Annotations](/docs/caph/03-reference/08-annotations.md).
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.healthCheck" type="object" required={false}>
@@ -252,19 +256,19 @@ Protocol used for the health check. One of tcp, http, https.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.healthCheck.port" type="int" defaultValue="service port" required={false}>
-Port the check runs against. If omitted, the service's destination port is used.
+Port the check runs against. Must be in range 1-65535. If omitted, the service's destination port is used.
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.healthCheck.intervalSeconds" type="int" required={false}>
-Time in seconds between two consecutive health checks. If omitted, Hetzner's own default is used (see the linked API reference above).
+Time in seconds between two consecutive health checks. Must be in range 3-60. If omitted, Hetzner's own default is used (see the linked API reference above).
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.healthCheck.timeoutSeconds" type="int" required={false}>
-Time in seconds to wait for a health check attempt to succeed. If omitted, Hetzner's own default is used (see the linked API reference above).
+Time in seconds to wait for a health check attempt to succeed. Must be in range 1-60. If omitted, Hetzner's own default is used (see the linked API reference above).
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.healthCheck.retries" type="int" required={false}>
-Number of consecutive failed health checks before a target is considered unhealthy. If omitted, Hetzner's own default is used (see the linked API reference above).
+Number of consecutive failed health checks before a target is considered unhealthy. Must be in range 1-5. If omitted, Hetzner's own default is used (see the linked API reference above).
 </PropField>
 
 <PropField name="controlPlaneLoadBalancer.healthCheck.path" type="string" required={false}>
@@ -301,7 +305,7 @@ List of placement groups that should be defined in Hetzner API.
 Name of placement group.
 </PropField>
 
-<PropField name="hcloudPlacementGroups[].type" type="string" defaultValue="type" required={false}>
+<PropField name="hcloudPlacementGroups[].type" type="string" defaultValue="spread" required={false}>
 Type of placement group. Hetzner only supports 'spread'.
 </PropField>
 
@@ -309,32 +313,36 @@ Type of placement group. Hetzner only supports 'spread'.
 
 </PropField>
 
-<PropField name="hetznerSecret" type="object" required={true}>
+<PropField name="hetznerSecretRef" type="object" required={true}>
 
 Reference to secret where Hetzner API credentials are stored.
 
 <Collapsible title="properties">
 
-<PropField name="hetznerSecret.name" type="string" required={true}>
+<PropField name="hetznerSecretRef.name" type="string" defaultValue="hetzner" required={true}>
 Name of secret.
 </PropField>
 
-<PropField name="hetznerSecret.key" type="object" required={true}>
+<PropField name="hetznerSecretRef.key" type="object" required={true}>
 
 Reference to the keys that are used in the secret, either `hcloudToken` or `hetznerRobotUser` and `hetznerRobotPassword` need to be specified.
 
 <Collapsible title="properties">
 
-<PropField name="hetznerSecret.key.hcloudToken" type="string" required={false}>
+<PropField name="hetznerSecretRef.key.hcloudToken" type="string" required={false}>
 Name of the key where the token for the Hetzner Cloud API is stored.
 </PropField>
 
-<PropField name="hetznerSecret.key.hetznerRobotUser" type="string" required={false}>
+<PropField name="hetznerSecretRef.key.hetznerRobotUser" type="string" defaultValue="hetzner-robot-user" required={false}>
 Name of the key where the username for the Hetzner Robot API is stored.
 </PropField>
 
-<PropField name="hetznerSecret.key.hetznerRobotPassword" type="string" required={false}>
+<PropField name="hetznerSecretRef.key.hetznerRobotPassword" type="string" defaultValue="hetzner-robot-password" required={false}>
 Name of the key where the password for the Hetzner Robot API is stored.
+</PropField>
+
+<PropField name="hetznerSecretRef.key.sshKey" type="string" defaultValue="hcloud-ssh-key-name" required={false}>
+Name of the key where the name of an HCloud SSH key is stored. If the secret has this key, CAPH adds this SSH key to the HCloud servers, in addition to the other SSH keys.
 </PropField>
 
 </Collapsible>
@@ -346,5 +354,5 @@ Name of the key where the password for the Hetzner Robot API is stored.
 </PropField>
 
 <PropField name="skipCreatingHetznerSecretInWorkloadCluster" type="bool" defaultValue="false" required={false}>
-Indicates whether the Hetzner secret should be created in the workload cluster. By default the secret gets created, so that the ccm (running in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the wl-cluster, you can set this to value to false, so that the secret is not created. Be sure to run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
+Indicates whether the Hetzner secret should be created in the workload cluster. By default the secret gets created, so that the ccm (running in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the wl-cluster, you can set this value to true, so that the secret is not created. Be sure to run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
 </PropField>
