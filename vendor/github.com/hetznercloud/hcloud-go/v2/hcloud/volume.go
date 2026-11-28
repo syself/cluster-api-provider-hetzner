@@ -207,7 +207,7 @@ func (c *VolumeClient) Create(ctx context.Context, opts VolumeCreateOpts) (Volum
 		reqBody.Labels = &opts.Labels
 	}
 	if opts.Server != nil {
-		reqBody.Server = Ptr(opts.Server.ID)
+		reqBody.Server = new(opts.Server.ID)
 	}
 	if opts.Location != nil {
 		if opts.Location.ID != 0 || opts.Location.Name != "" {

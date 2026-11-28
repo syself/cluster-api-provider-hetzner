@@ -145,34 +145,7 @@ func (c *converterImpl) ISOFromSchema(source schema.ISO) *ISO {
 	return &hcloudISO
 }
 func (c *converterImpl) ImageFromSchema(source schema.Image) *Image {
-	var hcloudImage Image
-	hcloudImage.ID = source.ID
-	if source.Name != nil {
-		hcloudImage.Name = *source.Name
-	}
-	hcloudImage.Type = ImageType(source.Type)
-	hcloudImage.Status = ImageStatus(source.Status)
-	hcloudImage.Description = source.Description
-	if source.ImageSize != nil {
-		hcloudImage.ImageSize = *source.ImageSize
-	}
-	hcloudImage.DiskSize = source.DiskSize
-	hcloudImage.Created = c.pTimeTimeToTimeTime(source.Created)
-	hcloudImage.CreatedFrom = c.pSchemaImageCreatedFromToPHcloudServer(source.CreatedFrom)
-	if source.BoundTo != nil {
-		hcloudServer := serverFromInt64(*source.BoundTo)
-		hcloudImage.BoundTo = &hcloudServer
-	}
-	hcloudImage.RapidDeploy = source.RapidDeploy
-	hcloudImage.OSFlavor = source.OSFlavor
-	if source.OSVersion != nil {
-		hcloudImage.OSVersion = *source.OSVersion
-	}
-	hcloudImage.Architecture = Architecture(source.Architecture)
-	hcloudImage.Protection = c.schemaImageProtectionToHcloudImageProtection(source.Protection)
-	hcloudImage.Deprecated = c.pTimeTimeToTimeTime(source.Deprecated)
-	hcloudImage.Labels = source.Labels
-	hcloudImage.Deleted = c.pTimeTimeToTimeTime(source.Deleted)
+	hcloudImage := c.intImageFromSchema(source)
 	return &hcloudImage
 }
 func (c *converterImpl) LoadBalancerFromSchema(source schema.LoadBalancer) *LoadBalancer {
@@ -281,6 +254,11 @@ func (c *converterImpl) LoadBalancerTargetHealthStatusFromSchema(source schema.L
 	var hcloudLoadBalancerTargetHealthStatus LoadBalancerTargetHealthStatus
 	hcloudLoadBalancerTargetHealthStatus.ListenPort = source.ListenPort
 	hcloudLoadBalancerTargetHealthStatus.Status = LoadBalancerTargetHealthStatusStatus(source.Status)
+	if source.Detail != nil {
+		hcloudLoadBalancerTargetHealthStatusDetail := LoadBalancerTargetHealthStatusDetail(*source.Detail)
+		hcloudLoadBalancerTargetHealthStatus.Detail = &hcloudLoadBalancerTargetHealthStatusDetail
+	}
+	hcloudLoadBalancerTargetHealthStatus.HTTPStatusCode = source.HTTPStatusCode
 	return hcloudLoadBalancerTargetHealthStatus
 }
 func (c *converterImpl) LoadBalancerTargetServerFromSchema(source schema.LoadBalancerTargetServer) LoadBalancerTargetServer {
@@ -367,6 +345,22 @@ func (c *converterImpl) NetworkFromSchema(source schema.Network) *Network {
 	hcloudNetwork.Labels = source.Labels
 	hcloudNetwork.ExposeRoutesToVSwitch = source.ExposeRoutesToVSwitch
 	return &hcloudNetwork
+}
+func (c *converterImpl) NetworkMemberFromSchema(source schema.NetworkMember) *NetworkMember {
+	var hcloudNetworkMember NetworkMember
+	hcloudNetworkMember.Type = NetworkMemberType(source.Type)
+	hcloudNetworkMember.ID = source.ID
+	hcloudNetworkMember.IP = ipFromString(source.IP)
+	hcloudNetworkMember.Status = NetworkMemberStatus(source.Status)
+	if source.AliasIPs != nil {
+		hcloudNetworkMember.AliasIPs = make([]net.IP, len(source.AliasIPs))
+		for i := 0; i < len(source.AliasIPs); i++ {
+			hcloudNetworkMember.AliasIPs[i] = ipFromString(source.AliasIPs[i])
+		}
+	}
+	netIPNet := ipNetFromString(source.Subnet)
+	hcloudNetworkMember.Subnet = &netIPNet
+	return &hcloudNetworkMember
 }
 func (c *converterImpl) NetworkRouteFromSchema(source schema.NetworkRoute) NetworkRoute {
 	var hcloudNetworkRoute NetworkRoute
@@ -708,6 +702,7 @@ func (c *converterImpl) SchemaFromLoadBalancerCreateOpts(source LoadBalancerCrea
 		}
 	}
 	schemaLoadBalancerCreateRequest.PublicInterface = source.PublicInterface
+	schemaLoadBalancerCreateRequest.PublicNet = c.pHcloudLoadBalancerCreateOptsPublicNetToPSchemaLoadBalancerCreateRequestPublicNet(source.PublicNet)
 	schemaLoadBalancerCreateRequest.Network = c.pHcloudNetworkToPInt64(source.Network)
 	return schemaLoadBalancerCreateRequest
 }
@@ -772,6 +767,11 @@ func (c *converterImpl) SchemaFromLoadBalancerTargetHealthStatus(source LoadBala
 	var schemaLoadBalancerTargetHealthStatus schema.LoadBalancerTargetHealthStatus
 	schemaLoadBalancerTargetHealthStatus.ListenPort = source.ListenPort
 	schemaLoadBalancerTargetHealthStatus.Status = string(source.Status)
+	if source.Detail != nil {
+		xstring := string(*source.Detail)
+		schemaLoadBalancerTargetHealthStatus.Detail = &xstring
+	}
+	schemaLoadBalancerTargetHealthStatus.HTTPStatusCode = source.HTTPStatusCode
 	return schemaLoadBalancerTargetHealthStatus
 }
 func (c *converterImpl) SchemaFromLoadBalancerType(source *LoadBalancerType) schema.LoadBalancerType {
@@ -863,6 +863,23 @@ func (c *converterImpl) SchemaFromNetwork(source *Network) schema.Network {
 		schemaNetwork.ExposeRoutesToVSwitch = (*source).ExposeRoutesToVSwitch
 	}
 	return schemaNetwork
+}
+func (c *converterImpl) SchemaFromNetworkMember(source *NetworkMember) schema.NetworkMember {
+	var schemaNetworkMember schema.NetworkMember
+	if source != nil {
+		schemaNetworkMember.Type = string((*source).Type)
+		schemaNetworkMember.ID = (*source).ID
+		schemaNetworkMember.IP = stringFromIP((*source).IP)
+		schemaNetworkMember.Status = string((*source).Status)
+		if (*source).AliasIPs != nil {
+			schemaNetworkMember.AliasIPs = make([]string, len((*source).AliasIPs))
+			for i := 0; i < len((*source).AliasIPs); i++ {
+				schemaNetworkMember.AliasIPs[i] = stringFromIP((*source).AliasIPs[i])
+			}
+		}
+		schemaNetworkMember.Subnet = c.pNetIPNetToString((*source).Subnet)
+	}
+	return schemaNetworkMember
 }
 func (c *converterImpl) SchemaFromNetworkRoute(source NetworkRoute) schema.NetworkRoute {
 	var schemaNetworkRoute schema.NetworkRoute
@@ -1877,13 +1894,17 @@ func (c *converterImpl) hcloudLoadBalancerProtectionToSchemaLoadBalancerProtecti
 }
 func (c *converterImpl) hcloudLoadBalancerPublicNetIPv4ToSchemaLoadBalancerPublicNetIPv4(source LoadBalancerPublicNetIPv4) schema.LoadBalancerPublicNetIPv4 {
 	var schemaLoadBalancerPublicNetIPv4 schema.LoadBalancerPublicNetIPv4
+	schemaLoadBalancerPublicNetIPv4.ID = source.ID
 	schemaLoadBalancerPublicNetIPv4.IP = stringFromIP(source.IP)
+	schemaLoadBalancerPublicNetIPv4.Blocked = source.Blocked
 	schemaLoadBalancerPublicNetIPv4.DNSPtr = source.DNSPtr
 	return schemaLoadBalancerPublicNetIPv4
 }
 func (c *converterImpl) hcloudLoadBalancerPublicNetIPv6ToSchemaLoadBalancerPublicNetIPv6(source LoadBalancerPublicNetIPv6) schema.LoadBalancerPublicNetIPv6 {
 	var schemaLoadBalancerPublicNetIPv6 schema.LoadBalancerPublicNetIPv6
+	schemaLoadBalancerPublicNetIPv6.ID = source.ID
 	schemaLoadBalancerPublicNetIPv6.IP = stringFromIP(source.IP)
+	schemaLoadBalancerPublicNetIPv6.Blocked = source.Blocked
 	schemaLoadBalancerPublicNetIPv6.DNSPtr = source.DNSPtr
 	return schemaLoadBalancerPublicNetIPv6
 }
@@ -2068,6 +2089,38 @@ func (c *converterImpl) intISOFromSchema(source schema.ISO) ISO {
 	hcloudISO.DeprecatableResource = c.schemaDeprecatableResourceToHcloudDeprecatableResource(source.DeprecatableResource)
 	return hcloudISO
 }
+func (c *converterImpl) intImageFromSchema(source schema.Image) Image {
+	var hcloudImage Image
+	hcloudImage.ID = source.ID
+	if source.Name != nil {
+		hcloudImage.Name = *source.Name
+	}
+	hcloudImage.Type = ImageType(source.Type)
+	hcloudImage.Status = ImageStatus(source.Status)
+	hcloudImage.Description = source.Description
+	if source.ImageSize != nil {
+		hcloudImage.ImageSize = *source.ImageSize
+	}
+	hcloudImage.DiskSize = source.DiskSize
+	hcloudImage.Created = c.pTimeTimeToTimeTime(source.Created)
+	hcloudImage.CreatedFrom = c.pSchemaImageCreatedFromToPHcloudServer(source.CreatedFrom)
+	if source.BoundTo != nil {
+		hcloudServer := serverFromInt64(*source.BoundTo)
+		hcloudImage.BoundTo = &hcloudServer
+	}
+	hcloudImage.RapidDeploy = source.RapidDeploy
+	hcloudImage.OSFlavor = source.OSFlavor
+	if source.OSVersion != nil {
+		hcloudImage.OSVersion = *source.OSVersion
+	}
+	hcloudImage.Architecture = Architecture(source.Architecture)
+	hcloudImage.Protection = c.schemaImageProtectionToHcloudImageProtection(source.Protection)
+	hcloudImage.Labels = source.Labels
+	hcloudImage.Deleted = c.pTimeTimeToTimeTime(source.Deleted)
+	hcloudImage.Deprecated = deprecatedTimeFromDeprecationSchema(source.DeprecatableResource.Deprecation)
+	hcloudImage.DeprecatableResource = c.schemaDeprecatableResourceToHcloudDeprecatableResource(source.DeprecatableResource)
+	return hcloudImage
+}
 func (c *converterImpl) intSchemaFromImage(source Image) schema.Image {
 	var schemaImage schema.Image
 	schemaImage.ID = source.ID
@@ -2087,9 +2140,10 @@ func (c *converterImpl) intSchemaFromImage(source Image) schema.Image {
 	schemaImage.Architecture = string(source.Architecture)
 	schemaImage.RapidDeploy = source.RapidDeploy
 	schemaImage.Protection = c.hcloudImageProtectionToSchemaImageProtection(source.Protection)
-	schemaImage.Deprecated = timeToTimePtr(source.Deprecated)
 	schemaImage.Deleted = timeToTimePtr(source.Deleted)
 	schemaImage.Labels = source.Labels
+	schemaImage.Deprecated = deprecatedTimePtrSchemaFromDeprecation(source.DeprecatableResource.Deprecation)
+	schemaImage.DeprecatableResource = c.hcloudDeprecatableResourceToSchemaDeprecatableResource(source.DeprecatableResource)
 	return schemaImage
 }
 func (c *converterImpl) pHcloudActionResourceToSchemaActionResourceReference(source *ActionResource) schema.ActionResourceReference {
@@ -2223,6 +2277,16 @@ func (c *converterImpl) pHcloudLoadBalancerAlgorithmToPSchemaLoadBalancerCreateR
 		pSchemaLoadBalancerCreateRequestAlgorithm = &schemaLoadBalancerCreateRequestAlgorithm
 	}
 	return pSchemaLoadBalancerCreateRequestAlgorithm
+}
+func (c *converterImpl) pHcloudLoadBalancerCreateOptsPublicNetToPSchemaLoadBalancerCreateRequestPublicNet(source *LoadBalancerCreateOptsPublicNet) *schema.LoadBalancerCreateRequestPublicNet {
+	var pSchemaLoadBalancerCreateRequestPublicNet *schema.LoadBalancerCreateRequestPublicNet
+	if source != nil {
+		var schemaLoadBalancerCreateRequestPublicNet schema.LoadBalancerCreateRequestPublicNet
+		schemaLoadBalancerCreateRequestPublicNet.IPv4 = int64FromPrimaryIP((*source).IPv4)
+		schemaLoadBalancerCreateRequestPublicNet.IPv6 = int64FromPrimaryIP((*source).IPv6)
+		pSchemaLoadBalancerCreateRequestPublicNet = &schemaLoadBalancerCreateRequestPublicNet
+	}
+	return pSchemaLoadBalancerCreateRequestPublicNet
 }
 func (c *converterImpl) pHcloudLoadBalancerCreateOptsServiceHTTPToPSchemaLoadBalancerCreateRequestServiceHTTP(source *LoadBalancerCreateOptsServiceHTTP) *schema.LoadBalancerCreateRequestServiceHTTP {
 	var pSchemaLoadBalancerCreateRequestServiceHTTP *schema.LoadBalancerCreateRequestServiceHTTP
@@ -2617,34 +2681,7 @@ func (c *converterImpl) pSchemaImageCreatedFromToPHcloudServer(source *schema.Im
 func (c *converterImpl) pSchemaImageToPHcloudImage(source *schema.Image) *Image {
 	var pHcloudImage *Image
 	if source != nil {
-		var hcloudImage Image
-		hcloudImage.ID = (*source).ID
-		if (*source).Name != nil {
-			hcloudImage.Name = *(*source).Name
-		}
-		hcloudImage.Type = ImageType((*source).Type)
-		hcloudImage.Status = ImageStatus((*source).Status)
-		hcloudImage.Description = (*source).Description
-		if (*source).ImageSize != nil {
-			hcloudImage.ImageSize = *(*source).ImageSize
-		}
-		hcloudImage.DiskSize = (*source).DiskSize
-		hcloudImage.Created = c.pTimeTimeToTimeTime((*source).Created)
-		hcloudImage.CreatedFrom = c.pSchemaImageCreatedFromToPHcloudServer((*source).CreatedFrom)
-		if (*source).BoundTo != nil {
-			hcloudServer := serverFromInt64(*(*source).BoundTo)
-			hcloudImage.BoundTo = &hcloudServer
-		}
-		hcloudImage.RapidDeploy = (*source).RapidDeploy
-		hcloudImage.OSFlavor = (*source).OSFlavor
-		if (*source).OSVersion != nil {
-			hcloudImage.OSVersion = *(*source).OSVersion
-		}
-		hcloudImage.Architecture = Architecture((*source).Architecture)
-		hcloudImage.Protection = c.schemaImageProtectionToHcloudImageProtection((*source).Protection)
-		hcloudImage.Deprecated = c.pTimeTimeToTimeTime((*source).Deprecated)
-		hcloudImage.Labels = (*source).Labels
-		hcloudImage.Deleted = c.pTimeTimeToTimeTime((*source).Deleted)
+		hcloudImage := c.intImageFromSchema((*source))
 		pHcloudImage = &hcloudImage
 	}
 	return pHcloudImage
@@ -2969,13 +3006,17 @@ func (c *converterImpl) schemaLoadBalancerProtectionToHcloudLoadBalancerProtecti
 }
 func (c *converterImpl) schemaLoadBalancerPublicNetIPv4ToHcloudLoadBalancerPublicNetIPv4(source schema.LoadBalancerPublicNetIPv4) LoadBalancerPublicNetIPv4 {
 	var hcloudLoadBalancerPublicNetIPv4 LoadBalancerPublicNetIPv4
+	hcloudLoadBalancerPublicNetIPv4.ID = source.ID
 	hcloudLoadBalancerPublicNetIPv4.IP = ipFromString(source.IP)
+	hcloudLoadBalancerPublicNetIPv4.Blocked = source.Blocked
 	hcloudLoadBalancerPublicNetIPv4.DNSPtr = source.DNSPtr
 	return hcloudLoadBalancerPublicNetIPv4
 }
 func (c *converterImpl) schemaLoadBalancerPublicNetIPv6ToHcloudLoadBalancerPublicNetIPv6(source schema.LoadBalancerPublicNetIPv6) LoadBalancerPublicNetIPv6 {
 	var hcloudLoadBalancerPublicNetIPv6 LoadBalancerPublicNetIPv6
+	hcloudLoadBalancerPublicNetIPv6.ID = source.ID
 	hcloudLoadBalancerPublicNetIPv6.IP = ipFromString(source.IP)
+	hcloudLoadBalancerPublicNetIPv6.Blocked = source.Blocked
 	hcloudLoadBalancerPublicNetIPv6.DNSPtr = source.DNSPtr
 	return hcloudLoadBalancerPublicNetIPv6
 }

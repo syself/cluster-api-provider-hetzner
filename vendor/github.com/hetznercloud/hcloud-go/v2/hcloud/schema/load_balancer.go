@@ -27,13 +27,17 @@ type LoadBalancerPublicNet struct {
 }
 
 type LoadBalancerPublicNetIPv4 struct {
-	IP     string `json:"ip"`
-	DNSPtr string `json:"dns_ptr"`
+	ID      int64  `json:"id"`
+	IP      string `json:"ip"`
+	Blocked bool   `json:"blocked"`
+	DNSPtr  string `json:"dns_ptr"`
 }
 
 type LoadBalancerPublicNetIPv6 struct {
-	IP     string `json:"ip"`
-	DNSPtr string `json:"dns_ptr"`
+	ID      int64  `json:"id"`
+	IP      string `json:"ip"`
+	Blocked bool   `json:"blocked"`
+	DNSPtr  string `json:"dns_ptr"`
 }
 
 type LoadBalancerPrivateNet struct {
@@ -95,8 +99,10 @@ type LoadBalancerTarget struct {
 }
 
 type LoadBalancerTargetHealthStatus struct {
-	ListenPort int    `json:"listen_port"`
-	Status     string `json:"status"`
+	ListenPort     int     `json:"listen_port"`
+	Status         string  `json:"status"`
+	Detail         *string `json:"detail"`
+	HTTPStatusCode *int    `json:"http_status_code"`
 }
 
 type LoadBalancerTargetServer struct {
@@ -262,11 +268,17 @@ type LoadBalancerCreateRequest struct {
 	Targets          []LoadBalancerCreateRequestTarget   `json:"targets,omitempty"`
 	Services         []LoadBalancerCreateRequestService  `json:"services,omitempty"`
 	PublicInterface  *bool                               `json:"public_interface,omitempty"`
+	PublicNet        *LoadBalancerCreateRequestPublicNet `json:"public_net,omitempty"`
 	Network          *int64                              `json:"network,omitempty"`
 }
 
 type LoadBalancerCreateRequestAlgorithm struct {
 	Type string `json:"type"`
+}
+
+type LoadBalancerCreateRequestPublicNet struct {
+	IPv4 int64 `json:"ipv4,omitempty"`
+	IPv6 int64 `json:"ipv6,omitempty"`
 }
 
 type LoadBalancerCreateRequestTarget struct {
