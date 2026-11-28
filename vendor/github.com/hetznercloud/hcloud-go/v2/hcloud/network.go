@@ -84,6 +84,47 @@ type NetworkProtection struct {
 	Delete bool
 }
 
+// NetworkMember represents a resource attached to a [Network].
+type NetworkMember struct {
+	Type     NetworkMemberType
+	ID       int64
+	IP       net.IP
+	Status   NetworkMemberStatus
+	AliasIPs []net.IP
+	Subnet   *net.IPNet
+}
+
+// NetworkMemberType specifies the type of a resource attached to a [Network].
+type NetworkMemberType string
+
+// List of available [NetworkMember] types.
+const (
+	// NetworkMemberTypeServer is a [Server] attached to a [Network].
+	NetworkMemberTypeServer NetworkMemberType = "server"
+	// NetworkMemberTypeLoadBalancer is a [LoadBalancer] attached to a [Network].
+	NetworkMemberTypeLoadBalancer NetworkMemberType = "load_balancer"
+)
+
+// NetworkMemberStatus specifies the status of a resource attached to a [Network].
+type NetworkMemberStatus string
+
+// List of available [NetworkMember] statuses.
+const (
+	// NetworkMemberStatusOK indicates the resource is attached and its network
+	// configuration is up to date.
+	NetworkMemberStatusOK NetworkMemberStatus = "ok"
+	// NetworkMemberStatusAttaching indicates the resource is being attached to the [Network].
+	NetworkMemberStatusAttaching NetworkMemberStatus = "attaching"
+	// NetworkMemberStatusDetaching indicates the resource is being detached from the [Network].
+	NetworkMemberStatusDetaching NetworkMemberStatus = "detaching"
+	// NetworkMemberStatusUpdating indicates the resource network configuration is being updated.
+	NetworkMemberStatusUpdating NetworkMemberStatus = "updating"
+	// NetworkMemberStatusError indicates the last operation on this member failed. Its
+	// network configuration might be out of date, and the resource might not be
+	// reachable within the network.
+	NetworkMemberStatusError NetworkMemberStatus = "error"
+)
+
 // NetworkClient is a client for the network API.
 type NetworkClient struct {
 	client *Client
@@ -435,4 +476,67 @@ func (c *NetworkClient) ChangeProtection(ctx context.Context, network *Network, 
 	}
 
 	return ActionFromSchema(respBody.Action), resp, nil
+}
+
+// NetworkMemberListOpts specifies options for listing members of a [Network].
+type NetworkMemberListOpts struct {
+	ListOpts
+	Type   []NetworkMemberType
+	Subnet []*net.IPNet
+	Status []NetworkMemberStatus
+	Sort   []string
+}
+
+func (l NetworkMemberListOpts) Values() url.Values {
+	vals := l.ListOpts.Values()
+	for _, t := range l.Type {
+		vals.Add("type", string(t))
+	}
+	for _, s := range l.Subnet {
+		vals.Add("subnet", s.String())
+	}
+	for _, s := range l.Status {
+		vals.Add("status", string(s))
+	}
+	for _, s := range l.Sort {
+		vals.Add("sort", s)
+	}
+	return vals
+}
+
+// ListMembers returns a list of [NetworkMember] attached to a specific [Network] for the given options.
+//
+// See https://docs.hetzner.cloud/reference/cloud#tag/networks/list_network_members
+func (c *NetworkClient) ListMembers(ctx context.Context, network *Network, opts NetworkMemberListOpts) ([]*NetworkMember, *Response, error) {
+	const opPath = "/networks/%d/members?%s"
+	ctx = ctxutil.SetOpPath(ctx, opPath)
+
+	reqPath := fmt.Sprintf(opPath, network.ID, opts.Values().Encode())
+
+	respBody, resp, err := getRequest[schema.NetworkMemberListResponse](ctx, c.client, reqPath)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return allFromSchemaFunc(respBody.Members, NetworkMemberFromSchema), resp, nil
+}
+
+// AllMembersWithOpts returns all [NetworkMember] attached to a specific [Network] for the given options.
+//
+// See https://docs.hetzner.cloud/reference/cloud#tag/networks/list_network_members
+func (c *NetworkClient) AllMembersWithOpts(ctx context.Context, network *Network, opts NetworkMemberListOpts) ([]*NetworkMember, error) {
+	if opts.ListOpts.PerPage == 0 {
+		opts.ListOpts.PerPage = 50
+	}
+	return iterPages(func(page int) ([]*NetworkMember, *Response, error) {
+		opts.Page = page
+		return c.ListMembers(ctx, network, opts)
+	})
+}
+
+// AllMembers returns all [NetworkMember] attached to a specific [Network].
+//
+// See https://docs.hetzner.cloud/reference/cloud#tag/networks/list_network_members
+func (c *NetworkClient) AllMembers(ctx context.Context, network *Network) ([]*NetworkMember, error) {
+	return c.AllMembersWithOpts(ctx, network, NetworkMemberListOpts{})
 }

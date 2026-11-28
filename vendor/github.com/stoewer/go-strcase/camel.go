@@ -23,7 +23,9 @@ func camelCase(s string, upper bool) string {
 
 	stringIter(s, func(prev, curr, next rune) {
 		if !isDelimiter(curr) {
-			if isDelimiter(prev) || (upper && prev == 0) {
+			if len(buffer) == 0 && !upper {
+				buffer = append(buffer, toLower(curr))
+			} else if isDelimiter(prev) || (upper && prev == 0) {
 				buffer = append(buffer, toUpper(curr))
 			} else if isLower(prev) {
 				buffer = append(buffer, curr)

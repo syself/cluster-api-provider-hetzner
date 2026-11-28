@@ -14,7 +14,7 @@ func CopyN(writer io.Writer, src io.Reader, size int64) (int64, error) {
 	var total int64
 	total = 0
 	for total < size {
-		n, err := io.CopyN(writer, src, size)
+		n, err := io.CopyN(writer, src, size-total)
 		if err != nil {
 			return 0, err
 		}

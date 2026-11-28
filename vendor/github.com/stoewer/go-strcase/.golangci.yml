@@ -13,6 +13,11 @@ linters:
     - staticcheck
     - unconvert
     - unparam
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - goconst
 
 formatters:
   enable:
